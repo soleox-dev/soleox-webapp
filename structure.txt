@@ -1,0 +1,5374 @@
+/Users/carlosbes/Library/CloudStorage/GoogleDrive-carlos.bes@soleox.org/My Drive/Commissions Tracker/VS Code/soleox-webapp
+├── ARCHITECTURE.md
+├── CommissionEngine.ts
+├── app
+|  ├── (dashboard)
+|  |  ├── commission-tracker
+|  |  |  ├── settings
+|  |  |  |  ├── agents
+|  |  |  |  ├── commission-entities
+|  |  |  |  ├── commission-rules
+|  |  |  |  ├── commission-templates
+|  |  |  |  ├── fields
+|  |  |  |  ├── layout.tsx
+|  |  |  |  ├── lists
+|  |  |  |  └── page.tsx
+|  |  |  └── transactions
+|  |  |     ├── [id]
+|  |  |     └── page.tsx
+|  |  ├── goals
+|  |  |  ├── page.tsx
+|  |  |  └── settings
+|  |  |     └── page.tsx
+|  |  ├── layout.tsx
+|  |  ├── leads
+|  |  |  ├── page.tsx
+|  |  |  └── settings
+|  |  |     └── page.tsx
+|  |  ├── operating-expenses
+|  |  |  ├── page.tsx
+|  |  |  └── settings
+|  |  |     └── page.tsx
+|  |  └── page.tsx
+|  ├── api
+|  |  ├── agents
+|  |  |  └── route.ts
+|  |  ├── client-field-configuration
+|  |  |  └── route.ts
+|  |  ├── client-lookup-values
+|  |  |  └── route.ts
+|  |  ├── client-user-roles
+|  |  |  └── route.ts
+|  |  ├── clients
+|  |  |  └── route.ts
+|  |  ├── commission-entities
+|  |  |  └── route.ts
+|  |  ├── commission-template-logic
+|  |  |  └── route.ts
+|  |  ├── commission-template-parameters
+|  |  |  └── route.ts
+|  |  ├── commission-template-submissions
+|  |  |  └── route.ts
+|  |  ├── commission-templates
+|  |  |  └── route.ts
+|  |  ├── compliance
+|  |  |  └── approve
+|  |  |     └── route.ts
+|  |  ├── fields
+|  |  |  └── route.ts
+|  |  ├── payments
+|  |  |  └── route.ts
+|  |  ├── role-permissions
+|  |  |  └── route.ts
+|  |  ├── schema
+|  |  |  ├── [table]
+|  |  |  |  └── route.ts
+|  |  |  ├── field
+|  |  |  |  └── route.ts
+|  |  |  └── save
+|  |  |     └── route.ts
+|  |  ├── session
+|  |  |  └── route.ts
+|  |  ├── transaction-commission-items
+|  |  |  └── route.ts
+|  |  ├── transactions
+|  |  |  ├── [id]
+|  |  |  |  └── items
+|  |  |  └── route.ts
+|  |  ├── waterfall
+|  |  |  └── calculate
+|  |  |     └── route.ts
+|  |  └── web-users
+|  |     └── route.ts
+|  ├── globals.css
+|  ├── layout.tsx
+|  ├── page.tsx
+|  └── providers.tsx
+├── components
+|  ├── CommissionWaterfallLedger.tsx
+|  ├── DynamicTransactionForm.tsx
+|  ├── Navbar.tsx
+|  └── ui
+|     ├── logo.tsx
+|     └── reorder-controls.tsx
+├── db
+|  └── migrations
+|     ├── 000_0_master_db_schema.sql
+|     ├── 002_migrate_prod_to_webapp_transactions.sql
+|     ├── 004_migrate_prod_to_webapp_agents.sql
+|     ├── 008_migrate_prod_to_webapp_commissions.sql
+|     ├── 010_migrate_prod_to_webapp_payments.sql
+|     └── 015_seed_role_permissions_table.sql
+├── erd_schema.html
+├── gcp-key.json
+├── lib
+|  ├── audit.ts
+|  ├── bigquery.ts
+|  ├── compliance.ts
+|  ├── fields.ts
+|  ├── services
+|  |  ├── waterfall-engine.ts
+|  |  └── waterfall-service.ts
+|  ├── session.ts
+|  ├── supabase.ts
+|  ├── transactions.ts
+|  └── validations
+|     └── transaction.ts
+├── next-env.d.ts
+├── node_modules
+|  ├── @alloc
+|  |  └── quick-lru
+|  |     ├── index.d.ts
+|  |     ├── index.js
+|  |     ├── license
+|  |     ├── package.json
+|  |     └── readme.md
+|  ├── @cspotcode
+|  |  └── source-map-support
+|  |     ├── LICENSE.md
+|  |     ├── README.md
+|  |     ├── browser-source-map-support.js
+|  |     ├── package.json
+|  |     ├── register-hook-require.d.ts
+|  |     ├── register-hook-require.js
+|  |     ├── register.d.ts
+|  |     ├── register.js
+|  |     ├── source-map-support.d.ts
+|  |     └── source-map-support.js
+|  ├── @esbuild
+|  |  └── darwin-arm64
+|  |     ├── README.md
+|  |     ├── bin
+|  |     |  └── esbuild
+|  |     └── package.json
+|  ├── @google-cloud
+|  |  ├── bigquery
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── build
+|  |  |  |  └── src
+|  |  |  └── package.json
+|  |  ├── common
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── build
+|  |  |  |  └── src
+|  |  |  ├── node_modules
+|  |  |  |  ├── @google-cloud
+|  |  |  |  └── arrify
+|  |  |  └── package.json
+|  |  ├── paginator
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── build
+|  |  |  |  └── src
+|  |  |  └── package.json
+|  |  ├── precise-date
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── build
+|  |  |  |  └── src
+|  |  |  └── package.json
+|  |  ├── projectify
+|  |  |  ├── CHANGELOG.md
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── build
+|  |  |  |  └── src
+|  |  |  └── package.json
+|  |  └── promisify
+|  |     ├── LICENSE
+|  |     ├── README.md
+|  |     ├── build
+|  |     |  └── src
+|  |     └── package.json
+|  ├── @img
+|  |  ├── colour
+|  |  |  ├── LICENSE.md
+|  |  |  ├── README.md
+|  |  |  ├── color.cjs
+|  |  |  ├── index.cjs
+|  |  |  ├── index.d.ts
+|  |  |  └── package.json
+|  |  ├── sharp-darwin-arm64
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── lib
+|  |  |  |  └── sharp-darwin-arm64.node
+|  |  |  └── package.json
+|  |  └── sharp-libvips-darwin-arm64
+|  |     ├── README.md
+|  |     ├── lib
+|  |     |  ├── glib-2.0
+|  |     |  ├── index.js
+|  |     |  └── libvips-cpp.8.17.3.dylib
+|  |     ├── package.json
+|  |     └── versions.json
+|  ├── @jridgewell
+|  |  ├── gen-mapping
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── dist
+|  |  |  |  ├── gen-mapping.mjs
+|  |  |  |  ├── gen-mapping.mjs.map
+|  |  |  |  ├── gen-mapping.umd.js
+|  |  |  |  ├── gen-mapping.umd.js.map
+|  |  |  |  └── types
+|  |  |  ├── node_modules
+|  |  |  |  └── @jridgewell
+|  |  |  ├── package.json
+|  |  |  ├── src
+|  |  |  |  ├── gen-mapping.ts
+|  |  |  |  ├── set-array.ts
+|  |  |  |  ├── sourcemap-segment.ts
+|  |  |  |  └── types.ts
+|  |  |  └── types
+|  |  |     ├── gen-mapping.d.cts
+|  |  |     ├── gen-mapping.d.cts.map
+|  |  |     ├── gen-mapping.d.mts
+|  |  |     ├── gen-mapping.d.mts.map
+|  |  |     ├── set-array.d.cts
+|  |  |     ├── set-array.d.cts.map
+|  |  |     ├── set-array.d.mts
+|  |  |     ├── set-array.d.mts.map
+|  |  |     ├── sourcemap-segment.d.cts
+|  |  |     ├── sourcemap-segment.d.cts.map
+|  |  |     ├── sourcemap-segment.d.mts
+|  |  |     ├── sourcemap-segment.d.mts.map
+|  |  |     ├── types.d.cts
+|  |  |     ├── types.d.cts.map
+|  |  |     ├── types.d.mts
+|  |  |     └── types.d.mts.map
+|  |  ├── remapping
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── dist
+|  |  |  |  ├── remapping.mjs
+|  |  |  |  ├── remapping.mjs.map
+|  |  |  |  ├── remapping.umd.js
+|  |  |  |  └── remapping.umd.js.map
+|  |  |  ├── node_modules
+|  |  |  |  └── @jridgewell
+|  |  |  ├── package.json
+|  |  |  ├── src
+|  |  |  |  ├── build-source-map-tree.ts
+|  |  |  |  ├── remapping.ts
+|  |  |  |  ├── source-map-tree.ts
+|  |  |  |  ├── source-map.ts
+|  |  |  |  └── types.ts
+|  |  |  └── types
+|  |  |     ├── build-source-map-tree.d.cts
+|  |  |     ├── build-source-map-tree.d.cts.map
+|  |  |     ├── build-source-map-tree.d.mts
+|  |  |     ├── build-source-map-tree.d.mts.map
+|  |  |     ├── remapping.d.cts
+|  |  |     ├── remapping.d.cts.map
+|  |  |     ├── remapping.d.mts
+|  |  |     ├── remapping.d.mts.map
+|  |  |     ├── source-map-tree.d.cts
+|  |  |     ├── source-map-tree.d.cts.map
+|  |  |     ├── source-map-tree.d.mts
+|  |  |     ├── source-map-tree.d.mts.map
+|  |  |     ├── source-map.d.cts
+|  |  |     ├── source-map.d.cts.map
+|  |  |     ├── source-map.d.mts
+|  |  |     ├── source-map.d.mts.map
+|  |  |     ├── types.d.cts
+|  |  |     ├── types.d.cts.map
+|  |  |     ├── types.d.mts
+|  |  |     └── types.d.mts.map
+|  |  ├── resolve-uri
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── dist
+|  |  |  |  ├── resolve-uri.mjs
+|  |  |  |  ├── resolve-uri.mjs.map
+|  |  |  |  ├── resolve-uri.umd.js
+|  |  |  |  ├── resolve-uri.umd.js.map
+|  |  |  |  └── types
+|  |  |  └── package.json
+|  |  ├── sourcemap-codec
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── dist
+|  |  |  |  ├── sourcemap-codec.mjs
+|  |  |  |  ├── sourcemap-codec.mjs.map
+|  |  |  |  ├── sourcemap-codec.umd.js
+|  |  |  |  └── sourcemap-codec.umd.js.map
+|  |  |  ├── package.json
+|  |  |  ├── src
+|  |  |  |  ├── scopes.ts
+|  |  |  |  ├── sourcemap-codec.ts
+|  |  |  |  ├── strings.ts
+|  |  |  |  └── vlq.ts
+|  |  |  └── types
+|  |  |     ├── scopes.d.cts
+|  |  |     ├── scopes.d.cts.map
+|  |  |     ├── scopes.d.mts
+|  |  |     ├── scopes.d.mts.map
+|  |  |     ├── sourcemap-codec.d.cts
+|  |  |     ├── sourcemap-codec.d.cts.map
+|  |  |     ├── sourcemap-codec.d.mts
+|  |  |     ├── sourcemap-codec.d.mts.map
+|  |  |     ├── strings.d.cts
+|  |  |     ├── strings.d.cts.map
+|  |  |     ├── strings.d.mts
+|  |  |     ├── strings.d.mts.map
+|  |  |     ├── vlq.d.cts
+|  |  |     ├── vlq.d.cts.map
+|  |  |     ├── vlq.d.mts
+|  |  |     └── vlq.d.mts.map
+|  |  └── trace-mapping
+|  |     ├── LICENSE
+|  |     ├── README.md
+|  |     ├── dist
+|  |     |  ├── trace-mapping.mjs
+|  |     |  ├── trace-mapping.mjs.map
+|  |     |  ├── trace-mapping.umd.js
+|  |     |  ├── trace-mapping.umd.js.map
+|  |     |  └── types
+|  |     └── package.json
+|  ├── @next
+|  |  ├── env
+|  |  |  ├── README.md
+|  |  |  ├── dist
+|  |  |  |  ├── index.d.ts
+|  |  |  |  └── index.js
+|  |  |  └── package.json
+|  |  └── swc-darwin-arm64
+|  |     ├── README.md
+|  |     ├── next-swc.darwin-arm64.node
+|  |     └── package.json
+|  ├── @supabase
+|  |  ├── auth-js
+|  |  |  ├── AGENTS.md
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── dist
+|  |  |  |  ├── main
+|  |  |  |  ├── module
+|  |  |  |  ├── tsconfig.module.tsbuildinfo
+|  |  |  |  └── tsconfig.tsbuildinfo
+|  |  |  ├── migrations
+|  |  |  |  ├── README.md
+|  |  |  |  └── lockless-coordination.md
+|  |  |  ├── package.json
+|  |  |  └── src
+|  |  |     ├── AuthAdminApi.ts
+|  |  |     ├── AuthClient.ts
+|  |  |     ├── GoTrueAdminApi.ts
+|  |  |     ├── GoTrueClient.ts
+|  |  |     ├── index.ts
+|  |  |     └── lib
+|  |  ├── functions-js
+|  |  |  ├── AGENTS.md
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── dist
+|  |  |  |  ├── main
+|  |  |  |  ├── module
+|  |  |  |  ├── tsconfig.module.tsbuildinfo
+|  |  |  |  └── tsconfig.tsbuildinfo
+|  |  |  ├── migrations
+|  |  |  |  └── README.md
+|  |  |  ├── package.json
+|  |  |  └── src
+|  |  |     ├── FunctionsClient.ts
+|  |  |     ├── edge-runtime.d.ts
+|  |  |     ├── helper.ts
+|  |  |     ├── index.ts
+|  |  |     ├── types.ts
+|  |  |     └── version.ts
+|  |  ├── phoenix
+|  |  |  ├── LICENSE.md
+|  |  |  ├── README.md
+|  |  |  ├── assets
+|  |  |  |  └── js
+|  |  |  ├── package.json
+|  |  |  ├── priv
+|  |  |  |  └── static
+|  |  |  └── tsconfig.json
+|  |  ├── postgrest-js
+|  |  |  ├── AGENTS.md
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── dist
+|  |  |  |  ├── index.cjs
+|  |  |  |  ├── index.cjs.map
+|  |  |  |  ├── index.d.cts
+|  |  |  |  ├── index.d.cts.map
+|  |  |  |  ├── index.d.mts
+|  |  |  |  ├── index.d.mts.map
+|  |  |  |  ├── index.mjs
+|  |  |  |  └── index.mjs.map
+|  |  |  ├── migrations
+|  |  |  |  └── README.md
+|  |  |  ├── package.json
+|  |  |  └── src
+|  |  |     ├── PostgrestBuilder.ts
+|  |  |     ├── PostgrestClient.ts
+|  |  |     ├── PostgrestError.ts
+|  |  |     ├── PostgrestFilterBuilder.ts
+|  |  |     ├── PostgrestQueryBuilder.ts
+|  |  |     ├── PostgrestTransformBuilder.ts
+|  |  |     ├── constants.ts
+|  |  |     ├── index.ts
+|  |  |     ├── select-query-parser
+|  |  |     ├── types
+|  |  |     └── version.ts
+|  |  ├── realtime-js
+|  |  |  ├── AGENTS.md
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── dist
+|  |  |  |  ├── main
+|  |  |  |  ├── module
+|  |  |  |  ├── tsconfig.module.tsbuildinfo
+|  |  |  |  └── tsconfig.tsbuildinfo
+|  |  |  ├── migrations
+|  |  |  |  ├── README.md
+|  |  |  |  └── httpsend-server-version.md
+|  |  |  ├── package.json
+|  |  |  └── src
+|  |  |     ├── RealtimeChannel.ts
+|  |  |     ├── RealtimeClient.ts
+|  |  |     ├── RealtimePostgresFilterBuilder.ts
+|  |  |     ├── RealtimePresence.ts
+|  |  |     ├── index.ts
+|  |  |     ├── lib
+|  |  |     └── phoenix
+|  |  ├── storage-js
+|  |  |  ├── AGENTS.md
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── dist
+|  |  |  |  ├── index.cjs
+|  |  |  |  ├── index.cjs.map
+|  |  |  |  ├── index.d.cts
+|  |  |  |  ├── index.d.cts.map
+|  |  |  |  ├── index.d.mts
+|  |  |  |  ├── index.d.mts.map
+|  |  |  |  ├── index.mjs
+|  |  |  |  ├── index.mjs.map
+|  |  |  |  └── umd
+|  |  |  ├── migrations
+|  |  |  |  └── README.md
+|  |  |  ├── package.json
+|  |  |  └── src
+|  |  |     ├── StorageClient.ts
+|  |  |     ├── index.ts
+|  |  |     ├── lib
+|  |  |     └── packages
+|  |  └── supabase-js
+|  |     ├── AGENTS.md
+|  |     ├── LICENSE
+|  |     ├── README.md
+|  |     ├── dist
+|  |     |  ├── cors.cjs
+|  |     |  ├── cors.cjs.map
+|  |     |  ├── cors.d.cts
+|  |     |  ├── cors.d.cts.map
+|  |     |  ├── cors.d.mts
+|  |     |  ├── cors.d.mts.map
+|  |     |  ├── cors.mjs
+|  |     |  ├── cors.mjs.map
+|  |     |  ├── index.cjs
+|  |     |  ├── index.cjs.map
+|  |     |  ├── index.d.cts
+|  |     |  ├── index.d.cts.map
+|  |     |  ├── index.d.mts
+|  |     |  ├── index.d.mts.map
+|  |     |  ├── index.mjs
+|  |     |  ├── index.mjs.map
+|  |     |  ├── tracing.cjs
+|  |     |  ├── tracing.cjs.map
+|  |     |  ├── tracing.d.cts
+|  |     |  ├── tracing.d.mts
+|  |     |  ├── tracing.mjs
+|  |     |  ├── tracing.mjs.map
+|  |     |  ├── tracingRegistry.cjs
+|  |     |  ├── tracingRegistry.cjs.map
+|  |     |  ├── tracingRegistry.mjs
+|  |     |  ├── tracingRegistry.mjs.map
+|  |     |  └── umd
+|  |     ├── migrations
+|  |     |  └── README.md
+|  |     ├── package.json
+|  |     └── src
+|  |        ├── SupabaseClient.ts
+|  |        ├── cors.ts
+|  |        ├── index.ts
+|  |        ├── lib
+|  |        └── tracing.ts
+|  ├── @swc
+|  |  └── helpers
+|  |     ├── LICENSE
+|  |     ├── _
+|  |     |  ├── _apply_decorated_descriptor
+|  |     |  ├── _apply_decs_2203_r
+|  |     |  ├── _array_like_to_array
+|  |     |  ├── _array_with_holes
+|  |     |  ├── _array_without_holes
+|  |     |  ├── _assert_this_initialized
+|  |     |  ├── _async_generator
+|  |     |  ├── _async_generator_delegate
+|  |     |  ├── _async_iterator
+|  |     |  ├── _async_to_generator
+|  |     |  ├── _await_async_generator
+|  |     |  ├── _await_value
+|  |     |  ├── _call_super
+|  |     |  ├── _check_private_redeclaration
+|  |     |  ├── _class_apply_descriptor_destructure
+|  |     |  ├── _class_apply_descriptor_get
+|  |     |  ├── _class_apply_descriptor_set
+|  |     |  ├── _class_apply_descriptor_update
+|  |     |  ├── _class_call_check
+|  |     |  ├── _class_check_private_static_access
+|  |     |  ├── _class_check_private_static_field_descriptor
+|  |     |  ├── _class_extract_field_descriptor
+|  |     |  ├── _class_name_tdz_error
+|  |     |  ├── _class_private_field_destructure
+|  |     |  ├── _class_private_field_get
+|  |     |  ├── _class_private_field_init
+|  |     |  ├── _class_private_field_loose_base
+|  |     |  ├── _class_private_field_loose_key
+|  |     |  ├── _class_private_field_set
+|  |     |  ├── _class_private_field_update
+|  |     |  ├── _class_private_method_get
+|  |     |  ├── _class_private_method_init
+|  |     |  ├── _class_private_method_set
+|  |     |  ├── _class_static_private_field_destructure
+|  |     |  ├── _class_static_private_field_spec_get
+|  |     |  ├── _class_static_private_field_spec_set
+|  |     |  ├── _class_static_private_field_update
+|  |     |  ├── _class_static_private_method_get
+|  |     |  ├── _construct
+|  |     |  ├── _create_class
+|  |     |  ├── _create_for_of_iterator_helper_loose
+|  |     |  ├── _create_super
+|  |     |  ├── _decorate
+|  |     |  ├── _defaults
+|  |     |  ├── _define_enumerable_properties
+|  |     |  ├── _define_property
+|  |     |  ├── _dispose
+|  |     |  ├── _export_star
+|  |     |  ├── _extends
+|  |     |  ├── _get
+|  |     |  ├── _get_prototype_of
+|  |     |  ├── _identity
+|  |     |  ├── _inherits
+|  |     |  ├── _inherits_loose
+|  |     |  ├── _initializer_define_property
+|  |     |  ├── _initializer_warning_helper
+|  |     |  ├── _instanceof
+|  |     |  ├── _interop_require_default
+|  |     |  ├── _interop_require_wildcard
+|  |     |  ├── _is_native_function
+|  |     |  ├── _is_native_reflect_construct
+|  |     |  ├── _iterable_to_array
+|  |     |  ├── _iterable_to_array_limit
+|  |     |  ├── _iterable_to_array_limit_loose
+|  |     |  ├── _jsx
+|  |     |  ├── _new_arrow_check
+|  |     |  ├── _non_iterable_rest
+|  |     |  ├── _non_iterable_spread
+|  |     |  ├── _object_destructuring_empty
+|  |     |  ├── _object_spread
+|  |     |  ├── _object_spread_props
+|  |     |  ├── _object_without_properties
+|  |     |  ├── _object_without_properties_loose
+|  |     |  ├── _possible_constructor_return
+|  |     |  ├── _read_only_error
+|  |     |  ├── _set
+|  |     |  ├── _set_prototype_of
+|  |     |  ├── _skip_first_generator_next
+|  |     |  ├── _sliced_to_array
+|  |     |  ├── _sliced_to_array_loose
+|  |     |  ├── _super_prop_base
+|  |     |  ├── _tagged_template_literal
+|  |     |  ├── _tagged_template_literal_loose
+|  |     |  ├── _throw
+|  |     |  ├── _to_array
+|  |     |  ├── _to_consumable_array
+|  |     |  ├── _to_primitive
+|  |     |  ├── _to_property_key
+|  |     |  ├── _ts_add_disposable_resource
+|  |     |  ├── _ts_decorate
+|  |     |  ├── _ts_dispose_resources
+|  |     |  ├── _ts_generator
+|  |     |  ├── _ts_metadata
+|  |     |  ├── _ts_param
+|  |     |  ├── _ts_values
+|  |     |  ├── _type_of
+|  |     |  ├── _unsupported_iterable_to_array
+|  |     |  ├── _update
+|  |     |  ├── _using
+|  |     |  ├── _using_ctx
+|  |     |  ├── _wrap_async_generator
+|  |     |  ├── _wrap_native_super
+|  |     |  ├── _write_only_error
+|  |     |  └── index
+|  |     ├── cjs
+|  |     |  ├── _apply_decorated_descriptor.cjs
+|  |     |  ├── _apply_decs_2203_r.cjs
+|  |     |  ├── _array_like_to_array.cjs
+|  |     |  ├── _array_with_holes.cjs
+|  |     |  ├── _array_without_holes.cjs
+|  |     |  ├── _assert_this_initialized.cjs
+|  |     |  ├── _async_generator.cjs
+|  |     |  ├── _async_generator_delegate.cjs
+|  |     |  ├── _async_iterator.cjs
+|  |     |  ├── _async_to_generator.cjs
+|  |     |  ├── _await_async_generator.cjs
+|  |     |  ├── _await_value.cjs
+|  |     |  ├── _call_super.cjs
+|  |     |  ├── _check_private_redeclaration.cjs
+|  |     |  ├── _class_apply_descriptor_destructure.cjs
+|  |     |  ├── _class_apply_descriptor_get.cjs
+|  |     |  ├── _class_apply_descriptor_set.cjs
+|  |     |  ├── _class_apply_descriptor_update.cjs
+|  |     |  ├── _class_call_check.cjs
+|  |     |  ├── _class_check_private_static_access.cjs
+|  |     |  ├── _class_check_private_static_field_descriptor.cjs
+|  |     |  ├── _class_extract_field_descriptor.cjs
+|  |     |  ├── _class_name_tdz_error.cjs
+|  |     |  ├── _class_private_field_destructure.cjs
+|  |     |  ├── _class_private_field_get.cjs
+|  |     |  ├── _class_private_field_init.cjs
+|  |     |  ├── _class_private_field_loose_base.cjs
+|  |     |  ├── _class_private_field_loose_key.cjs
+|  |     |  ├── _class_private_field_set.cjs
+|  |     |  ├── _class_private_field_update.cjs
+|  |     |  ├── _class_private_method_get.cjs
+|  |     |  ├── _class_private_method_init.cjs
+|  |     |  ├── _class_private_method_set.cjs
+|  |     |  ├── _class_static_private_field_destructure.cjs
+|  |     |  ├── _class_static_private_field_spec_get.cjs
+|  |     |  ├── _class_static_private_field_spec_set.cjs
+|  |     |  ├── _class_static_private_field_update.cjs
+|  |     |  ├── _class_static_private_method_get.cjs
+|  |     |  ├── _construct.cjs
+|  |     |  ├── _create_class.cjs
+|  |     |  ├── _create_for_of_iterator_helper_loose.cjs
+|  |     |  ├── _create_super.cjs
+|  |     |  ├── _decorate.cjs
+|  |     |  ├── _defaults.cjs
+|  |     |  ├── _define_enumerable_properties.cjs
+|  |     |  ├── _define_property.cjs
+|  |     |  ├── _dispose.cjs
+|  |     |  ├── _export_star.cjs
+|  |     |  ├── _extends.cjs
+|  |     |  ├── _get.cjs
+|  |     |  ├── _get_prototype_of.cjs
+|  |     |  ├── _identity.cjs
+|  |     |  ├── _inherits.cjs
+|  |     |  ├── _inherits_loose.cjs
+|  |     |  ├── _initializer_define_property.cjs
+|  |     |  ├── _initializer_warning_helper.cjs
+|  |     |  ├── _instanceof.cjs
+|  |     |  ├── _interop_require_default.cjs
+|  |     |  ├── _interop_require_wildcard.cjs
+|  |     |  ├── _is_native_function.cjs
+|  |     |  ├── _is_native_reflect_construct.cjs
+|  |     |  ├── _iterable_to_array.cjs
+|  |     |  ├── _iterable_to_array_limit.cjs
+|  |     |  ├── _iterable_to_array_limit_loose.cjs
+|  |     |  ├── _jsx.cjs
+|  |     |  ├── _new_arrow_check.cjs
+|  |     |  ├── _non_iterable_rest.cjs
+|  |     |  ├── _non_iterable_spread.cjs
+|  |     |  ├── _object_destructuring_empty.cjs
+|  |     |  ├── _object_spread.cjs
+|  |     |  ├── _object_spread_props.cjs
+|  |     |  ├── _object_without_properties.cjs
+|  |     |  ├── _object_without_properties_loose.cjs
+|  |     |  ├── _possible_constructor_return.cjs
+|  |     |  ├── _read_only_error.cjs
+|  |     |  ├── _set.cjs
+|  |     |  ├── _set_prototype_of.cjs
+|  |     |  ├── _skip_first_generator_next.cjs
+|  |     |  ├── _sliced_to_array.cjs
+|  |     |  ├── _sliced_to_array_loose.cjs
+|  |     |  ├── _super_prop_base.cjs
+|  |     |  ├── _tagged_template_literal.cjs
+|  |     |  ├── _tagged_template_literal_loose.cjs
+|  |     |  ├── _throw.cjs
+|  |     |  ├── _to_array.cjs
+|  |     |  ├── _to_consumable_array.cjs
+|  |     |  ├── _to_primitive.cjs
+|  |     |  ├── _to_property_key.cjs
+|  |     |  ├── _ts_add_disposable_resource.cjs
+|  |     |  ├── _ts_decorate.cjs
+|  |     |  ├── _ts_dispose_resources.cjs
+|  |     |  ├── _ts_generator.cjs
+|  |     |  ├── _ts_metadata.cjs
+|  |     |  ├── _ts_param.cjs
+|  |     |  ├── _ts_values.cjs
+|  |     |  ├── _type_of.cjs
+|  |     |  ├── _unsupported_iterable_to_array.cjs
+|  |     |  ├── _update.cjs
+|  |     |  ├── _using.cjs
+|  |     |  ├── _using_ctx.cjs
+|  |     |  ├── _wrap_async_generator.cjs
+|  |     |  ├── _wrap_native_super.cjs
+|  |     |  ├── _write_only_error.cjs
+|  |     |  └── index.cjs
+|  |     ├── esm
+|  |     |  ├── _apply_decorated_descriptor.js
+|  |     |  ├── _apply_decs_2203_r.js
+|  |     |  ├── _array_like_to_array.js
+|  |     |  ├── _array_with_holes.js
+|  |     |  ├── _array_without_holes.js
+|  |     |  ├── _assert_this_initialized.js
+|  |     |  ├── _async_generator.js
+|  |     |  ├── _async_generator_delegate.js
+|  |     |  ├── _async_iterator.js
+|  |     |  ├── _async_to_generator.js
+|  |     |  ├── _await_async_generator.js
+|  |     |  ├── _await_value.js
+|  |     |  ├── _call_super.js
+|  |     |  ├── _check_private_redeclaration.js
+|  |     |  ├── _class_apply_descriptor_destructure.js
+|  |     |  ├── _class_apply_descriptor_get.js
+|  |     |  ├── _class_apply_descriptor_set.js
+|  |     |  ├── _class_apply_descriptor_update.js
+|  |     |  ├── _class_call_check.js
+|  |     |  ├── _class_check_private_static_access.js
+|  |     |  ├── _class_check_private_static_field_descriptor.js
+|  |     |  ├── _class_extract_field_descriptor.js
+|  |     |  ├── _class_name_tdz_error.js
+|  |     |  ├── _class_private_field_destructure.js
+|  |     |  ├── _class_private_field_get.js
+|  |     |  ├── _class_private_field_init.js
+|  |     |  ├── _class_private_field_loose_base.js
+|  |     |  ├── _class_private_field_loose_key.js
+|  |     |  ├── _class_private_field_set.js
+|  |     |  ├── _class_private_field_update.js
+|  |     |  ├── _class_private_method_get.js
+|  |     |  ├── _class_private_method_init.js
+|  |     |  ├── _class_private_method_set.js
+|  |     |  ├── _class_static_private_field_destructure.js
+|  |     |  ├── _class_static_private_field_spec_get.js
+|  |     |  ├── _class_static_private_field_spec_set.js
+|  |     |  ├── _class_static_private_field_update.js
+|  |     |  ├── _class_static_private_method_get.js
+|  |     |  ├── _construct.js
+|  |     |  ├── _create_class.js
+|  |     |  ├── _create_for_of_iterator_helper_loose.js
+|  |     |  ├── _create_super.js
+|  |     |  ├── _decorate.js
+|  |     |  ├── _defaults.js
+|  |     |  ├── _define_enumerable_properties.js
+|  |     |  ├── _define_property.js
+|  |     |  ├── _dispose.js
+|  |     |  ├── _export_star.js
+|  |     |  ├── _extends.js
+|  |     |  ├── _get.js
+|  |     |  ├── _get_prototype_of.js
+|  |     |  ├── _identity.js
+|  |     |  ├── _inherits.js
+|  |     |  ├── _inherits_loose.js
+|  |     |  ├── _initializer_define_property.js
+|  |     |  ├── _initializer_warning_helper.js
+|  |     |  ├── _instanceof.js
+|  |     |  ├── _interop_require_default.js
+|  |     |  ├── _interop_require_wildcard.js
+|  |     |  ├── _is_native_function.js
+|  |     |  ├── _is_native_reflect_construct.js
+|  |     |  ├── _iterable_to_array.js
+|  |     |  ├── _iterable_to_array_limit.js
+|  |     |  ├── _iterable_to_array_limit_loose.js
+|  |     |  ├── _jsx.js
+|  |     |  ├── _new_arrow_check.js
+|  |     |  ├── _non_iterable_rest.js
+|  |     |  ├── _non_iterable_spread.js
+|  |     |  ├── _object_destructuring_empty.js
+|  |     |  ├── _object_spread.js
+|  |     |  ├── _object_spread_props.js
+|  |     |  ├── _object_without_properties.js
+|  |     |  ├── _object_without_properties_loose.js
+|  |     |  ├── _possible_constructor_return.js
+|  |     |  ├── _read_only_error.js
+|  |     |  ├── _set.js
+|  |     |  ├── _set_prototype_of.js
+|  |     |  ├── _skip_first_generator_next.js
+|  |     |  ├── _sliced_to_array.js
+|  |     |  ├── _sliced_to_array_loose.js
+|  |     |  ├── _super_prop_base.js
+|  |     |  ├── _tagged_template_literal.js
+|  |     |  ├── _tagged_template_literal_loose.js
+|  |     |  ├── _throw.js
+|  |     |  ├── _to_array.js
+|  |     |  ├── _to_consumable_array.js
+|  |     |  ├── _to_primitive.js
+|  |     |  ├── _to_property_key.js
+|  |     |  ├── _ts_add_disposable_resource.js
+|  |     |  ├── _ts_decorate.js
+|  |     |  ├── _ts_dispose_resources.js
+|  |     |  ├── _ts_generator.js
+|  |     |  ├── _ts_metadata.js
+|  |     |  ├── _ts_param.js
+|  |     |  ├── _ts_values.js
+|  |     |  ├── _type_of.js
+|  |     |  ├── _unsupported_iterable_to_array.js
+|  |     |  ├── _update.js
+|  |     |  ├── _using.js
+|  |     |  ├── _using_ctx.js
+|  |     |  ├── _wrap_async_generator.js
+|  |     |  ├── _wrap_native_super.js
+|  |     |  ├── _write_only_error.js
+|  |     |  └── index.js
+|  |     ├── package.json
+|  |     ├── scripts
+|  |     |  ├── ast_grep.js
+|  |     |  ├── build.js
+|  |     |  ├── errors.js
+|  |     |  └── utils.js
+|  |     └── src
+|  |        ├── _apply_decorated_descriptor.mjs
+|  |        ├── _apply_decs_2203_r.mjs
+|  |        ├── _array_like_to_array.mjs
+|  |        ├── _array_with_holes.mjs
+|  |        ├── _array_without_holes.mjs
+|  |        ├── _assert_this_initialized.mjs
+|  |        ├── _async_generator.mjs
+|  |        ├── _async_generator_delegate.mjs
+|  |        ├── _async_iterator.mjs
+|  |        ├── _async_to_generator.mjs
+|  |        ├── _await_async_generator.mjs
+|  |        ├── _await_value.mjs
+|  |        ├── _call_super.mjs
+|  |        ├── _check_private_redeclaration.mjs
+|  |        ├── _class_apply_descriptor_destructure.mjs
+|  |        ├── _class_apply_descriptor_get.mjs
+|  |        ├── _class_apply_descriptor_set.mjs
+|  |        ├── _class_apply_descriptor_update.mjs
+|  |        ├── _class_call_check.mjs
+|  |        ├── _class_check_private_static_access.mjs
+|  |        ├── _class_check_private_static_field_descriptor.mjs
+|  |        ├── _class_extract_field_descriptor.mjs
+|  |        ├── _class_name_tdz_error.mjs
+|  |        ├── _class_private_field_destructure.mjs
+|  |        ├── _class_private_field_get.mjs
+|  |        ├── _class_private_field_init.mjs
+|  |        ├── _class_private_field_loose_base.mjs
+|  |        ├── _class_private_field_loose_key.mjs
+|  |        ├── _class_private_field_set.mjs
+|  |        ├── _class_private_field_update.mjs
+|  |        ├── _class_private_method_get.mjs
+|  |        ├── _class_private_method_init.mjs
+|  |        ├── _class_private_method_set.mjs
+|  |        ├── _class_static_private_field_destructure.mjs
+|  |        ├── _class_static_private_field_spec_get.mjs
+|  |        ├── _class_static_private_field_spec_set.mjs
+|  |        ├── _class_static_private_field_update.mjs
+|  |        ├── _class_static_private_method_get.mjs
+|  |        ├── _construct.mjs
+|  |        ├── _create_class.mjs
+|  |        ├── _create_for_of_iterator_helper_loose.mjs
+|  |        ├── _create_super.mjs
+|  |        ├── _decorate.mjs
+|  |        ├── _defaults.mjs
+|  |        ├── _define_enumerable_properties.mjs
+|  |        ├── _define_property.mjs
+|  |        ├── _dispose.mjs
+|  |        ├── _export_star.mjs
+|  |        ├── _extends.mjs
+|  |        ├── _get.mjs
+|  |        ├── _get_prototype_of.mjs
+|  |        ├── _identity.mjs
+|  |        ├── _inherits.mjs
+|  |        ├── _inherits_loose.mjs
+|  |        ├── _initializer_define_property.mjs
+|  |        ├── _initializer_warning_helper.mjs
+|  |        ├── _instanceof.mjs
+|  |        ├── _interop_require_default.mjs
+|  |        ├── _interop_require_wildcard.mjs
+|  |        ├── _is_native_function.mjs
+|  |        ├── _is_native_reflect_construct.mjs
+|  |        ├── _iterable_to_array.mjs
+|  |        ├── _iterable_to_array_limit.mjs
+|  |        ├── _iterable_to_array_limit_loose.mjs
+|  |        ├── _jsx.mjs
+|  |        ├── _new_arrow_check.mjs
+|  |        ├── _non_iterable_rest.mjs
+|  |        ├── _non_iterable_spread.mjs
+|  |        ├── _object_destructuring_empty.mjs
+|  |        ├── _object_spread.mjs
+|  |        ├── _object_spread_props.mjs
+|  |        ├── _object_without_properties.mjs
+|  |        ├── _object_without_properties_loose.mjs
+|  |        ├── _possible_constructor_return.mjs
+|  |        ├── _read_only_error.mjs
+|  |        ├── _set.mjs
+|  |        ├── _set_prototype_of.mjs
+|  |        ├── _skip_first_generator_next.mjs
+|  |        ├── _sliced_to_array.mjs
+|  |        ├── _sliced_to_array_loose.mjs
+|  |        ├── _super_prop_base.mjs
+|  |        ├── _tagged_template_literal.mjs
+|  |        ├── _tagged_template_literal_loose.mjs
+|  |        ├── _throw.mjs
+|  |        ├── _to_array.mjs
+|  |        ├── _to_consumable_array.mjs
+|  |        ├── _to_primitive.mjs
+|  |        ├── _to_property_key.mjs
+|  |        ├── _ts_add_disposable_resource.mjs
+|  |        ├── _ts_decorate.mjs
+|  |        ├── _ts_dispose_resources.mjs
+|  |        ├── _ts_generator.mjs
+|  |        ├── _ts_metadata.mjs
+|  |        ├── _ts_param.mjs
+|  |        ├── _ts_values.mjs
+|  |        ├── _type_of.mjs
+|  |        ├── _unsupported_iterable_to_array.mjs
+|  |        ├── _update.mjs
+|  |        ├── _using.mjs
+|  |        ├── _using_ctx.mjs
+|  |        ├── _wrap_async_generator.mjs
+|  |        ├── _wrap_native_super.mjs
+|  |        ├── _write_only_error.mjs
+|  |        └── index.mjs
+|  ├── @tailwindcss
+|  |  ├── node
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── dist
+|  |  |  |  ├── esm-cache.loader.d.mts
+|  |  |  |  ├── esm-cache.loader.mjs
+|  |  |  |  ├── index.d.mts
+|  |  |  |  ├── index.d.ts
+|  |  |  |  ├── index.js
+|  |  |  |  ├── index.mjs
+|  |  |  |  ├── require-cache.d.ts
+|  |  |  |  └── require-cache.js
+|  |  |  └── package.json
+|  |  ├── oxide
+|  |  |  ├── LICENSE
+|  |  |  ├── index.d.ts
+|  |  |  ├── index.js
+|  |  |  └── package.json
+|  |  ├── oxide-darwin-arm64
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── package.json
+|  |  |  └── tailwindcss-oxide.darwin-arm64.node
+|  |  └── postcss
+|  |     ├── LICENSE
+|  |     ├── README.md
+|  |     ├── dist
+|  |     |  ├── index.d.mts
+|  |     |  ├── index.d.ts
+|  |     |  ├── index.js
+|  |     |  └── index.mjs
+|  |     └── package.json
+|  ├── @tsconfig
+|  |  ├── node10
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── package.json
+|  |  |  └── tsconfig.json
+|  |  ├── node12
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── package.json
+|  |  |  └── tsconfig.json
+|  |  ├── node14
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── package.json
+|  |  |  └── tsconfig.json
+|  |  └── node16
+|  |     ├── LICENSE
+|  |     ├── README.md
+|  |     ├── package.json
+|  |     └── tsconfig.json
+|  ├── @types
+|  |  ├── node
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── assert
+|  |  |  |  └── strict.d.ts
+|  |  |  ├── assert.d.ts
+|  |  |  ├── async_hooks.d.ts
+|  |  |  ├── buffer.buffer.d.ts
+|  |  |  ├── buffer.d.ts
+|  |  |  ├── child_process.d.ts
+|  |  |  ├── cluster.d.ts
+|  |  |  ├── console.d.ts
+|  |  |  ├── constants.d.ts
+|  |  |  ├── crypto.d.ts
+|  |  |  ├── dgram.d.ts
+|  |  |  ├── diagnostics_channel.d.ts
+|  |  |  ├── dns
+|  |  |  |  └── promises.d.ts
+|  |  |  ├── dns.d.ts
+|  |  |  ├── domain.d.ts
+|  |  |  ├── events.d.ts
+|  |  |  ├── ffi.d.ts
+|  |  |  ├── fs
+|  |  |  |  └── promises.d.ts
+|  |  |  ├── fs.d.ts
+|  |  |  ├── globals.d.ts
+|  |  |  ├── globals.typedarray.d.ts
+|  |  |  ├── http.d.ts
+|  |  |  ├── http2.d.ts
+|  |  |  ├── https.d.ts
+|  |  |  ├── index.d.ts
+|  |  |  ├── inspector
+|  |  |  |  └── promises.d.ts
+|  |  |  ├── inspector.d.ts
+|  |  |  ├── inspector.generated.d.ts
+|  |  |  ├── module.d.ts
+|  |  |  ├── net.d.ts
+|  |  |  ├── os.d.ts
+|  |  |  ├── package.json
+|  |  |  ├── path
+|  |  |  |  ├── posix.d.ts
+|  |  |  |  └── win32.d.ts
+|  |  |  ├── path.d.ts
+|  |  |  ├── perf_hooks.d.ts
+|  |  |  ├── process.d.ts
+|  |  |  ├── punycode.d.ts
+|  |  |  ├── querystring.d.ts
+|  |  |  ├── quic.d.ts
+|  |  |  ├── readline
+|  |  |  |  └── promises.d.ts
+|  |  |  ├── readline.d.ts
+|  |  |  ├── repl.d.ts
+|  |  |  ├── sea.d.ts
+|  |  |  ├── sqlite.d.ts
+|  |  |  ├── stream
+|  |  |  |  ├── consumers.d.ts
+|  |  |  |  ├── iter.d.ts
+|  |  |  |  ├── promises.d.ts
+|  |  |  |  └── web.d.ts
+|  |  |  ├── stream.d.ts
+|  |  |  ├── string_decoder.d.ts
+|  |  |  ├── test
+|  |  |  |  └── reporters.d.ts
+|  |  |  ├── test.d.ts
+|  |  |  ├── timers
+|  |  |  |  └── promises.d.ts
+|  |  |  ├── timers.d.ts
+|  |  |  ├── tls.d.ts
+|  |  |  ├── trace_events.d.ts
+|  |  |  ├── ts5.6
+|  |  |  |  ├── buffer.buffer.d.ts
+|  |  |  |  ├── compatibility
+|  |  |  |  ├── globals.typedarray.d.ts
+|  |  |  |  └── index.d.ts
+|  |  |  ├── ts5.7
+|  |  |  |  ├── compatibility
+|  |  |  |  └── index.d.ts
+|  |  |  ├── tty.d.ts
+|  |  |  ├── url.d.ts
+|  |  |  ├── util
+|  |  |  |  └── types.d.ts
+|  |  |  ├── util.d.ts
+|  |  |  ├── v8.d.ts
+|  |  |  ├── vm.d.ts
+|  |  |  ├── wasi.d.ts
+|  |  |  ├── web-globals
+|  |  |  |  ├── abortcontroller.d.ts
+|  |  |  |  ├── blob.d.ts
+|  |  |  |  ├── console.d.ts
+|  |  |  |  ├── crypto.d.ts
+|  |  |  |  ├── domexception.d.ts
+|  |  |  |  ├── encoding.d.ts
+|  |  |  |  ├── events.d.ts
+|  |  |  |  ├── fetch.d.ts
+|  |  |  |  ├── importmeta.d.ts
+|  |  |  |  ├── messaging.d.ts
+|  |  |  |  ├── navigator.d.ts
+|  |  |  |  ├── performance.d.ts
+|  |  |  |  ├── storage.d.ts
+|  |  |  |  ├── streams.d.ts
+|  |  |  |  ├── timers.d.ts
+|  |  |  |  └── url.d.ts
+|  |  |  ├── worker_threads.d.ts
+|  |  |  ├── zlib
+|  |  |  |  └── iter.d.ts
+|  |  |  └── zlib.d.ts
+|  |  ├── react
+|  |  |  ├── LICENSE
+|  |  |  ├── README.md
+|  |  |  ├── canary.d.ts
+|  |  |  ├── compiler-runtime.d.ts
+|  |  |  ├── experimental.d.ts
+|  |  |  ├── global.d.ts
+|  |  |  ├── index.d.ts
+|  |  |  ├── jsx-dev-runtime.d.ts
+|  |  |  ├── jsx-runtime.d.ts
+|  |  |  ├── package.json
+|  |  |  └── ts5.0
+|  |  |     ├── canary.d.ts
+|  |  |     ├── experimental.d.ts
+|  |  |     ├── global.d.ts
+|  |  |     ├── index.d.ts
+|  |  |     ├── jsx-dev-runtime.d.ts
+|  |  |     └── jsx-runtime.d.ts
+|  |  └── react-dom
+|  |     ├── LICENSE
+|  |     ├── README.md
+|  |     ├── canary.d.ts
+|  |     ├── client.d.ts
+|  |     ├── experimental.d.ts
+|  |     ├── index.d.ts
+|  |     ├── package.json
+|  |     ├── server.browser.d.ts
+|  |     ├── server.bun.d.ts
+|  |     ├── server.d.ts
+|  |     ├── server.edge.d.ts
+|  |     ├── server.node.d.ts
+|  |     ├── static.browser.d.ts
+|  |     ├── static.d.ts
+|  |     ├── static.edge.d.ts
+|  |     ├── static.node.d.ts
+|  |     └── test-utils
+|  |        └── index.d.ts
+|  ├── @typescript
+|  ├── acorn
+|  |  ├── CHANGELOG.md
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── bin
+|  |  |  └── acorn
+|  |  ├── dist
+|  |  |  ├── acorn.d.mts
+|  |  |  ├── acorn.d.ts
+|  |  |  ├── acorn.js
+|  |  |  ├── acorn.mjs
+|  |  |  └── bin.js
+|  |  └── package.json
+|  ├── acorn-walk
+|  |  ├── CHANGELOG.md
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  ├── walk.d.mts
+|  |  |  ├── walk.d.ts
+|  |  |  ├── walk.js
+|  |  |  └── walk.mjs
+|  |  └── package.json
+|  ├── agent-base
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  ├── helpers.d.ts
+|  |  |  ├── helpers.d.ts.map
+|  |  |  ├── helpers.js
+|  |  |  ├── helpers.js.map
+|  |  |  ├── index.d.ts
+|  |  |  ├── index.d.ts.map
+|  |  |  ├── index.js
+|  |  |  └── index.js.map
+|  |  └── package.json
+|  ├── arg
+|  |  ├── LICENSE.md
+|  |  ├── README.md
+|  |  ├── index.d.ts
+|  |  ├── index.js
+|  |  └── package.json
+|  ├── arrify
+|  |  ├── index.d.ts
+|  |  ├── index.js
+|  |  ├── license
+|  |  ├── package.json
+|  |  └── readme.md
+|  ├── autoprefixer
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── bin
+|  |  |  └── autoprefixer
+|  |  ├── data
+|  |  |  └── prefixes.js
+|  |  ├── lib
+|  |  |  ├── at-rule.js
+|  |  |  ├── autoprefixer.d.ts
+|  |  |  ├── autoprefixer.js
+|  |  |  ├── brackets.js
+|  |  |  ├── browsers.js
+|  |  |  ├── declaration.js
+|  |  |  ├── hacks
+|  |  |  |  ├── align-content.js
+|  |  |  |  ├── align-items.js
+|  |  |  |  ├── align-self.js
+|  |  |  |  ├── animation.js
+|  |  |  |  ├── appearance.js
+|  |  |  |  ├── autofill.js
+|  |  |  |  ├── backdrop-filter.js
+|  |  |  |  ├── background-clip.js
+|  |  |  |  ├── background-size.js
+|  |  |  |  ├── block-logical.js
+|  |  |  |  ├── border-image.js
+|  |  |  |  ├── border-radius.js
+|  |  |  |  ├── break-props.js
+|  |  |  |  ├── cross-fade.js
+|  |  |  |  ├── display-flex.js
+|  |  |  |  ├── display-grid.js
+|  |  |  |  ├── file-selector-button.js
+|  |  |  |  ├── filter-value.js
+|  |  |  |  ├── filter.js
+|  |  |  |  ├── flex-basis.js
+|  |  |  |  ├── flex-direction.js
+|  |  |  |  ├── flex-flow.js
+|  |  |  |  ├── flex-grow.js
+|  |  |  |  ├── flex-shrink.js
+|  |  |  |  ├── flex-spec.js
+|  |  |  |  ├── flex-wrap.js
+|  |  |  |  ├── flex.js
+|  |  |  |  ├── fullscreen.js
+|  |  |  |  ├── gradient.js
+|  |  |  |  ├── grid-area.js
+|  |  |  |  ├── grid-column-align.js
+|  |  |  |  ├── grid-end.js
+|  |  |  |  ├── grid-row-align.js
+|  |  |  |  ├── grid-row-column.js
+|  |  |  |  ├── grid-rows-columns.js
+|  |  |  |  ├── grid-start.js
+|  |  |  |  ├── grid-template-areas.js
+|  |  |  |  ├── grid-template.js
+|  |  |  |  ├── grid-utils.js
+|  |  |  |  ├── image-rendering.js
+|  |  |  |  ├── image-set.js
+|  |  |  |  ├── inline-logical.js
+|  |  |  |  ├── intrinsic.js
+|  |  |  |  ├── justify-content.js
+|  |  |  |  ├── mask-border.js
+|  |  |  |  ├── mask-composite.js
+|  |  |  |  ├── order.js
+|  |  |  |  ├── overscroll-behavior.js
+|  |  |  |  ├── pixelated.js
+|  |  |  |  ├── place-self.js
+|  |  |  |  ├── placeholder-shown.js
+|  |  |  |  ├── placeholder.js
+|  |  |  |  ├── print-color-adjust.js
+|  |  |  |  ├── text-decoration-skip-ink.js
+|  |  |  |  ├── text-decoration.js
+|  |  |  |  ├── text-emphasis-position.js
+|  |  |  |  ├── transform-decl.js
+|  |  |  |  ├── user-select.js
+|  |  |  |  └── writing-mode.js
+|  |  |  ├── info.js
+|  |  |  ├── old-selector.js
+|  |  |  ├── old-value.js
+|  |  |  ├── prefixer.js
+|  |  |  ├── prefixes.js
+|  |  |  ├── processor.js
+|  |  |  ├── resolution.js
+|  |  |  ├── selector.js
+|  |  |  ├── supports.js
+|  |  |  ├── transition.js
+|  |  |  ├── utils.js
+|  |  |  ├── value.js
+|  |  |  └── vendor.js
+|  |  └── package.json
+|  ├── base64-js
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── base64js.min.js
+|  |  ├── index.d.ts
+|  |  ├── index.js
+|  |  └── package.json
+|  ├── baseline-browser-mapping
+|  |  ├── LICENSE.txt
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  ├── cli.cjs
+|  |  |  ├── index.cjs
+|  |  |  ├── index.d.ts
+|  |  |  ├── index.js
+|  |  |  ├── types.d.ts
+|  |  |  └── utils.d.ts
+|  |  └── package.json
+|  ├── big.js
+|  |  ├── LICENCE.md
+|  |  ├── README.md
+|  |  ├── big.js
+|  |  ├── big.mjs
+|  |  └── package.json
+|  ├── bignumber.js
+|  |  ├── CHANGELOG.md
+|  |  ├── LICENCE.md
+|  |  ├── README.md
+|  |  ├── bignumber.d.mts
+|  |  ├── bignumber.d.ts
+|  |  ├── bignumber.js
+|  |  ├── bignumber.mjs
+|  |  ├── doc
+|  |  |  └── API.html
+|  |  ├── package.json
+|  |  └── types.d.ts
+|  ├── browserslist
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── browser.js
+|  |  ├── cli.js
+|  |  ├── error.d.ts
+|  |  ├── error.js
+|  |  ├── index.d.ts
+|  |  ├── index.js
+|  |  ├── node.js
+|  |  ├── package.json
+|  |  └── parse.js
+|  ├── buffer-equal-constant-time
+|  |  ├── LICENSE.txt
+|  |  ├── README.md
+|  |  ├── index.js
+|  |  ├── package.json
+|  |  └── test.js
+|  ├── caniuse-lite
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── data
+|  |  |  ├── agents.js
+|  |  |  ├── browserVersions.js
+|  |  |  ├── browsers.js
+|  |  |  ├── features
+|  |  |  |  ├── aac.js
+|  |  |  |  ├── abortcontroller.js
+|  |  |  |  ├── ac3-ec3.js
+|  |  |  |  ├── accelerometer.js
+|  |  |  |  ├── addeventlistener.js
+|  |  |  |  ├── alternate-stylesheet.js
+|  |  |  |  ├── ambient-light.js
+|  |  |  |  ├── apng.js
+|  |  |  |  ├── array-find-index.js
+|  |  |  |  ├── array-find.js
+|  |  |  |  ├── array-flat.js
+|  |  |  |  ├── array-includes.js
+|  |  |  |  ├── arrow-functions.js
+|  |  |  |  ├── asmjs.js
+|  |  |  |  ├── async-clipboard.js
+|  |  |  |  ├── async-functions.js
+|  |  |  |  ├── atob-btoa.js
+|  |  |  |  ├── audio-api.js
+|  |  |  |  ├── audio.js
+|  |  |  |  ├── audiotracks.js
+|  |  |  |  ├── autofocus.js
+|  |  |  |  ├── auxclick.js
+|  |  |  |  ├── av1.js
+|  |  |  |  ├── avif.js
+|  |  |  |  ├── background-attachment.js
+|  |  |  |  ├── background-clip-text.js
+|  |  |  |  ├── background-img-opts.js
+|  |  |  |  ├── background-position-x-y.js
+|  |  |  |  ├── background-repeat-round-space.js
+|  |  |  |  ├── background-sync.js
+|  |  |  |  ├── battery-status.js
+|  |  |  |  ├── beacon.js
+|  |  |  |  ├── beforeafterprint.js
+|  |  |  |  ├── bigint.js
+|  |  |  |  ├── blobbuilder.js
+|  |  |  |  ├── bloburls.js
+|  |  |  |  ├── border-image.js
+|  |  |  |  ├── border-radius.js
+|  |  |  |  ├── broadcastchannel.js
+|  |  |  |  ├── brotli.js
+|  |  |  |  ├── calc.js
+|  |  |  |  ├── canvas-blending.js
+|  |  |  |  ├── canvas-text.js
+|  |  |  |  ├── canvas.js
+|  |  |  |  ├── ch-unit.js
+|  |  |  |  ├── chacha20-poly1305.js
+|  |  |  |  ├── channel-messaging.js
+|  |  |  |  ├── childnode-remove.js
+|  |  |  |  ├── classlist.js
+|  |  |  |  ├── client-hints-dpr-width-viewport.js
+|  |  |  |  ├── clipboard.js
+|  |  |  |  ├── colr-v1.js
+|  |  |  |  ├── colr.js
+|  |  |  |  ├── comparedocumentposition.js
+|  |  |  |  ├── console-basic.js
+|  |  |  |  ├── console-time.js
+|  |  |  |  ├── const.js
+|  |  |  |  ├── constraint-validation.js
+|  |  |  |  ├── contenteditable.js
+|  |  |  |  ├── contentsecuritypolicy.js
+|  |  |  |  ├── contentsecuritypolicy2.js
+|  |  |  |  ├── cookie-store-api.js
+|  |  |  |  ├── cors.js
+|  |  |  |  ├── createimagebitmap.js
+|  |  |  |  ├── credential-management.js
+|  |  |  |  ├── cross-document-view-transitions.js
+|  |  |  |  ├── cryptography.js
+|  |  |  |  ├── css-all.js
+|  |  |  |  ├── css-anchor-positioning.js
+|  |  |  |  ├── css-animation.js
+|  |  |  |  ├── css-any-link.js
+|  |  |  |  ├── css-appearance.js
+|  |  |  |  ├── css-at-counter-style.js
+|  |  |  |  ├── css-autofill.js
+|  |  |  |  ├── css-backdrop-filter.js
+|  |  |  |  ├── css-background-offsets.js
+|  |  |  |  ├── css-backgroundblendmode.js
+|  |  |  |  ├── css-boxdecorationbreak.js
+|  |  |  |  ├── css-boxshadow.js
+|  |  |  |  ├── css-canvas.js
+|  |  |  |  ├── css-caret-color.js
+|  |  |  |  ├── css-cascade-layers.js
+|  |  |  |  ├── css-cascade-scope.js
+|  |  |  |  ├── css-case-insensitive.js
+|  |  |  |  ├── css-clip-path.js
+|  |  |  |  ├── css-color-adjust.js
+|  |  |  |  ├── css-color-function.js
+|  |  |  |  ├── css-conic-gradients.js
+|  |  |  |  ├── css-container-queries-style.js
+|  |  |  |  ├── css-container-queries.js
+|  |  |  |  ├── css-container-query-units.js
+|  |  |  |  ├── css-containment.js
+|  |  |  |  ├── css-content-visibility.js
+|  |  |  |  ├── css-counters.js
+|  |  |  |  ├── css-crisp-edges.js
+|  |  |  |  ├── css-cross-fade.js
+|  |  |  |  ├── css-default-pseudo.js
+|  |  |  |  ├── css-descendant-gtgt.js
+|  |  |  |  ├── css-deviceadaptation.js
+|  |  |  |  ├── css-dir-pseudo.js
+|  |  |  |  ├── css-display-contents.js
+|  |  |  |  ├── css-element-function.js
+|  |  |  |  ├── css-env-function.js
+|  |  |  |  ├── css-exclusions.js
+|  |  |  |  ├── css-featurequeries.js
+|  |  |  |  ├── css-file-selector-button.js
+|  |  |  |  ├── css-filter-function.js
+|  |  |  |  ├── css-filters.js
+|  |  |  |  ├── css-first-letter.js
+|  |  |  |  ├── css-first-line.js
+|  |  |  |  ├── css-fixed.js
+|  |  |  |  ├── css-focus-visible.js
+|  |  |  |  ├── css-focus-within.js
+|  |  |  |  ├── css-font-palette.js
+|  |  |  |  ├── css-font-rendering-controls.js
+|  |  |  |  ├── css-font-stretch.js
+|  |  |  |  ├── css-gencontent.js
+|  |  |  |  ├── css-gradients.js
+|  |  |  |  ├── css-grid-animation.js
+|  |  |  |  ├── css-grid-lanes.js
+|  |  |  |  ├── css-grid.js
+|  |  |  |  ├── css-hanging-punctuation.js
+|  |  |  |  ├── css-has.js
+|  |  |  |  ├── css-hyphens.js
+|  |  |  |  ├── css-if.js
+|  |  |  |  ├── css-image-orientation.js
+|  |  |  |  ├── css-image-set.js
+|  |  |  |  ├── css-in-out-of-range.js
+|  |  |  |  ├── css-indeterminate-pseudo.js
+|  |  |  |  ├── css-initial-letter.js
+|  |  |  |  ├── css-initial-value.js
+|  |  |  |  ├── css-lch-lab.js
+|  |  |  |  ├── css-letter-spacing.js
+|  |  |  |  ├── css-line-clamp.js
+|  |  |  |  ├── css-logical-props.js
+|  |  |  |  ├── css-marker-pseudo.js
+|  |  |  |  ├── css-masks.js
+|  |  |  |  ├── css-matches-pseudo.js
+|  |  |  |  ├── css-math-functions.js
+|  |  |  |  ├── css-media-interaction.js
+|  |  |  |  ├── css-media-range-syntax.js
+|  |  |  |  ├── css-media-resolution.js
+|  |  |  |  ├── css-media-scripting.js
+|  |  |  |  ├── css-mediaqueries.js
+|  |  |  |  ├── css-mixblendmode.js
+|  |  |  |  ├── css-module-scripts.js
+|  |  |  |  ├── css-motion-paths.js
+|  |  |  |  ├── css-namespaces.js
+|  |  |  |  ├── css-nesting.js
+|  |  |  |  ├── css-not-sel-list.js
+|  |  |  |  ├── css-nth-child-of.js
+|  |  |  |  ├── css-opacity.js
+|  |  |  |  ├── css-optional-pseudo.js
+|  |  |  |  ├── css-overflow-anchor.js
+|  |  |  |  ├── css-overflow-overlay.js
+|  |  |  |  ├── css-overflow.js
+|  |  |  |  ├── css-overscroll-behavior.js
+|  |  |  |  ├── css-page-break.js
+|  |  |  |  ├── css-paged-media.js
+|  |  |  |  ├── css-paint-api.js
+|  |  |  |  ├── css-placeholder-shown.js
+|  |  |  |  ├── css-placeholder.js
+|  |  |  |  ├── css-print-color-adjust.js
+|  |  |  |  ├── css-read-only-write.js
+|  |  |  |  ├── css-rebeccapurple.js
+|  |  |  |  ├── css-reflections.js
+|  |  |  |  ├── css-regions.js
+|  |  |  |  ├── css-relative-colors.js
+|  |  |  |  ├── css-repeating-gradients.js
+|  |  |  |  ├── css-resize.js
+|  |  |  |  ├── css-revert-value.js
+|  |  |  |  ├── css-rrggbbaa.js
+|  |  |  |  ├── css-scroll-behavior.js
+|  |  |  |  ├── css-scrollbar.js
+|  |  |  |  ├── css-sel2.js
+|  |  |  |  ├── css-sel3.js
+|  |  |  |  ├── css-selection.js
+|  |  |  |  ├── css-shapes.js
+|  |  |  |  ├── css-snappoints.js
+|  |  |  |  ├── css-sticky.js
+|  |  |  |  ├── css-subgrid.js
+|  |  |  |  ├── css-supports-api.js
+|  |  |  |  ├── css-table.js
+|  |  |  |  ├── css-text-align-last.js
+|  |  |  |  ├── css-text-box-trim.js
+|  |  |  |  ├── css-text-indent.js
+|  |  |  |  ├── css-text-justify.js
+|  |  |  |  ├── css-text-orientation.js
+|  |  |  |  ├── css-text-spacing.js
+|  |  |  |  ├── css-text-wrap-balance.js
+|  |  |  |  ├── css-textshadow.js
+|  |  |  |  ├── css-touch-action.js
+|  |  |  |  ├── css-transitions.js
+|  |  |  |  ├── css-unicode-bidi.js
+|  |  |  |  ├── css-unset-value.js
+|  |  |  |  ├── css-variables.js
+|  |  |  |  ├── css-when-else.js
+|  |  |  |  ├── css-widows-orphans.js
+|  |  |  |  ├── css-width-stretch.js
+|  |  |  |  ├── css-writing-mode.js
+|  |  |  |  ├── css-zoom.js
+|  |  |  |  ├── css3-attr.js
+|  |  |  |  ├── css3-boxsizing.js
+|  |  |  |  ├── css3-colors.js
+|  |  |  |  ├── css3-cursors-grab.js
+|  |  |  |  ├── css3-cursors-newer.js
+|  |  |  |  ├── css3-cursors.js
+|  |  |  |  ├── css3-tabsize.js
+|  |  |  |  ├── currentcolor.js
+|  |  |  |  ├── custom-elements.js
+|  |  |  |  ├── custom-elementsv1.js
+|  |  |  |  ├── customevent.js
+|  |  |  |  ├── customizable-select.js
+|  |  |  |  ├── datalist.js
+|  |  |  |  ├── dataset.js
+|  |  |  |  ├── datauri.js
+|  |  |  |  ├── date-tolocaledatestring.js
+|  |  |  |  ├── declarative-shadow-dom.js
+|  |  |  |  ├── decorators.js
+|  |  |  |  ├── details.js
+|  |  |  |  ├── deviceorientation.js
+|  |  |  |  ├── devicepixelratio.js
+|  |  |  |  ├── dialog.js
+|  |  |  |  ├── dispatchevent.js
+|  |  |  |  ├── dnssec.js
+|  |  |  |  ├── do-not-track.js
+|  |  |  |  ├── document-currentscript.js
+|  |  |  |  ├── document-evaluate-xpath.js
+|  |  |  |  ├── document-execcommand.js
+|  |  |  |  ├── document-policy.js
+|  |  |  |  ├── document-scrollingelement.js
+|  |  |  |  ├── documenthead.js
+|  |  |  |  ├── dom-manip-convenience.js
+|  |  |  |  ├── dom-range.js
+|  |  |  |  ├── domcontentloaded.js
+|  |  |  |  ├── dommatrix.js
+|  |  |  |  ├── download.js
+|  |  |  |  ├── dragndrop.js
+|  |  |  |  ├── element-closest.js
+|  |  |  |  ├── element-from-point.js
+|  |  |  |  ├── element-scroll-methods.js
+|  |  |  |  ├── eme.js
+|  |  |  |  ├── eot.js
+|  |  |  |  ├── es5.js
+|  |  |  |  ├── es6-class.js
+|  |  |  |  ├── es6-generators.js
+|  |  |  |  ├── es6-module-dynamic-import.js
+|  |  |  |  ├── es6-module.js
+|  |  |  |  ├── es6-number.js
+|  |  |  |  ├── es6-string-includes.js
+|  |  |  |  ├── es6.js
+|  |  |  |  ├── eventsource.js
+|  |  |  |  ├── extended-system-fonts.js
+|  |  |  |  ├── feature-policy.js
+|  |  |  |  ├── fetch.js
+|  |  |  |  ├── fieldset-disabled.js
+|  |  |  |  ├── fileapi.js
+|  |  |  |  ├── filereader.js
+|  |  |  |  ├── filereadersync.js
+|  |  |  |  ├── filesystem.js
+|  |  |  |  ├── flac.js
+|  |  |  |  ├── flexbox-gap.js
+|  |  |  |  ├── flexbox.js
+|  |  |  |  ├── flow-root.js
+|  |  |  |  ├── focusin-focusout-events.js
+|  |  |  |  ├── font-family-system-ui.js
+|  |  |  |  ├── font-feature.js
+|  |  |  |  ├── font-kerning.js
+|  |  |  |  ├── font-loading.js
+|  |  |  |  ├── font-size-adjust.js
+|  |  |  |  ├── font-smooth.js
+|  |  |  |  ├── font-unicode-range.js
+|  |  |  |  ├── font-variant-alternates.js
+|  |  |  |  ├── font-variant-numeric.js
+|  |  |  |  ├── fontface.js
+|  |  |  |  ├── form-attribute.js
+|  |  |  |  ├── form-submit-attributes.js
+|  |  |  |  ├── form-validation.js
+|  |  |  |  ├── forms.js
+|  |  |  |  ├── fullscreen.js
+|  |  |  |  ├── gamepad.js
+|  |  |  |  ├── geolocation.js
+|  |  |  |  ├── getboundingclientrect.js
+|  |  |  |  ├── getcomputedstyle.js
+|  |  |  |  ├── getelementsbyclassname.js
+|  |  |  |  ├── getrandomvalues.js
+|  |  |  |  ├── gyroscope.js
+|  |  |  |  ├── hardwareconcurrency.js
+|  |  |  |  ├── hashchange.js
+|  |  |  |  ├── heif.js
+|  |  |  |  ├── hevc.js
+|  |  |  |  ├── hidden.js
+|  |  |  |  ├── high-resolution-time.js
+|  |  |  |  ├── history.js
+|  |  |  |  ├── html-media-capture.js
+|  |  |  |  ├── html5semantic.js
+|  |  |  |  ├── http-live-streaming.js
+|  |  |  |  ├── http2.js
+|  |  |  |  ├── http3.js
+|  |  |  |  ├── iframe-sandbox.js
+|  |  |  |  ├── iframe-seamless.js
+|  |  |  |  ├── iframe-srcdoc.js
+|  |  |  |  ├── imagecapture.js
+|  |  |  |  ├── ime.js
+|  |  |  |  ├── img-naturalwidth-naturalheight.js
+|  |  |  |  ├── import-maps.js
+|  |  |  |  ├── imports.js
+|  |  |  |  ├── indeterminate-checkbox.js
+|  |  |  |  ├── indexeddb.js
+|  |  |  |  ├── indexeddb2.js
+|  |  |  |  ├── inline-block.js
+|  |  |  |  ├── innertext.js
+|  |  |  |  ├── input-autocomplete-onoff.js
+|  |  |  |  ├── input-color.js
+|  |  |  |  ├── input-datetime.js
+|  |  |  |  ├── input-email-tel-url.js
+|  |  |  |  ├── input-event.js
+|  |  |  |  ├── input-file-accept.js
+|  |  |  |  ├── input-file-directory.js
+|  |  |  |  ├── input-file-multiple.js
+|  |  |  |  ├── input-inputmode.js
+|  |  |  |  ├── input-minlength.js
+|  |  |  |  ├── input-number.js
+|  |  |  |  ├── input-pattern.js
+|  |  |  |  ├── input-placeholder.js
+|  |  |  |  ├── input-range.js
+|  |  |  |  ├── input-search.js
+|  |  |  |  ├── input-selection.js
+|  |  |  |  ├── insert-adjacent.js
+|  |  |  |  ├── insertadjacenthtml.js
+|  |  |  |  ├── internationalization.js
+|  |  |  |  ├── intersectionobserver-v2.js
+|  |  |  |  ├── intersectionobserver.js
+|  |  |  |  ├── intl-pluralrules.js
+|  |  |  |  ├── intrinsic-width.js
+|  |  |  |  ├── jpeg2000.js
+|  |  |  |  ├── jpegxl.js
+|  |  |  |  ├── jpegxr.js
+|  |  |  |  ├── js-regexp-lookbehind.js
+|  |  |  |  ├── json.js
+|  |  |  |  ├── justify-content-space-evenly.js
+|  |  |  |  ├── kerning-pairs-ligatures.js
+|  |  |  |  ├── keyboardevent-charcode.js
+|  |  |  |  ├── keyboardevent-code.js
+|  |  |  |  ├── keyboardevent-getmodifierstate.js
+|  |  |  |  ├── keyboardevent-key.js
+|  |  |  |  ├── keyboardevent-location.js
+|  |  |  |  ├── keyboardevent-which.js
+|  |  |  |  ├── lazyload.js
+|  |  |  |  ├── let.js
+|  |  |  |  ├── link-icon-png.js
+|  |  |  |  ├── link-icon-svg.js
+|  |  |  |  ├── link-rel-dns-prefetch.js
+|  |  |  |  ├── link-rel-modulepreload.js
+|  |  |  |  ├── link-rel-preconnect.js
+|  |  |  |  ├── link-rel-prefetch.js
+|  |  |  |  ├── link-rel-preload.js
+|  |  |  |  ├── link-rel-prerender.js
+|  |  |  |  ├── loading-lazy-attr.js
+|  |  |  |  ├── loading-lazy-media.js
+|  |  |  |  ├── localecompare.js
+|  |  |  |  ├── magnetometer.js
+|  |  |  |  ├── matchesselector.js
+|  |  |  |  ├── matchmedia.js
+|  |  |  |  ├── mathml.js
+|  |  |  |  ├── maxlength.js
+|  |  |  |  ├── mdn-css-backdrop-pseudo-element.js
+|  |  |  |  ├── mdn-css-unicode-bidi-isolate-override.js
+|  |  |  |  ├── mdn-css-unicode-bidi-isolate.js
+|  |  |  |  ├── mdn-css-unicode-bidi-plaintext.js
+|  |  |  |  ├── mdn-text-decoration-color.js
+|  |  |  |  ├── mdn-text-decoration-line.js
+|  |  |  |  ├── mdn-text-decoration-shorthand.js
+|  |  |  |  ├── mdn-text-decoration-style.js
+|  |  |  |  ├── media-fragments.js
+|  |  |  |  ├── mediacapture-fromelement.js
+|  |  |  |  ├── mediarecorder.js
+|  |  |  |  ├── mediasource.js
+|  |  |  |  ├── menu.js
+|  |  |  |  ├── meta-theme-color.js
+|  |  |  |  ├── meter.js
+|  |  |  |  ├── midi.js
+|  |  |  |  ├── minmaxwh.js
+|  |  |  |  ├── mp3.js
+|  |  |  |  ├── mpeg-dash.js
+|  |  |  |  ├── mpeg4.js
+|  |  |  |  ├── multibackgrounds.js
+|  |  |  |  ├── multicolumn.js
+|  |  |  |  ├── mutation-events.js
+|  |  |  |  ├── mutationobserver.js
+|  |  |  |  ├── namevalue-storage.js
+|  |  |  |  ├── native-filesystem-api.js
+|  |  |  |  ├── nav-timing.js
+|  |  |  |  ├── netinfo.js
+|  |  |  |  ├── notifications.js
+|  |  |  |  ├── object-entries.js
+|  |  |  |  ├── object-fit.js
+|  |  |  |  ├── object-observe.js
+|  |  |  |  ├── object-values.js
+|  |  |  |  ├── objectrtc.js
+|  |  |  |  ├── offline-apps.js
+|  |  |  |  ├── offscreencanvas.js
+|  |  |  |  ├── ogg-vorbis.js
+|  |  |  |  ├── ogv.js
+|  |  |  |  ├── ol-reversed.js
+|  |  |  |  ├── once-event-listener.js
+|  |  |  |  ├── online-status.js
+|  |  |  |  ├── opus.js
+|  |  |  |  ├── orientation-sensor.js
+|  |  |  |  ├── outline.js
+|  |  |  |  ├── pad-start-end.js
+|  |  |  |  ├── page-transition-events.js
+|  |  |  |  ├── pagevisibility.js
+|  |  |  |  ├── passive-event-listener.js
+|  |  |  |  ├── passkeys.js
+|  |  |  |  ├── passwordrules.js
+|  |  |  |  ├── path2d.js
+|  |  |  |  ├── payment-request.js
+|  |  |  |  ├── pdf-viewer.js
+|  |  |  |  ├── permissions-api.js
+|  |  |  |  ├── permissions-policy.js
+|  |  |  |  ├── picture-in-picture.js
+|  |  |  |  ├── picture.js
+|  |  |  |  ├── ping.js
+|  |  |  |  ├── png-alpha.js
+|  |  |  |  ├── pointer-events.js
+|  |  |  |  ├── pointer.js
+|  |  |  |  ├── pointerlock.js
+|  |  |  |  ├── portals.js
+|  |  |  |  ├── prefers-color-scheme.js
+|  |  |  |  ├── prefers-reduced-motion.js
+|  |  |  |  ├── progress.js
+|  |  |  |  ├── promise-finally.js
+|  |  |  |  ├── promises.js
+|  |  |  |  ├── proximity.js
+|  |  |  |  ├── proxy.js
+|  |  |  |  ├── publickeypinning.js
+|  |  |  |  ├── push-api.js
+|  |  |  |  ├── queryselector.js
+|  |  |  |  ├── readonly-attr.js
+|  |  |  |  ├── referrer-policy.js
+|  |  |  |  ├── registerprotocolhandler.js
+|  |  |  |  ├── rel-noopener.js
+|  |  |  |  ├── rel-noreferrer.js
+|  |  |  |  ├── rellist.js
+|  |  |  |  ├── rem.js
+|  |  |  |  ├── requestanimationframe.js
+|  |  |  |  ├── requestidlecallback.js
+|  |  |  |  ├── resizeobserver.js
+|  |  |  |  ├── resource-timing.js
+|  |  |  |  ├── rest-parameters.js
+|  |  |  |  ├── rtcpeerconnection.js
+|  |  |  |  ├── ruby.js
+|  |  |  |  ├── run-in.js
+|  |  |  |  ├── same-site-cookie-attribute.js
+|  |  |  |  ├── screen-orientation.js
+|  |  |  |  ├── script-async.js
+|  |  |  |  ├── script-defer.js
+|  |  |  |  ├── scrollintoview.js
+|  |  |  |  ├── scrollintoviewifneeded.js
+|  |  |  |  ├── sdch.js
+|  |  |  |  ├── selection-api.js
+|  |  |  |  ├── server-timing.js
+|  |  |  |  ├── serviceworkers.js
+|  |  |  |  ├── setimmediate.js
+|  |  |  |  ├── shadowdom.js
+|  |  |  |  ├── shadowdomv1.js
+|  |  |  |  ├── sharedarraybuffer.js
+|  |  |  |  ├── sharedworkers.js
+|  |  |  |  ├── sni.js
+|  |  |  |  ├── spdy.js
+|  |  |  |  ├── speech-recognition.js
+|  |  |  |  ├── speech-synthesis.js
+|  |  |  |  ├── spellcheck-attribute.js
+|  |  |  |  ├── sql-storage.js
+|  |  |  |  ├── srcset.js
+|  |  |  |  ├── stream.js
+|  |  |  |  ├── streams.js
+|  |  |  |  ├── stricttransportsecurity.js
+|  |  |  |  ├── style-scoped.js
+|  |  |  |  ├── subresource-bundling.js
+|  |  |  |  ├── subresource-integrity.js
+|  |  |  |  ├── svg-css.js
+|  |  |  |  ├── svg-filters.js
+|  |  |  |  ├── svg-fonts.js
+|  |  |  |  ├── svg-fragment.js
+|  |  |  |  ├── svg-html.js
+|  |  |  |  ├── svg-html5.js
+|  |  |  |  ├── svg-img.js
+|  |  |  |  ├── svg-smil.js
+|  |  |  |  ├── svg.js
+|  |  |  |  ├── sxg.js
+|  |  |  |  ├── tabindex-attr.js
+|  |  |  |  ├── template-literals.js
+|  |  |  |  ├── template.js
+|  |  |  |  ├── temporal.js
+|  |  |  |  ├── testfeat.js
+|  |  |  |  ├── text-decoration.js
+|  |  |  |  ├── text-emphasis.js
+|  |  |  |  ├── text-overflow.js
+|  |  |  |  ├── text-size-adjust.js
+|  |  |  |  ├── text-stroke.js
+|  |  |  |  ├── textcontent.js
+|  |  |  |  ├── textencoder.js
+|  |  |  |  ├── tls1-1.js
+|  |  |  |  ├── tls1-2.js
+|  |  |  |  ├── tls1-3.js
+|  |  |  |  ├── touch.js
+|  |  |  |  ├── transforms2d.js
+|  |  |  |  ├── transforms3d.js
+|  |  |  |  ├── trusted-types.js
+|  |  |  |  ├── ttf.js
+|  |  |  |  ├── typedarrays.js
+|  |  |  |  ├── u2f.js
+|  |  |  |  ├── unhandledrejection.js
+|  |  |  |  ├── upgradeinsecurerequests.js
+|  |  |  |  ├── url-scroll-to-text-fragment.js
+|  |  |  |  ├── url.js
+|  |  |  |  ├── urlsearchparams.js
+|  |  |  |  ├── use-strict.js
+|  |  |  |  ├── user-select-none.js
+|  |  |  |  ├── user-timing.js
+|  |  |  |  ├── variable-fonts.js
+|  |  |  |  ├── vector-effect.js
+|  |  |  |  ├── vibration.js
+|  |  |  |  ├── video.js
+|  |  |  |  ├── videotracks.js
+|  |  |  |  ├── view-transitions.js
+|  |  |  |  ├── viewport-unit-variants.js
+|  |  |  |  ├── viewport-units.js
+|  |  |  |  ├── wai-aria.js
+|  |  |  |  ├── wake-lock.js
+|  |  |  |  ├── wasm-bigint.js
+|  |  |  |  ├── wasm-bulk-memory.js
+|  |  |  |  ├── wasm-extended-const.js
+|  |  |  |  ├── wasm-gc.js
+|  |  |  |  ├── wasm-multi-memory.js
+|  |  |  |  ├── wasm-multi-value.js
+|  |  |  |  ├── wasm-mutable-globals.js
+|  |  |  |  ├── wasm-nontrapping-fptoint.js
+|  |  |  |  ├── wasm-reference-types.js
+|  |  |  |  ├── wasm-relaxed-simd.js
+|  |  |  |  ├── wasm-signext.js
+|  |  |  |  ├── wasm-simd.js
+|  |  |  |  ├── wasm-tail-calls.js
+|  |  |  |  ├── wasm-threads.js
+|  |  |  |  ├── wasm.js
+|  |  |  |  ├── wav.js
+|  |  |  |  ├── wbr-element.js
+|  |  |  |  ├── web-animation.js
+|  |  |  |  ├── web-app-manifest.js
+|  |  |  |  ├── web-bluetooth.js
+|  |  |  |  ├── web-serial.js
+|  |  |  |  ├── web-share.js
+|  |  |  |  ├── webauthn.js
+|  |  |  |  ├── webcodecs.js
+|  |  |  |  ├── webgl.js
+|  |  |  |  ├── webgl2.js
+|  |  |  |  ├── webgpu.js
+|  |  |  |  ├── webhid.js
+|  |  |  |  ├── webkit-user-drag.js
+|  |  |  |  ├── webm.js
+|  |  |  |  ├── webnfc.js
+|  |  |  |  ├── webp.js
+|  |  |  |  ├── websockets.js
+|  |  |  |  ├── webtransport.js
+|  |  |  |  ├── webusb.js
+|  |  |  |  ├── webvr.js
+|  |  |  |  ├── webvtt.js
+|  |  |  |  ├── webworkers.js
+|  |  |  |  ├── webxr.js
+|  |  |  |  ├── will-change.js
+|  |  |  |  ├── woff.js
+|  |  |  |  ├── woff2.js
+|  |  |  |  ├── word-break.js
+|  |  |  |  ├── wordwrap.js
+|  |  |  |  ├── x-doc-messaging.js
+|  |  |  |  ├── x-frame-options.js
+|  |  |  |  ├── xhr2.js
+|  |  |  |  ├── xhtml.js
+|  |  |  |  ├── xhtmlsmil.js
+|  |  |  |  ├── xml-serializer.js
+|  |  |  |  └── zstd.js
+|  |  |  ├── features.js
+|  |  |  ├── regions
+|  |  |  |  ├── AD.js
+|  |  |  |  ├── AE.js
+|  |  |  |  ├── AF.js
+|  |  |  |  ├── AG.js
+|  |  |  |  ├── AI.js
+|  |  |  |  ├── AL.js
+|  |  |  |  ├── AM.js
+|  |  |  |  ├── AO.js
+|  |  |  |  ├── AR.js
+|  |  |  |  ├── AS.js
+|  |  |  |  ├── AT.js
+|  |  |  |  ├── AU.js
+|  |  |  |  ├── AW.js
+|  |  |  |  ├── AX.js
+|  |  |  |  ├── AZ.js
+|  |  |  |  ├── BA.js
+|  |  |  |  ├── BB.js
+|  |  |  |  ├── BD.js
+|  |  |  |  ├── BE.js
+|  |  |  |  ├── BF.js
+|  |  |  |  ├── BG.js
+|  |  |  |  ├── BH.js
+|  |  |  |  ├── BI.js
+|  |  |  |  ├── BJ.js
+|  |  |  |  ├── BM.js
+|  |  |  |  ├── BN.js
+|  |  |  |  ├── BO.js
+|  |  |  |  ├── BR.js
+|  |  |  |  ├── BS.js
+|  |  |  |  ├── BT.js
+|  |  |  |  ├── BW.js
+|  |  |  |  ├── BY.js
+|  |  |  |  ├── BZ.js
+|  |  |  |  ├── CA.js
+|  |  |  |  ├── CD.js
+|  |  |  |  ├── CF.js
+|  |  |  |  ├── CG.js
+|  |  |  |  ├── CH.js
+|  |  |  |  ├── CI.js
+|  |  |  |  ├── CK.js
+|  |  |  |  ├── CL.js
+|  |  |  |  ├── CM.js
+|  |  |  |  ├── CN.js
+|  |  |  |  ├── CO.js
+|  |  |  |  ├── CR.js
+|  |  |  |  ├── CU.js
+|  |  |  |  ├── CV.js
+|  |  |  |  ├── CX.js
+|  |  |  |  ├── CY.js
+|  |  |  |  ├── CZ.js
+|  |  |  |  ├── DE.js
+|  |  |  |  ├── DJ.js
+|  |  |  |  ├── DK.js
+|  |  |  |  ├── DM.js
+|  |  |  |  ├── DO.js
+|  |  |  |  ├── DZ.js
+|  |  |  |  ├── EC.js
+|  |  |  |  ├── EE.js
+|  |  |  |  ├── EG.js
+|  |  |  |  ├── ER.js
+|  |  |  |  ├── ES.js
+|  |  |  |  ├── ET.js
+|  |  |  |  ├── FI.js
+|  |  |  |  ├── FJ.js
+|  |  |  |  ├── FK.js
+|  |  |  |  ├── FM.js
+|  |  |  |  ├── FO.js
+|  |  |  |  ├── FR.js
+|  |  |  |  ├── GA.js
+|  |  |  |  ├── GB.js
+|  |  |  |  ├── GD.js
+|  |  |  |  ├── GE.js
+|  |  |  |  ├── GF.js
+|  |  |  |  ├── GG.js
+|  |  |  |  ├── GH.js
+|  |  |  |  ├── GI.js
+|  |  |  |  ├── GL.js
+|  |  |  |  ├── GM.js
+|  |  |  |  ├── GN.js
+|  |  |  |  ├── GP.js
+|  |  |  |  ├── GQ.js
+|  |  |  |  ├── GR.js
+|  |  |  |  ├── GT.js
+|  |  |  |  ├── GU.js
+|  |  |  |  ├── GW.js
+|  |  |  |  ├── GY.js
+|  |  |  |  ├── HK.js
+|  |  |  |  ├── HN.js
+|  |  |  |  ├── HR.js
+|  |  |  |  ├── HT.js
+|  |  |  |  ├── HU.js
+|  |  |  |  ├── ID.js
+|  |  |  |  ├── IE.js
+|  |  |  |  ├── IL.js
+|  |  |  |  ├── IM.js
+|  |  |  |  ├── IN.js
+|  |  |  |  ├── IQ.js
+|  |  |  |  ├── IR.js
+|  |  |  |  ├── IS.js
+|  |  |  |  ├── IT.js
+|  |  |  |  ├── JE.js
+|  |  |  |  ├── JM.js
+|  |  |  |  ├── JO.js
+|  |  |  |  ├── JP.js
+|  |  |  |  ├── KE.js
+|  |  |  |  ├── KG.js
+|  |  |  |  ├── KH.js
+|  |  |  |  ├── KI.js
+|  |  |  |  ├── KM.js
+|  |  |  |  ├── KN.js
+|  |  |  |  ├── KP.js
+|  |  |  |  ├── KR.js
+|  |  |  |  ├── KW.js
+|  |  |  |  ├── KY.js
+|  |  |  |  ├── KZ.js
+|  |  |  |  ├── LA.js
+|  |  |  |  ├── LB.js
+|  |  |  |  ├── LC.js
+|  |  |  |  ├── LI.js
+|  |  |  |  ├── LK.js
+|  |  |  |  ├── LR.js
+|  |  |  |  ├── LS.js
+|  |  |  |  ├── LT.js
+|  |  |  |  ├── LU.js
+|  |  |  |  ├── LV.js
+|  |  |  |  ├── LY.js
+|  |  |  |  ├── MA.js
+|  |  |  |  ├── MC.js
+|  |  |  |  ├── MD.js
+|  |  |  |  ├── ME.js
+|  |  |  |  ├── MG.js
+|  |  |  |  ├── MH.js
+|  |  |  |  ├── MK.js
+|  |  |  |  ├── ML.js
+|  |  |  |  ├── MM.js
+|  |  |  |  ├── MN.js
+|  |  |  |  ├── MO.js
+|  |  |  |  ├── MP.js
+|  |  |  |  ├── MQ.js
+|  |  |  |  ├── MR.js
+|  |  |  |  ├── MS.js
+|  |  |  |  ├── MT.js
+|  |  |  |  ├── MU.js
+|  |  |  |  ├── MV.js
+|  |  |  |  ├── MW.js
+|  |  |  |  ├── MX.js
+|  |  |  |  ├── MY.js
+|  |  |  |  ├── MZ.js
+|  |  |  |  ├── NA.js
+|  |  |  |  ├── NC.js
+|  |  |  |  ├── NE.js
+|  |  |  |  ├── NF.js
+|  |  |  |  ├── NG.js
+|  |  |  |  ├── NI.js
+|  |  |  |  ├── NL.js
+|  |  |  |  ├── NO.js
+|  |  |  |  ├── NP.js
+|  |  |  |  ├── NR.js
+|  |  |  |  ├── NU.js
+|  |  |  |  ├── NZ.js
+|  |  |  |  ├── OM.js
+|  |  |  |  ├── PA.js
+|  |  |  |  ├── PE.js
+|  |  |  |  ├── PF.js
+|  |  |  |  ├── PG.js
+|  |  |  |  ├── PH.js
+|  |  |  |  ├── PK.js
+|  |  |  |  ├── PL.js
+|  |  |  |  ├── PM.js
+|  |  |  |  ├── PN.js
+|  |  |  |  ├── PR.js
+|  |  |  |  ├── PS.js
+|  |  |  |  ├── PT.js
+|  |  |  |  ├── PW.js
+|  |  |  |  ├── PY.js
+|  |  |  |  ├── QA.js
+|  |  |  |  ├── RE.js
+|  |  |  |  ├── RO.js
+|  |  |  |  ├── RS.js
+|  |  |  |  ├── RU.js
+|  |  |  |  ├── RW.js
+|  |  |  |  ├── SA.js
+|  |  |  |  ├── SB.js
+|  |  |  |  ├── SC.js
+|  |  |  |  ├── SD.js
+|  |  |  |  ├── SE.js
+|  |  |  |  ├── SG.js
+|  |  |  |  ├── SH.js
+|  |  |  |  ├── SI.js
+|  |  |  |  ├── SK.js
+|  |  |  |  ├── SL.js
+|  |  |  |  ├── SM.js
+|  |  |  |  ├── SN.js
+|  |  |  |  ├── SO.js
+|  |  |  |  ├── SR.js
+|  |  |  |  ├── ST.js
+|  |  |  |  ├── SV.js
+|  |  |  |  ├── SY.js
+|  |  |  |  ├── SZ.js
+|  |  |  |  ├── TC.js
+|  |  |  |  ├── TD.js
+|  |  |  |  ├── TG.js
+|  |  |  |  ├── TH.js
+|  |  |  |  ├── TJ.js
+|  |  |  |  ├── TL.js
+|  |  |  |  ├── TM.js
+|  |  |  |  ├── TN.js
+|  |  |  |  ├── TO.js
+|  |  |  |  ├── TR.js
+|  |  |  |  ├── TT.js
+|  |  |  |  ├── TV.js
+|  |  |  |  ├── TW.js
+|  |  |  |  ├── TZ.js
+|  |  |  |  ├── UA.js
+|  |  |  |  ├── UG.js
+|  |  |  |  ├── US.js
+|  |  |  |  ├── UY.js
+|  |  |  |  ├── UZ.js
+|  |  |  |  ├── VA.js
+|  |  |  |  ├── VC.js
+|  |  |  |  ├── VE.js
+|  |  |  |  ├── VG.js
+|  |  |  |  ├── VI.js
+|  |  |  |  ├── VN.js
+|  |  |  |  ├── VU.js
+|  |  |  |  ├── WF.js
+|  |  |  |  ├── WS.js
+|  |  |  |  ├── YE.js
+|  |  |  |  ├── YT.js
+|  |  |  |  ├── ZA.js
+|  |  |  |  ├── ZM.js
+|  |  |  |  ├── ZW.js
+|  |  |  |  ├── alt-af.js
+|  |  |  |  ├── alt-an.js
+|  |  |  |  ├── alt-as.js
+|  |  |  |  ├── alt-eu.js
+|  |  |  |  ├── alt-na.js
+|  |  |  |  ├── alt-oc.js
+|  |  |  |  ├── alt-sa.js
+|  |  |  |  └── alt-ww.js
+|  |  |  └── versionGroups.js
+|  |  ├── dist
+|  |  |  ├── lib
+|  |  |  |  ├── statuses.js
+|  |  |  |  └── supported.js
+|  |  |  └── unpacker
+|  |  |     ├── agents.js
+|  |  |     ├── browserVersions.js
+|  |  |     ├── browsers.js
+|  |  |     ├── feature.js
+|  |  |     ├── features.js
+|  |  |     ├── index.js
+|  |  |     ├── region.js
+|  |  |     └── versionGroups.js
+|  |  └── package.json
+|  ├── client-only
+|  |  ├── error.js
+|  |  ├── index.js
+|  |  └── package.json
+|  ├── clsx
+|  |  ├── clsx.d.mts
+|  |  ├── clsx.d.ts
+|  |  ├── dist
+|  |  |  ├── clsx.js
+|  |  |  ├── clsx.min.js
+|  |  |  ├── clsx.mjs
+|  |  |  ├── lite.js
+|  |  |  └── lite.mjs
+|  |  ├── license
+|  |  ├── package.json
+|  |  └── readme.md
+|  ├── create-require
+|  |  ├── CHANGELOG.md
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── create-require.d.ts
+|  |  ├── create-require.js
+|  |  └── package.json
+|  ├── csstype
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── index.d.ts
+|  |  ├── index.js.flow
+|  |  └── package.json
+|  ├── data-uri-to-buffer
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  ├── index.d.ts
+|  |  |  ├── index.js
+|  |  |  └── index.js.map
+|  |  ├── package.json
+|  |  └── src
+|  |     └── index.ts
+|  ├── debug
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── package.json
+|  |  └── src
+|  |     ├── browser.js
+|  |     ├── common.js
+|  |     ├── index.js
+|  |     └── node.js
+|  ├── detect-libc
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── index.d.ts
+|  |  ├── lib
+|  |  |  ├── detect-libc.js
+|  |  |  ├── elf.js
+|  |  |  ├── filesystem.js
+|  |  |  └── process.js
+|  |  └── package.json
+|  ├── diff
+|  |  ├── CONTRIBUTING.md
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  ├── diff.js
+|  |  |  └── diff.min.js
+|  |  ├── lib
+|  |  |  ├── convert
+|  |  |  |  ├── dmp.js
+|  |  |  |  └── xml.js
+|  |  |  ├── diff
+|  |  |  |  ├── array.js
+|  |  |  |  ├── base.js
+|  |  |  |  ├── character.js
+|  |  |  |  ├── css.js
+|  |  |  |  ├── json.js
+|  |  |  |  ├── line.js
+|  |  |  |  ├── sentence.js
+|  |  |  |  └── word.js
+|  |  |  ├── index.es6.js
+|  |  |  ├── index.js
+|  |  |  ├── patch
+|  |  |  |  ├── apply.js
+|  |  |  |  ├── create.js
+|  |  |  |  ├── merge.js
+|  |  |  |  └── parse.js
+|  |  |  └── util
+|  |  |     ├── array.js
+|  |  |     ├── distance-iterator.js
+|  |  |     └── params.js
+|  |  ├── package.json
+|  |  ├── release-notes.md
+|  |  └── runtime.js
+|  ├── duplexify
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── example.js
+|  |  ├── index.js
+|  |  ├── package.json
+|  |  └── test.js
+|  ├── ecdsa-sig-formatter
+|  |  ├── CODEOWNERS
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── package.json
+|  |  └── src
+|  |     ├── ecdsa-sig-formatter.d.ts
+|  |     ├── ecdsa-sig-formatter.js
+|  |     └── param-bytes-for-alg.js
+|  ├── electron-to-chromium
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── chromium-versions.js
+|  |  ├── chromium-versions.json
+|  |  ├── full-chromium-versions.js
+|  |  ├── full-chromium-versions.json
+|  |  ├── full-versions.js
+|  |  ├── full-versions.json
+|  |  ├── index.js
+|  |  ├── package.json
+|  |  ├── versions.js
+|  |  └── versions.json
+|  ├── end-of-stream
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── index.js
+|  |  └── package.json
+|  ├── enhanced-resolve
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── lib
+|  |  |  ├── AliasFieldPlugin.js
+|  |  |  ├── AliasPlugin.js
+|  |  |  ├── AliasUtils.js
+|  |  |  ├── AppendPlugin.js
+|  |  |  ├── CachedInputFileSystem.js
+|  |  |  ├── CloneBasenamePlugin.js
+|  |  |  ├── ConditionalPlugin.js
+|  |  |  ├── DescriptionFilePlugin.js
+|  |  |  ├── DescriptionFileUtils.js
+|  |  |  ├── DirectoryExistsPlugin.js
+|  |  |  ├── ExportsFieldPlugin.js
+|  |  |  ├── ExtensionAliasPlugin.js
+|  |  |  ├── FileExistsPlugin.js
+|  |  |  ├── ImportsFieldPlugin.js
+|  |  |  ├── JoinRequestPartPlugin.js
+|  |  |  ├── JoinRequestPlugin.js
+|  |  |  ├── LogInfoPlugin.js
+|  |  |  ├── MainFieldPlugin.js
+|  |  |  ├── ModulesInHierachicDirectoriesPlugin.js
+|  |  |  ├── ModulesInHierarchicalDirectoriesPlugin.js
+|  |  |  ├── ModulesInRootPlugin.js
+|  |  |  ├── ModulesUtils.js
+|  |  |  ├── NextPlugin.js
+|  |  |  ├── ParsePlugin.js
+|  |  |  ├── PnpPlugin.js
+|  |  |  ├── Resolver.js
+|  |  |  ├── ResolverFactory.js
+|  |  |  ├── RestrictionsPlugin.js
+|  |  |  ├── ResultPlugin.js
+|  |  |  ├── RootsPlugin.js
+|  |  |  ├── SelfReferencePlugin.js
+|  |  |  ├── SymlinkPlugin.js
+|  |  |  ├── SyncAsyncFileSystemDecorator.js
+|  |  |  ├── TryNextPlugin.js
+|  |  |  ├── TsconfigPathsPlugin.js
+|  |  |  ├── UnsafeCachePlugin.js
+|  |  |  ├── UseFilePlugin.js
+|  |  |  ├── createInnerContext.js
+|  |  |  ├── forEachBail.js
+|  |  |  ├── getInnerRequest.js
+|  |  |  ├── getPaths.js
+|  |  |  ├── index.js
+|  |  |  └── util
+|  |  |     ├── entrypoints.js
+|  |  |     ├── fileURLToPath.js
+|  |  |     ├── fs.js
+|  |  |     ├── graceful-fs-browser.js
+|  |  |     ├── identifier.js
+|  |  |     ├── memoize.js
+|  |  |     ├── module-browser.js
+|  |  |     ├── path-browser.js
+|  |  |     ├── path.js
+|  |  |     ├── process-browser.js
+|  |  |     ├── strip-json-comments.js
+|  |  |     └── url-browser.js
+|  |  ├── package.json
+|  |  └── types.d.ts
+|  ├── esbuild
+|  |  ├── LICENSE.md
+|  |  ├── README.md
+|  |  ├── bin
+|  |  |  └── esbuild
+|  |  ├── install.js
+|  |  ├── lib
+|  |  |  ├── main.d.ts
+|  |  |  └── main.js
+|  |  └── package.json
+|  ├── escalade
+|  |  ├── dist
+|  |  |  ├── index.js
+|  |  |  └── index.mjs
+|  |  ├── index.d.mts
+|  |  ├── index.d.ts
+|  |  ├── license
+|  |  ├── package.json
+|  |  ├── readme.md
+|  |  └── sync
+|  |     ├── index.d.mts
+|  |     ├── index.d.ts
+|  |     ├── index.js
+|  |     └── index.mjs
+|  ├── extend
+|  |  ├── CHANGELOG.md
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── component.json
+|  |  ├── index.js
+|  |  └── package.json
+|  ├── fetch-blob
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── file.d.ts
+|  |  ├── file.js
+|  |  ├── from.d.ts
+|  |  ├── from.js
+|  |  ├── index.d.ts
+|  |  ├── index.js
+|  |  ├── package.json
+|  |  └── streams.cjs
+|  ├── formdata-polyfill
+|  |  ├── FormData.js
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── esm.min.d.ts
+|  |  ├── esm.min.js
+|  |  ├── formdata-to-blob.js
+|  |  ├── formdata.min.js
+|  |  └── package.json
+|  ├── fraction.js
+|  |  ├── CHANGELOG.md
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  ├── fraction.js
+|  |  |  ├── fraction.min.js
+|  |  |  └── fraction.mjs
+|  |  ├── examples
+|  |  |  ├── angles.js
+|  |  |  ├── approx.js
+|  |  |  ├── egyptian.js
+|  |  |  ├── hesse-convergence.js
+|  |  |  ├── integrate.js
+|  |  |  ├── ratio-chain.js
+|  |  |  ├── rational-pow.js
+|  |  |  ├── tape-measure.js
+|  |  |  ├── toFraction.js
+|  |  |  └── valueOfPi.js
+|  |  ├── fraction.d.mts
+|  |  ├── fraction.d.ts
+|  |  ├── package.json
+|  |  ├── src
+|  |  |  └── fraction.js
+|  |  └── tests
+|  |     └── fraction.test.js
+|  ├── fsevents
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── fsevents.d.ts
+|  |  ├── fsevents.js
+|  |  ├── fsevents.node
+|  |  └── package.json
+|  ├── gaxios
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── build
+|  |  |  ├── cjs
+|  |  |  |  ├── browser-test
+|  |  |  |  ├── src
+|  |  |  |  ├── system-test
+|  |  |  |  ├── test
+|  |  |  |  └── tsconfig.cjs.tsbuildinfo
+|  |  |  └── esm
+|  |  |     ├── browser-test
+|  |  |     ├── package.json
+|  |  |     ├── src
+|  |  |     ├── system-test
+|  |  |     ├── test
+|  |  |     └── tsconfig.tsbuildinfo
+|  |  └── package.json
+|  ├── gcp-metadata
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── build
+|  |  |  └── src
+|  |  |     ├── gcp-residency.d.ts
+|  |  |     ├── gcp-residency.js
+|  |  |     ├── gcp-residency.js.map
+|  |  |     ├── index.d.ts
+|  |  |     ├── index.js
+|  |  |     └── index.js.map
+|  |  └── package.json
+|  ├── google-auth-library
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── build
+|  |  |  └── src
+|  |  |     ├── auth
+|  |  |     ├── crypto
+|  |  |     ├── gtoken
+|  |  |     ├── index.d.ts
+|  |  |     ├── index.js
+|  |  |     ├── shared.cjs
+|  |  |     ├── shared.d.cts
+|  |  |     ├── util.d.ts
+|  |  |     └── util.js
+|  |  └── package.json
+|  ├── google-logging-utils
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── build
+|  |  |  └── src
+|  |  |     ├── colours.d.ts
+|  |  |     ├── colours.js
+|  |  |     ├── colours.js.map
+|  |  |     ├── index.d.ts
+|  |  |     ├── index.js
+|  |  |     ├── index.js.map
+|  |  |     ├── logging-utils.d.ts
+|  |  |     ├── logging-utils.js
+|  |  |     ├── logging-utils.js.map
+|  |  |     ├── temporal.d.ts
+|  |  |     ├── temporal.js
+|  |  |     └── temporal.js.map
+|  |  └── package.json
+|  ├── graceful-fs
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── clone.js
+|  |  ├── graceful-fs.js
+|  |  ├── legacy-streams.js
+|  |  ├── package.json
+|  |  └── polyfills.js
+|  ├── html-entities
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  ├── commonjs
+|  |  |  |  ├── index.d.ts
+|  |  |  |  ├── index.js
+|  |  |  |  ├── index.js.flow
+|  |  |  |  ├── index.js.map
+|  |  |  |  ├── named-references.js
+|  |  |  |  ├── named-references.js.map
+|  |  |  |  ├── numeric-unicode-map.js
+|  |  |  |  ├── numeric-unicode-map.js.map
+|  |  |  |  ├── package.json
+|  |  |  |  ├── surrogate-pairs.js
+|  |  |  |  └── surrogate-pairs.js.map
+|  |  |  └── esm
+|  |  |     ├── index.d.ts
+|  |  |     ├── index.js
+|  |  |     ├── index.js.map
+|  |  |     ├── named-references.js
+|  |  |     ├── named-references.js.map
+|  |  |     ├── numeric-unicode-map.js
+|  |  |     ├── numeric-unicode-map.js.map
+|  |  |     ├── package.json
+|  |  |     ├── surrogate-pairs.js
+|  |  |     └── surrogate-pairs.js.map
+|  |  ├── package.json
+|  |  └── src
+|  |     ├── index.ts
+|  |     ├── named-references.ts
+|  |     ├── numeric-unicode-map.ts
+|  |     └── surrogate-pairs.ts
+|  ├── http-proxy-agent
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  ├── index.d.ts
+|  |  |  ├── index.d.ts.map
+|  |  |  ├── index.js
+|  |  |  └── index.js.map
+|  |  └── package.json
+|  ├── https-proxy-agent
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  ├── index.d.ts
+|  |  |  ├── index.d.ts.map
+|  |  |  ├── index.js
+|  |  |  ├── index.js.map
+|  |  |  ├── parse-proxy-response.d.ts
+|  |  |  ├── parse-proxy-response.d.ts.map
+|  |  |  ├── parse-proxy-response.js
+|  |  |  └── parse-proxy-response.js.map
+|  |  └── package.json
+|  ├── iceberg-js
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  ├── index.cjs
+|  |  |  ├── index.cjs.map
+|  |  |  ├── index.d.cts
+|  |  |  ├── index.d.ts
+|  |  |  ├── index.mjs
+|  |  |  └── index.mjs.map
+|  |  └── package.json
+|  ├── inherits
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── inherits.js
+|  |  ├── inherits_browser.js
+|  |  └── package.json
+|  ├── jiti
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  ├── babel.cjs
+|  |  |  └── jiti.cjs
+|  |  ├── lib
+|  |  |  ├── jiti-cli.mjs
+|  |  |  ├── jiti-hooks.mjs
+|  |  |  ├── jiti-native.mjs
+|  |  |  ├── jiti-register.d.mts
+|  |  |  ├── jiti-register.mjs
+|  |  |  ├── jiti-static.mjs
+|  |  |  ├── jiti.cjs
+|  |  |  ├── jiti.d.cts
+|  |  |  ├── jiti.d.mts
+|  |  |  ├── jiti.mjs
+|  |  |  └── types.d.ts
+|  |  └── package.json
+|  ├── json-bigint
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── index.js
+|  |  ├── lib
+|  |  |  ├── parse.js
+|  |  |  └── stringify.js
+|  |  └── package.json
+|  ├── jwa
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── index.js
+|  |  ├── opslevel.yml
+|  |  └── package.json
+|  ├── jws
+|  |  ├── CHANGELOG.md
+|  |  ├── LICENSE
+|  |  ├── index.js
+|  |  ├── lib
+|  |  |  ├── data-stream.js
+|  |  |  ├── sign-stream.js
+|  |  |  ├── tostring.js
+|  |  |  └── verify-stream.js
+|  |  ├── opslevel.yml
+|  |  ├── package.json
+|  |  └── readme.md
+|  ├── lightningcss
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── node
+|  |  |  ├── ast.d.ts
+|  |  |  ├── ast.js.flow
+|  |  |  ├── browserslistToTargets.js
+|  |  |  ├── composeVisitors.js
+|  |  |  ├── flags.js
+|  |  |  ├── index.d.ts
+|  |  |  ├── index.js
+|  |  |  ├── index.js.flow
+|  |  |  ├── index.mjs
+|  |  |  ├── targets.d.ts
+|  |  |  └── targets.js.flow
+|  |  └── package.json
+|  ├── lightningcss-darwin-arm64
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── lightningcss.darwin-arm64.node
+|  |  └── package.json
+|  ├── lucide-react
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  ├── cjs
+|  |  |  |  ├── lucide-react.js
+|  |  |  |  └── lucide-react.js.map
+|  |  |  ├── esm
+|  |  |  |  ├── DynamicIcon.mjs
+|  |  |  |  ├── DynamicIcon.mjs.map
+|  |  |  |  ├── Icon.mjs
+|  |  |  |  ├── Icon.mjs.map
+|  |  |  |  ├── context.mjs
+|  |  |  |  ├── context.mjs.map
+|  |  |  |  ├── createLucideIcon.mjs
+|  |  |  |  ├── createLucideIcon.mjs.map
+|  |  |  |  ├── defaultAttributes.mjs
+|  |  |  |  ├── defaultAttributes.mjs.map
+|  |  |  |  ├── dynamicIconImports.mjs
+|  |  |  |  ├── dynamicIconImports.mjs.map
+|  |  |  |  ├── icons
+|  |  |  |  ├── lucide-react.mjs
+|  |  |  |  ├── lucide-react.mjs.map
+|  |  |  |  └── shared
+|  |  |  ├── lucide-react.d.ts
+|  |  |  ├── lucide-react.prefixed.d.ts
+|  |  |  └── lucide-react.suffixed.d.ts
+|  |  ├── dynamic.d.mts
+|  |  ├── dynamic.d.ts
+|  |  ├── dynamic.js
+|  |  ├── dynamic.mjs
+|  |  ├── dynamic.mjs.map
+|  |  ├── dynamicIconImports.d.mts
+|  |  ├── dynamicIconImports.d.ts
+|  |  ├── dynamicIconImports.mjs
+|  |  └── package.json
+|  ├── magic-string
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  ├── magic-string.cjs.d.ts
+|  |  |  ├── magic-string.cjs.js
+|  |  |  ├── magic-string.cjs.js.map
+|  |  |  ├── magic-string.es.d.mts
+|  |  |  ├── magic-string.es.mjs
+|  |  |  ├── magic-string.es.mjs.map
+|  |  |  ├── magic-string.umd.js
+|  |  |  └── magic-string.umd.js.map
+|  |  └── package.json
+|  ├── make-error
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  └── make-error.js
+|  |  ├── index.d.ts
+|  |  ├── index.js
+|  |  └── package.json
+|  ├── ms
+|  |  ├── index.js
+|  |  ├── license.md
+|  |  ├── package.json
+|  |  └── readme.md
+|  ├── nanoid
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── async
+|  |  |  ├── index.browser.cjs
+|  |  |  ├── index.browser.js
+|  |  |  ├── index.cjs
+|  |  |  ├── index.d.ts
+|  |  |  ├── index.js
+|  |  |  ├── index.native.js
+|  |  |  └── package.json
+|  |  ├── bin
+|  |  |  └── nanoid.cjs
+|  |  ├── index.browser.cjs
+|  |  ├── index.browser.js
+|  |  ├── index.cjs
+|  |  ├── index.d.cts
+|  |  ├── index.d.ts
+|  |  ├── index.js
+|  |  ├── nanoid.js
+|  |  ├── non-secure
+|  |  |  ├── index.cjs
+|  |  |  ├── index.d.ts
+|  |  |  ├── index.js
+|  |  |  └── package.json
+|  |  ├── package.json
+|  |  └── url-alphabet
+|  |     ├── index.cjs
+|  |     ├── index.js
+|  |     └── package.json
+|  ├── next
+|  |  ├── README.md
+|  |  ├── app.d.ts
+|  |  ├── app.js
+|  |  ├── babel.d.ts
+|  |  ├── babel.js
+|  |  ├── cache.d.ts
+|  |  ├── cache.js
+|  |  ├── client.d.ts
+|  |  ├── client.js
+|  |  ├── compat
+|  |  |  ├── router.d.ts
+|  |  |  └── router.js
+|  |  ├── constants.d.ts
+|  |  ├── constants.js
+|  |  ├── dist
+|  |  |  ├── api
+|  |  |  |  ├── app-dynamic.d.ts
+|  |  |  |  ├── app-dynamic.js
+|  |  |  |  ├── app-dynamic.js.map
+|  |  |  |  ├── app.d.ts
+|  |  |  |  ├── app.js
+|  |  |  |  ├── app.js.map
+|  |  |  |  ├── constants.d.ts
+|  |  |  |  ├── constants.js
+|  |  |  |  ├── constants.js.map
+|  |  |  |  ├── document.d.ts
+|  |  |  |  ├── document.js
+|  |  |  |  ├── document.js.map
+|  |  |  |  ├── dynamic.d.ts
+|  |  |  |  ├── dynamic.js
+|  |  |  |  ├── dynamic.js.map
+|  |  |  |  ├── error.d.ts
+|  |  |  |  ├── error.js
+|  |  |  |  ├── error.js.map
+|  |  |  |  ├── error.react-server.d.ts
+|  |  |  |  ├── error.react-server.js
+|  |  |  |  ├── error.react-server.js.map
+|  |  |  |  ├── form.d.ts
+|  |  |  |  ├── form.js
+|  |  |  |  ├── form.js.map
+|  |  |  |  ├── head.d.ts
+|  |  |  |  ├── head.js
+|  |  |  |  ├── head.js.map
+|  |  |  |  ├── headers.d.ts
+|  |  |  |  ├── headers.js
+|  |  |  |  ├── headers.js.map
+|  |  |  |  ├── image.d.ts
+|  |  |  |  ├── image.js
+|  |  |  |  ├── image.js.map
+|  |  |  |  ├── link.d.ts
+|  |  |  |  ├── link.js
+|  |  |  |  ├── link.js.map
+|  |  |  |  ├── navigation.d.ts
+|  |  |  |  ├── navigation.js
+|  |  |  |  ├── navigation.js.map
+|  |  |  |  ├── navigation.react-server.d.ts
+|  |  |  |  ├── navigation.react-server.js
+|  |  |  |  ├── navigation.react-server.js.map
+|  |  |  |  ├── og.d.ts
+|  |  |  |  ├── og.js
+|  |  |  |  ├── og.js.map
+|  |  |  |  ├── router.d.ts
+|  |  |  |  ├── router.js
+|  |  |  |  ├── router.js.map
+|  |  |  |  ├── script.d.ts
+|  |  |  |  ├── script.js
+|  |  |  |  ├── script.js.map
+|  |  |  |  ├── server.d.ts
+|  |  |  |  ├── server.js
+|  |  |  |  └── server.js.map
+|  |  |  ├── bin
+|  |  |  |  ├── next
+|  |  |  |  ├── next.d.ts
+|  |  |  |  └── next.map
+|  |  |  ├── build
+|  |  |  |  ├── adapter
+|  |  |  |  ├── after-production-compile.d.ts
+|  |  |  |  ├── after-production-compile.js
+|  |  |  |  ├── after-production-compile.js.map
+|  |  |  |  ├── analysis
+|  |  |  |  ├── analyze
+|  |  |  |  ├── babel
+|  |  |  |  ├── build-context.d.ts
+|  |  |  |  ├── build-context.js
+|  |  |  |  ├── build-context.js.map
+|  |  |  |  ├── collect-build-traces.d.ts
+|  |  |  |  ├── collect-build-traces.js
+|  |  |  |  ├── collect-build-traces.js.map
+|  |  |  |  ├── compiler.d.ts
+|  |  |  |  ├── compiler.js
+|  |  |  |  ├── compiler.js.map
+|  |  |  |  ├── create-compiler-aliases.d.ts
+|  |  |  |  ├── create-compiler-aliases.js
+|  |  |  |  ├── create-compiler-aliases.js.map
+|  |  |  |  ├── define-env.d.ts
+|  |  |  |  ├── define-env.js
+|  |  |  |  ├── define-env.js.map
+|  |  |  |  ├── duration-to-string.d.ts
+|  |  |  |  ├── duration-to-string.js
+|  |  |  |  ├── duration-to-string.js.map
+|  |  |  |  ├── entries.d.ts
+|  |  |  |  ├── entries.js
+|  |  |  |  ├── entries.js.map
+|  |  |  |  ├── file-classifier.d.ts
+|  |  |  |  ├── file-classifier.js
+|  |  |  |  ├── file-classifier.js.map
+|  |  |  |  ├── generate-build-id.d.ts
+|  |  |  |  ├── generate-build-id.js
+|  |  |  |  ├── generate-build-id.js.map
+|  |  |  |  ├── generate-routes-manifest.d.ts
+|  |  |  |  ├── generate-routes-manifest.js
+|  |  |  |  ├── generate-routes-manifest.js.map
+|  |  |  |  ├── get-babel-config-file.d.ts
+|  |  |  |  ├── get-babel-config-file.js
+|  |  |  |  ├── get-babel-config-file.js.map
+|  |  |  |  ├── get-babel-loader-config.d.ts
+|  |  |  |  ├── get-babel-loader-config.js
+|  |  |  |  ├── get-babel-loader-config.js.map
+|  |  |  |  ├── get-static-info-including-layouts.d.ts
+|  |  |  |  ├── get-static-info-including-layouts.js
+|  |  |  |  ├── get-static-info-including-layouts.js.map
+|  |  |  |  ├── get-supported-browsers.d.ts
+|  |  |  |  ├── get-supported-browsers.js
+|  |  |  |  ├── get-supported-browsers.js.map
+|  |  |  |  ├── handle-entrypoints.d.ts
+|  |  |  |  ├── handle-entrypoints.js
+|  |  |  |  ├── handle-entrypoints.js.map
+|  |  |  |  ├── handle-externals.d.ts
+|  |  |  |  ├── handle-externals.js
+|  |  |  |  ├── handle-externals.js.map
+|  |  |  |  ├── index.d.ts
+|  |  |  |  ├── index.js
+|  |  |  |  ├── index.js.map
+|  |  |  |  ├── is-writeable.d.ts
+|  |  |  |  ├── is-writeable.js
+|  |  |  |  ├── is-writeable.js.map
+|  |  |  |  ├── jest
+|  |  |  |  ├── load-entrypoint.d.ts
+|  |  |  |  ├── load-entrypoint.js
+|  |  |  |  ├── load-entrypoint.js.map
+|  |  |  |  ├── load-jsconfig.d.ts
+|  |  |  |  ├── load-jsconfig.js
+|  |  |  |  ├── load-jsconfig.js.map
+|  |  |  |  ├── lockfile.d.ts
+|  |  |  |  ├── lockfile.js
+|  |  |  |  ├── lockfile.js.map
+|  |  |  |  ├── manifests
+|  |  |  |  ├── next-config-ts
+|  |  |  |  ├── next-dir-paths.d.ts
+|  |  |  |  ├── next-dir-paths.js
+|  |  |  |  ├── next-dir-paths.js.map
+|  |  |  |  ├── normalize-catchall-routes.d.ts
+|  |  |  |  ├── normalize-catchall-routes.js
+|  |  |  |  ├── normalize-catchall-routes.js.map
+|  |  |  |  ├── output
+|  |  |  |  ├── page-extensions-type.d.ts
+|  |  |  |  ├── page-extensions-type.js
+|  |  |  |  ├── page-extensions-type.js.map
+|  |  |  |  ├── polyfills
+|  |  |  |  ├── preview-key-utils.d.ts
+|  |  |  |  ├── preview-key-utils.js
+|  |  |  |  ├── preview-key-utils.js.map
+|  |  |  |  ├── print-build-errors.d.ts
+|  |  |  |  ├── print-build-errors.js
+|  |  |  |  ├── print-build-errors.js.map
+|  |  |  |  ├── progress.d.ts
+|  |  |  |  ├── progress.js
+|  |  |  |  ├── progress.js.map
+|  |  |  |  ├── rendering-mode.d.ts
+|  |  |  |  ├── rendering-mode.js
+|  |  |  |  ├── rendering-mode.js.map
+|  |  |  |  ├── route-bundle-stats.d.ts
+|  |  |  |  ├── route-bundle-stats.js
+|  |  |  |  ├── route-bundle-stats.js.map
+|  |  |  |  ├── route-discovery.d.ts
+|  |  |  |  ├── route-discovery.js
+|  |  |  |  ├── route-discovery.js.map
+|  |  |  |  ├── segment-config
+|  |  |  |  ├── sort-by-page-exts.d.ts
+|  |  |  |  ├── sort-by-page-exts.js
+|  |  |  |  ├── sort-by-page-exts.js.map
+|  |  |  |  ├── spinner.d.ts
+|  |  |  |  ├── spinner.js
+|  |  |  |  ├── spinner.js.map
+|  |  |  |  ├── static-paths
+|  |  |  |  ├── swc
+|  |  |  |  ├── templates
+|  |  |  |  ├── turbopack-analyze
+|  |  |  |  ├── turbopack-build
+|  |  |  |  ├── turborepo-access-trace
+|  |  |  |  ├── type-check.d.ts
+|  |  |  |  ├── type-check.js
+|  |  |  |  ├── type-check.js.map
+|  |  |  |  ├── utils.d.ts
+|  |  |  |  ├── utils.js
+|  |  |  |  ├── utils.js.map
+|  |  |  |  ├── validate-app-paths.d.ts
+|  |  |  |  ├── validate-app-paths.js
+|  |  |  |  ├── validate-app-paths.js.map
+|  |  |  |  ├── webpack
+|  |  |  |  ├── webpack-build
+|  |  |  |  ├── webpack-config-rules
+|  |  |  |  ├── webpack-config.d.ts
+|  |  |  |  ├── webpack-config.js
+|  |  |  |  ├── webpack-config.js.map
+|  |  |  |  ├── worker.d.ts
+|  |  |  |  ├── worker.js
+|  |  |  |  ├── worker.js.map
+|  |  |  |  ├── write-build-id.d.ts
+|  |  |  |  ├── write-build-id.js
+|  |  |  |  └── write-build-id.js.map
+|  |  |  ├── bundle-analyzer
+|  |  |  |  ├── 404.html
+|  |  |  |  ├── __next.__PAGE__.txt
+|  |  |  |  ├── __next._full.txt
+|  |  |  |  ├── __next._head.txt
+|  |  |  |  ├── __next._index.txt
+|  |  |  |  ├── __next._tree.txt
+|  |  |  |  ├── _next
+|  |  |  |  ├── _not-found
+|  |  |  |  ├── _not-found.html
+|  |  |  |  ├── _not-found.txt
+|  |  |  |  ├── index.html
+|  |  |  |  └── index.txt
+|  |  |  ├── cli
+|  |  |  |  ├── internal
+|  |  |  |  ├── next-analyze.d.ts
+|  |  |  |  ├── next-analyze.js
+|  |  |  |  ├── next-analyze.js.map
+|  |  |  |  ├── next-build.d.ts
+|  |  |  |  ├── next-build.js
+|  |  |  |  ├── next-build.js.map
+|  |  |  |  ├── next-dev.d.ts
+|  |  |  |  ├── next-dev.js
+|  |  |  |  ├── next-dev.js.map
+|  |  |  |  ├── next-export.d.ts
+|  |  |  |  ├── next-export.js
+|  |  |  |  ├── next-export.js.map
+|  |  |  |  ├── next-info.d.ts
+|  |  |  |  ├── next-info.js
+|  |  |  |  ├── next-info.js.map
+|  |  |  |  ├── next-start.d.ts
+|  |  |  |  ├── next-start.js
+|  |  |  |  ├── next-start.js.map
+|  |  |  |  ├── next-telemetry.d.ts
+|  |  |  |  ├── next-telemetry.js
+|  |  |  |  ├── next-telemetry.js.map
+|  |  |  |  ├── next-test.d.ts
+|  |  |  |  ├── next-test.js
+|  |  |  |  ├── next-test.js.map
+|  |  |  |  ├── next-typegen.d.ts
+|  |  |  |  ├── next-typegen.js
+|  |  |  |  ├── next-typegen.js.map
+|  |  |  |  ├── next-upgrade.d.ts
+|  |  |  |  ├── next-upgrade.js
+|  |  |  |  └── next-upgrade.js.map
+|  |  |  ├── client
+|  |  |  |  ├── add-base-path.d.ts
+|  |  |  |  ├── add-base-path.js
+|  |  |  |  ├── add-base-path.js.map
+|  |  |  |  ├── add-locale.d.ts
+|  |  |  |  ├── add-locale.js
+|  |  |  |  ├── add-locale.js.map
+|  |  |  |  ├── app-bootstrap.d.ts
+|  |  |  |  ├── app-bootstrap.js
+|  |  |  |  ├── app-bootstrap.js.map
+|  |  |  |  ├── app-call-server.d.ts
+|  |  |  |  ├── app-call-server.js
+|  |  |  |  ├── app-call-server.js.map
+|  |  |  |  ├── app-dir
+|  |  |  |  ├── app-find-source-map-url.d.ts
+|  |  |  |  ├── app-find-source-map-url.js
+|  |  |  |  ├── app-find-source-map-url.js.map
+|  |  |  |  ├── app-globals.d.ts
+|  |  |  |  ├── app-globals.js
+|  |  |  |  ├── app-globals.js.map
+|  |  |  |  ├── app-index.d.ts
+|  |  |  |  ├── app-index.js
+|  |  |  |  ├── app-index.js.map
+|  |  |  |  ├── app-link-gc.d.ts
+|  |  |  |  ├── app-link-gc.js
+|  |  |  |  ├── app-link-gc.js.map
+|  |  |  |  ├── app-next-dev.d.ts
+|  |  |  |  ├── app-next-dev.js
+|  |  |  |  ├── app-next-dev.js.map
+|  |  |  |  ├── app-next-turbopack.d.ts
+|  |  |  |  ├── app-next-turbopack.js
+|  |  |  |  ├── app-next-turbopack.js.map
+|  |  |  |  ├── app-next.d.ts
+|  |  |  |  ├── app-next.js
+|  |  |  |  ├── app-next.js.map
+|  |  |  |  ├── app-webpack.d.ts
+|  |  |  |  ├── app-webpack.js
+|  |  |  |  ├── app-webpack.js.map
+|  |  |  |  ├── asset-prefix.d.ts
+|  |  |  |  ├── asset-prefix.js
+|  |  |  |  ├── asset-prefix.js.map
+|  |  |  |  ├── assign-location.d.ts
+|  |  |  |  ├── assign-location.js
+|  |  |  |  ├── assign-location.js.map
+|  |  |  |  ├── compat
+|  |  |  |  ├── components
+|  |  |  |  ├── detect-domain-locale.d.ts
+|  |  |  |  ├── detect-domain-locale.js
+|  |  |  |  ├── detect-domain-locale.js.map
+|  |  |  |  ├── dev
+|  |  |  |  ├── flight-data-helpers.d.ts
+|  |  |  |  ├── flight-data-helpers.js
+|  |  |  |  ├── flight-data-helpers.js.map
+|  |  |  |  ├── form-shared.d.ts
+|  |  |  |  ├── form-shared.js
+|  |  |  |  ├── form-shared.js.map
+|  |  |  |  ├── form.d.ts
+|  |  |  |  ├── form.js
+|  |  |  |  ├── form.js.map
+|  |  |  |  ├── get-domain-locale.d.ts
+|  |  |  |  ├── get-domain-locale.js
+|  |  |  |  ├── get-domain-locale.js.map
+|  |  |  |  ├── has-base-path.d.ts
+|  |  |  |  ├── has-base-path.js
+|  |  |  |  ├── has-base-path.js.map
+|  |  |  |  ├── head-manager.d.ts
+|  |  |  |  ├── head-manager.js
+|  |  |  |  ├── head-manager.js.map
+|  |  |  |  ├── image-component.d.ts
+|  |  |  |  ├── image-component.js
+|  |  |  |  ├── image-component.js.map
+|  |  |  |  ├── index.d.ts
+|  |  |  |  ├── index.js
+|  |  |  |  ├── index.js.map
+|  |  |  |  ├── legacy
+|  |  |  |  ├── lib
+|  |  |  |  ├── link.d.ts
+|  |  |  |  ├── link.js
+|  |  |  |  ├── link.js.map
+|  |  |  |  ├── navigation-build-id.d.ts
+|  |  |  |  ├── navigation-build-id.js
+|  |  |  |  ├── navigation-build-id.js.map
+|  |  |  |  ├── next-dev-turbopack.d.ts
+|  |  |  |  ├── next-dev-turbopack.js
+|  |  |  |  ├── next-dev-turbopack.js.map
+|  |  |  |  ├── next-dev.d.ts
+|  |  |  |  ├── next-dev.js
+|  |  |  |  ├── next-dev.js.map
+|  |  |  |  ├── next-turbopack.d.ts
+|  |  |  |  ├── next-turbopack.js
+|  |  |  |  ├── next-turbopack.js.map
+|  |  |  |  ├── next.d.ts
+|  |  |  |  ├── next.js
+|  |  |  |  ├── next.js.map
+|  |  |  |  ├── normalize-locale-path.d.ts
+|  |  |  |  ├── normalize-locale-path.js
+|  |  |  |  ├── normalize-locale-path.js.map
+|  |  |  |  ├── normalize-trailing-slash.d.ts
+|  |  |  |  ├── normalize-trailing-slash.js
+|  |  |  |  ├── normalize-trailing-slash.js.map
+|  |  |  |  ├── page-bootstrap.d.ts
+|  |  |  |  ├── page-bootstrap.js
+|  |  |  |  ├── page-bootstrap.js.map
+|  |  |  |  ├── page-loader.d.ts
+|  |  |  |  ├── page-loader.js
+|  |  |  |  ├── page-loader.js.map
+|  |  |  |  ├── portal
+|  |  |  |  ├── react-client-callbacks
+|  |  |  |  ├── register-deployment-id-global.d.ts
+|  |  |  |  ├── register-deployment-id-global.js
+|  |  |  |  ├── register-deployment-id-global.js.map
+|  |  |  |  ├── remove-base-path.d.ts
+|  |  |  |  ├── remove-base-path.js
+|  |  |  |  ├── remove-base-path.js.map
+|  |  |  |  ├── remove-locale.d.ts
+|  |  |  |  ├── remove-locale.js
+|  |  |  |  ├── remove-locale.js.map
+|  |  |  |  ├── request
+|  |  |  |  ├── request-idle-callback.d.ts
+|  |  |  |  ├── request-idle-callback.js
+|  |  |  |  ├── request-idle-callback.js.map
+|  |  |  |  ├── resolve-href.d.ts
+|  |  |  |  ├── resolve-href.js
+|  |  |  |  ├── resolve-href.js.map
+|  |  |  |  ├── route-announcer.d.ts
+|  |  |  |  ├── route-announcer.js
+|  |  |  |  ├── route-announcer.js.map
+|  |  |  |  ├── route-loader.d.ts
+|  |  |  |  ├── route-loader.js
+|  |  |  |  ├── route-loader.js.map
+|  |  |  |  ├── route-params.d.ts
+|  |  |  |  ├── route-params.js
+|  |  |  |  ├── route-params.js.map
+|  |  |  |  ├── router.d.ts
+|  |  |  |  ├── router.js
+|  |  |  |  ├── router.js.map
+|  |  |  |  ├── script.d.ts
+|  |  |  |  ├── script.js
+|  |  |  |  ├── script.js.map
+|  |  |  |  ├── set-attributes-from-props.d.ts
+|  |  |  |  ├── set-attributes-from-props.js
+|  |  |  |  ├── set-attributes-from-props.js.map
+|  |  |  |  ├── tracing
+|  |  |  |  ├── trusted-types.d.ts
+|  |  |  |  ├── trusted-types.js
+|  |  |  |  ├── trusted-types.js.map
+|  |  |  |  ├── use-client-disallowed.d.ts
+|  |  |  |  ├── use-client-disallowed.js
+|  |  |  |  ├── use-client-disallowed.js.map
+|  |  |  |  ├── use-intersection.d.ts
+|  |  |  |  ├── use-intersection.js
+|  |  |  |  ├── use-intersection.js.map
+|  |  |  |  ├── use-merged-ref.d.ts
+|  |  |  |  ├── use-merged-ref.js
+|  |  |  |  ├── use-merged-ref.js.map
+|  |  |  |  ├── web-vitals.d.ts
+|  |  |  |  ├── web-vitals.js
+|  |  |  |  ├── web-vitals.js.map
+|  |  |  |  ├── webpack.d.ts
+|  |  |  |  ├── webpack.js
+|  |  |  |  ├── webpack.js.map
+|  |  |  |  ├── with-router.d.ts
+|  |  |  |  ├── with-router.js
+|  |  |  |  └── with-router.js.map
+|  |  |  ├── compiled
+|  |  |  |  ├── @babel
+|  |  |  |  ├── @edge-runtime
+|  |  |  |  ├── @hapi
+|  |  |  |  ├── @modelcontextprotocol
+|  |  |  |  ├── @mswjs
+|  |  |  |  ├── @napi-rs
+|  |  |  |  ├── @next
+|  |  |  |  ├── @opentelemetry
+|  |  |  |  ├── @vercel
+|  |  |  |  ├── acorn
+|  |  |  |  ├── anser
+|  |  |  |  ├── assert
+|  |  |  |  ├── async-retry
+|  |  |  |  ├── async-sema
+|  |  |  |  ├── babel
+|  |  |  |  ├── babel-packages
+|  |  |  |  ├── browserify-zlib
+|  |  |  |  ├── browserslist
+|  |  |  |  ├── buffer
+|  |  |  |  ├── busboy
+|  |  |  |  ├── bytes
+|  |  |  |  ├── ci-info
+|  |  |  |  ├── cli-select
+|  |  |  |  ├── client-only
+|  |  |  |  ├── commander
+|  |  |  |  ├── comment-json
+|  |  |  |  ├── compression
+|  |  |  |  ├── conf
+|  |  |  |  ├── constants-browserify
+|  |  |  |  ├── content-disposition
+|  |  |  |  ├── content-type
+|  |  |  |  ├── cookie
+|  |  |  |  ├── cross-spawn
+|  |  |  |  ├── crypto-browserify
+|  |  |  |  ├── css.escape
+|  |  |  |  ├── cssnano-simple
+|  |  |  |  ├── data-uri-to-buffer
+|  |  |  |  ├── debug
+|  |  |  |  ├── devalue
+|  |  |  |  ├── domain-browser
+|  |  |  |  ├── edge-runtime
+|  |  |  |  ├── events
+|  |  |  |  ├── find-up
+|  |  |  |  ├── fresh
+|  |  |  |  ├── glob
+|  |  |  |  ├── gzip-size
+|  |  |  |  ├── http-proxy
+|  |  |  |  ├── http-proxy-agent
+|  |  |  |  ├── https-browserify
+|  |  |  |  ├── https-proxy-agent
+|  |  |  |  ├── icss-utils
+|  |  |  |  ├── ignore-loader
+|  |  |  |  ├── image-detector
+|  |  |  |  ├── image-size
+|  |  |  |  ├── ipaddr.js
+|  |  |  |  ├── is-animated
+|  |  |  |  ├── is-docker
+|  |  |  |  ├── is-wsl
+|  |  |  |  ├── jest-worker
+|  |  |  |  ├── json5
+|  |  |  |  ├── jsonwebtoken
+|  |  |  |  ├── loader-runner
+|  |  |  |  ├── loader-utils2
+|  |  |  |  ├── loader-utils3
+|  |  |  |  ├── lodash.curry
+|  |  |  |  ├── lru-cache
+|  |  |  |  ├── mini-css-extract-plugin
+|  |  |  |  ├── nanoid
+|  |  |  |  ├── native-url
+|  |  |  |  ├── neo-async
+|  |  |  |  ├── next-devtools
+|  |  |  |  ├── next-server
+|  |  |  |  ├── node-html-parser
+|  |  |  |  ├── ora
+|  |  |  |  ├── os-browserify
+|  |  |  |  ├── p-limit
+|  |  |  |  ├── p-queue
+|  |  |  |  ├── path-browserify
+|  |  |  |  ├── path-to-regexp
+|  |  |  |  ├── picomatch
+|  |  |  |  ├── postcss-flexbugs-fixes
+|  |  |  |  ├── postcss-modules-extract-imports
+|  |  |  |  ├── postcss-modules-local-by-default
+|  |  |  |  ├── postcss-modules-scope
+|  |  |  |  ├── postcss-modules-values
+|  |  |  |  ├── postcss-plugin-stub-for-cssnano-simple
+|  |  |  |  ├── postcss-preset-env
+|  |  |  |  ├── postcss-safe-parser
+|  |  |  |  ├── postcss-scss
+|  |  |  |  ├── postcss-value-parser
+|  |  |  |  ├── process
+|  |  |  |  ├── punycode
+|  |  |  |  ├── querystring-es3
+|  |  |  |  ├── raw-body
+|  |  |  |  ├── react
+|  |  |  |  ├── react-dom
+|  |  |  |  ├── react-dom-experimental
+|  |  |  |  ├── react-experimental
+|  |  |  |  ├── react-is
+|  |  |  |  ├── react-refresh
+|  |  |  |  ├── react-server-dom-turbopack
+|  |  |  |  ├── react-server-dom-turbopack-experimental
+|  |  |  |  ├── react-server-dom-webpack
+|  |  |  |  ├── react-server-dom-webpack-experimental
+|  |  |  |  ├── regenerator-runtime
+|  |  |  |  ├── safe-stable-stringify
+|  |  |  |  ├── sass-loader
+|  |  |  |  ├── scheduler
+|  |  |  |  ├── scheduler-experimental
+|  |  |  |  ├── schema-utils2
+|  |  |  |  ├── schema-utils3
+|  |  |  |  ├── semver
+|  |  |  |  ├── send
+|  |  |  |  ├── serve-handler
+|  |  |  |  ├── server-only
+|  |  |  |  ├── setimmediate
+|  |  |  |  ├── shell-quote
+|  |  |  |  ├── source-map
+|  |  |  |  ├── source-map08
+|  |  |  |  ├── stacktrace-parser
+|  |  |  |  ├── stream-browserify
+|  |  |  |  ├── stream-http
+|  |  |  |  ├── string-hash
+|  |  |  |  ├── string_decoder
+|  |  |  |  ├── strip-ansi
+|  |  |  |  ├── superstruct
+|  |  |  |  ├── tar
+|  |  |  |  ├── terser
+|  |  |  |  ├── text-table
+|  |  |  |  ├── timers-browserify
+|  |  |  |  ├── tty-browserify
+|  |  |  |  ├── ua-parser-js
+|  |  |  |  ├── unistore
+|  |  |  |  ├── util
+|  |  |  |  ├── vm-browserify
+|  |  |  |  ├── watchpack
+|  |  |  |  ├── web-vitals
+|  |  |  |  ├── web-vitals-attribution
+|  |  |  |  ├── webpack
+|  |  |  |  ├── webpack-sources1
+|  |  |  |  ├── webpack-sources3
+|  |  |  |  ├── ws
+|  |  |  |  ├── zod
+|  |  |  |  └── zod-validation-error
+|  |  |  ├── diagnostics
+|  |  |  |  ├── build-diagnostics.d.ts
+|  |  |  |  ├── build-diagnostics.js
+|  |  |  |  ├── build-diagnostics.js.map
+|  |  |  |  ├── build-diagnostics.test.js
+|  |  |  |  └── build-diagnostics.test.js.map
+|  |  |  ├── docs
+|  |  |  |  ├── 01-app
+|  |  |  |  ├── 02-pages
+|  |  |  |  ├── 03-architecture
+|  |  |  |  ├── 04-community
+|  |  |  |  └── index.md
+|  |  |  ├── esm
+|  |  |  |  ├── api
+|  |  |  |  ├── build
+|  |  |  |  ├── client
+|  |  |  |  ├── export
+|  |  |  |  ├── lib
+|  |  |  |  ├── next-devtools
+|  |  |  |  ├── pages
+|  |  |  |  ├── server
+|  |  |  |  └── shared
+|  |  |  ├── experimental
+|  |  |  |  ├── testing
+|  |  |  |  └── testmode
+|  |  |  ├── export
+|  |  |  |  ├── helpers
+|  |  |  |  ├── index.d.ts
+|  |  |  |  ├── index.js
+|  |  |  |  ├── index.js.map
+|  |  |  |  ├── routes
+|  |  |  |  ├── types.d.ts
+|  |  |  |  ├── types.js
+|  |  |  |  ├── types.js.map
+|  |  |  |  ├── utils.d.ts
+|  |  |  |  ├── utils.js
+|  |  |  |  ├── utils.js.map
+|  |  |  |  ├── worker.d.ts
+|  |  |  |  ├── worker.js
+|  |  |  |  └── worker.js.map
+|  |  |  ├── lib
+|  |  |  |  ├── batcher.d.ts
+|  |  |  |  ├── batcher.js
+|  |  |  |  ├── batcher.js.map
+|  |  |  |  ├── build-custom-route.d.ts
+|  |  |  |  ├── build-custom-route.js
+|  |  |  |  ├── build-custom-route.js.map
+|  |  |  |  ├── bundler.d.ts
+|  |  |  |  ├── bundler.js
+|  |  |  |  ├── bundler.js.map
+|  |  |  |  ├── client-and-server-references.d.ts
+|  |  |  |  ├── client-and-server-references.js
+|  |  |  |  ├── client-and-server-references.js.map
+|  |  |  |  ├── coalesced-function.d.ts
+|  |  |  |  ├── coalesced-function.js
+|  |  |  |  ├── coalesced-function.js.map
+|  |  |  |  ├── compile-error.d.ts
+|  |  |  |  ├── compile-error.js
+|  |  |  |  ├── compile-error.js.map
+|  |  |  |  ├── constants.d.ts
+|  |  |  |  ├── constants.js
+|  |  |  |  ├── constants.js.map
+|  |  |  |  ├── create-client-router-filter.d.ts
+|  |  |  |  ├── create-client-router-filter.js
+|  |  |  |  ├── create-client-router-filter.js.map
+|  |  |  |  ├── default-transpiled-packages.json
+|  |  |  |  ├── detached-promise.d.ts
+|  |  |  |  ├── detached-promise.js
+|  |  |  |  ├── detached-promise.js.map
+|  |  |  |  ├── detect-typo.d.ts
+|  |  |  |  ├── detect-typo.js
+|  |  |  |  ├── detect-typo.js.map
+|  |  |  |  ├── download-swc.d.ts
+|  |  |  |  ├── download-swc.js
+|  |  |  |  ├── download-swc.js.map
+|  |  |  |  ├── error-telemetry-utils.d.ts
+|  |  |  |  ├── error-telemetry-utils.js
+|  |  |  |  ├── error-telemetry-utils.js.map
+|  |  |  |  ├── fallback.d.ts
+|  |  |  |  ├── fallback.js
+|  |  |  |  ├── fallback.js.map
+|  |  |  |  ├── fatal-error.d.ts
+|  |  |  |  ├── fatal-error.js
+|  |  |  |  ├── fatal-error.js.map
+|  |  |  |  ├── file-exists.d.ts
+|  |  |  |  ├── file-exists.js
+|  |  |  |  ├── file-exists.js.map
+|  |  |  |  ├── find-config.d.ts
+|  |  |  |  ├── find-config.js
+|  |  |  |  ├── find-config.js.map
+|  |  |  |  ├── find-pages-dir.d.ts
+|  |  |  |  ├── find-pages-dir.js
+|  |  |  |  ├── find-pages-dir.js.map
+|  |  |  |  ├── find-root.d.ts
+|  |  |  |  ├── find-root.js
+|  |  |  |  ├── find-root.js.map
+|  |  |  |  ├── format-cli-help-output.d.ts
+|  |  |  |  ├── format-cli-help-output.js
+|  |  |  |  ├── format-cli-help-output.js.map
+|  |  |  |  ├── format-dynamic-import-path.d.ts
+|  |  |  |  ├── format-dynamic-import-path.js
+|  |  |  |  ├── format-dynamic-import-path.js.map
+|  |  |  |  ├── format-server-error.d.ts
+|  |  |  |  ├── format-server-error.js
+|  |  |  |  ├── format-server-error.js.map
+|  |  |  |  ├── framework
+|  |  |  |  ├── fs
+|  |  |  |  ├── generate-interception-routes-rewrites.d.ts
+|  |  |  |  ├── generate-interception-routes-rewrites.js
+|  |  |  |  ├── generate-interception-routes-rewrites.js.map
+|  |  |  |  ├── get-files-in-dir.d.ts
+|  |  |  |  ├── get-files-in-dir.js
+|  |  |  |  ├── get-files-in-dir.js.map
+|  |  |  |  ├── get-network-host.d.ts
+|  |  |  |  ├── get-network-host.js
+|  |  |  |  ├── get-network-host.js.map
+|  |  |  |  ├── get-package-version.d.ts
+|  |  |  |  ├── get-package-version.js
+|  |  |  |  ├── get-package-version.js.map
+|  |  |  |  ├── get-project-dir.d.ts
+|  |  |  |  ├── get-project-dir.js
+|  |  |  |  ├── get-project-dir.js.map
+|  |  |  |  ├── has-necessary-dependencies.d.ts
+|  |  |  |  ├── has-necessary-dependencies.js
+|  |  |  |  ├── has-necessary-dependencies.js.map
+|  |  |  |  ├── helpers
+|  |  |  |  ├── import-next-warning.d.ts
+|  |  |  |  ├── import-next-warning.js
+|  |  |  |  ├── import-next-warning.js.map
+|  |  |  |  ├── inline-static-env.d.ts
+|  |  |  |  ├── inline-static-env.js
+|  |  |  |  ├── inline-static-env.js.map
+|  |  |  |  ├── install-dependencies.d.ts
+|  |  |  |  ├── install-dependencies.js
+|  |  |  |  ├── install-dependencies.js.map
+|  |  |  |  ├── interop-default.d.ts
+|  |  |  |  ├── interop-default.js
+|  |  |  |  ├── interop-default.js.map
+|  |  |  |  ├── is-api-route.d.ts
+|  |  |  |  ├── is-api-route.js
+|  |  |  |  ├── is-api-route.js.map
+|  |  |  |  ├── is-app-page-route.d.ts
+|  |  |  |  ├── is-app-page-route.js
+|  |  |  |  ├── is-app-page-route.js.map
+|  |  |  |  ├── is-app-route-route.d.ts
+|  |  |  |  ├── is-app-route-route.js
+|  |  |  |  ├── is-app-route-route.js.map
+|  |  |  |  ├── is-edge-runtime.d.ts
+|  |  |  |  ├── is-edge-runtime.js
+|  |  |  |  ├── is-edge-runtime.js.map
+|  |  |  |  ├── is-error.d.ts
+|  |  |  |  ├── is-error.js
+|  |  |  |  ├── is-error.js.map
+|  |  |  |  ├── is-interception-route-rewrite.d.ts
+|  |  |  |  ├── is-interception-route-rewrite.js
+|  |  |  |  ├── is-interception-route-rewrite.js.map
+|  |  |  |  ├── is-internal-component.d.ts
+|  |  |  |  ├── is-internal-component.js
+|  |  |  |  ├── is-internal-component.js.map
+|  |  |  |  ├── is-serializable-props.d.ts
+|  |  |  |  ├── is-serializable-props.js
+|  |  |  |  ├── is-serializable-props.js.map
+|  |  |  |  ├── known-edge-safe-packages.json
+|  |  |  |  ├── load-custom-routes.d.ts
+|  |  |  |  ├── load-custom-routes.js
+|  |  |  |  ├── load-custom-routes.js.map
+|  |  |  |  ├── memory
+|  |  |  |  ├── metadata
+|  |  |  |  ├── mime-type.d.ts
+|  |  |  |  ├── mime-type.js
+|  |  |  |  ├── mime-type.js.map
+|  |  |  |  ├── mkcert.d.ts
+|  |  |  |  ├── mkcert.js
+|  |  |  |  ├── mkcert.js.map
+|  |  |  |  ├── multi-file-writer.d.ts
+|  |  |  |  ├── multi-file-writer.js
+|  |  |  |  ├── multi-file-writer.js.map
+|  |  |  |  ├── needs-experimental-react.d.ts
+|  |  |  |  ├── needs-experimental-react.js
+|  |  |  |  ├── needs-experimental-react.js.map
+|  |  |  |  ├── non-nullable.d.ts
+|  |  |  |  ├── non-nullable.js
+|  |  |  |  ├── non-nullable.js.map
+|  |  |  |  ├── normalize-path.d.ts
+|  |  |  |  ├── normalize-path.js
+|  |  |  |  ├── normalize-path.js.map
+|  |  |  |  ├── oxford-comma-list.d.ts
+|  |  |  |  ├── oxford-comma-list.js
+|  |  |  |  ├── oxford-comma-list.js.map
+|  |  |  |  ├── page-types.d.ts
+|  |  |  |  ├── page-types.js
+|  |  |  |  ├── page-types.js.map
+|  |  |  |  ├── patch-incorrect-lockfile.d.ts
+|  |  |  |  ├── patch-incorrect-lockfile.js
+|  |  |  |  ├── patch-incorrect-lockfile.js.map
+|  |  |  |  ├── pick.d.ts
+|  |  |  |  ├── pick.js
+|  |  |  |  ├── pick.js.map
+|  |  |  |  ├── picocolors.d.ts
+|  |  |  |  ├── picocolors.js
+|  |  |  |  ├── picocolors.js.map
+|  |  |  |  ├── pretty-bytes.d.ts
+|  |  |  |  ├── pretty-bytes.js
+|  |  |  |  ├── pretty-bytes.js.map
+|  |  |  |  ├── realpath.d.ts
+|  |  |  |  ├── realpath.js
+|  |  |  |  ├── realpath.js.map
+|  |  |  |  ├── recursive-copy.d.ts
+|  |  |  |  ├── recursive-copy.js
+|  |  |  |  ├── recursive-copy.js.map
+|  |  |  |  ├── recursive-delete.d.ts
+|  |  |  |  ├── recursive-delete.js
+|  |  |  |  ├── recursive-delete.js.map
+|  |  |  |  ├── recursive-readdir.d.ts
+|  |  |  |  ├── recursive-readdir.js
+|  |  |  |  ├── recursive-readdir.js.map
+|  |  |  |  ├── redirect-status.d.ts
+|  |  |  |  ├── redirect-status.js
+|  |  |  |  ├── redirect-status.js.map
+|  |  |  |  ├── require-instrumentation-client.d.ts
+|  |  |  |  ├── require-instrumentation-client.js
+|  |  |  |  ├── require-instrumentation-client.js.map
+|  |  |  |  ├── resolve-build-paths.d.ts
+|  |  |  |  ├── resolve-build-paths.js
+|  |  |  |  ├── resolve-build-paths.js.map
+|  |  |  |  ├── resolve-from.d.ts
+|  |  |  |  ├── resolve-from.js
+|  |  |  |  ├── resolve-from.js.map
+|  |  |  |  ├── route-pattern-normalizer.d.ts
+|  |  |  |  ├── route-pattern-normalizer.js
+|  |  |  |  ├── route-pattern-normalizer.js.map
+|  |  |  |  ├── scheduler.d.ts
+|  |  |  |  ├── scheduler.js
+|  |  |  |  ├── scheduler.js.map
+|  |  |  |  ├── semver-noop.d.ts
+|  |  |  |  ├── semver-noop.js
+|  |  |  |  ├── semver-noop.js.map
+|  |  |  |  ├── server-external-packages.jsonc
+|  |  |  |  ├── setup-exception-listeners.d.ts
+|  |  |  |  ├── setup-exception-listeners.js
+|  |  |  |  ├── setup-exception-listeners.js.map
+|  |  |  |  ├── static-env.d.ts
+|  |  |  |  ├── static-env.js
+|  |  |  |  ├── static-env.js.map
+|  |  |  |  ├── try-to-parse-path.d.ts
+|  |  |  |  ├── try-to-parse-path.js
+|  |  |  |  ├── try-to-parse-path.js.map
+|  |  |  |  ├── turbopack-warning.d.ts
+|  |  |  |  ├── turbopack-warning.js
+|  |  |  |  ├── turbopack-warning.js.map
+|  |  |  |  ├── typescript
+|  |  |  |  ├── url.d.ts
+|  |  |  |  ├── url.js
+|  |  |  |  ├── url.js.map
+|  |  |  |  ├── verify-partytown-setup.d.ts
+|  |  |  |  ├── verify-partytown-setup.js
+|  |  |  |  ├── verify-partytown-setup.js.map
+|  |  |  |  ├── verify-root-layout.d.ts
+|  |  |  |  ├── verify-root-layout.js
+|  |  |  |  ├── verify-root-layout.js.map
+|  |  |  |  ├── verify-typescript-setup.d.ts
+|  |  |  |  ├── verify-typescript-setup.js
+|  |  |  |  ├── verify-typescript-setup.js.map
+|  |  |  |  ├── wait.d.ts
+|  |  |  |  ├── wait.js
+|  |  |  |  ├── wait.js.map
+|  |  |  |  ├── with-promise-cache.d.ts
+|  |  |  |  ├── with-promise-cache.js
+|  |  |  |  ├── with-promise-cache.js.map
+|  |  |  |  ├── worker.d.ts
+|  |  |  |  ├── worker.js
+|  |  |  |  └── worker.js.map
+|  |  |  ├── next-devtools
+|  |  |  |  ├── dev-overlay
+|  |  |  |  ├── dev-overlay.browser.d.ts
+|  |  |  |  ├── dev-overlay.shim.d.ts
+|  |  |  |  ├── dev-overlay.shim.js
+|  |  |  |  ├── dev-overlay.shim.js.map
+|  |  |  |  ├── entrypoint.d.ts
+|  |  |  |  ├── server
+|  |  |  |  ├── shared
+|  |  |  |  └── userspace
+|  |  |  ├── pages
+|  |  |  |  ├── _app.d.ts
+|  |  |  |  ├── _app.js
+|  |  |  |  ├── _app.js.map
+|  |  |  |  ├── _document.d.ts
+|  |  |  |  ├── _document.js
+|  |  |  |  ├── _document.js.map
+|  |  |  |  ├── _error.d.ts
+|  |  |  |  ├── _error.js
+|  |  |  |  └── _error.js.map
+|  |  |  ├── server
+|  |  |  |  ├── ReactDOMServerPages.d.ts
+|  |  |  |  ├── ReactDOMServerPages.js
+|  |  |  |  ├── ReactDOMServerPages.js.map
+|  |  |  |  ├── accept-header.d.ts
+|  |  |  |  ├── accept-header.js
+|  |  |  |  ├── accept-header.js.map
+|  |  |  |  ├── after
+|  |  |  |  ├── api-utils
+|  |  |  |  ├── app-render
+|  |  |  |  ├── async-storage
+|  |  |  |  ├── base-http
+|  |  |  |  ├── base-server.d.ts
+|  |  |  |  ├── base-server.js
+|  |  |  |  ├── base-server.js.map
+|  |  |  |  ├── body-streams.d.ts
+|  |  |  |  ├── body-streams.js
+|  |  |  |  ├── body-streams.js.map
+|  |  |  |  ├── cache-dir.d.ts
+|  |  |  |  ├── cache-dir.js
+|  |  |  |  ├── cache-dir.js.map
+|  |  |  |  ├── capsize-font-metrics.json
+|  |  |  |  ├── ci-info.d.ts
+|  |  |  |  ├── ci-info.js
+|  |  |  |  ├── ci-info.js.map
+|  |  |  |  ├── client-component-renderer-logger.d.ts
+|  |  |  |  ├── client-component-renderer-logger.js
+|  |  |  |  ├── client-component-renderer-logger.js.map
+|  |  |  |  ├── config-schema.d.ts
+|  |  |  |  ├── config-schema.js
+|  |  |  |  ├── config-schema.js.map
+|  |  |  |  ├── config-shared.d.ts
+|  |  |  |  ├── config-shared.js
+|  |  |  |  ├── config-shared.js.map
+|  |  |  |  ├── config-utils.d.ts
+|  |  |  |  ├── config-utils.js
+|  |  |  |  ├── config-utils.js.map
+|  |  |  |  ├── config.d.ts
+|  |  |  |  ├── config.js
+|  |  |  |  ├── config.js.map
+|  |  |  |  ├── create-deduped-by-callsite-server-error-logger.d.ts
+|  |  |  |  ├── create-deduped-by-callsite-server-error-logger.js
+|  |  |  |  ├── create-deduped-by-callsite-server-error-logger.js.map
+|  |  |  |  ├── crypto-utils.d.ts
+|  |  |  |  ├── crypto-utils.js
+|  |  |  |  ├── crypto-utils.js.map
+|  |  |  |  ├── dev
+|  |  |  |  ├── dynamic-rendering-utils.d.ts
+|  |  |  |  ├── dynamic-rendering-utils.js
+|  |  |  |  ├── dynamic-rendering-utils.js.map
+|  |  |  |  ├── font-utils.d.ts
+|  |  |  |  ├── font-utils.js
+|  |  |  |  ├── font-utils.js.map
+|  |  |  |  ├── get-app-route-from-entrypoint.d.ts
+|  |  |  |  ├── get-app-route-from-entrypoint.js
+|  |  |  |  ├── get-app-route-from-entrypoint.js.map
+|  |  |  |  ├── get-page-files.d.ts
+|  |  |  |  ├── get-page-files.js
+|  |  |  |  ├── get-page-files.js.map
+|  |  |  |  ├── get-route-from-entrypoint.d.ts
+|  |  |  |  ├── get-route-from-entrypoint.js
+|  |  |  |  ├── get-route-from-entrypoint.js.map
+|  |  |  |  ├── image-optimizer.d.ts
+|  |  |  |  ├── image-optimizer.js
+|  |  |  |  ├── image-optimizer.js.map
+|  |  |  |  ├── instrumentation
+|  |  |  |  ├── internal-utils.d.ts
+|  |  |  |  ├── internal-utils.js
+|  |  |  |  ├── internal-utils.js.map
+|  |  |  |  ├── is-private-ip.d.ts
+|  |  |  |  ├── is-private-ip.js
+|  |  |  |  ├── is-private-ip.js.map
+|  |  |  |  ├── lib
+|  |  |  |  ├── load-components.d.ts
+|  |  |  |  ├── load-components.js
+|  |  |  |  ├── load-components.js.map
+|  |  |  |  ├── load-default-error-components.d.ts
+|  |  |  |  ├── load-default-error-components.js
+|  |  |  |  ├── load-default-error-components.js.map
+|  |  |  |  ├── load-manifest.external.d.ts
+|  |  |  |  ├── load-manifest.external.js
+|  |  |  |  ├── load-manifest.external.js.map
+|  |  |  |  ├── match-bundle.d.ts
+|  |  |  |  ├── match-bundle.js
+|  |  |  |  ├── match-bundle.js.map
+|  |  |  |  ├── mcp
+|  |  |  |  ├── next-server.d.ts
+|  |  |  |  ├── next-server.js
+|  |  |  |  ├── next-server.js.map
+|  |  |  |  ├── next-typescript.d.ts
+|  |  |  |  ├── next-typescript.js
+|  |  |  |  ├── next-typescript.js.map
+|  |  |  |  ├── next.d.ts
+|  |  |  |  ├── next.js
+|  |  |  |  ├── next.js.map
+|  |  |  |  ├── node-environment-baseline.d.ts
+|  |  |  |  ├── node-environment-baseline.js
+|  |  |  |  ├── node-environment-baseline.js.map
+|  |  |  |  ├── node-environment-extensions
+|  |  |  |  ├── node-environment.d.ts
+|  |  |  |  ├── node-environment.js
+|  |  |  |  ├── node-environment.js.map
+|  |  |  |  ├── node-polyfill-crypto.d.ts
+|  |  |  |  ├── node-polyfill-crypto.js
+|  |  |  |  ├── node-polyfill-crypto.js.map
+|  |  |  |  ├── normalizers
+|  |  |  |  ├── og
+|  |  |  |  ├── patch-error-inspect.d.ts
+|  |  |  |  ├── patch-error-inspect.js
+|  |  |  |  ├── patch-error-inspect.js.map
+|  |  |  |  ├── pipe-readable.d.ts
+|  |  |  |  ├── pipe-readable.js
+|  |  |  |  ├── pipe-readable.js.map
+|  |  |  |  ├── post-process.d.ts
+|  |  |  |  ├── post-process.js
+|  |  |  |  ├── post-process.js.map
+|  |  |  |  ├── render-result.d.ts
+|  |  |  |  ├── render-result.js
+|  |  |  |  ├── render-result.js.map
+|  |  |  |  ├── render.d.ts
+|  |  |  |  ├── render.js
+|  |  |  |  ├── render.js.map
+|  |  |  |  ├── request
+|  |  |  |  ├── request-meta.d.ts
+|  |  |  |  ├── request-meta.js
+|  |  |  |  ├── request-meta.js.map
+|  |  |  |  ├── require-hook.d.ts
+|  |  |  |  ├── require-hook.js
+|  |  |  |  ├── require-hook.js.map
+|  |  |  |  ├── require.d.ts
+|  |  |  |  ├── require.js
+|  |  |  |  ├── require.js.map
+|  |  |  |  ├── response-cache
+|  |  |  |  ├── resume-data-cache
+|  |  |  |  ├── revalidation-utils.d.ts
+|  |  |  |  ├── revalidation-utils.js
+|  |  |  |  ├── revalidation-utils.js.map
+|  |  |  |  ├── route-definitions
+|  |  |  |  ├── route-kind.d.ts
+|  |  |  |  ├── route-kind.js
+|  |  |  |  ├── route-kind.js.map
+|  |  |  |  ├── route-matcher-managers
+|  |  |  |  ├── route-matcher-providers
+|  |  |  |  ├── route-matchers
+|  |  |  |  ├── route-matches
+|  |  |  |  ├── route-modules
+|  |  |  |  ├── runtime-reacts.external.d.ts
+|  |  |  |  ├── runtime-reacts.external.js
+|  |  |  |  ├── runtime-reacts.external.js.map
+|  |  |  |  ├── send-payload.d.ts
+|  |  |  |  ├── send-payload.js
+|  |  |  |  ├── send-payload.js.map
+|  |  |  |  ├── send-response.d.ts
+|  |  |  |  ├── send-response.js
+|  |  |  |  ├── send-response.js.map
+|  |  |  |  ├── serve-static.d.ts
+|  |  |  |  ├── serve-static.js
+|  |  |  |  ├── serve-static.js.map
+|  |  |  |  ├── server-route-utils.d.ts
+|  |  |  |  ├── server-route-utils.js
+|  |  |  |  ├── server-route-utils.js.map
+|  |  |  |  ├── server-utils.d.ts
+|  |  |  |  ├── server-utils.js
+|  |  |  |  ├── server-utils.js.map
+|  |  |  |  ├── setup-http-agent-env.d.ts
+|  |  |  |  ├── setup-http-agent-env.js
+|  |  |  |  ├── setup-http-agent-env.js.map
+|  |  |  |  ├── stream-utils
+|  |  |  |  ├── typescript
+|  |  |  |  ├── use-cache
+|  |  |  |  ├── utils.d.ts
+|  |  |  |  ├── utils.js
+|  |  |  |  ├── utils.js.map
+|  |  |  |  └── web
+|  |  |  ├── shared
+|  |  |  |  └── lib
+|  |  |  ├── styled-jsx
+|  |  |  |  └── types
+|  |  |  ├── telemetry
+|  |  |  |  ├── anonymous-meta.d.ts
+|  |  |  |  ├── anonymous-meta.js
+|  |  |  |  ├── anonymous-meta.js.map
+|  |  |  |  ├── detached-flush.d.ts
+|  |  |  |  ├── detached-flush.js
+|  |  |  |  ├── detached-flush.js.map
+|  |  |  |  ├── events
+|  |  |  |  ├── flush-telemetry.d.ts
+|  |  |  |  ├── flush-telemetry.js
+|  |  |  |  ├── flush-telemetry.js.map
+|  |  |  |  ├── post-telemetry-payload.d.ts
+|  |  |  |  ├── post-telemetry-payload.js
+|  |  |  |  ├── post-telemetry-payload.js.map
+|  |  |  |  ├── post-telemetry-payload.test.js
+|  |  |  |  ├── post-telemetry-payload.test.js.map
+|  |  |  |  ├── project-id.d.ts
+|  |  |  |  ├── project-id.js
+|  |  |  |  ├── project-id.js.map
+|  |  |  |  ├── storage.d.ts
+|  |  |  |  ├── storage.js
+|  |  |  |  └── storage.js.map
+|  |  |  ├── trace
+|  |  |  |  ├── index.d.ts
+|  |  |  |  ├── index.js
+|  |  |  |  ├── index.js.map
+|  |  |  |  ├── report
+|  |  |  |  ├── shared.d.ts
+|  |  |  |  ├── shared.js
+|  |  |  |  ├── shared.js.map
+|  |  |  |  ├── trace-uploader.d.ts
+|  |  |  |  ├── trace-uploader.js
+|  |  |  |  ├── trace-uploader.js.map
+|  |  |  |  ├── trace.d.ts
+|  |  |  |  ├── trace.js
+|  |  |  |  ├── trace.js.map
+|  |  |  |  ├── trace.test.js
+|  |  |  |  ├── trace.test.js.map
+|  |  |  |  ├── types.d.ts
+|  |  |  |  ├── types.js
+|  |  |  |  ├── types.js.map
+|  |  |  |  ├── upload-trace.d.ts
+|  |  |  |  ├── upload-trace.js
+|  |  |  |  └── upload-trace.js.map
+|  |  |  └── types.d.ts
+|  |  ├── document.d.ts
+|  |  ├── document.js
+|  |  ├── dynamic.d.ts
+|  |  ├── dynamic.js
+|  |  ├── error.d.ts
+|  |  ├── error.js
+|  |  ├── experimental
+|  |  |  ├── testing
+|  |  |  |  ├── server.d.ts
+|  |  |  |  └── server.js
+|  |  |  └── testmode
+|  |  |     ├── playwright
+|  |  |     ├── playwright.d.ts
+|  |  |     ├── playwright.js
+|  |  |     ├── proxy.d.ts
+|  |  |     └── proxy.js
+|  |  ├── font
+|  |  |  ├── google
+|  |  |  |  ├── index.d.ts
+|  |  |  |  ├── index.js
+|  |  |  |  └── target.css
+|  |  |  ├── index.d.ts
+|  |  |  └── local
+|  |  |     ├── index.d.ts
+|  |  |     ├── index.js
+|  |  |     └── target.css
+|  |  ├── form.d.ts
+|  |  ├── form.js
+|  |  ├── head.d.ts
+|  |  ├── head.js
+|  |  ├── headers.d.ts
+|  |  ├── headers.js
+|  |  ├── image-types
+|  |  |  └── global.d.ts
+|  |  ├── image.d.ts
+|  |  ├── image.js
+|  |  ├── index.d.ts
+|  |  ├── jest.d.ts
+|  |  ├── jest.js
+|  |  ├── legacy
+|  |  |  ├── image.d.ts
+|  |  |  └── image.js
+|  |  ├── license.md
+|  |  ├── link.d.ts
+|  |  ├── link.js
+|  |  ├── navigation-types
+|  |  |  └── compat
+|  |  |     └── navigation.d.ts
+|  |  ├── navigation.d.ts
+|  |  ├── navigation.js
+|  |  ├── node_modules
+|  |  |  └── postcss
+|  |  |     ├── LICENSE
+|  |  |     ├── README.md
+|  |  |     ├── lib
+|  |  |     └── package.json
+|  |  ├── og.d.ts
+|  |  ├── og.js
+|  |  ├── package.json
+|  |  ├── root-params.d.ts
+|  |  ├── root-params.js
+|  |  ├── router.d.ts
+|  |  ├── router.js
+|  |  ├── script.d.ts
+|  |  ├── script.js
+|  |  ├── server.d.ts
+|  |  ├── server.js
+|  |  ├── types
+|  |  |  ├── compiled.d.ts
+|  |  |  └── global.d.ts
+|  |  ├── types.d.ts
+|  |  ├── types.js
+|  |  ├── web-vitals.d.ts
+|  |  └── web-vitals.js
+|  ├── next-themes
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  ├── index.d.mts
+|  |  |  ├── index.d.ts
+|  |  |  ├── index.js
+|  |  |  └── index.mjs
+|  |  ├── license.md
+|  |  └── package.json
+|  ├── node-domexception
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── index.js
+|  |  └── package.json
+|  ├── node-fetch
+|  |  ├── @types
+|  |  |  └── index.d.ts
+|  |  ├── LICENSE.md
+|  |  ├── README.md
+|  |  ├── package.json
+|  |  └── src
+|  |     ├── body.js
+|  |     ├── errors
+|  |     |  ├── abort-error.js
+|  |     |  ├── base.js
+|  |     |  └── fetch-error.js
+|  |     ├── headers.js
+|  |     ├── index.js
+|  |     ├── request.js
+|  |     ├── response.js
+|  |     └── utils
+|  |        ├── get-search.js
+|  |        ├── is-redirect.js
+|  |        ├── is.js
+|  |        ├── multipart-parser.js
+|  |        └── referrer.js
+|  ├── node-releases
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── data
+|  |  |  ├── processed
+|  |  |  |  └── envs.json
+|  |  |  └── release-schedule
+|  |  |     └── release-schedule.json
+|  |  └── package.json
+|  ├── once
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── once.js
+|  |  └── package.json
+|  ├── picocolors
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── package.json
+|  |  ├── picocolors.browser.js
+|  |  ├── picocolors.d.ts
+|  |  ├── picocolors.js
+|  |  └── types.d.ts
+|  ├── postcss
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── lib
+|  |  |  ├── at-rule.d.ts
+|  |  |  ├── at-rule.js
+|  |  |  ├── comment.d.ts
+|  |  |  ├── comment.js
+|  |  |  ├── container.d.ts
+|  |  |  ├── container.js
+|  |  |  ├── css-syntax-error.d.ts
+|  |  |  ├── css-syntax-error.js
+|  |  |  ├── declaration.d.ts
+|  |  |  ├── declaration.js
+|  |  |  ├── document.d.ts
+|  |  |  ├── document.js
+|  |  |  ├── fromJSON.d.ts
+|  |  |  ├── fromJSON.js
+|  |  |  ├── input.d.ts
+|  |  |  ├── input.js
+|  |  |  ├── lazy-result.d.ts
+|  |  |  ├── lazy-result.js
+|  |  |  ├── list.d.ts
+|  |  |  ├── list.js
+|  |  |  ├── map-generator.js
+|  |  |  ├── no-work-result.d.ts
+|  |  |  ├── no-work-result.js
+|  |  |  ├── node.d.ts
+|  |  |  ├── node.js
+|  |  |  ├── parse.d.ts
+|  |  |  ├── parse.js
+|  |  |  ├── parser.js
+|  |  |  ├── postcss.d.mts
+|  |  |  ├── postcss.d.ts
+|  |  |  ├── postcss.js
+|  |  |  ├── postcss.mjs
+|  |  |  ├── previous-map.d.ts
+|  |  |  ├── previous-map.js
+|  |  |  ├── processor.d.ts
+|  |  |  ├── processor.js
+|  |  |  ├── result.d.ts
+|  |  |  ├── result.js
+|  |  |  ├── root.d.ts
+|  |  |  ├── root.js
+|  |  |  ├── rule.d.ts
+|  |  |  ├── rule.js
+|  |  |  ├── stringifier.d.ts
+|  |  |  ├── stringifier.js
+|  |  |  ├── stringify.d.ts
+|  |  |  ├── stringify.js
+|  |  |  ├── symbols.js
+|  |  |  ├── terminal-highlight.js
+|  |  |  ├── tokenize.js
+|  |  |  ├── warn-once.js
+|  |  |  ├── warning.d.ts
+|  |  |  └── warning.js
+|  |  └── package.json
+|  ├── postcss-value-parser
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── lib
+|  |  |  ├── index.d.ts
+|  |  |  ├── index.js
+|  |  |  ├── parse.js
+|  |  |  ├── stringify.js
+|  |  |  ├── unit.js
+|  |  |  └── walk.js
+|  |  └── package.json
+|  ├── react
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── cjs
+|  |  |  ├── react-compiler-runtime.development.js
+|  |  |  ├── react-compiler-runtime.production.js
+|  |  |  ├── react-compiler-runtime.profiling.js
+|  |  |  ├── react-jsx-dev-runtime.development.js
+|  |  |  ├── react-jsx-dev-runtime.production.js
+|  |  |  ├── react-jsx-dev-runtime.profiling.js
+|  |  |  ├── react-jsx-dev-runtime.react-server.development.js
+|  |  |  ├── react-jsx-dev-runtime.react-server.production.js
+|  |  |  ├── react-jsx-runtime.development.js
+|  |  |  ├── react-jsx-runtime.production.js
+|  |  |  ├── react-jsx-runtime.profiling.js
+|  |  |  ├── react-jsx-runtime.react-server.development.js
+|  |  |  ├── react-jsx-runtime.react-server.production.js
+|  |  |  ├── react.development.js
+|  |  |  ├── react.production.js
+|  |  |  ├── react.react-server.development.js
+|  |  |  └── react.react-server.production.js
+|  |  ├── compiler-runtime.js
+|  |  ├── index.js
+|  |  ├── jsx-dev-runtime.js
+|  |  ├── jsx-dev-runtime.react-server.js
+|  |  ├── jsx-runtime.js
+|  |  ├── jsx-runtime.react-server.js
+|  |  ├── package.json
+|  |  └── react.react-server.js
+|  ├── react-dom
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── cjs
+|  |  |  ├── react-dom-client.development.js
+|  |  |  ├── react-dom-client.production.js
+|  |  |  ├── react-dom-profiling.development.js
+|  |  |  ├── react-dom-profiling.profiling.js
+|  |  |  ├── react-dom-server-legacy.browser.development.js
+|  |  |  ├── react-dom-server-legacy.browser.production.js
+|  |  |  ├── react-dom-server-legacy.node.development.js
+|  |  |  ├── react-dom-server-legacy.node.production.js
+|  |  |  ├── react-dom-server.browser.development.js
+|  |  |  ├── react-dom-server.browser.production.js
+|  |  |  ├── react-dom-server.bun.development.js
+|  |  |  ├── react-dom-server.bun.production.js
+|  |  |  ├── react-dom-server.edge.development.js
+|  |  |  ├── react-dom-server.edge.production.js
+|  |  |  ├── react-dom-server.node.development.js
+|  |  |  ├── react-dom-server.node.production.js
+|  |  |  ├── react-dom-test-utils.development.js
+|  |  |  ├── react-dom-test-utils.production.js
+|  |  |  ├── react-dom.development.js
+|  |  |  ├── react-dom.production.js
+|  |  |  ├── react-dom.react-server.development.js
+|  |  |  └── react-dom.react-server.production.js
+|  |  ├── client.js
+|  |  ├── client.react-server.js
+|  |  ├── index.js
+|  |  ├── package.json
+|  |  ├── profiling.js
+|  |  ├── profiling.react-server.js
+|  |  ├── react-dom.react-server.js
+|  |  ├── server.browser.js
+|  |  ├── server.bun.js
+|  |  ├── server.edge.js
+|  |  ├── server.js
+|  |  ├── server.node.js
+|  |  ├── server.react-server.js
+|  |  ├── static.browser.js
+|  |  ├── static.edge.js
+|  |  ├── static.js
+|  |  ├── static.node.js
+|  |  ├── static.react-server.js
+|  |  └── test-utils.js
+|  ├── readable-stream
+|  |  ├── CONTRIBUTING.md
+|  |  ├── GOVERNANCE.md
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── errors-browser.js
+|  |  ├── errors.js
+|  |  ├── experimentalWarning.js
+|  |  ├── lib
+|  |  |  ├── _stream_duplex.js
+|  |  |  ├── _stream_passthrough.js
+|  |  |  ├── _stream_readable.js
+|  |  |  ├── _stream_transform.js
+|  |  |  ├── _stream_writable.js
+|  |  |  └── internal
+|  |  |     └── streams
+|  |  ├── package.json
+|  |  ├── readable-browser.js
+|  |  └── readable.js
+|  ├── retry-request
+|  |  ├── index.d.ts
+|  |  ├── index.js
+|  |  ├── license
+|  |  ├── package.json
+|  |  └── readme.md
+|  ├── safe-buffer
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── index.d.ts
+|  |  ├── index.js
+|  |  └── package.json
+|  ├── scheduler
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── cjs
+|  |  |  ├── scheduler-unstable_mock.development.js
+|  |  |  ├── scheduler-unstable_mock.production.js
+|  |  |  ├── scheduler-unstable_post_task.development.js
+|  |  |  ├── scheduler-unstable_post_task.production.js
+|  |  |  ├── scheduler.development.js
+|  |  |  ├── scheduler.native.development.js
+|  |  |  ├── scheduler.native.production.js
+|  |  |  └── scheduler.production.js
+|  |  ├── index.js
+|  |  ├── index.native.js
+|  |  ├── package.json
+|  |  ├── unstable_mock.js
+|  |  └── unstable_post_task.js
+|  ├── semver
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── bin
+|  |  |  └── semver.js
+|  |  ├── classes
+|  |  |  ├── comparator.js
+|  |  |  ├── index.js
+|  |  |  ├── range.js
+|  |  |  └── semver.js
+|  |  ├── functions
+|  |  |  ├── clean.js
+|  |  |  ├── cmp.js
+|  |  |  ├── coerce.js
+|  |  |  ├── compare-build.js
+|  |  |  ├── compare-loose.js
+|  |  |  ├── compare.js
+|  |  |  ├── diff.js
+|  |  |  ├── eq.js
+|  |  |  ├── gt.js
+|  |  |  ├── gte.js
+|  |  |  ├── inc.js
+|  |  |  ├── lt.js
+|  |  |  ├── lte.js
+|  |  |  ├── major.js
+|  |  |  ├── minor.js
+|  |  |  ├── neq.js
+|  |  |  ├── parse.js
+|  |  |  ├── patch.js
+|  |  |  ├── prerelease.js
+|  |  |  ├── rcompare.js
+|  |  |  ├── rsort.js
+|  |  |  ├── satisfies.js
+|  |  |  ├── sort.js
+|  |  |  ├── truncate.js
+|  |  |  └── valid.js
+|  |  ├── index.js
+|  |  ├── internal
+|  |  |  ├── constants.js
+|  |  |  ├── debug.js
+|  |  |  ├── identifiers.js
+|  |  |  ├── lrucache.js
+|  |  |  ├── parse-options.js
+|  |  |  └── re.js
+|  |  ├── package.json
+|  |  ├── preload.js
+|  |  ├── range.bnf
+|  |  └── ranges
+|  |     ├── gtr.js
+|  |     ├── intersects.js
+|  |     ├── ltr.js
+|  |     ├── max-satisfying.js
+|  |     ├── min-satisfying.js
+|  |     ├── min-version.js
+|  |     ├── outside.js
+|  |     ├── simplify.js
+|  |     ├── subset.js
+|  |     ├── to-comparators.js
+|  |     └── valid.js
+|  ├── sharp
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── install
+|  |  |  ├── build.js
+|  |  |  └── check.js
+|  |  ├── lib
+|  |  |  ├── channel.js
+|  |  |  ├── colour.js
+|  |  |  ├── composite.js
+|  |  |  ├── constructor.js
+|  |  |  ├── index.d.ts
+|  |  |  ├── index.js
+|  |  |  ├── input.js
+|  |  |  ├── is.js
+|  |  |  ├── libvips.js
+|  |  |  ├── operation.js
+|  |  |  ├── output.js
+|  |  |  ├── resize.js
+|  |  |  ├── sharp.js
+|  |  |  └── utility.js
+|  |  ├── package.json
+|  |  └── src
+|  |     ├── binding.gyp
+|  |     ├── common.cc
+|  |     ├── common.h
+|  |     ├── metadata.cc
+|  |     ├── metadata.h
+|  |     ├── operations.cc
+|  |     ├── operations.h
+|  |     ├── pipeline.cc
+|  |     ├── pipeline.h
+|  |     ├── sharp.cc
+|  |     ├── stats.cc
+|  |     ├── stats.h
+|  |     ├── utilities.cc
+|  |     └── utilities.h
+|  ├── source-map-js
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── lib
+|  |  |  ├── array-set.js
+|  |  |  ├── base64-vlq.js
+|  |  |  ├── base64.js
+|  |  |  ├── binary-search.js
+|  |  |  ├── mapping-list.js
+|  |  |  ├── quick-sort.js
+|  |  |  ├── source-map-consumer.d.ts
+|  |  |  ├── source-map-consumer.js
+|  |  |  ├── source-map-generator.d.ts
+|  |  |  ├── source-map-generator.js
+|  |  |  ├── source-node.d.ts
+|  |  |  ├── source-node.js
+|  |  |  └── util.js
+|  |  ├── package.json
+|  |  ├── source-map.d.ts
+|  |  └── source-map.js
+|  ├── stream-events
+|  |  ├── index.d.ts
+|  |  ├── index.js
+|  |  ├── package.json
+|  |  └── readme.md
+|  ├── stream-shift
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── index.js
+|  |  ├── package.json
+|  |  └── test.js
+|  ├── string_decoder
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── lib
+|  |  |  └── string_decoder.js
+|  |  └── package.json
+|  ├── stubs
+|  |  ├── index.js
+|  |  ├── package.json
+|  |  ├── readme.md
+|  |  └── test.js
+|  ├── styled-jsx
+|  |  ├── babel-test.js
+|  |  ├── babel.js
+|  |  ├── css.d.ts
+|  |  ├── css.js
+|  |  ├── dist
+|  |  |  ├── babel
+|  |  |  |  └── index.js
+|  |  |  ├── index
+|  |  |  |  └── index.js
+|  |  |  └── webpack
+|  |  |     └── index.js
+|  |  ├── global.d.ts
+|  |  ├── index.d.ts
+|  |  ├── index.js
+|  |  ├── lib
+|  |  |  ├── style-transform.js
+|  |  |  └── stylesheet.js
+|  |  ├── license.md
+|  |  ├── macro.d.ts
+|  |  ├── macro.js
+|  |  ├── package.json
+|  |  ├── readme.md
+|  |  ├── style.d.ts
+|  |  ├── style.js
+|  |  └── webpack.js
+|  ├── tailwind-merge
+|  |  ├── LICENSE.md
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  ├── bundle-cjs.js
+|  |  |  ├── bundle-cjs.js.map
+|  |  |  ├── bundle-mjs.mjs
+|  |  |  ├── bundle-mjs.mjs.map
+|  |  |  ├── es5
+|  |  |  |  ├── bundle-cjs.js
+|  |  |  |  ├── bundle-cjs.js.map
+|  |  |  |  ├── bundle-mjs.mjs
+|  |  |  |  └── bundle-mjs.mjs.map
+|  |  |  └── types.d.ts
+|  |  ├── package.json
+|  |  └── src
+|  |     ├── index.ts
+|  |     └── lib
+|  |        ├── class-group-utils.ts
+|  |        ├── config-utils.ts
+|  |        ├── create-tailwind-merge.ts
+|  |        ├── default-config.ts
+|  |        ├── extend-tailwind-merge.ts
+|  |        ├── from-theme.ts
+|  |        ├── lru-cache.ts
+|  |        ├── merge-classlist.ts
+|  |        ├── merge-configs.ts
+|  |        ├── parse-class-name.ts
+|  |        ├── sort-modifiers.ts
+|  |        ├── tw-join.ts
+|  |        ├── tw-merge.ts
+|  |        ├── types.ts
+|  |        ├── utils.ts
+|  |        └── validators.ts
+|  ├── tailwindcss
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  ├── chunk-5JIJA4QV.mjs
+|  |  |  ├── chunk-C2OYBFIH.mjs
+|  |  |  ├── chunk-DCG7AFIE.mjs
+|  |  |  ├── colors-C__qRT83.d.ts
+|  |  |  ├── colors.d.mts
+|  |  |  ├── colors.d.ts
+|  |  |  ├── colors.js
+|  |  |  ├── colors.mjs
+|  |  |  ├── default-theme.d.mts
+|  |  |  ├── default-theme.d.ts
+|  |  |  ├── default-theme.js
+|  |  |  ├── default-theme.mjs
+|  |  |  ├── flatten-color-palette.d.mts
+|  |  |  ├── flatten-color-palette.d.ts
+|  |  |  ├── flatten-color-palette.js
+|  |  |  ├── flatten-color-palette.mjs
+|  |  |  ├── lib.d.mts
+|  |  |  ├── lib.d.ts
+|  |  |  ├── lib.js
+|  |  |  ├── lib.mjs
+|  |  |  ├── plugin.d.mts
+|  |  |  ├── plugin.d.ts
+|  |  |  ├── plugin.js
+|  |  |  ├── plugin.mjs
+|  |  |  ├── resolve-config-B4yBzhca.d.ts
+|  |  |  ├── resolve-config-QUZ9b-Gn.d.mts
+|  |  |  └── types-DWdTiksJ.d.mts
+|  |  ├── index.css
+|  |  ├── package.json
+|  |  ├── preflight.css
+|  |  ├── theme.css
+|  |  └── utilities.css
+|  ├── tapable
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── lib
+|  |  |  ├── AsyncParallelBailHook.js
+|  |  |  ├── AsyncParallelHook.js
+|  |  |  ├── AsyncSeriesBailHook.js
+|  |  |  ├── AsyncSeriesHook.js
+|  |  |  ├── AsyncSeriesLoopHook.js
+|  |  |  ├── AsyncSeriesWaterfallHook.js
+|  |  |  ├── Hook.js
+|  |  |  ├── HookCodeFactory.js
+|  |  |  ├── HookMap.js
+|  |  |  ├── MultiHook.js
+|  |  |  ├── SyncBailHook.js
+|  |  |  ├── SyncHook.js
+|  |  |  ├── SyncLoopHook.js
+|  |  |  ├── SyncWaterfallHook.js
+|  |  |  ├── index.js
+|  |  |  └── util-browser.js
+|  |  ├── package.json
+|  |  └── tapable.d.ts
+|  ├── teeny-request
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── build
+|  |  |  └── src
+|  |  |     ├── TeenyStatistics.d.ts
+|  |  |     ├── TeenyStatistics.js
+|  |  |     ├── TeenyStatistics.js.map
+|  |  |     ├── agents.d.ts
+|  |  |     ├── agents.js
+|  |  |     ├── agents.js.map
+|  |  |     ├── index.d.ts
+|  |  |     ├── index.js
+|  |  |     └── index.js.map
+|  |  └── package.json
+|  ├── ts-node
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── child-loader.mjs
+|  |  ├── dist
+|  |  |  ├── bin-cwd.d.ts
+|  |  |  ├── bin-cwd.js
+|  |  |  ├── bin-cwd.js.map
+|  |  |  ├── bin-esm.d.ts
+|  |  |  ├── bin-esm.js
+|  |  |  ├── bin-esm.js.map
+|  |  |  ├── bin-script-deprecated.d.ts
+|  |  |  ├── bin-script-deprecated.js
+|  |  |  ├── bin-script-deprecated.js.map
+|  |  |  ├── bin-script.d.ts
+|  |  |  ├── bin-script.js
+|  |  |  ├── bin-script.js.map
+|  |  |  ├── bin-transpile.d.ts
+|  |  |  ├── bin-transpile.js
+|  |  |  ├── bin-transpile.js.map
+|  |  |  ├── bin.d.ts
+|  |  |  ├── bin.js
+|  |  |  ├── bin.js.map
+|  |  |  ├── child
+|  |  |  |  ├── argv-payload.d.ts
+|  |  |  |  ├── argv-payload.js
+|  |  |  |  ├── argv-payload.js.map
+|  |  |  |  ├── child-entrypoint.d.ts
+|  |  |  |  ├── child-entrypoint.js
+|  |  |  |  ├── child-entrypoint.js.map
+|  |  |  |  ├── child-loader.d.ts
+|  |  |  |  ├── child-loader.js
+|  |  |  |  ├── child-loader.js.map
+|  |  |  |  ├── child-require.d.ts
+|  |  |  |  ├── child-require.js
+|  |  |  |  ├── child-require.js.map
+|  |  |  |  ├── spawn-child.d.ts
+|  |  |  |  ├── spawn-child.js
+|  |  |  |  └── spawn-child.js.map
+|  |  |  ├── cjs-resolve-hooks.d.ts
+|  |  |  ├── cjs-resolve-hooks.js
+|  |  |  ├── cjs-resolve-hooks.js.map
+|  |  |  ├── configuration.d.ts
+|  |  |  ├── configuration.js
+|  |  |  ├── configuration.js.map
+|  |  |  ├── esm.d.ts
+|  |  |  ├── esm.js
+|  |  |  ├── esm.js.map
+|  |  |  ├── file-extensions.d.ts
+|  |  |  ├── file-extensions.js
+|  |  |  ├── file-extensions.js.map
+|  |  |  ├── index.d.ts
+|  |  |  ├── index.js
+|  |  |  ├── index.js.map
+|  |  |  ├── module-type-classifier.d.ts
+|  |  |  ├── module-type-classifier.js
+|  |  |  ├── module-type-classifier.js.map
+|  |  |  ├── node-module-type-classifier.d.ts
+|  |  |  ├── node-module-type-classifier.js
+|  |  |  ├── node-module-type-classifier.js.map
+|  |  |  ├── repl.d.ts
+|  |  |  ├── repl.js
+|  |  |  ├── repl.js.map
+|  |  |  ├── resolver-functions.d.ts
+|  |  |  ├── resolver-functions.js
+|  |  |  ├── resolver-functions.js.map
+|  |  |  ├── transpilers
+|  |  |  |  ├── swc.d.ts
+|  |  |  |  ├── swc.js
+|  |  |  |  ├── swc.js.map
+|  |  |  |  ├── types.d.ts
+|  |  |  |  ├── types.js
+|  |  |  |  └── types.js.map
+|  |  |  ├── ts-compiler-types.d.ts
+|  |  |  ├── ts-compiler-types.js
+|  |  |  ├── ts-compiler-types.js.map
+|  |  |  ├── ts-internals.d.ts
+|  |  |  ├── ts-internals.js
+|  |  |  ├── ts-internals.js.map
+|  |  |  ├── ts-transpile-module.d.ts
+|  |  |  ├── ts-transpile-module.js
+|  |  |  ├── ts-transpile-module.js.map
+|  |  |  ├── tsconfig-schema.d.ts
+|  |  |  ├── tsconfig-schema.js
+|  |  |  ├── tsconfig-schema.js.map
+|  |  |  ├── tsconfigs.d.ts
+|  |  |  ├── tsconfigs.js
+|  |  |  ├── tsconfigs.js.map
+|  |  |  ├── util.d.ts
+|  |  |  ├── util.js
+|  |  |  └── util.js.map
+|  |  ├── dist-raw
+|  |  |  ├── NODE-LICENSE.md
+|  |  |  ├── README.md
+|  |  |  ├── node-internal-constants.js
+|  |  |  ├── node-internal-errors.js
+|  |  |  ├── node-internal-modules-cjs-helpers.js
+|  |  |  ├── node-internal-modules-cjs-loader.js
+|  |  |  ├── node-internal-modules-esm-get_format.js
+|  |  |  ├── node-internal-modules-esm-resolve.js
+|  |  |  ├── node-internal-modules-package_json_reader.js
+|  |  |  ├── node-internal-repl-await.js
+|  |  |  ├── node-internalBinding-fs.js
+|  |  |  ├── node-nativemodule.js
+|  |  |  ├── node-options.js
+|  |  |  ├── node-primordials.js
+|  |  |  └── runmain-hack.js
+|  |  ├── esm
+|  |  |  └── transpile-only.mjs
+|  |  ├── esm.mjs
+|  |  ├── node10
+|  |  |  └── tsconfig.json
+|  |  ├── node12
+|  |  |  └── tsconfig.json
+|  |  ├── node14
+|  |  |  └── tsconfig.json
+|  |  ├── node16
+|  |  |  └── tsconfig.json
+|  |  ├── package.json
+|  |  ├── register
+|  |  |  ├── files.js
+|  |  |  ├── index.js
+|  |  |  ├── transpile-only.js
+|  |  |  └── type-check.js
+|  |  ├── transpilers
+|  |  |  ├── swc-experimental.js
+|  |  |  └── swc.js
+|  |  ├── tsconfig.schema.json
+|  |  └── tsconfig.schemastore-schema.json
+|  ├── tslib
+|  |  ├── CopyrightNotice.txt
+|  |  ├── LICENSE.txt
+|  |  ├── README.md
+|  |  ├── SECURITY.md
+|  |  ├── modules
+|  |  |  ├── index.d.ts
+|  |  |  ├── index.js
+|  |  |  └── package.json
+|  |  ├── package.json
+|  |  ├── tslib.d.ts
+|  |  ├── tslib.es6.html
+|  |  ├── tslib.es6.js
+|  |  ├── tslib.es6.mjs
+|  |  ├── tslib.html
+|  |  └── tslib.js
+|  ├── tsx
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  ├── cjs
+|  |  |  |  ├── api
+|  |  |  |  ├── index.cjs
+|  |  |  |  └── index.mjs
+|  |  |  ├── cli.cjs
+|  |  |  ├── cli.mjs
+|  |  |  ├── client-D3mGB526.cjs
+|  |  |  ├── client-D_mPDF5S.mjs
+|  |  |  ├── esm
+|  |  |  |  ├── api
+|  |  |  |  ├── index.cjs
+|  |  |  |  └── index.mjs
+|  |  |  ├── get-pipe-path-D4YM6rQt.cjs
+|  |  |  ├── get-pipe-path-_tAJyU_v.mjs
+|  |  |  ├── index-BN2t1Mfo.cjs
+|  |  |  ├── index-BWFBUo6r.cjs
+|  |  |  ├── index-CQhDiIsg.mjs
+|  |  |  ├── index-gbaejti9.mjs
+|  |  |  ├── lexer-DQCqS3nf.mjs
+|  |  |  ├── lexer-DgIbo0BU.cjs
+|  |  |  ├── loader.cjs
+|  |  |  ├── loader.mjs
+|  |  |  ├── node-features-CEjg7cMX.cjs
+|  |  |  ├── node-features-JeyyvQz6.mjs
+|  |  |  ├── package-BNu2DCJT.cjs
+|  |  |  ├── package-C7r8CFoj.mjs
+|  |  |  ├── patch-repl.cjs
+|  |  |  ├── patch-repl.mjs
+|  |  |  ├── preflight.cjs
+|  |  |  ├── preflight.mjs
+|  |  |  ├── register-BoI6-WNn.cjs
+|  |  |  ├── register-DlUHyDDv.cjs
+|  |  |  ├── register-HWZIKnmC.mjs
+|  |  |  ├── register-zZ7SWseA.mjs
+|  |  |  ├── repl.cjs
+|  |  |  ├── repl.mjs
+|  |  |  ├── require-C7ivLNeu.cjs
+|  |  |  ├── require-awuW45Q3.mjs
+|  |  |  ├── suppress-warnings.cjs
+|  |  |  ├── suppress-warnings.mjs
+|  |  |  ├── temporary-directory-B83uKxJF.cjs
+|  |  |  ├── temporary-directory-BDDVQOvU.mjs
+|  |  |  └── types-Cxp8y2TL.d.ts
+|  |  └── package.json
+|  ├── typescript
+|  |  ├── LICENSE.txt
+|  |  ├── README.md
+|  |  ├── SECURITY.md
+|  |  ├── ThirdPartyNoticeText.txt
+|  |  ├── bin
+|  |  |  ├── tsc
+|  |  |  └── tsserver
+|  |  ├── lib
+|  |  |  ├── _tsc.js
+|  |  |  ├── _tsserver.js
+|  |  |  ├── _typingsInstaller.js
+|  |  |  ├── cs
+|  |  |  |  └── diagnosticMessages.generated.json
+|  |  |  ├── de
+|  |  |  |  └── diagnosticMessages.generated.json
+|  |  |  ├── es
+|  |  |  |  └── diagnosticMessages.generated.json
+|  |  |  ├── fr
+|  |  |  |  └── diagnosticMessages.generated.json
+|  |  |  ├── it
+|  |  |  |  └── diagnosticMessages.generated.json
+|  |  |  ├── ja
+|  |  |  |  └── diagnosticMessages.generated.json
+|  |  |  ├── ko
+|  |  |  |  └── diagnosticMessages.generated.json
+|  |  |  ├── lib.d.ts
+|  |  |  ├── lib.decorators.d.ts
+|  |  |  ├── lib.decorators.legacy.d.ts
+|  |  |  ├── lib.dom.asynciterable.d.ts
+|  |  |  ├── lib.dom.d.ts
+|  |  |  ├── lib.dom.iterable.d.ts
+|  |  |  ├── lib.es2015.collection.d.ts
+|  |  |  ├── lib.es2015.core.d.ts
+|  |  |  ├── lib.es2015.d.ts
+|  |  |  ├── lib.es2015.generator.d.ts
+|  |  |  ├── lib.es2015.iterable.d.ts
+|  |  |  ├── lib.es2015.promise.d.ts
+|  |  |  ├── lib.es2015.proxy.d.ts
+|  |  |  ├── lib.es2015.reflect.d.ts
+|  |  |  ├── lib.es2015.symbol.d.ts
+|  |  |  ├── lib.es2015.symbol.wellknown.d.ts
+|  |  |  ├── lib.es2016.array.include.d.ts
+|  |  |  ├── lib.es2016.d.ts
+|  |  |  ├── lib.es2016.full.d.ts
+|  |  |  ├── lib.es2016.intl.d.ts
+|  |  |  ├── lib.es2017.arraybuffer.d.ts
+|  |  |  ├── lib.es2017.d.ts
+|  |  |  ├── lib.es2017.date.d.ts
+|  |  |  ├── lib.es2017.full.d.ts
+|  |  |  ├── lib.es2017.intl.d.ts
+|  |  |  ├── lib.es2017.object.d.ts
+|  |  |  ├── lib.es2017.sharedmemory.d.ts
+|  |  |  ├── lib.es2017.string.d.ts
+|  |  |  ├── lib.es2017.typedarrays.d.ts
+|  |  |  ├── lib.es2018.asyncgenerator.d.ts
+|  |  |  ├── lib.es2018.asynciterable.d.ts
+|  |  |  ├── lib.es2018.d.ts
+|  |  |  ├── lib.es2018.full.d.ts
+|  |  |  ├── lib.es2018.intl.d.ts
+|  |  |  ├── lib.es2018.promise.d.ts
+|  |  |  ├── lib.es2018.regexp.d.ts
+|  |  |  ├── lib.es2019.array.d.ts
+|  |  |  ├── lib.es2019.d.ts
+|  |  |  ├── lib.es2019.full.d.ts
+|  |  |  ├── lib.es2019.intl.d.ts
+|  |  |  ├── lib.es2019.object.d.ts
+|  |  |  ├── lib.es2019.string.d.ts
+|  |  |  ├── lib.es2019.symbol.d.ts
+|  |  |  ├── lib.es2020.bigint.d.ts
+|  |  |  ├── lib.es2020.d.ts
+|  |  |  ├── lib.es2020.date.d.ts
+|  |  |  ├── lib.es2020.full.d.ts
+|  |  |  ├── lib.es2020.intl.d.ts
+|  |  |  ├── lib.es2020.number.d.ts
+|  |  |  ├── lib.es2020.promise.d.ts
+|  |  |  ├── lib.es2020.sharedmemory.d.ts
+|  |  |  ├── lib.es2020.string.d.ts
+|  |  |  ├── lib.es2020.symbol.wellknown.d.ts
+|  |  |  ├── lib.es2021.d.ts
+|  |  |  ├── lib.es2021.full.d.ts
+|  |  |  ├── lib.es2021.intl.d.ts
+|  |  |  ├── lib.es2021.promise.d.ts
+|  |  |  ├── lib.es2021.string.d.ts
+|  |  |  ├── lib.es2021.weakref.d.ts
+|  |  |  ├── lib.es2022.array.d.ts
+|  |  |  ├── lib.es2022.d.ts
+|  |  |  ├── lib.es2022.error.d.ts
+|  |  |  ├── lib.es2022.full.d.ts
+|  |  |  ├── lib.es2022.intl.d.ts
+|  |  |  ├── lib.es2022.object.d.ts
+|  |  |  ├── lib.es2022.regexp.d.ts
+|  |  |  ├── lib.es2022.string.d.ts
+|  |  |  ├── lib.es2023.array.d.ts
+|  |  |  ├── lib.es2023.collection.d.ts
+|  |  |  ├── lib.es2023.d.ts
+|  |  |  ├── lib.es2023.full.d.ts
+|  |  |  ├── lib.es2023.intl.d.ts
+|  |  |  ├── lib.es2024.arraybuffer.d.ts
+|  |  |  ├── lib.es2024.collection.d.ts
+|  |  |  ├── lib.es2024.d.ts
+|  |  |  ├── lib.es2024.full.d.ts
+|  |  |  ├── lib.es2024.object.d.ts
+|  |  |  ├── lib.es2024.promise.d.ts
+|  |  |  ├── lib.es2024.regexp.d.ts
+|  |  |  ├── lib.es2024.sharedmemory.d.ts
+|  |  |  ├── lib.es2024.string.d.ts
+|  |  |  ├── lib.es5.d.ts
+|  |  |  ├── lib.es6.d.ts
+|  |  |  ├── lib.esnext.array.d.ts
+|  |  |  ├── lib.esnext.collection.d.ts
+|  |  |  ├── lib.esnext.d.ts
+|  |  |  ├── lib.esnext.decorators.d.ts
+|  |  |  ├── lib.esnext.disposable.d.ts
+|  |  |  ├── lib.esnext.error.d.ts
+|  |  |  ├── lib.esnext.float16.d.ts
+|  |  |  ├── lib.esnext.full.d.ts
+|  |  |  ├── lib.esnext.intl.d.ts
+|  |  |  ├── lib.esnext.iterator.d.ts
+|  |  |  ├── lib.esnext.promise.d.ts
+|  |  |  ├── lib.esnext.sharedmemory.d.ts
+|  |  |  ├── lib.scripthost.d.ts
+|  |  |  ├── lib.webworker.asynciterable.d.ts
+|  |  |  ├── lib.webworker.d.ts
+|  |  |  ├── lib.webworker.importscripts.d.ts
+|  |  |  ├── lib.webworker.iterable.d.ts
+|  |  |  ├── pl
+|  |  |  |  └── diagnosticMessages.generated.json
+|  |  |  ├── pt-br
+|  |  |  |  └── diagnosticMessages.generated.json
+|  |  |  ├── ru
+|  |  |  |  └── diagnosticMessages.generated.json
+|  |  |  ├── tr
+|  |  |  |  └── diagnosticMessages.generated.json
+|  |  |  ├── tsc.js
+|  |  |  ├── tsserver.js
+|  |  |  ├── tsserverlibrary.d.ts
+|  |  |  ├── tsserverlibrary.js
+|  |  |  ├── typesMap.json
+|  |  |  ├── typescript.d.ts
+|  |  |  ├── typescript.js
+|  |  |  ├── typingsInstaller.js
+|  |  |  ├── watchGuard.js
+|  |  |  ├── zh-cn
+|  |  |  |  └── diagnosticMessages.generated.json
+|  |  |  └── zh-tw
+|  |  |     └── diagnosticMessages.generated.json
+|  |  └── package.json
+|  ├── undici-types
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── agent.d.ts
+|  |  ├── api.d.ts
+|  |  ├── balanced-pool.d.ts
+|  |  ├── cache-interceptor.d.ts
+|  |  ├── cache.d.ts
+|  |  ├── client-stats.d.ts
+|  |  ├── client.d.ts
+|  |  ├── connector.d.ts
+|  |  ├── content-type.d.ts
+|  |  ├── cookies.d.ts
+|  |  ├── diagnostics-channel.d.ts
+|  |  ├── dispatcher.d.ts
+|  |  ├── dispatcher1-wrapper.d.ts
+|  |  ├── env-http-proxy-agent.d.ts
+|  |  ├── errors.d.ts
+|  |  ├── eventsource.d.ts
+|  |  ├── fetch.d.ts
+|  |  ├── formdata.d.ts
+|  |  ├── global-dispatcher.d.ts
+|  |  ├── global-origin.d.ts
+|  |  ├── h2c-client.d.ts
+|  |  ├── handlers.d.ts
+|  |  ├── header.d.ts
+|  |  ├── index.d.ts
+|  |  ├── interceptors.d.ts
+|  |  ├── mock-agent.d.ts
+|  |  ├── mock-call-history.d.ts
+|  |  ├── mock-client.d.ts
+|  |  ├── mock-errors.d.ts
+|  |  ├── mock-interceptor.d.ts
+|  |  ├── mock-pool.d.ts
+|  |  ├── package.json
+|  |  ├── patch.d.ts
+|  |  ├── pool-stats.d.ts
+|  |  ├── pool.d.ts
+|  |  ├── proxy-agent.d.ts
+|  |  ├── readable.d.ts
+|  |  ├── retry-agent.d.ts
+|  |  ├── retry-handler.d.ts
+|  |  ├── round-robin-pool.d.ts
+|  |  ├── snapshot-agent.d.ts
+|  |  ├── socks5-proxy-agent.d.ts
+|  |  ├── util.d.ts
+|  |  ├── utility.d.ts
+|  |  ├── webidl.d.ts
+|  |  └── websocket.d.ts
+|  ├── update-browserslist-db
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── check-npm-version.js
+|  |  ├── cli.js
+|  |  ├── index.d.ts
+|  |  ├── index.js
+|  |  ├── package.json
+|  |  └── utils.js
+|  ├── util-deprecate
+|  |  ├── History.md
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── browser.js
+|  |  ├── node.js
+|  |  └── package.json
+|  ├── v8-compile-cache-lib
+|  |  ├── CHANGELOG.md
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── package.json
+|  |  ├── v8-compile-cache.d.ts
+|  |  └── v8-compile-cache.js
+|  ├── web-streams-polyfill
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── dist
+|  |  |  ├── polyfill.es2018.js
+|  |  |  ├── polyfill.es2018.js.map
+|  |  |  ├── polyfill.es2018.min.js
+|  |  |  ├── polyfill.es2018.min.js.map
+|  |  |  ├── polyfill.es2018.mjs
+|  |  |  ├── polyfill.es2018.mjs.map
+|  |  |  ├── polyfill.es6.js
+|  |  |  ├── polyfill.es6.js.map
+|  |  |  ├── polyfill.es6.min.js
+|  |  |  ├── polyfill.es6.min.js.map
+|  |  |  ├── polyfill.es6.mjs
+|  |  |  ├── polyfill.es6.mjs.map
+|  |  |  ├── polyfill.js
+|  |  |  ├── polyfill.js.map
+|  |  |  ├── polyfill.min.js
+|  |  |  ├── polyfill.min.js.map
+|  |  |  ├── polyfill.mjs
+|  |  |  ├── polyfill.mjs.map
+|  |  |  ├── ponyfill.es2018.js
+|  |  |  ├── ponyfill.es2018.js.map
+|  |  |  ├── ponyfill.es2018.mjs
+|  |  |  ├── ponyfill.es2018.mjs.map
+|  |  |  ├── ponyfill.es6.js
+|  |  |  ├── ponyfill.es6.js.map
+|  |  |  ├── ponyfill.es6.mjs
+|  |  |  ├── ponyfill.es6.mjs.map
+|  |  |  ├── ponyfill.js
+|  |  |  ├── ponyfill.js.map
+|  |  |  ├── ponyfill.mjs
+|  |  |  ├── ponyfill.mjs.map
+|  |  |  └── types
+|  |  |     ├── polyfill.d.ts
+|  |  |     ├── ponyfill.d.ts
+|  |  |     ├── ts3.6
+|  |  |     └── tsdoc-metadata.json
+|  |  ├── es2018
+|  |  |  └── package.json
+|  |  ├── es6
+|  |  |  └── package.json
+|  |  ├── package.json
+|  |  └── ponyfill
+|  |     ├── es2018
+|  |     |  └── package.json
+|  |     ├── es6
+|  |     |  └── package.json
+|  |     └── package.json
+|  ├── wrappy
+|  |  ├── LICENSE
+|  |  ├── README.md
+|  |  ├── package.json
+|  |  └── wrappy.js
+|  ├── yn
+|  |  ├── index.d.ts
+|  |  ├── index.js
+|  |  ├── lenient.js
+|  |  ├── license
+|  |  ├── package.json
+|  |  └── readme.md
+|  └── zod
+|     ├── LICENSE
+|     ├── README.md
+|     ├── index.cjs
+|     ├── index.d.cts
+|     ├── index.d.ts
+|     ├── index.js
+|     ├── locales
+|     |  ├── index.cjs
+|     |  ├── index.d.cts
+|     |  ├── index.d.ts
+|     |  ├── index.js
+|     |  └── package.json
+|     ├── mini
+|     |  ├── index.cjs
+|     |  ├── index.d.cts
+|     |  ├── index.d.ts
+|     |  ├── index.js
+|     |  └── package.json
+|     ├── package.json
+|     ├── src
+|     |  ├── index.ts
+|     |  ├── locales
+|     |  |  └── index.ts
+|     |  ├── mini
+|     |  |  └── index.ts
+|     |  ├── v3
+|     |  |  ├── ZodError.ts
+|     |  |  ├── benchmarks
+|     |  |  ├── errors.ts
+|     |  |  ├── external.ts
+|     |  |  ├── helpers
+|     |  |  ├── index.ts
+|     |  |  ├── locales
+|     |  |  ├── standard-schema.ts
+|     |  |  ├── tests
+|     |  |  └── types.ts
+|     |  ├── v4
+|     |  |  ├── classic
+|     |  |  ├── core
+|     |  |  ├── index.ts
+|     |  |  ├── locales
+|     |  |  └── mini
+|     |  └── v4-mini
+|     |     └── index.ts
+|     ├── v3
+|     |  ├── ZodError.cjs
+|     |  ├── ZodError.d.cts
+|     |  ├── ZodError.d.ts
+|     |  ├── ZodError.js
+|     |  ├── errors.cjs
+|     |  ├── errors.d.cts
+|     |  ├── errors.d.ts
+|     |  ├── errors.js
+|     |  ├── external.cjs
+|     |  ├── external.d.cts
+|     |  ├── external.d.ts
+|     |  ├── external.js
+|     |  ├── helpers
+|     |  |  ├── enumUtil.cjs
+|     |  |  ├── enumUtil.d.cts
+|     |  |  ├── enumUtil.d.ts
+|     |  |  ├── enumUtil.js
+|     |  |  ├── errorUtil.cjs
+|     |  |  ├── errorUtil.d.cts
+|     |  |  ├── errorUtil.d.ts
+|     |  |  ├── errorUtil.js
+|     |  |  ├── parseUtil.cjs
+|     |  |  ├── parseUtil.d.cts
+|     |  |  ├── parseUtil.d.ts
+|     |  |  ├── parseUtil.js
+|     |  |  ├── partialUtil.cjs
+|     |  |  ├── partialUtil.d.cts
+|     |  |  ├── partialUtil.d.ts
+|     |  |  ├── partialUtil.js
+|     |  |  ├── typeAliases.cjs
+|     |  |  ├── typeAliases.d.cts
+|     |  |  ├── typeAliases.d.ts
+|     |  |  ├── typeAliases.js
+|     |  |  ├── util.cjs
+|     |  |  ├── util.d.cts
+|     |  |  ├── util.d.ts
+|     |  |  └── util.js
+|     |  ├── index.cjs
+|     |  ├── index.d.cts
+|     |  ├── index.d.ts
+|     |  ├── index.js
+|     |  ├── locales
+|     |  |  ├── en.cjs
+|     |  |  ├── en.d.cts
+|     |  |  ├── en.d.ts
+|     |  |  └── en.js
+|     |  ├── package.json
+|     |  ├── standard-schema.cjs
+|     |  ├── standard-schema.d.cts
+|     |  ├── standard-schema.d.ts
+|     |  ├── standard-schema.js
+|     |  ├── types.cjs
+|     |  ├── types.d.cts
+|     |  ├── types.d.ts
+|     |  └── types.js
+|     ├── v4
+|     |  ├── classic
+|     |  |  ├── checks.cjs
+|     |  |  ├── checks.d.cts
+|     |  |  ├── checks.d.ts
+|     |  |  ├── checks.js
+|     |  |  ├── coerce.cjs
+|     |  |  ├── coerce.d.cts
+|     |  |  ├── coerce.d.ts
+|     |  |  ├── coerce.js
+|     |  |  ├── compat.cjs
+|     |  |  ├── compat.d.cts
+|     |  |  ├── compat.d.ts
+|     |  |  ├── compat.js
+|     |  |  ├── errors.cjs
+|     |  |  ├── errors.d.cts
+|     |  |  ├── errors.d.ts
+|     |  |  ├── errors.js
+|     |  |  ├── external.cjs
+|     |  |  ├── external.d.cts
+|     |  |  ├── external.d.ts
+|     |  |  ├── external.js
+|     |  |  ├── from-json-schema.cjs
+|     |  |  ├── from-json-schema.d.cts
+|     |  |  ├── from-json-schema.d.ts
+|     |  |  ├── from-json-schema.js
+|     |  |  ├── index.cjs
+|     |  |  ├── index.d.cts
+|     |  |  ├── index.d.ts
+|     |  |  ├── index.js
+|     |  |  ├── iso.cjs
+|     |  |  ├── iso.d.cts
+|     |  |  ├── iso.d.ts
+|     |  |  ├── iso.js
+|     |  |  ├── package.json
+|     |  |  ├── parse.cjs
+|     |  |  ├── parse.d.cts
+|     |  |  ├── parse.d.ts
+|     |  |  ├── parse.js
+|     |  |  ├── schemas.cjs
+|     |  |  ├── schemas.d.cts
+|     |  |  ├── schemas.d.ts
+|     |  |  └── schemas.js
+|     |  ├── core
+|     |  |  ├── api.cjs
+|     |  |  ├── api.d.cts
+|     |  |  ├── api.d.ts
+|     |  |  ├── api.js
+|     |  |  ├── checks.cjs
+|     |  |  ├── checks.d.cts
+|     |  |  ├── checks.d.ts
+|     |  |  ├── checks.js
+|     |  |  ├── core.cjs
+|     |  |  ├── core.d.cts
+|     |  |  ├── core.d.ts
+|     |  |  ├── core.js
+|     |  |  ├── doc.cjs
+|     |  |  ├── doc.d.cts
+|     |  |  ├── doc.d.ts
+|     |  |  ├── doc.js
+|     |  |  ├── errors.cjs
+|     |  |  ├── errors.d.cts
+|     |  |  ├── errors.d.ts
+|     |  |  ├── errors.js
+|     |  |  ├── index.cjs
+|     |  |  ├── index.d.cts
+|     |  |  ├── index.d.ts
+|     |  |  ├── index.js
+|     |  |  ├── json-schema-generator.cjs
+|     |  |  ├── json-schema-generator.d.cts
+|     |  |  ├── json-schema-generator.d.ts
+|     |  |  ├── json-schema-generator.js
+|     |  |  ├── json-schema-processors.cjs
+|     |  |  ├── json-schema-processors.d.cts
+|     |  |  ├── json-schema-processors.d.ts
+|     |  |  ├── json-schema-processors.js
+|     |  |  ├── json-schema.cjs
+|     |  |  ├── json-schema.d.cts
+|     |  |  ├── json-schema.d.ts
+|     |  |  ├── json-schema.js
+|     |  |  ├── package.json
+|     |  |  ├── parse.cjs
+|     |  |  ├── parse.d.cts
+|     |  |  ├── parse.d.ts
+|     |  |  ├── parse.js
+|     |  |  ├── regexes.cjs
+|     |  |  ├── regexes.d.cts
+|     |  |  ├── regexes.d.ts
+|     |  |  ├── regexes.js
+|     |  |  ├── registries.cjs
+|     |  |  ├── registries.d.cts
+|     |  |  ├── registries.d.ts
+|     |  |  ├── registries.js
+|     |  |  ├── schemas.cjs
+|     |  |  ├── schemas.d.cts
+|     |  |  ├── schemas.d.ts
+|     |  |  ├── schemas.js
+|     |  |  ├── standard-schema.cjs
+|     |  |  ├── standard-schema.d.cts
+|     |  |  ├── standard-schema.d.ts
+|     |  |  ├── standard-schema.js
+|     |  |  ├── to-json-schema.cjs
+|     |  |  ├── to-json-schema.d.cts
+|     |  |  ├── to-json-schema.d.ts
+|     |  |  ├── to-json-schema.js
+|     |  |  ├── util.cjs
+|     |  |  ├── util.d.cts
+|     |  |  ├── util.d.ts
+|     |  |  ├── util.js
+|     |  |  ├── versions.cjs
+|     |  |  ├── versions.d.cts
+|     |  |  ├── versions.d.ts
+|     |  |  └── versions.js
+|     |  ├── index.cjs
+|     |  ├── index.d.cts
+|     |  ├── index.d.ts
+|     |  ├── index.js
+|     |  ├── locales
+|     |  |  ├── ar.cjs
+|     |  |  ├── ar.d.cts
+|     |  |  ├── ar.d.ts
+|     |  |  ├── ar.js
+|     |  |  ├── az.cjs
+|     |  |  ├── az.d.cts
+|     |  |  ├── az.d.ts
+|     |  |  ├── az.js
+|     |  |  ├── be.cjs
+|     |  |  ├── be.d.cts
+|     |  |  ├── be.d.ts
+|     |  |  ├── be.js
+|     |  |  ├── bg.cjs
+|     |  |  ├── bg.d.cts
+|     |  |  ├── bg.d.ts
+|     |  |  ├── bg.js
+|     |  |  ├── ca.cjs
+|     |  |  ├── ca.d.cts
+|     |  |  ├── ca.d.ts
+|     |  |  ├── ca.js
+|     |  |  ├── cs.cjs
+|     |  |  ├── cs.d.cts
+|     |  |  ├── cs.d.ts
+|     |  |  ├── cs.js
+|     |  |  ├── da.cjs
+|     |  |  ├── da.d.cts
+|     |  |  ├── da.d.ts
+|     |  |  ├── da.js
+|     |  |  ├── de.cjs
+|     |  |  ├── de.d.cts
+|     |  |  ├── de.d.ts
+|     |  |  ├── de.js
+|     |  |  ├── el.cjs
+|     |  |  ├── el.d.cts
+|     |  |  ├── el.d.ts
+|     |  |  ├── el.js
+|     |  |  ├── en.cjs
+|     |  |  ├── en.d.cts
+|     |  |  ├── en.d.ts
+|     |  |  ├── en.js
+|     |  |  ├── eo.cjs
+|     |  |  ├── eo.d.cts
+|     |  |  ├── eo.d.ts
+|     |  |  ├── eo.js
+|     |  |  ├── es.cjs
+|     |  |  ├── es.d.cts
+|     |  |  ├── es.d.ts
+|     |  |  ├── es.js
+|     |  |  ├── fa.cjs
+|     |  |  ├── fa.d.cts
+|     |  |  ├── fa.d.ts
+|     |  |  ├── fa.js
+|     |  |  ├── fi.cjs
+|     |  |  ├── fi.d.cts
+|     |  |  ├── fi.d.ts
+|     |  |  ├── fi.js
+|     |  |  ├── fr-CA.cjs
+|     |  |  ├── fr-CA.d.cts
+|     |  |  ├── fr-CA.d.ts
+|     |  |  ├── fr-CA.js
+|     |  |  ├── fr.cjs
+|     |  |  ├── fr.d.cts
+|     |  |  ├── fr.d.ts
+|     |  |  ├── fr.js
+|     |  |  ├── he.cjs
+|     |  |  ├── he.d.cts
+|     |  |  ├── he.d.ts
+|     |  |  ├── he.js
+|     |  |  ├── hr.cjs
+|     |  |  ├── hr.d.cts
+|     |  |  ├── hr.d.ts
+|     |  |  ├── hr.js
+|     |  |  ├── hu.cjs
+|     |  |  ├── hu.d.cts
+|     |  |  ├── hu.d.ts
+|     |  |  ├── hu.js
+|     |  |  ├── hy.cjs
+|     |  |  ├── hy.d.cts
+|     |  |  ├── hy.d.ts
+|     |  |  ├── hy.js
+|     |  |  ├── id.cjs
+|     |  |  ├── id.d.cts
+|     |  |  ├── id.d.ts
+|     |  |  ├── id.js
+|     |  |  ├── index.cjs
+|     |  |  ├── index.d.cts
+|     |  |  ├── index.d.ts
+|     |  |  ├── index.js
+|     |  |  ├── is.cjs
+|     |  |  ├── is.d.cts
+|     |  |  ├── is.d.ts
+|     |  |  ├── is.js
+|     |  |  ├── it.cjs
+|     |  |  ├── it.d.cts
+|     |  |  ├── it.d.ts
+|     |  |  ├── it.js
+|     |  |  ├── ja.cjs
+|     |  |  ├── ja.d.cts
+|     |  |  ├── ja.d.ts
+|     |  |  ├── ja.js
+|     |  |  ├── ka.cjs
+|     |  |  ├── ka.d.cts
+|     |  |  ├── ka.d.ts
+|     |  |  ├── ka.js
+|     |  |  ├── kh.cjs
+|     |  |  ├── kh.d.cts
+|     |  |  ├── kh.d.ts
+|     |  |  ├── kh.js
+|     |  |  ├── km.cjs
+|     |  |  ├── km.d.cts
+|     |  |  ├── km.d.ts
+|     |  |  ├── km.js
+|     |  |  ├── ko.cjs
+|     |  |  ├── ko.d.cts
+|     |  |  ├── ko.d.ts
+|     |  |  ├── ko.js
+|     |  |  ├── lt.cjs
+|     |  |  ├── lt.d.cts
+|     |  |  ├── lt.d.ts
+|     |  |  ├── lt.js
+|     |  |  ├── mk.cjs
+|     |  |  ├── mk.d.cts
+|     |  |  ├── mk.d.ts
+|     |  |  ├── mk.js
+|     |  |  ├── ms.cjs
+|     |  |  ├── ms.d.cts
+|     |  |  ├── ms.d.ts
+|     |  |  ├── ms.js
+|     |  |  ├── nl.cjs
+|     |  |  ├── nl.d.cts
+|     |  |  ├── nl.d.ts
+|     |  |  ├── nl.js
+|     |  |  ├── no.cjs
+|     |  |  ├── no.d.cts
+|     |  |  ├── no.d.ts
+|     |  |  ├── no.js
+|     |  |  ├── ota.cjs
+|     |  |  ├── ota.d.cts
+|     |  |  ├── ota.d.ts
+|     |  |  ├── ota.js
+|     |  |  ├── package.json
+|     |  |  ├── pl.cjs
+|     |  |  ├── pl.d.cts
+|     |  |  ├── pl.d.ts
+|     |  |  ├── pl.js
+|     |  |  ├── ps.cjs
+|     |  |  ├── ps.d.cts
+|     |  |  ├── ps.d.ts
+|     |  |  ├── ps.js
+|     |  |  ├── pt.cjs
+|     |  |  ├── pt.d.cts
+|     |  |  ├── pt.d.ts
+|     |  |  ├── pt.js
+|     |  |  ├── ro.cjs
+|     |  |  ├── ro.d.cts
+|     |  |  ├── ro.d.ts
+|     |  |  ├── ro.js
+|     |  |  ├── ru.cjs
+|     |  |  ├── ru.d.cts
+|     |  |  ├── ru.d.ts
+|     |  |  ├── ru.js
+|     |  |  ├── sl.cjs
+|     |  |  ├── sl.d.cts
+|     |  |  ├── sl.d.ts
+|     |  |  ├── sl.js
+|     |  |  ├── sv.cjs
+|     |  |  ├── sv.d.cts
+|     |  |  ├── sv.d.ts
+|     |  |  ├── sv.js
+|     |  |  ├── ta.cjs
+|     |  |  ├── ta.d.cts
+|     |  |  ├── ta.d.ts
+|     |  |  ├── ta.js
+|     |  |  ├── th.cjs
+|     |  |  ├── th.d.cts
+|     |  |  ├── th.d.ts
+|     |  |  ├── th.js
+|     |  |  ├── tr.cjs
+|     |  |  ├── tr.d.cts
+|     |  |  ├── tr.d.ts
+|     |  |  ├── tr.js
+|     |  |  ├── ua.cjs
+|     |  |  ├── ua.d.cts
+|     |  |  ├── ua.d.ts
+|     |  |  ├── ua.js
+|     |  |  ├── uk.cjs
+|     |  |  ├── uk.d.cts
+|     |  |  ├── uk.d.ts
+|     |  |  ├── uk.js
+|     |  |  ├── ur.cjs
+|     |  |  ├── ur.d.cts
+|     |  |  ├── ur.d.ts
+|     |  |  ├── ur.js
+|     |  |  ├── uz.cjs
+|     |  |  ├── uz.d.cts
+|     |  |  ├── uz.d.ts
+|     |  |  ├── uz.js
+|     |  |  ├── vi.cjs
+|     |  |  ├── vi.d.cts
+|     |  |  ├── vi.d.ts
+|     |  |  ├── vi.js
+|     |  |  ├── yo.cjs
+|     |  |  ├── yo.d.cts
+|     |  |  ├── yo.d.ts
+|     |  |  ├── yo.js
+|     |  |  ├── zh-CN.cjs
+|     |  |  ├── zh-CN.d.cts
+|     |  |  ├── zh-CN.d.ts
+|     |  |  ├── zh-CN.js
+|     |  |  ├── zh-TW.cjs
+|     |  |  ├── zh-TW.d.cts
+|     |  |  ├── zh-TW.d.ts
+|     |  |  └── zh-TW.js
+|     |  ├── mini
+|     |  |  ├── checks.cjs
+|     |  |  ├── checks.d.cts
+|     |  |  ├── checks.d.ts
+|     |  |  ├── checks.js
+|     |  |  ├── coerce.cjs
+|     |  |  ├── coerce.d.cts
+|     |  |  ├── coerce.d.ts
+|     |  |  ├── coerce.js
+|     |  |  ├── external.cjs
+|     |  |  ├── external.d.cts
+|     |  |  ├── external.d.ts
+|     |  |  ├── external.js
+|     |  |  ├── index.cjs
+|     |  |  ├── index.d.cts
+|     |  |  ├── index.d.ts
+|     |  |  ├── index.js
+|     |  |  ├── iso.cjs
+|     |  |  ├── iso.d.cts
+|     |  |  ├── iso.d.ts
+|     |  |  ├── iso.js
+|     |  |  ├── package.json
+|     |  |  ├── parse.cjs
+|     |  |  ├── parse.d.cts
+|     |  |  ├── parse.d.ts
+|     |  |  ├── parse.js
+|     |  |  ├── schemas.cjs
+|     |  |  ├── schemas.d.cts
+|     |  |  ├── schemas.d.ts
+|     |  |  └── schemas.js
+|     |  └── package.json
+|     └── v4-mini
+|        ├── index.cjs
+|        ├── index.d.cts
+|        ├── index.d.ts
+|        ├── index.js
+|        └── package.json
+├── package-lock.json
+├── package.json
+├── postcss.config.mjs
+├── proxy.ts
+├── scripts
+|  └── test-transaction-waterfall.ts
+├── structure.txt
+├── tailwind.config.ts
+├── tsconfig.json
+└── types
+   └── schema.ts
+
+directory: 859 file: 4508
+
+
+
+[2K[1G

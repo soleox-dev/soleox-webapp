@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Soleox Platform - Master Data Architecture & Data Dictionary</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #1e293b;
+      margin: 0;
+      padding: 40px;
+      background-color: #f8fafc;
+    }
+    .header {
+      border-bottom: 3px solid #2563eb;
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+    }
+    h1 { margin: 0 0 10px 0; color: #0f172a; font-size: 28px; }
+    p.subtitle { margin: 0; color: #64748b; font-size: 14px; }
+    
+    .diagram-container {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 30px;
+      margin-bottom: 40px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      overflow-x: auto;
+      display: flex;
+      justify-content: center;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-header {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 12px 15px;
+      font-weight: bold;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-header .tag {
+      background: #2563eb;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    th {
+      background: #f1f5f9;
+      text-align: left;
+      padding: 8px 12px;
+      color: #475569;
+      border-bottom: 1px solid #cbd5e1;
+      font-weight: 600;
+    }
+
+    td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #334155;
+      vertical-align: top;
+    }
+
+    .pk { font-weight: bold; color: #d97706; }
+    .fk { font-weight: bold; color: #2563eb; }
+    .type { font-family: monospace; color: #64748b; font-size: 11px; }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .diagram-container, .card { box-shadow: none; page-break-inside: avoid; }
+      .header { border-bottom-color: #000; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Soleox Master Data Architecture</h1>
+    <p class="subtitle">Official Platform Reference Document & Database Dictionary (BigQuery WEB_APP Dataset — 17 Core Tables)</p>
+  </div>
+
+  <h2>1. Platform Entity Relationship Diagram</h2>
+  <div class="diagram-container">
+    <svg width="1560" height="680" viewBox="0 0 1560 680" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <style>
+          .line { stroke: #475569; stroke-width: 2; fill: none; }
+          .line-audit { stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 4,4; fill: none; }
+
+          .card-bg { fill: #ffffff; stroke: #1e293b; stroke-width: 1.5; rx: 6; ry: 6; }
+
+          .hdr-dark { fill: #1e293b; }
+          .hdr-blue { fill: #2563eb; }
+          .hdr-green { fill: #059669; }
+          .hdr-slate { fill: #475569; }
+
+          .txt-hdr { font-family: -apple-system, sans-serif; font-size: 11px; font-weight: 700; fill: #ffffff; letter-spacing: 0.2px; }
+          .txt-title { font-family: -apple-system, sans-serif; font-size: 12px; font-weight: 700; fill: #0f172a; }
+          .txt-sub { font-family: -apple-system, sans-serif; font-size: 10px; font-weight: 500; fill: #64748b; }
+        </style>
+      </defs>
+
+      <!-- COLUMN 1 CONNECTIONS -->
+      <path d="M 160 115 L 160 165" class="line" /> <!-- clients -> web_users -->
+      <path d="M 160 245 L 160 295" class="line" /> <!-- web_users -> agents -->
+      <path d="M 290 335 L 340 335" class="line" /> <!-- agents -> transaction_sides -->
+      <path d="M 160 375 L 160 465 L 340 465" class="line" /> <!-- agents -> transactions -->
+
+      <!-- COLUMN 2 CONNECTIONS -->
+      <path d="M 470 115 L 470 165" class="line" /> <!-- client_field_configurations -> listings -->
+      <path d="M 470 245 L 470 425" class="line" /> <!-- listings -> transactions -->
+      <path d="M 470 425 L 470 375" class="line" /> <!-- transactions -> transaction_sides -->
+
+      <!-- COLUMN 3 CONNECTIONS -->
+      <path d="M 780 115 L 780 165" class="line" /> <!-- commission_templates -> logic -->
+      <path d="M 780 245 L 780 295" class="line" /> <!-- logic -> autofill -->
+      <path d="M 780 375 L 780 425" class="line" /> <!-- autofill -> submissions -->
+      <path d="M 780 505 L 780 555" class="line" /> <!-- submissions -> payments -->
+
+      <!-- COLUMN 4 CONNECTIONS -->
+      <path d="M 1090 115 L 1090 165" class="line" /> <!-- commission_rules -> entities -->
+      <path d="M 1090 245 L 1090 295" class="line" /> <!-- entities -> commissions -->
+      <path d="M 1090 375 L 1090 580 L 910 580" class="line" /> <!-- commissions -> payments -->
+
+      <!-- COLUMN 5 CONNECTIONS -->
+      <path d="M 1400 115 L 1400 165" class="line" /> <!-- client_user_roles -> permissions -->
+
+      <!-- GLOBAL AUDIT LINES -->
+      <path d="M 470 505 L 470 635 L 560 635" class="line-audit" />
+      <path d="M 780 605 L 780 635 L 780 635" class="line-audit" />
+
+      <!-- COLUMN 1: IDENTITY & ROSTER (X = 30) -->
+      <g transform="translate(30, 35)">
+        <rect class="card-bg" width="260" height="80" />
+        <path class="hdr-dark" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 28 L 0 28 Z" />
+        <line x1="0" y1="28" x2="260" y2="28" stroke="#1e293b" stroke-width="1" />
+        <text x="130" y="18" text-anchor="middle" class="txt-hdr">clients</text>
+        <text x="130" y="48" text-anchor="middle" class="txt-title">Tenants</text>
+        <text x="130" y="65" text-anchor="middle" class="txt-sub">PK: id</text>
+      </g>
+
+      <g transform="translate(30, 165)">
+        <rect class="card-bg" width="260" height="80" />
+        <path class="hdr-dark" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 28 L 0 28 Z" />
+        <line x1="0" y1="28" x2="260" y2="28" stroke="#1e293b" stroke-width="1" />
+        <text x="130" y="18" text-anchor="middle" class="txt-hdr">web_users</text>
+        <text x="130" y="48" text-anchor="middle" class="txt-title">Users Directory</text>
+        <text x="130" y="65" text-anchor="middle" class="txt-sub">PK: id</text>
+      </g>
+
+      <g transform="translate(30, 295)">
+        <rect class="card-bg" width="260" height="80" />
+        <path class="hdr-dark" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 28 L 0 28 Z" />
+        <line x1="0" y1="28" x2="260" y2="28" stroke="#1e293b" stroke-width="1" />
+        <text x="130" y="18" text-anchor="middle" class="txt-hdr">agents</text>
+        <text x="130" y="48" text-anchor="middle" class="txt-title">Roster & Caps</text>
+        <text x="130" y="65" text-anchor="middle" class="txt-sub">FK: user_id</text>
+      </g>
+
+      <!-- COLUMN 2: OPERATIONS & DEALS (X = 340) -->
+      <g transform="translate(340, 35)">
+        <rect class="card-bg" width="260" height="80" />
+        <path class="hdr-blue" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 28 L 0 28 Z" />
+        <line x1="0" y1="28" x2="260" y2="28" stroke="#2563eb" stroke-width="1" />
+        <text x="130" y="18" text-anchor="middle" class="txt-hdr">client_field_configurations</text>
+        <text x="130" y="48" text-anchor="middle" class="txt-title">Dynamic Schema</text>
+        <text x="130" y="65" text-anchor="middle" class="txt-sub">FK: client_id</text>
+      </g>
+
+      <g transform="translate(340, 165)">
+        <rect class="card-bg" width="260" height="80" />
+        <path class="hdr-blue" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 28 L 0 28 Z" />
+        <line x1="0" y1="28" x2="260" y2="28" stroke="#2563eb" stroke-width="1" />
+        <text x="130" y="18" text-anchor="middle" class="txt-hdr">listings</text>
+        <text x="130" y="48" text-anchor="middle" class="txt-title">Inventory</text>
+        <text x="130" y="65" text-anchor="middle" class="txt-sub">FK: agent_id</text>
+      </g>
+
+      <g transform="translate(340, 295)">
+        <rect class="card-bg" width="260" height="80" />
+        <path class="hdr-blue" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 28 L 0 28 Z" />
+        <line x1="0" y1="28" x2="260" y2="28" stroke="#2563eb" stroke-width="1" />
+        <text x="130" y="18" text-anchor="middle" class="txt-hdr">transaction_sides</text>
+        <text x="130" y="48" text-anchor="middle" class="txt-title">Side & Volume</text>
+        <text x="130" y="65" text-anchor="middle" class="txt-sub">FK: transaction_id, agent_id</text>
+      </g>
+
+      <g transform="translate(340, 425)">
+        <rect class="card-bg" width="260" height="80" />
+        <path class="hdr-blue" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 28 L 0 28 Z" />
+        <line x1="0" y1="28" x2="260" y2="28" stroke="#2563eb" stroke-width="1" />
+        <text x="130" y="18" text-anchor="middle" class="txt-hdr">transactions</text>
+        <text x="130" y="48" text-anchor="middle" class="txt-title">Contracts</text>
+        <text x="130" y="65" text-anchor="middle" class="txt-sub">PK: id</text>
+      </g>
+
+      <!-- COLUMN 3: WATERFALL ENGINE & AUTO-FILL (X = 650) -->
+      <g transform="translate(650, 35)">
+        <rect class="card-bg" width="260" height="80" />
+        <path class="hdr-green" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 28 L 0 28 Z" />
+        <line x1="0" y1="28" x2="260" y2="28" stroke="#059669" stroke-width="1" />
+        <text x="130" y="18" text-anchor="middle" class="txt-hdr">commission_templates</text>
+        <text x="130" y="48" text-anchor="middle" class="txt-title">Master Templates</text>
+        <text x="130" y="65" text-anchor="middle" class="txt-sub">FK: client_id</text>
+      </g>
+
+      <g transform="translate(650, 165)">
+        <rect class="card-bg" width="260" height="80" />
+        <path class="hdr-green" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 28 L 0 28 Z" />
+        <line x1="0" y1="28" x2="260" y2="28" stroke="#059669" stroke-width="1" />
+        <text x="130" y="18" text-anchor="middle" class="txt-hdr">commission_template_logic</text>
+        <text x="130" y="48" text-anchor="middle" class="txt-title">Calculation Blueprint</text>
+        <text x="130" y="65" text-anchor="middle" class="txt-sub">FK: template_id, rule_id</text>
+      </g>
+
+      <g transform="translate(650, 295)">
+        <rect class="card-bg" width="260" height="80" />
+        <path class="hdr-green" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 28 L 0 28 Z" />
+        <line x1="0" y1="28" x2="260" y2="28" stroke="#059669" stroke-width="1" />
+        <text x="130" y="18" text-anchor="middle" class="txt-hdr">commission_template_autofill_rules</text>
+        <text x="130" y="48" text-anchor="middle" class="txt-title">Pre-Population Engine</text>
+        <text x="130" y="65" text-anchor="middle" class="txt-sub">FK: template_id, rule_id</text>
+      </g>
+
+      <g transform="translate(650, 425)">
+        <rect class="card-bg" width="260" height="80" />
+        <path class="hdr-green" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 28 L 0 28 Z" />
+        <line x1="0" y1="28" x2="260" y2="28" stroke="#059669" stroke-width="1" />
+        <text x="130" y="18" text-anchor="middle" class="txt-hdr">commission_template_submissions</text>
+        <text x="130" y="48" text-anchor="middle" class="txt-title">Deal Input Submissions</text>
+        <text x="130" y="65" text-anchor="middle" class="txt-sub">FK: transaction_id</text>
+      </g>
+
+      <g transform="translate(650, 555)">
+        <rect class="card-bg" width="260" height="50" />
+        <path class="hdr-green" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 20 L 0 20 Z" />
+        <line x1="0" y1="20" x2="260" y2="20" stroke="#059669" stroke-width="1" />
+        <text x="130" y="14" text-anchor="middle" class="txt-hdr">payments</text>
+        <text x="130" y="38" text-anchor="middle" class="txt-title">Financial Ledger</text>
+      </g>
+
+      <!-- COLUMN 4: RULES & PAYEE ROUTING (X = 960) -->
+      <g transform="translate(960, 35)">
+        <rect class="card-bg" width="260" height="80" />
+        <path class="hdr-green" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 28 L 0 28 Z" />
+        <line x1="0" y1="28" x2="260" y2="28" stroke="#059669" stroke-width="1" />
+        <text x="130" y="18" text-anchor="middle" class="txt-hdr">commission_rules</text>
+        <text x="130" y="48" text-anchor="middle" class="txt-title">Master Rule Definitions</text>
+        <text x="130" y="65" text-anchor="middle" class="txt-sub">FK: client_id</text>
+      </g>
+
+      <g transform="translate(960, 165)">
+        <rect class="card-bg" width="260" height="80" />
+        <path class="hdr-green" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 28 L 0 28 Z" />
+        <line x1="0" y1="28" x2="260" y2="28" stroke="#059669" stroke-width="1" />
+        <text x="130" y="18" text-anchor="middle" class="txt-hdr">commission_entities</text>
+        <text x="130" y="48" text-anchor="middle" class="txt-title">Payee Directory</text>
+        <text x="130" y="65" text-anchor="middle" class="txt-sub">FK: client_id</text>
+      </g>
+
+      <g transform="translate(960, 295)">
+        <rect class="card-bg" width="260" height="80" />
+        <path class="hdr-green" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 28 L 0 28 Z" />
+        <line x1="0" y1="28" x2="260" y2="28" stroke="#059669" stroke-width="1" />
+        <text x="130" y="18" text-anchor="middle" class="txt-hdr">commissions</text>
+        <text x="130" y="48" text-anchor="middle" class="txt-title">Deal Sequence & Fee Routing</text>
+        <text x="130" y="65" text-anchor="middle" class="txt-sub">FK: transaction_id, entity_id</text>
+      </g>
+
+      <!-- COLUMN 5: ROLES & PERMISSIONS (X = 1270) -->
+      <g transform="translate(1270, 35)">
+        <rect class="card-bg" width="260" height="80" />
+        <path class="hdr-dark" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 28 L 0 28 Z" />
+        <line x1="0" y1="28" x2="260" y2="28" stroke="#1e293b" stroke-width="1" />
+        <text x="130" y="18" text-anchor="middle" class="txt-hdr">client_user_roles</text>
+        <text x="130" y="48" text-anchor="middle" class="txt-title">Role Mapping</text>
+        <text x="130" y="65" text-anchor="middle" class="txt-sub">FK: client_id, user_id</text>
+      </g>
+
+      <g transform="translate(1270, 165)">
+        <rect class="card-bg" width="260" height="80" />
+        <path class="hdr-dark" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 28 L 0 28 Z" />
+        <line x1="0" y1="28" x2="260" y2="28" stroke="#1e293b" stroke-width="1" />
+        <text x="130" y="18" text-anchor="middle" class="txt-hdr">role_permissions</text>
+        <text x="130" y="48" text-anchor="middle" class="txt-title">RBAC Matrix</text>
+        <text x="130" y="65" text-anchor="middle" class="txt-sub">FK: role_code</text>
+      </g>
+
+      <!-- GLOBAL AUDIT TRAIL ANCHOR -->
+      <g transform="translate(560, 610)">
+        <rect class="card-bg" width="260" height="50" />
+        <path class="hdr-slate" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 20 L 0 20 Z" />
+        <line x1="0" y1="20" x2="260" y2="20" stroke="#475569" stroke-width="1" />
+        <text x="130" y="14" text-anchor="middle" class="txt-hdr">audit_logs</text>
+        <text x="130" y="38" text-anchor="middle" class="txt-title">Global Audit Trail</text>
+      </g>
+    </svg>
+  </div>
+
+  <h2>2. Exhaustive Data Dictionary (All 17 Core Tables)</h2>
+  <div class="grid">
+
+    <!-- 1. clients -->
+    <div class="card">
+      <div class="card-header">
+        <span>clients</span>
+        <span class="tag">Security & Multi-Tenant</span>
+      </div>
+      <table>
+        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
+        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key. Unique tenant identifier (e.g. DEMO).</td></tr>
+        <tr><td>client_name</td><td class="type">STRING</td><td>Display name of the client team or brokerage.</td></tr>
+        <tr><td>require_compliance_approval</td><td class="type">BOOLEAN</td><td>Enforces strict state machine compliance gates if true.</td></tr>
+        <tr><td>created_at / updated_at</td><td class="type">TIMESTAMP</td><td>Timestamps.</td></tr>
+      </table>
+    </div>
+
+    <!-- 2. web_users -->
+    <div class="card">
+      <div class="card-header">
+        <span>web_users</span>
+        <span class="tag">Security & Identity</span>
+      </div>
+      <table>
+        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
+        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key. Unique system user identifier.</td></tr>
+        <tr><td>email</td><td class="type">STRING</td><td>User authentication email address.</td></tr>
+        <tr><td>password_hash</td><td class="type">STRING</td><td>Encrypted user security credentials.</td></tr>
+        <tr><td>first_name / last_name</td><td class="type">STRING</td><td>User name details.</td></tr>
+        <tr><td>created_at / updated_at</td><td class="type">TIMESTAMP</td><td>Timestamps.</td></tr>
+      </table>
+    </div>
+
+    <!-- 3. client_user_roles -->
+    <div class="card">
+      <div class="card-header">
+        <span>client_user_roles</span>
+        <span class="tag">Tenant Membership</span>
+      </div>
+      <table>
+        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
+        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key. Mapping record identifier.</td></tr>
+        <tr><td class="fk">client_id</td><td class="type">STRING</td><td>FK -> clients.id. Target tenant context.</td></tr>
+        <tr><td class="fk">user_id</td><td class="type">STRING</td><td>FK -> web_users.id. Target user context.</td></tr>
+        <tr><td>role_code</td><td class="type">STRING</td><td>ADMIN, AGENT, TC, COMPLIANCE.</td></tr>
+        <tr><td>created_at / updated_at</td><td class="type">TIMESTAMP</td><td>Timestamps.</td></tr>
+      </table>
+    </div>
+
+    <!-- 4. role_permissions -->
+    <div class="card">
+      <div class="card-header">
+        <span>role_permissions</span>
+        <span class="tag">Access Control (RBAC)</span>
+      </div>
+      <table>
+        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
+        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key. Permission rule identifier.</td></tr>
+        <tr><td>role_code</td><td class="type">STRING</td><td>Target role code.</td></tr>
+        <tr><td>permission_code</td><td class="type">STRING</td><td>Granular system permission code.</td></tr>
+        <tr><td>created_at</td><td class="type">TIMESTAMP</td><td>Timestamps.</td></tr>
+      </table>
+    </div>
+
+    <!-- 5. agents -->
+    <div class="card">
+      <div class="card-header">
+        <span>agents</span>
+        <span class="tag">Roster & Cap Engine</span>
+      </div>
+      <table>
+        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
+        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key. Agent profile identifier.</td></tr>
+        <tr><td class="fk">client_id / user_id</td><td class="type">STRING</td><td>FKs -> clients.id, web_users.id.</td></tr>
+        <tr><td>split_rate</td><td class="type">NUMERIC</td><td>Default contract split percentage (0.70 = 70%).</td></tr>
+        <tr><td>cap_amount / cap_progress</td><td class="type">NUMERIC</td><td>Annual cap limit and YTD progress accumulated.</td></tr>
+        <tr><td>archived</td><td class="type">BOOLEAN</td><td>Soft-delete flag.</td></tr>
+        <tr><td>created_at / updated_at</td><td class="type">TIMESTAMP</td><td>Timestamps.</td></tr>
+      </table>
+    </div>
+
+    <!-- 6. client_field_configurations -->
+    <div class="card">
+      <div class="card-header">
+        <span>client_field_configurations</span>
+        <span class="tag">Dynamic UI Schema</span>
+      </div>
+      <table>
+        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
+        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key. Schema configuration identifier.</td></tr>
+        <tr><td class="fk">client_id</td><td class="type">STRING</td><td>FK -> clients.id. Tenant scope.</td></tr>
+        <tr><td>entity_type</td><td class="type">STRING</td><td>Target UI entity (transactions, listings).</td></tr>
+        <tr><td>field_schema</td><td class="type">JSON</td><td>Dynamic form layout definitions.</td></tr>
+        <tr><td>created_at / updated_at</td><td class="type">TIMESTAMP</td><td>Timestamps.</td></tr>
+      </table>
+    </div>
+
+    <!-- 7. listings -->
+    <div class="card">
+      <div class="card-header">
+        <span>listings</span>
+        <span class="tag">Pre-Closing Inventory</span>
+      </div>
+      <table>
+        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
+        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key. Unique listing ID (LST_1001).</td></tr>
+        <tr><td class="fk">client_id / listing_agent_id</td><td class="type">STRING</td><td>FKs -> clients.id, agents.id.</td></tr>
+        <tr><td>property_address</td><td class="type">STRING</td><td>Full property address location.</td></tr>
+        <tr><td>list_price</td><td class="type">NUMERIC</td><td>Target asking price.</td></tr>
+        <tr><td>expiration_date</td><td class="type">DATE</td><td>Listing contract agreement expiration.</td></tr>
+        <tr><td>status</td><td class="type">STRING</td><td>ACTIVE, EXPIRED, CANCELLED, UNDER_CONTRACT.</td></tr>
+        <tr><td>custom_fields</td><td class="type">JSON</td><td>Dynamic field UI input values.</td></tr>
+        <tr><td>archived</td><td class="type">BOOLEAN</td><td>Soft-delete flag.</td></tr>
+        <tr><td>created_by / updated_by</td><td class="type">STRING</td><td>User attribution IDs.</td></tr>
+        <tr><td>created_at / updated_at</td><td class="type">TIMESTAMP</td><td>Timestamps.</td></tr>
+      </table>
+    </div>
+
+    <!-- 8. transactions -->
+    <div class="card">
+      <div class="card-header">
+        <span>transactions</span>
+        <span class="tag">Core Legal & Contract</span>
+      </div>
+      <table>
+        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
+        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key. Unique transaction ID (TR_1001).</td></tr>
+        <tr><td class="fk">client_id / listing_id / primary_agent_id</td><td class="type">STRING</td><td>FKs -> clients.id, listings.id (Nullable), agents.id (Direct buyer representation).</td></tr>
+        <tr><td>property_address</td><td class="type">STRING</td><td>Full subject property address.</td></tr>
+        <tr><td>sales_price / gci</td><td class="type">NUMERIC</td><td>Gross volume and Total GCI earned.</td></tr>
+        <tr><td>transaction_fee</td><td class="type">NUMERIC</td><td>Admin fee collected directly ($495).</td></tr>
+        <tr><td>closing_date</td><td class="type">DATE</td><td>Official escrow closing date.</td></tr>
+        <tr><td>deal_status</td><td class="type">STRING</td><td>ACTIVE, PENDING, CLOSED, CANCELLED.</td></tr>
+        <tr><td>lifecycle_status</td><td class="type">STRING</td><td>DRAFT, PENDING_APPROVAL, APPROVED, DISBURSED.</td></tr>
+        <tr><td>custom_fields</td><td class="type">JSON</td><td>Dynamic field UI input values.</td></tr>
+        <tr><td>archived</td><td class="type">BOOLEAN</td><td>Soft-delete flag.</td></tr>
+        <tr><td>created_by / updated_by</td><td class="type">STRING</td><td>User attribution IDs.</td></tr>
+        <tr><td>created_at / updated_at</td><td class="type">TIMESTAMP</td><td>Timestamps.</td></tr>
+      </table>
+    </div>
+
+    <!-- 9. transaction_sides -->
+    <div class="card">
+      <div class="card-header">
+        <span>transaction_sides</span>
+        <span class="tag">Side & Production Credit</span>
+      </div>
+      <table>
+        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
+        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key. Side allocation ID.</td></tr>
+        <tr><td class="fk">client_id / transaction_id / agent_id</td><td class="type">STRING</td><td>FKs -> clients.id, transactions.id, agents.id.</td></tr>
+        <tr><td>side</td><td class="type">STRING</td><td>LISTING, BUYING, REFERRAL.</td></tr>
+        <tr><td>side_percentage</td><td class="type">NUMERIC</td><td>Side allocation percentage share (0.50).</td></tr>
+        <tr><td>allocated_gci / credited_volume</td><td class="type">NUMERIC</td><td>Participant GCI ($25K) and Credited Production ($1M).</td></tr>
+        <tr><td>agent_split_rate</td><td class="type">NUMERIC</td><td>Agent contract split applied to deal (0.70).</td></tr>
+        <tr><td>archived</td><td class="type">BOOLEAN</td><td>Soft-delete flag.</td></tr>
+        <tr><td>created_by / updated_by</td><td class="type">STRING</td><td>User attribution IDs.</td></tr>
+        <tr><td>created_at / updated_at</td><td class="type">TIMESTAMP</td><td>Timestamps.</td></tr>
+      </table>
+    </div>
+
+    <!-- 10. commission_templates -->
+    <div class="card">
+      <div class="card-header">
+        <span>commission_templates</span>
+        <span class="tag">Master Waterfall Config</span>
+      </div>
+      <table>
+        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
+        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key. Master template ID.</td></tr>
+        <tr><td class="fk">client_id</td><td class="type">STRING</td><td>FK -> clients.id or SYSTEM for presets.</td></tr>
+        <tr><td>template_name</td><td class="type">STRING</td><td>Display name (Standard 70/30).</td></tr>
+        <tr><td>description</td><td class="type">STRING</td><td>Template description and usage notes.</td></tr>
+        <tr><td>is_default / is_system_template</td><td class="type">BOOLEAN</td><td>Auto-select and preset toggles.</td></tr>
+        <tr><td>archived</td><td class="type">BOOLEAN</td><td>Soft-delete flag.</td></tr>
+        <tr><td>created_by / updated_by</td><td class="type">STRING</td><td>User attribution IDs.</td></tr>
+        <tr><td>created_at / updated_at</td><td class="type">TIMESTAMP</td><td>Timestamps.</td></tr>
+      </table>
+    </div>
+
+    <!-- 11. commission_template_logic -->
+    <div class="card">
+      <div class="card-header">
+        <span>commission_template_logic</span>
+        <span class="tag">Template Engine Blueprint</span>
+      </div>
+      <table>
+        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
+        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key. Logic blueprint step ID.</td></tr>
+        <tr><td class="fk">client_id / template_id / rule_id</td><td class="type">STRING</td><td>FKs -> clients.id, commission_templates.id, commission_rules.id.</td></tr>
+        <tr><td>rule_name / section</td><td class="type">STRING</td><td>Rule name and stage (OFF_THE_TOP, PRE_SPLIT, POST_SPLIT).</td></tr>
+        <tr><td>sort_order</td><td class="type">INT64</td><td>Execution priority sequence inside stage.</td></tr>
+        <tr><td>calculation_type / base</td><td class="type">STRING</td><td>PERCENTAGE, FLAT_FEE and GCI, AGENT_GROSS_SPLIT.</td></tr>
+        <tr><td>default_value</td><td class="type">NUMERIC</td><td>Default input parameter (e.g., 6.00 = 6%, 150 = $150).</td></tr>
+        <tr><td class="fk">payee_entity_id</td><td class="type">STRING</td><td>FK -> commission_entities.id (Nullable).</td></tr>
+        <tr><td>is_user_editable</td><td class="type">BOOLEAN</td><td>Allows UI override on submission if true.</td></tr>
+        <tr><td>archived</td><td class="type">BOOLEAN</td><td>Soft-delete flag.</td></tr>
+        <tr><td>created_at / updated_at</td><td class="type">TIMESTAMP</td><td>Timestamps.</td></tr>
+      </table>
+    </div>
+
+    <!-- 12. commission_template_autofill_rules -->
+    <div class="card">
+      <div class="card-header">
+        <span>commission_template_autofill_rules</span>
+        <span class="tag">Pre-Population Engine</span>
+      </div>
+      <table>
+        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
+        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key. Autofill rule identifier.</td></tr>
+        <tr><td class="fk">client_id / template_id / rule_id</td><td class="type">STRING</td><td>FKs -> clients.id, commission_templates.id, commission_template_logic.id.</td></tr>
+        <tr><td>condition_trigger</td><td class="type">STRING</td><td>Trigger condition (e.g. AGENT_CAP_REACHED, DEAL_SIDE_BUYING).</td></tr>
+        <tr><td>autofill_source_type</td><td class="type">STRING</td><td>Source mode (FORMULA, LOOKUP_AGENT_PROFILE, FIXED_DEFAULT).</td></tr>
+        <tr><td>autofill_expression</td><td class="type">STRING</td><td>Evaluation expression (e.g. agent.split_rate, sales_price * 0.03).</td></tr>
+        <tr><td>priority_order</td><td class="type">INT64</td><td>Evaluation sequence order.</td></tr>
+        <tr><td>is_active / archived</td><td class="type">BOOLEAN</td><td>Toggles and soft-delete flags.</td></tr>
+        <tr><td>created_by / updated_by</td><td class="type">STRING</td><td>User attribution IDs.</td></tr>
+        <tr><td>created_at / updated_at</td><td class="type">TIMESTAMP</td><td>Timestamps.</td></tr>
+      </table>
+    </div>
+
+    <!-- 13. commission_template_submissions -->
+    <div class="card">
+      <div class="card-header">
+        <span>commission_template_submissions</span>
+        <span class="tag">Submitted Deal Parameters</span>
+      </div>
+      <table>
+        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
+        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key. Parameter submission instance ID.</td></tr>
+        <tr><td class="fk">client_id / transaction_id</td><td class="type">STRING</td><td>FKs -> clients.id, transactions.id. Target deal.</td></tr>
+        <tr><td class="fk">template_id / rule_id</td><td class="type">STRING</td><td>FKs -> commission_templates.id, commission_template_logic.id.</td></tr>
+        <tr><td>submitted_value</td><td class="type">NUMERIC</td><td>User-submitted or autofilled parameter value used for engine run.</td></tr>
+        <tr><td>created_by / updated_by</td><td class="type">STRING</td><td>User attribution IDs.</td></tr>
+        <tr><td>created_at / updated_at</td><td class="type">TIMESTAMP</td><td>Submission timestamps.</td></tr>
+      </table>
+    </div>
+
+    <!-- 14. commission_rules -->
+    <div class="card">
+      <div class="card-header">
+        <span>commission_rules</span>
+        <span class="tag">Master Rule Definitions</span>
+      </div>
+      <table>
+        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
+        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key. Universal rule definition ID.</td></tr>
+        <tr><td class="fk">client_id</td><td class="type">STRING</td><td>FK -> clients.id. Tenant scope.</td></tr>
+        <tr><td>rule_name</td><td class="type">STRING</td><td>Name of rule logic (e.g., National Royalty, Desk Fee).</td></tr>
+        <tr><td>section</td><td class="type">STRING</td><td>OFF_THE_TOP, PRE_SPLIT, POST_SPLIT.</td></tr>
+        <tr><td>calculation_type / base</td><td class="type">STRING</td><td>PERCENTAGE, FLAT_FEE and GCI, RUNNING_BALANCE.</td></tr>
+        <tr><td>default_amount</td><td class="type">NUMERIC</td><td>Baseline rule default rate or flat dollar fee.</td></tr>
+        <tr><td>is_active / archived</td><td class="type">BOOLEAN</td><td>Rule active and soft-delete toggles.</td></tr>
+        <tr><td>created_at / updated_at</td><td class="type">TIMESTAMP</td><td>Timestamps.</td></tr>
+      </table>
+    </div>
+
+    <!-- 15. commission_entities -->
+    <div class="card">
+      <div class="card-header">
+        <span>commission_entities</span>
+        <span class="tag">Payee Directory</span>
+      </div>
+      <table>
+        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
+        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key. Unique payee entity ID.</td></tr>
+        <tr><td class="fk">client_id</td><td class="type">STRING</td><td>FK -> clients.id. Tenant scope.</td></tr>
+        <tr><td>entity_name</td><td class="type">STRING</td><td>Name of third party payee (KW Franchise, eXp Cap, Stock Plan).</td></tr>
+        <tr><td>entity_type</td><td class="type">STRING</td><td>FRANCHISE, TC, BROKERAGE, TEAM_LEAD.</td></tr>
+        <tr><td>is_active</td><td class="type">BOOLEAN</td><td>Payee active toggle.</td></tr>
+        <tr><td>created_at / updated_at</td><td class="type">TIMESTAMP</td><td>Timestamps.</td></tr>
+      </table>
+    </div>
+
+    <!-- 16. commissions -->
+    <div class="card">
+      <div class="card-header">
+        <span>commissions</span>
+        <span class="tag">Deal Sequence & Fee Routing</span>
+      </div>
+      <table>
+        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
+        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key. Execution step ID for the transaction.</td></tr>
+        <tr><td class="fk">client_id / transaction_id</td><td class="type">STRING</td><td>FKs -> clients.id, transactions.id. Target deal.</td></tr>
+        <tr><td class="fk">agent_id / payee_entity_id</td><td class="type">STRING</td><td>FKs -> agents.id (Nullable), commission_entities.id.</td></tr>
+        <tr><td>rule_name / section</td><td class="type">STRING</td><td>Step name and section (OFF_THE_TOP, PRE_SPLIT, POST_SPLIT).</td></tr>
+        <tr><td>sequence_order</td><td class="type">INT64</td><td>Strict execution order sequence for engine run.</td></tr>
+        <tr><td>calculation_type / base</td><td class="type">STRING</td><td>PERCENTAGE, FLAT_FEE and GCI, AGENT_GROSS_SPLIT.</td></tr>
+        <tr><td>applied_rate_or_fee</td><td class="type">NUMERIC</td><td>Applied deduction amount or rate percentage.</td></tr>
+        <tr><td>status</td><td class="type">STRING</td><td>CALCULATING, LOCKED, DISBURSED.</td></tr>
+        <tr><td>archived</td><td class="type">BOOLEAN</td><td>Soft-delete flag.</td></tr>
+        <tr><td>created_by / updated_by</td><td class="type">STRING</td><td>User attribution IDs.</td></tr>
+        <tr><td>created_at / updated_at</td><td class="type">TIMESTAMP</td><td>Timestamps.</td></tr>
+      </table>
+    </div>
+
+    <!-- 17. payments -->
+    <div class="card">
+      <div class="card-header">
+        <span>payments</span>
+        <span class="tag">Disbursement Ledger</span>
+      </div>
+      <table>
+        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
+        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key (PAY-TR_1001-AG1).</td></tr>
+        <tr><td class="fk">client_id / transaction_id</td><td class="type">STRING</td><td>FKs -> clients.id, transactions.id. Target deal.</td></tr>
+        <tr><td>payee_type</td><td class="type">STRING</td><td>Recipient category (AGENT, TEAM_LEAD, BROKER, THIRD_PARTY).</td></tr>
+        <tr><td>gross_amount / total_deductions</td><td class="type">NUMERIC</td><td>Gross amount before deductions and deduction sum total.</td></tr>
+        <tr><td>net_payment_amount</td><td class="type">NUMERIC</td><td>Final net payout disbursed to recipient.</td></tr>
+        <tr><td>line_items</td><td class="type">ARRAY</td><td>STRUCT array detailing itemized code, description, and amount.</td></tr>
+        <tr><td>payment_status</td><td class="type">STRING</td><td>CALCULATED, APPROVED, DISBURSED, HOLD.</td></tr>
+        <tr><td>created_at / updated_at</td><td class="type">TIMESTAMP</td><td>Timestamps.</td></tr>
+      </table>
+    </div>
+
+    <!-- 18. audit_logs -->
+    <div class="card">
+      <div class="card-header">
+        <span>audit_logs</span>
+        <span class="tag">Global System Security Log</span>
+      </div>
+      <table>
+        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
+        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key (e.g. AUD_1001). Immutable record ID.</td></tr>
+        <tr><td class="fk">client_id</td><td class="type">STRING</td><td>FK -> clients.id. Tenant scope.</td></tr>
+        <tr><td>actor_id / actor_role</td><td class="type">STRING</td><td>Executing User ID and security role at execution time.</td></tr>
+        <tr><td>action</td><td class="type">STRING</td><td>Event action code (TRANSACTION_STATUS_APPROVED, TEMPLATE_SUBMITTED).</td></tr>
+        <tr><td>target_entity / entity_id</td><td class="type">STRING</td><td>Target database table modified and target record ID.</td></tr>
+        <tr><td>changes_payload</td><td class="type">JSON</td><td>Delta diff JSON capturing state before and after modification.</td></tr>
+        <tr><td>ip_address</td><td class="type">STRING</td><td>IP address origin of request execution.</td></tr>
+        <tr><td>created_at</td><td class="type">TIMESTAMP</td><td>Immutable timestamp of audit log creation.</td></tr>
+      </table>
+    </div>
+
+  </div>
+
+</body>
+</html>

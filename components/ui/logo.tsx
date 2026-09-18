@@ -1,0 +1,86 @@
+import React from 'react';
+
+interface LogoProps {
+  className?: string;
+}
+
+export function SoleoxLogo({ className = "h-8 w-auto" }: LogoProps) {
+  return (
+    <div className="flex items-center gap-2">
+      {/* Precision-Cropped SVG Icon */}
+      <svg
+        viewBox="0 0 376 312"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className={className}
+        style={{ aspectRatio: '376/312' }}
+      >
+        <defs>
+          <linearGradient
+            id="fill0"
+            x1="332.891"
+            y1="222.818"
+            x2="354.11"
+            y2="415.182"
+            gradientUnits="userSpaceOnUse"
+            spreadMethod="reflect"
+          >
+            <stop offset="0" stopColor="#FFDB00" />
+            <stop offset="0.12" stopColor="#FFDB00" />
+            <stop offset="0.58" stopColor="#C4AC6B" />
+            <stop offset="1" stopColor="#C4AC6B" />
+          </linearGradient>
+          <linearGradient
+            id="fill1"
+            x1="333.256"
+            y1="378.175"
+            x2="353.744"
+            y2="567.825"
+            gradientUnits="userSpaceOnUse"
+            spreadMethod="reflect"
+          >
+            <stop offset="0" stopColor="#004AB7" />
+            <stop offset="0.42" stopColor="#004AB7" />
+            <stop offset="0.88" stopColor="#00C5EC" />
+            <stop offset="1" stopColor="#00C5EC" />
+          </linearGradient>
+          <linearGradient
+            id="fill2"
+            x1="439.707"
+            y1="253.934"
+            x2="248.293"
+            y2="540.066"
+            gradientUnits="userSpaceOnUse"
+            spreadMethod="reflect"
+          >
+            <stop offset="0" stopColor="#FFDB00" />
+            <stop offset="0.99" stopColor="#00ACC1" />
+            <stop offset="1" stopColor="#00ACC1" />
+          </linearGradient>
+        </defs>
+        <g transform="translate(-155, -238)">
+          <path
+            d="M528 257.55 528 282.499C527.641 289.257 520.465 294.009 514.257 293.774 507.408 293.522 501.745 288.473 501.153 281.48 500.981 279.394 501.043 277.434 501.09 275.27 501.184 270.377 497.456 265.892 492.557 265.751 468.97 265.061 445.196 265.406 421.484 265.406L316.809 265.406C316.31 265.406 315.982 265.72 316.076 265.751L314.032 265.751C314.173 265.814 313.626 265.406 313.548 265.406L276.078 265.406C276.078 265.406 275.454 265.814 275.594 265.751 250.447 265.751 226.61 277.371 209.622 296.173 194.584 312.826 186.206 334.341 185.816 356.655 185.816 356.483 185.473 357 185.473 357.236L185.551 384.348C185.068 391.264 178.422 396.328 171.73 395.984 165.038 395.638 159.063 390.15 159.047 382.984L159.001 354.287C158.891 295.373 206.268 243.86 266.047 242.7 347.541 241.116 429.315 242.825 511.23 242.073 519.514 241.994 527.329 249.694 528 257.534Z"
+            fill="url(#fill0)"
+            fillRule="evenodd"
+          />
+          <path
+            d="M420.175 549 358.67 548.907 223.748 548.907 174.466 548.954C165.579 548.907 158.969 539.472 159 531.123L159.078 511.012C159.109 503.781 165.283 498.365 172.252 498.163 179.221 497.961 185.941 502.927 186.05 510.003L186.206 518.988C186.284 523.395 189.807 527.259 194.594 527.259L409.402 527.228C459.728 527.228 500.685 486.788 501.277 436.758 501.386 427.013 500.794 417.205 501.605 407.258 502.15 400.647 509.493 396.597 515.433 397.032 521.373 397.466 527.859 402.215 527.89 408.919L528 440.017C528.218 498.101 476.457 549.093 420.175 549Z"
+            fill="url(#fill1)"
+            fillRule="evenodd"
+          />
+          <path
+            d="M172.503 479.181C168.995 482.107 164.208 481.325 161.635 478.102 159.062 474.878 159.545 470.168 162.945 467.336L251.45 393.292C254.382 390.569 258.685 390.256 261.944 392.697L344.836 455.037 515.469 314.803C518.759 312.097 523.296 312.519 526.025 315.523 528.458 318.199 528.972 323.394 525.682 326.101L350.044 470.56C346.878 473.048 343.121 472.86 340.002 470.497L257.313 408.298 172.534 479.166Z"
+            fill="url(#fill2)"
+            fillRule="evenodd"
+          />
+        </g>
+      </svg>
+
+      {/* Styled Brand Name Typography */}
+      <span className="text-xl font-semibold text-slate-900 dark:text-white tracking-normal">
+        Soleox
+      </span>
+    </div>
+  );
+}

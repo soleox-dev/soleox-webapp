@@ -1,0 +1,8 @@
+node_modules/
+.next/
+.env*.local
+build/
+dist/gcp-key.json
+.env*
+gcp-key.json
+.env*
