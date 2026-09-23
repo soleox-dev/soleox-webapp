@@ -63,7 +63,7 @@ export function LeftSidebar({
         >
           <div className="flex items-center gap-2">
             <span>⚙️</span>
-            <span>2. Commission Engine</span>
+            <span>2. Commission Waterfall</span>
           </div>
           <span className="text-[10px] bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-emerald-700 dark:text-emerald-400 font-bold">
             {agentsCount} Agents
@@ -80,7 +80,7 @@ export function LeftSidebar({
         >
           <div className="flex items-center gap-2">
             <span>💸</span>
-            <span>3. Final Disbursements</span>
+            <span>3. Payments Breakdown</span>
           </div>
           <span className="text-[10px] bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-emerald-700 dark:text-emerald-400 font-bold">
             {entitiesCount} Entities

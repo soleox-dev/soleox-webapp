@@ -21,6 +21,7 @@ import { RequiredFieldsModal } from './components/RequiredFieldsModal';
 import { AgentPickerModal } from './components/AgentPickerModal';
 import { TransferPrimaryAgentModal } from './components/TransferPrimaryAgentModal';
 import { RevertPrimaryAgentModal } from './components/RevertPrimaryAgentModal';
+import { UnsavedChangesModal } from './components/UnsavedChangesModal';
 import { generatePrefixedId } from '@/lib/id';
 
 export default function Dashboard() {
@@ -46,7 +47,62 @@ export default function Dashboard() {
 
   const [activeTab, setActiveTab] = useState<'overview' | 'commission' | 'disbursements'>('overview');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ overview: false, commission: false, disbursements: false });
+  const isProgrammaticScrollRef = useRef(false);
   const toggleSection = (key: string) => setCollapsed((p) => ({ ...p, [key]: !p[key] }));
+
+  const scrollToSection = (sectionId: 'overview' | 'commission' | 'disbursements') => {
+    setActiveTab(sectionId);
+    isProgrammaticScrollRef.current = true;
+
+    const wasCollapsed = Boolean(collapsed[sectionId]);
+    if (wasCollapsed) {
+      setCollapsed((prev) => ({ ...prev, [sectionId]: false }));
+    }
+
+    // Wait for expand paint when needed, then smooth-scroll to the section
+    const delayMs = wasCollapsed ? 80 : 0;
+    window.setTimeout(() => {
+      const el = document.getElementById(sectionId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      window.setTimeout(() => {
+        isProgrammaticScrollRef.current = false;
+      }, 700);
+    }, delayMs);
+  };
+
+  // Highlight Workflow Steps based on which section is in view while scrolling
+  useEffect(() => {
+    const sectionIds = ['overview', 'commission', 'disbursements'] as const;
+
+    const updateActiveFromScroll = () => {
+      if (isProgrammaticScrollRef.current) return;
+
+      const activationOffset = 120; // sticky sidebar / header breathing room
+      let current: (typeof sectionIds)[number] = 'overview';
+
+      for (const id of sectionIds) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        const top = el.getBoundingClientRect().top;
+        if (top - activationOffset <= 0) {
+          current = id;
+        }
+      }
+
+      setActiveTab((prev) => (prev === current ? prev : current));
+    };
+
+    window.addEventListener('scroll', updateActiveFromScroll, { passive: true });
+    window.addEventListener('resize', updateActiveFromScroll);
+    updateActiveFromScroll();
+
+    return () => {
+      window.removeEventListener('scroll', updateActiveFromScroll);
+      window.removeEventListener('resize', updateActiveFromScroll);
+    };
+  }, [collapsed.overview, collapsed.commission, collapsed.disbursements]);
 
   const [dealId, setDealId] = useState('');
   const [selectedDeal, setSelectedDeal] = useState<any>(null);
@@ -162,6 +218,55 @@ export default function Dashboard() {
   const [postSplit2RulesByAgent, setPostSplit2RulesByAgent] = useState<Record<string, DynamicRule[]>>({});
   const [agents, setAgents] = useState<AgentConfig[]>([]);
 
+  const [isEditingWaterfall, setIsEditingWaterfall] = useState(false);
+  const [waterfallEditSnapshot, setWaterfallEditSnapshot] = useState<{
+    agents: AgentConfig[];
+    offTheTopRules: DynamicRule[];
+    preSplitRules: DynamicRule[];
+    postSplitRulesByAgent: Record<string, DynamicRule[]>;
+    postSplit2RulesByAgent: Record<string, DynamicRule[]>;
+  } | null>(null);
+  const [hasUnsavedLocalChanges, setHasUnsavedLocalChanges] = useState(false);
+  const [isUnsavedModalOpen, setIsUnsavedModalOpen] = useState(false);
+  const pendingNavigationRef = useRef<(() => void) | null>(null);
+
+  const cloneWaterfallRules = (rules: DynamicRule[]) => rules.map((r) => ({ ...r }));
+  const cloneWaterfallRulesByAgent = (map: Record<string, DynamicRule[]>) =>
+    Object.fromEntries(Object.entries(map).map(([k, rules]) => [k, cloneWaterfallRules(rules)]));
+
+  const handleStartWaterfallEdit = () => {
+    setWaterfallEditSnapshot({
+      agents: agents.map((a) => ({ ...a })),
+      offTheTopRules: cloneWaterfallRules(offTheTopRules),
+      preSplitRules: cloneWaterfallRules(preSplitRules),
+      postSplitRulesByAgent: cloneWaterfallRulesByAgent(postSplitRulesByAgent),
+      postSplit2RulesByAgent: cloneWaterfallRulesByAgent(postSplit2RulesByAgent),
+    });
+    setIsEditingWaterfall(true);
+  };
+
+  const handleCancelWaterfallEdit = () => {
+    if (waterfallEditSnapshot) {
+      setAgents(waterfallEditSnapshot.agents.map((a) => ({ ...a })));
+      setOffTheTopRules(cloneWaterfallRules(waterfallEditSnapshot.offTheTopRules));
+      setPreSplitRules(cloneWaterfallRules(waterfallEditSnapshot.preSplitRules));
+      setPostSplitRulesByAgent(cloneWaterfallRulesByAgent(waterfallEditSnapshot.postSplitRulesByAgent));
+      setPostSplit2RulesByAgent(cloneWaterfallRulesByAgent(waterfallEditSnapshot.postSplit2RulesByAgent));
+    }
+    setWaterfallEditSnapshot(null);
+    setIsEditingWaterfall(false);
+    setIsAddAgentModalOpen(false);
+  };
+
+  const handleApplyWaterfallEdit = () => {
+    // Local apply only — DB persistence happens via Save Transaction
+    setWaterfallEditSnapshot(null);
+    setIsEditingWaterfall(false);
+    setIsAddAgentModalOpen(false);
+    setHasUnsavedLocalChanges(true);
+    showToast('Waterfall changes applied locally. Click Save Transaction to persist.', 'info');
+  };
+
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
   const [transferInfo, setTransferInfo] = useState<{
@@ -171,6 +276,11 @@ export default function Dashboard() {
   } | null>(null);
 
   const handleRequestOverviewApply = (proceedWithApply: () => void, currentFormValues?: Record<string, any>) => {
+    const proceedAndMarkDirty = () => {
+      proceedWithApply();
+      setHasUnsavedLocalChanges(true);
+    };
+
     // 1. Identify former primary agent
     const formerAgentName = agents[0]?.name || primaryAgent || '';
 
@@ -200,7 +310,7 @@ export default function Dashboard() {
       setTransferInfo({
         formerAgent: formerAgentName,
         newAgent: resolvedNewAgentInfo,
-        proceedApply: proceedWithApply,
+        proceedApply: proceedAndMarkDirty,
       });
       setIsTransferModalOpen(true);
     } else {
@@ -230,7 +340,7 @@ export default function Dashboard() {
         ]);
         setPrimaryAgent(resolvedNewAgentInfo.name);
       }
-      proceedWithApply();
+      proceedAndMarkDirty();
     }
   };
 
@@ -383,6 +493,9 @@ export default function Dashboard() {
       setPreSplitRules([]);
       setPostSplitRulesByAgent({});
       setPostSplit2RulesByAgent({});
+      setIsEditingWaterfall(false);
+      setWaterfallEditSnapshot(null);
+      setHasUnsavedLocalChanges(false);
       setSearchQuery(`[NEW] ${freshId} — Draft Transaction`);
     } else if (routeId && savedDeals.length > 0) {
       const matched = savedDeals.find((d) => d.id === routeId);
@@ -397,6 +510,9 @@ export default function Dashboard() {
       setSelectedDeal(matched);
       setSelectedDealId(matched.id);
       setDealId(matched.id);
+      setIsEditingWaterfall(false);
+      setWaterfallEditSnapshot(null);
+      setHasUnsavedLocalChanges(false);
       
       setPropertyAddress(matched.property_address || '');
       setClientName(matched.client_name || '');
@@ -482,7 +598,7 @@ export default function Dashboard() {
     'updated_at', 'updated_by'
   ]);
 
-  const handleSave = () => {
+  const handleSave = (afterSaveSuccess?: () => void) => {
     if (!activeClientId && !isNewTransaction) {
       showToast('Cannot save transaction: Missing active Client ID.', 'error');
       return;
@@ -760,6 +876,7 @@ export default function Dashboard() {
 
       if (!savedTxn) return;
 
+      setHasUnsavedLocalChanges(false);
       setSelectedDeal(savedTxn);
 
       if (savedTxn.list_date) setListDate(String(savedTxn.list_date).substring(0, 10));
@@ -768,6 +885,8 @@ export default function Dashboard() {
       if (savedTxn.property_address) setPropertyAddress(savedTxn.property_address);
       if (savedTxn.client_name) setClientName(savedTxn.client_name);
       if (savedTxn.lead_source) setLeadSource(savedTxn.lead_source);
+
+      afterSaveSuccess?.();
     });
   };
 
@@ -805,13 +924,98 @@ export default function Dashboard() {
     );
   }, [knownAgents, agents]);
 
+  const requestNavigation = (navigate: () => void) => {
+    if (!hasUnsavedLocalChanges) {
+      navigate();
+      return;
+    }
+    pendingNavigationRef.current = navigate;
+    setIsUnsavedModalOpen(true);
+  };
+
+  const handleStayOnPage = () => {
+    pendingNavigationRef.current = null;
+    setIsUnsavedModalOpen(false);
+  };
+
+  const handleDiscardAndLeave = () => {
+    const navigate = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+    setHasUnsavedLocalChanges(false);
+    setIsEditingWaterfall(false);
+    setWaterfallEditSnapshot(null);
+    overviewForm.setIsEditingOverview(false);
+    setIsUnsavedModalOpen(false);
+    navigate?.();
+  };
+
+  const handleSaveAndLeave = () => {
+    handleSave(() => {
+      const navigate = pendingNavigationRef.current;
+      pendingNavigationRef.current = null;
+      setIsUnsavedModalOpen(false);
+      navigate?.();
+    });
+  };
+
+  // Browser tab close / refresh
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!hasUnsavedLocalChanges) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [hasUnsavedLocalChanges]);
+
+  // In-app link navigation (Navbar, etc.)
+  useEffect(() => {
+    const onDocumentClick = (e: MouseEvent) => {
+      if (!hasUnsavedLocalChanges) return;
+      if (e.defaultPrevented) return;
+      if (e.button !== 0) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
+      const anchor = (e.target as HTMLElement | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if (!anchor) return;
+
+      const href = anchor.getAttribute('href');
+      if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+      if (anchor.target === '_blank' || anchor.hasAttribute('download')) return;
+
+      let url: URL;
+      try {
+        url = new URL(href, window.location.origin);
+      } catch {
+        return;
+      }
+      if (url.origin !== window.location.origin) return;
+
+      const currentPath = window.location.pathname;
+      if (url.pathname === currentPath && url.search === window.location.search) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      requestNavigation(() => {
+        router.push(`${url.pathname}${url.search}${url.hash}`);
+      });
+    };
+
+    document.addEventListener('click', onDocumentClick, true);
+    return () => document.removeEventListener('click', onDocumentClick, true);
+  }, [hasUnsavedLocalChanges, router]);
+
   if (dealNotFound) {
     return (
       <div className="p-12 text-center space-y-4 max-w-md mx-auto">
         <div className="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-xl text-3xl inline-block">⚠️</div>
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">Transaction Not Found</h2>
         <p className="text-xs text-slate-500 dark:text-slate-400">The requested record ({routeId}) does not exist or you lack permission to view it.</p>
-        <button onClick={() => window.history.back()} className="px-4 py-2 bg-slate-800 text-white rounded-lg text-xs font-semibold hover:bg-slate-700 transition">
+        <button
+          onClick={() => requestNavigation(() => window.history.back())}
+          className="px-4 py-2 bg-slate-800 text-white rounded-lg text-xs font-semibold hover:bg-slate-700 transition"
+        >
           Return to Previous Page
         </button>
       </div>
@@ -822,7 +1026,12 @@ export default function Dashboard() {
     <div className="p-8 max-w-7xl mx-auto space-y-6 relative">
       {toast && <div className="fixed top-5 right-5 z-50 px-4 py-3 bg-slate-900 text-white rounded-xl shadow-xl">{toast.message}</div>}
 
-      <HeaderCard isNewTransaction={isNewTransaction} isSaving={isSaving} onSave={handleSave} status={dealResult.status} />
+      <HeaderCard
+        isNewTransaction={isNewTransaction}
+        isSaving={isSaving}
+        onSave={() => handleSave()}
+        hasUnsavedChanges={hasUnsavedLocalChanges}
+      />
 
       <SearchableTransactionPicker
         searchQuery={searchQuery}
@@ -834,16 +1043,25 @@ export default function Dashboard() {
         isLoadingDeals={isLoadingDeals}
         selectedDealId={selectedDealId}
         onSelectDeal={(deal) => {
-          setIsDropdownOpen(false);
-          setSelectedDeal(deal);
-          setSelectedDealId(deal.id);
-          setDealId(deal.id);
-          setDealNotFound(false);
-          const clientLabel = deal.client_id ? `[${deal.client_id}] ` : '';
-          setSearchQuery(`${clientLabel}${deal.id} — ${deal.property_address || ''}`);
-          if (deal.id !== routeId) {
-            router.push(`/commission-tracker/transactions/${deal.id}`);
+          const switchToDeal = () => {
+            setIsDropdownOpen(false);
+            setSelectedDeal(deal);
+            setSelectedDealId(deal.id);
+            setDealId(deal.id);
+            setDealNotFound(false);
+            const clientLabel = deal.client_id ? `[${deal.client_id}] ` : '';
+            setSearchQuery(`${clientLabel}${deal.id} — ${deal.property_address || ''}`);
+            if (deal.id !== routeId) {
+              router.push(`/commission-tracker/transactions/${deal.id}`);
+            }
+          };
+
+          if (deal.id === routeId || deal.id === selectedDealId) {
+            switchToDeal();
+            return;
           }
+
+          requestNavigation(switchToDeal);
         }}
         dropdownRef={dropdownRef}
       />
@@ -851,7 +1069,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <LeftSidebar
           activeTab={activeTab}
-          scrollToSection={(s) => setActiveTab(s)}
+          scrollToSection={scrollToSection}
           overviewFieldsCount={overviewFields.length}
           agentsCount={agents.length}
           entitiesCount={agentDisbursements.length + entityDisbursements.length}
@@ -887,8 +1105,15 @@ export default function Dashboard() {
           <CommissionWaterfall
             isCollapsed={collapsed.commission}
             onToggleSection={() => toggleSection('commission')}
+            isEditing={isEditingWaterfall}
+            onStartEdit={handleStartWaterfallEdit}
+            onCancelEdit={handleCancelWaterfallEdit}
+            onApplyEdit={handleApplyWaterfallEdit}
             agents={agents}
-            onOpenAddAgentModal={() => setIsAddAgentModalOpen(true)}
+            onOpenAddAgentModal={() => {
+              if (!isEditingWaterfall) return;
+              setIsAddAgentModalOpen(true);
+            }}
             onRemoveAgent={(name) => {
               setAgents((prev) => {
                 const toRemove = prev.find((a) => a.name === name);
@@ -1120,6 +1345,14 @@ export default function Dashboard() {
         newAgentName={transferInfo?.newAgent.name || ''}
         onRevertYes={handleRevertYes}
         onRevertNo={handleRevertNo}
+      />
+
+      <UnsavedChangesModal
+        isOpen={isUnsavedModalOpen}
+        isSaving={isSaving}
+        onStay={handleStayOnPage}
+        onDiscard={handleDiscardAndLeave}
+        onSave={handleSaveAndLeave}
       />
 
       <AgentPickerModal

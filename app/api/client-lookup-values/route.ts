@@ -2,6 +2,35 @@ import { NextResponse } from 'next/server';
 import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { getClientLookupValues } from '@/lib/fields';
+import { getTenantContext } from '@/lib/session';
+
+// GET: Active lookup values for a category, ordered by sort_order
+export async function GET(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const supabase = await getAuthenticatedSupabase();
+    const { searchParams } = new URL(request.url);
+    const category = searchParams.get('category')?.trim();
+    if (!category) {
+      return NextResponse.json({ error: 'Category is required' }, { status: 400 });
+    }
+
+    const headerClientId = request.headers.get('x-client-id') || request.headers.get('client_id');
+    const tenant = await getTenantContext(headerClientId, supabase);
+    const lookupValues = await getClientLookupValues(tenant.clientId, category, supabase);
+
+    return NextResponse.json({ lookup_values: lookupValues });
+  } catch (error: any) {
+    console.error('Supabase Client Lookup Value Fetch Error:', error);
+    const status = error.message?.includes('Unauthorized') ? 401 : 500;
+    return NextResponse.json({ error: error.message }, { status });
+  }
+}
 
 // POST: Create or Update Client Lookup Value
 export async function POST(request: Request) {

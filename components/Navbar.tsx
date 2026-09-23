@@ -13,7 +13,16 @@ export default function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const { theme, toggleTheme } = useSoleoxTheme();
-  const isDark = theme === 'dark';
+
+  const themeButtonLabel =
+    theme === 'light' ? 'Theme: Light (click for Dark)' :
+    theme === 'dark' ? 'Theme: Dark (click for System)' :
+    'Theme: System (click for Light)';
+
+  const themeButtonIcon =
+    theme === 'light' ? '☀️' :
+    theme === 'dark' ? '🌙' :
+    '💻';
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -114,14 +123,15 @@ export default function Navbar() {
           {/* Vertical Divider */}
           <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 my-auto" />
 
-          {/* Theme Toggle Button */}
+          {/* Theme Toggle Button: Light → Dark → System */}
           <button
             onClick={toggleTheme}
-            aria-label="Toggle Theme"
+            aria-label={themeButtonLabel}
+            title={themeButtonLabel}
             suppressHydrationWarning
             className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-amber-500 dark:text-amber-300 flex items-center justify-center transition cursor-pointer"
           >
-            {isDark ? '🌙' : '☀️'}
+            <span suppressHydrationWarning>{themeButtonIcon}</span>
           </button>
 
           {/* User Badge & Sign Out Dropdown */}

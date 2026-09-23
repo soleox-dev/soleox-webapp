@@ -2,60 +2,120 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-type Theme = 'dark' | 'light';
+export type ThemePreference = 'light' | 'dark' | 'system';
+export type ResolvedTheme = 'light' | 'dark';
 
 interface ThemeContextType {
-  theme: Theme;
+  /** User preference: light, dark, or follow system. */
+  theme: ThemePreference;
+  /** Effective theme currently applied to the document. */
+  resolvedTheme: ResolvedTheme;
   toggleTheme: () => void;
-  setTheme: (theme: Theme) => void;
+  setTheme: (theme: ThemePreference) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+const STORAGE_KEY = 'soleox-theme';
+
+function getSystemIsDark(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+function resolveTheme(preference: ThemePreference): ResolvedTheme {
+  if (preference === 'system') {
+    return getSystemIsDark() ? 'dark' : 'light';
+  }
+  return preference;
+}
+
+function applyResolvedTheme(resolved: ResolvedTheme, animate = true) {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const dark = resolved === 'dark';
+
+  const commit = () => {
+    root.classList.remove('theme-transition');
+    root.classList.toggle('dark', dark);
+    root.style.backgroundColor = dark ? '#0f172a' : '#f1f5f9';
+    root.style.colorScheme = dark ? 'dark' : 'light';
+  };
+
+  const startViewTransition = (document as Document & {
+    startViewTransition?: (callback: () => void) => { finished: Promise<void> };
+  }).startViewTransition;
+
+  if (!animate || reduceMotion || typeof startViewTransition !== 'function') {
+    commit();
+    return;
+  }
+
+  try {
+    startViewTransition.call(document, commit);
+  } catch {
+    commit();
+  }
+}
+
+function readStoredPreference(): ThemePreference {
+  if (typeof window === 'undefined') return 'system';
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved === 'light' || saved === 'dark' || saved === 'system') return saved;
+  return 'system';
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
-  // Read current DOM state or fallback to 'dark' immediately
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('soleox-theme') as Theme;
-      if (saved) return saved;
-      return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-    }
-    return 'dark';
-  });
+  const [theme, setThemeState] = useState<ThemePreference>(() => readStoredPreference());
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
+    typeof window !== 'undefined' ? resolveTheme(readStoredPreference()) : 'light'
+  );
+
+  const applyPreference = (preference: ThemePreference, animate = true) => {
+    const resolved = resolveTheme(preference);
+    setThemeState(preference);
+    setResolvedTheme(resolved);
+    localStorage.setItem(STORAGE_KEY, preference);
+    applyResolvedTheme(resolved, animate);
+  };
 
   useEffect(() => {
-    // Keep DOM class synchronized with state on mount
-    const savedTheme = (localStorage.getItem('soleox-theme') as Theme) || 'dark';
-    setThemeState(savedTheme);
-    
-    if (savedTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-      document.documentElement.style.backgroundColor = '#020617';
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.style.backgroundColor = '#f1f5f9';
+    applyPreference(readStoredPreference(), false);
+
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const onSystemThemeChange = () => {
+      const current = readStoredPreference();
+      if (current === 'system') {
+        const resolved = resolveTheme('system');
+        setResolvedTheme(resolved);
+        applyResolvedTheme(resolved);
+      }
+    };
+
+    // Modern browsers
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', onSystemThemeChange);
+      return () => media.removeEventListener('change', onSystemThemeChange);
     }
+
+    // Safari / older
+    media.addListener(onSystemThemeChange);
+    return () => media.removeListener(onSystemThemeChange);
   }, []);
 
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
-    localStorage.setItem('soleox-theme', newTheme);
-    
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-      document.documentElement.style.backgroundColor = '#020617';
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.style.backgroundColor = '#f1f5f9';
-    }
+  const setTheme = (newTheme: ThemePreference) => {
+    applyPreference(newTheme);
   };
 
   const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
+    const order: ThemePreference[] = ['light', 'dark', 'system'];
+    const next = order[(order.indexOf(theme) + 1) % order.length];
+    applyPreference(next);
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, resolvedTheme, toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

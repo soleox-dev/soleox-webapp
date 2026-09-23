@@ -14,10 +14,18 @@
     background-color: #0f172a; /* Slate 900 for Dark Mode */
     color: #f8fafc;
   }
+}
 
-  html, body, header, main, table, tr, th, td, div, button, input, select {
-    transition-property: color, background-color, border-color, outline-color;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-    transition-duration: 200ms;
+/* Short crossfade while the document theme class changes. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
   }
 }

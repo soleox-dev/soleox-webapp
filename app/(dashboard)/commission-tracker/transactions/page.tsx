@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { normalizeAgentName } from '@/lib/id';
 import { formatPercent } from '@/lib/fields';
@@ -17,6 +17,118 @@ interface SchemaField {
   dropdown_options?: string[];
 }
 
+interface StatusLookup {
+  optionValue: string;
+  optionLabel: string;
+}
+
+function normalizeStatus(value: string) {
+  return value.trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+}
+
+function dealMatchesStatus(deal: Record<string, any>, lookup: StatusLookup) {
+  const statusVal = normalizeStatus(String(deal.transaction_status || deal.status || ''));
+  const selectedValues = [normalizeStatus(lookup.optionValue), normalizeStatus(lookup.optionLabel)].filter(Boolean);
+  return selectedValues.includes(statusVal);
+}
+
+const ALL_TAB = 'ALL';
+
+type ScorecardTone = 'active' | 'pending' | 'closed' | 'cancelled';
+
+const SCORECARD_TAB_STYLES: Record<ScorecardTone, { idle: string; active: string; countIdle: string; countActive: string; card: string }> = {
+  active: {
+    idle: 'text-blue-700 dark:text-blue-300 border border-transparent hover:bg-blue-500/10',
+    active: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/40',
+    countIdle: 'text-blue-600/70 dark:text-blue-300/70',
+    countActive: 'text-blue-700 dark:text-blue-200',
+    card: 'ring-2 ring-blue-500/70',
+  },
+  pending: {
+    idle: 'text-amber-700 dark:text-amber-300 border border-transparent hover:bg-amber-500/10',
+    active: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/40',
+    countIdle: 'text-amber-600/70 dark:text-amber-300/70',
+    countActive: 'text-amber-700 dark:text-amber-200',
+    card: 'ring-2 ring-amber-500/70',
+  },
+  closed: {
+    idle: 'text-emerald-700 dark:text-emerald-300 border border-transparent hover:bg-emerald-500/10',
+    active: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40',
+    countIdle: 'text-emerald-600/70 dark:text-emerald-300/70',
+    countActive: 'text-emerald-700 dark:text-emerald-200',
+    card: 'ring-2 ring-emerald-500/70',
+  },
+  cancelled: {
+    idle: 'text-rose-700 dark:text-rose-300 border border-transparent hover:bg-rose-500/10',
+    active: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/40',
+    countIdle: 'text-rose-600/70 dark:text-rose-300/70',
+    countActive: 'text-rose-700 dark:text-rose-200',
+    card: 'ring-2 ring-rose-500/70',
+  },
+};
+
+function scorecardTone(lookup: StatusLookup): ScorecardTone | null {
+  const keys = [normalizeStatus(lookup.optionLabel), normalizeStatus(lookup.optionValue)];
+  if (keys.includes('active')) return 'active';
+  if (keys.includes('pending')) return 'pending';
+  if (keys.includes('closed')) return 'closed';
+  if (keys.includes('cancelled') || keys.includes('canceled')) return 'cancelled';
+  return null;
+}
+
+function formatCurrency(val: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+}
+
+function formatCompactCurrency(val: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(val);
+}
+
+function FitVolume({ value, className }: { value: number; className: string }) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const probeRef = useRef<HTMLSpanElement>(null);
+  const [compact, setCompact] = useState(false);
+  const full = formatCurrency(value);
+
+  useLayoutEffect(() => {
+    const box = boxRef.current;
+    const probe = probeRef.current;
+    if (!box || !probe) return;
+
+    const measure = () => {
+      setCompact(probe.scrollWidth > box.clientWidth + 0.5);
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    const fontsReady = document.fonts?.ready;
+    fontsReady?.then(measure);
+
+    return () => observer.disconnect();
+  }, [full]);
+
+  return (
+    <div ref={boxRef} className="relative min-w-0">
+      <span
+        ref={probeRef}
+        className={`pointer-events-none invisible absolute left-0 top-0 whitespace-nowrap ${className}`}
+        aria-hidden
+      >
+        {full}
+      </span>
+      <p className={`${className} whitespace-nowrap text-right`} title={full}>
+        {compact ? formatCompactCurrency(value) : full}
+      </p>
+    </div>
+  );
+}
+
 export default function TransactionsListPage() {
   const [schemaFields, setSchemaFields] = useState<SchemaField[]>([]);
   const [deals, setDeals] = useState<Record<string, any>[]>([]);
@@ -26,7 +138,8 @@ export default function TransactionsListPage() {
 
   // Search & Global Tabs
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [statusFilter, setStatusFilter] = useState<string>(ALL_TAB);
+  const [statusLookups, setStatusLookups] = useState<StatusLookup[]>([]);
   
   // Sorting
   const [sortField, setSortField] = useState<string>('closing_date');
@@ -51,10 +164,11 @@ export default function TransactionsListPage() {
           }
         };
 
-        const [schemaRes, dealsRes, agentsRes] = await Promise.all([
+        const [schemaRes, dealsRes, agentsRes, statusRes] = await Promise.all([
           fetch('/api/schema/transactions', fetchOptions),
           fetch('/api/transactions', fetchOptions),
           fetch('/api/agents?include_archived=true', fetchOptions),
+          fetch('/api/client-lookup-values?category=TRANSACTION_STATUS', fetchOptions),
         ]);
 
         // Process Schema Catalog
@@ -91,11 +205,32 @@ export default function TransactionsListPage() {
         } else {
           setDeals([]); // Clean empty state on failure
         }
+
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          const rows = Array.isArray(statusData.lookup_values) ? statusData.lookup_values : [];
+          const seen = new Set<string>();
+          const lookups: StatusLookup[] = [];
+          rows.forEach((row: { optionValue?: string; optionLabel?: string; sortOrder?: number }) => {
+            const optionValue = String(row.optionValue || '').trim();
+            const optionLabel = String(row.optionLabel || optionValue).trim();
+            if (!optionLabel || seen.has(optionLabel)) return;
+            seen.add(optionLabel);
+            lookups.push({
+              optionValue: optionValue || optionLabel,
+              optionLabel,
+            });
+          });
+          setStatusLookups(lookups);
+        } else {
+          setStatusLookups([]);
+        }
       } catch (err) {
         console.error('Data initialization failed:', err);
         setSchemaFields([]);
         setDeals([]);
         setAgentsList([]);
+        setStatusLookups([]);
       } finally {
         setIsLoading(false);
       }
@@ -167,8 +302,15 @@ export default function TransactionsListPage() {
     return deals
       .filter((deal) => {
         // Quick Tab Status Filter
-        const statusVal = String(deal.transaction_status || deal.status || '').toLowerCase();
-        if (statusFilter !== 'All' && statusVal !== statusFilter.toLowerCase()) return false;
+        const statusVal = normalizeStatus(String(deal.transaction_status || deal.status || ''));
+        if (statusFilter !== ALL_TAB) {
+          const selected = statusLookups.find((lookup) => lookup.optionLabel === statusFilter);
+          const selectedValues = [
+            selected ? normalizeStatus(selected.optionValue) : '',
+            normalizeStatus(selected?.optionLabel || statusFilter),
+          ].filter(Boolean);
+          if (!selectedValues.includes(statusVal)) return false;
+        }
 
         // Global Quick Search
         if (searchQuery.trim()) {
@@ -228,34 +370,95 @@ export default function TransactionsListPage() {
           ? String(aVal).localeCompare(String(bVal))
           : String(bVal).localeCompare(String(aVal));
       });
-  }, [deals, searchQuery, statusFilter, colFilters, sortField, sortOrder]);
+  }, [deals, searchQuery, statusFilter, statusLookups, colFilters, sortField, sortOrder]);
 
-  // Summary Metrics
-  const metrics = useMemo(() => {
-    const totalVolume = deals.reduce((acc, d) => acc + (Number(d.sales_price) || 0), 0);
-    const totalGCI = deals.reduce((acc, d) => {
-      if (d.gci_amount) return acc + Number(d.gci_amount);
-      const price = Number(d.sales_price) || 0;
-      const rate = Number(d.gci_perc) || 0;
-      const gRate = rate > 1 ? rate / 100 : rate;
-      return acc + price * gRate;
-    }, 0);
-    const pendingCount = deals.filter((d) => {
-      const st = String(d.transaction_status || d.status || '').toLowerCase();
-      return st === 'pending' || st === 'in escrow';
-    }).length;
+  const statusCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    statusLookups.forEach((lookup) => {
+      counts.set(lookup.optionLabel, deals.filter((deal) => dealMatchesStatus(deal, lookup)).length);
+    });
+    deals.forEach((deal) => {
+      const raw = String(deal.transaction_status || deal.status || '').trim();
+      if (!raw || statusLookups.some((lookup) => dealMatchesStatus(deal, lookup))) return;
+      counts.set(raw, (counts.get(raw) ?? 0) + 1);
+    });
+    return counts;
+  }, [deals, statusLookups]);
 
-    return { totalVolume, totalGCI, pendingCount };
-  }, [deals]);
+  const visibleStatusLookups = useMemo(() => {
+    const matched = statusLookups.filter((lookup) => (statusCounts.get(lookup.optionLabel) ?? 0) > 0);
+    const known = new Set<string>();
+    statusLookups.forEach((lookup) => {
+      known.add(normalizeStatus(lookup.optionLabel));
+      known.add(normalizeStatus(lookup.optionValue));
+    });
+
+    const extras: StatusLookup[] = [];
+    deals.forEach((deal) => {
+      const raw = String(deal.transaction_status || deal.status || '').trim();
+      if (!raw) return;
+      const norm = normalizeStatus(raw);
+      if (!norm || known.has(norm) || statusLookups.some((lookup) => dealMatchesStatus(deal, lookup))) return;
+      known.add(norm);
+      extras.push({ optionValue: raw, optionLabel: raw });
+    });
+
+    return [...matched, ...extras];
+  }, [deals, statusLookups, statusCounts]);
+
+  useEffect(() => {
+    if (statusFilter === ALL_TAB) return;
+    const stillVisible = visibleStatusLookups.some((lookup) => lookup.optionLabel === statusFilter);
+    if (!stillVisible) setStatusFilter(ALL_TAB);
+  }, [statusFilter, visibleStatusLookups]);
+
+  const scorecardFilters = useMemo(() => {
+    const labelFor = (tone: ScorecardTone) =>
+      statusLookups.find((lookup) => scorecardTone(lookup) === tone)?.optionLabel ?? null;
+    return {
+      active: labelFor('active'),
+      pending: labelFor('pending'),
+      closed: labelFor('closed'),
+      cancelled: labelFor('cancelled'),
+    };
+  }, [statusLookups]);
 
   const resetAllFilters = () => {
     setSearchQuery('');
-    setStatusFilter('All');
+    setStatusFilter(ALL_TAB);
     setColFilters({});
   };
 
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+  const selectScorecard = (label: string | null) => {
+    if (!label || (statusCounts.get(label) ?? 0) === 0) return;
+    if (statusFilter === label) {
+      resetAllFilters();
+      return;
+    }
+    setStatusFilter(label);
+  };
+
+  // Summary Metrics by transaction status
+  const metrics = useMemo(() => {
+    const getStatus = (d: Record<string, any>) =>
+      String(d.transaction_status || d.status || '').trim().toLowerCase();
+
+    const activeDeals = deals.filter((d) => getStatus(d) === 'active');
+    const pendingDeals = deals.filter((d) => getStatus(d) === 'pending');
+    const closedDeals = deals.filter((d) => getStatus(d) === 'closed');
+    const cancelledDeals = deals.filter((d) => getStatus(d) === 'cancelled');
+
+    return {
+      activeListings: activeDeals.length,
+      activeListVolume: activeDeals.reduce((acc, d) => acc + (Number(d.list_price) || 0), 0),
+      pendingUnits: pendingDeals.length,
+      pendingVolume: pendingDeals.reduce((acc, d) => acc + (Number(d.sales_price) || 0), 0),
+      closedUnits: closedDeals.length,
+      closedVolume: closedDeals.reduce((acc, d) => acc + (Number(d.sales_price) || 0), 0),
+      cancelledUnits: cancelledDeals.length,
+      cancelledVolume: cancelledDeals.reduce((acc, d) => acc + (Number(d.sales_price) || Number(d.list_price) || 0), 0),
+    };
+  }, [deals]);
 
   // Helper cell formatter based on schema field definition
   const renderCellContent = (deal: Record<string, any>, field: SchemaField) => {
@@ -313,12 +516,10 @@ export default function TransactionsListPage() {
         <div>
           <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
             <span>Commission Tracker</span>
-            <span>•</span>
-            <span className="text-slate-500 dark:text-slate-400">Dynamic Schema Ledger</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Transactions Master Ledger</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Transactions</h1>
           <p className="text-slate-600 dark:text-slate-400 text-sm">
-            Schema columns dynamically synchronized with Client Field Configurations
+            Search, filter, and open transactions
           </p>
         </div>
 
@@ -331,24 +532,90 @@ export default function TransactionsListPage() {
       </div>
 
       {/* Metrics Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xl transition-colors">
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold block uppercase">Total Portfolio Volume</span>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{formatCurrency(metrics.totalVolume)}</p>
-          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 block">Active across {deals.length} loaded deals</span>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <button
+          type="button"
+          onClick={() => selectScorecard(scorecardFilters.active)}
+          className={`text-left bg-white dark:bg-slate-800 border border-slate-200 dark:border-y-slate-700 dark:border-r-slate-700 border-l-4 border-l-blue-500 dark:border-l-blue-500 rounded-xl px-5 py-4 shadow-xl transition-colors cursor-pointer hover:bg-blue-50/60 dark:hover:bg-blue-500/5 ${statusFilter === scorecardFilters.active ? SCORECARD_TAB_STYLES.active.card : ''}`}
+        >
+          <p className="text-[11px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider mb-3">Active</p>
+          <div className="grid grid-cols-[35fr_65fr] gap-4">
+            <div className="min-w-0">
+              <p className="text-3xl font-bold text-slate-900 dark:text-white leading-none tracking-tight">{metrics.activeListings}</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Active Listings</p>
+            </div>
+            <div className="min-w-0 text-right">
+              <FitVolume
+                value={metrics.activeListVolume}
+                className="text-3xl font-bold text-blue-600 dark:text-blue-400 leading-none tracking-tight"
+              />
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Active List Volume</p>
+            </div>
+          </div>
+        </button>
 
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xl transition-colors">
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold block uppercase">Total Gross Commission (GCI)</span>
-          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{formatCurrency(metrics.totalGCI)}</p>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">Pre-split gross revenue stream</span>
-        </div>
+        <button
+          type="button"
+          onClick={() => selectScorecard(scorecardFilters.pending)}
+          className={`text-left bg-white dark:bg-slate-800 border border-slate-200 dark:border-y-slate-700 dark:border-r-slate-700 border-l-4 border-l-amber-500 dark:border-l-amber-500 rounded-xl px-5 py-4 shadow-xl transition-colors cursor-pointer hover:bg-amber-50/60 dark:hover:bg-amber-500/5 ${statusFilter === scorecardFilters.pending ? SCORECARD_TAB_STYLES.pending.card : ''}`}
+        >
+          <p className="text-[11px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider mb-3">Pending</p>
+          <div className="grid grid-cols-[35fr_65fr] gap-4">
+            <div className="min-w-0">
+              <p className="text-3xl font-bold text-slate-900 dark:text-white leading-none tracking-tight">{metrics.pendingUnits}</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Pending Units</p>
+            </div>
+            <div className="min-w-0 text-right">
+              <FitVolume
+                value={metrics.pendingVolume}
+                className="text-3xl font-bold text-amber-600 dark:text-amber-400 leading-none tracking-tight"
+              />
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Pending Volume</p>
+            </div>
+          </div>
+        </button>
 
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xl transition-colors">
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold block uppercase">Active / Escrow Deals</span>
-          <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">{metrics.pendingCount} Deals</p>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">Pending waterfall settlement</span>
-        </div>
+        <button
+          type="button"
+          onClick={() => selectScorecard(scorecardFilters.closed)}
+          className={`text-left bg-white dark:bg-slate-800 border border-slate-200 dark:border-y-slate-700 dark:border-r-slate-700 border-l-4 border-l-emerald-500 dark:border-l-emerald-500 rounded-xl px-5 py-4 shadow-xl transition-colors cursor-pointer hover:bg-emerald-50/60 dark:hover:bg-emerald-500/5 ${statusFilter === scorecardFilters.closed ? SCORECARD_TAB_STYLES.closed.card : ''}`}
+        >
+          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider mb-3">Closed</p>
+          <div className="grid grid-cols-[35fr_65fr] gap-4">
+            <div className="min-w-0">
+              <p className="text-3xl font-bold text-slate-900 dark:text-white leading-none tracking-tight">{metrics.closedUnits}</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Closed Units</p>
+            </div>
+            <div className="min-w-0 text-right">
+              <FitVolume
+                value={metrics.closedVolume}
+                className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 leading-none tracking-tight"
+              />
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Closed Volume</p>
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => selectScorecard(scorecardFilters.cancelled)}
+          className={`text-left bg-white dark:bg-slate-800 border border-slate-200 dark:border-y-slate-700 dark:border-r-slate-700 border-l-4 border-l-rose-500 dark:border-l-rose-500 rounded-xl px-5 py-4 shadow-xl transition-colors cursor-pointer hover:bg-rose-50/60 dark:hover:bg-rose-500/5 ${statusFilter === scorecardFilters.cancelled ? SCORECARD_TAB_STYLES.cancelled.card : ''}`}
+        >
+          <p className="text-[11px] text-rose-600 dark:text-rose-400 font-bold uppercase tracking-wider mb-3">Cancelled</p>
+          <div className="grid grid-cols-[35fr_65fr] gap-4">
+            <div className="min-w-0">
+              <p className="text-3xl font-bold text-slate-900 dark:text-white leading-none tracking-tight">{metrics.cancelledUnits}</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Cancelled Units</p>
+            </div>
+            <div className="min-w-0 text-right">
+              <FitVolume
+                value={metrics.cancelledVolume}
+                className="text-3xl font-bold text-rose-600 dark:text-rose-400 leading-none tracking-tight"
+              />
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Cancelled Volume</p>
+            </div>
+          </div>
+        </button>
       </div>
 
       {/* Ledger Table Container */}
@@ -356,28 +623,61 @@ export default function TransactionsListPage() {
         
         {/* Controls Bar */}
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-slate-200 dark:border-slate-700 pb-4">
-          <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             {/* Quick Status Tabs */}
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700 overflow-x-auto">
-              {['All', 'Pending', 'In Escrow', 'Closed'].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setStatusFilter(tab)}
-                  className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition whitespace-nowrap ${
-                    statusFilter === tab
-                      ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700 overflow-x-auto min-w-0">
+              {[ALL_TAB, ...visibleStatusLookups.map((lookup) => lookup.optionLabel)].map((tab) => {
+                const isAll = tab === ALL_TAB;
+                const selected = statusFilter === tab;
+                const tone = isAll ? null : scorecardTone(visibleStatusLookups.find((lookup) => lookup.optionLabel === tab) || { optionValue: '', optionLabel: tab });
+                const toneStyle = tone ? SCORECARD_TAB_STYLES[tone] : null;
+                const tabClass = isAll
+                  ? selected
+                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border border-transparent uppercase tracking-wider'
+                    : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 uppercase tracking-wider'
+                  : toneStyle
+                    ? selected
+                      ? toneStyle.active
+                      : toneStyle.idle
+                    : selected
+                      ? 'bg-slate-500/15 text-slate-800 dark:text-slate-200 border border-slate-400/40'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent';
+                const countClass = isAll
+                  ? selected
+                    ? 'text-white/80 dark:text-slate-900/70'
+                    : 'text-slate-500 dark:text-slate-400'
+                  : toneStyle
+                    ? selected
+                      ? toneStyle.countActive
+                      : toneStyle.countIdle
+                    : selected
+                      ? 'text-slate-700 dark:text-slate-200'
+                      : 'text-slate-400 dark:text-slate-500';
 
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => {
+                      if (tab === ALL_TAB) resetAllFilters();
+                      else setStatusFilter(tab);
+                    }}
+                    className={`inline-flex items-center px-3.5 py-1.5 rounded-md text-xs font-bold transition whitespace-nowrap ${tabClass} ${isAll ? 'mr-1' : ''}`}
+                  >
+                    {tab}
+                    <span className={`ml-1.5 tabular-nums ${countClass}`}>
+                      {isAll ? deals.length : statusCounts.get(tab) ?? 0}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 w-full md:w-auto justify-end">
             {/* Toggle Filters Button */}
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`px-3 py-2 rounded-lg text-xs font-bold border transition flex items-center gap-1.5 ${
+              className={`px-3 py-2 rounded-lg text-xs font-bold border transition flex items-center gap-1.5 whitespace-nowrap ${
                 showFilters
                   ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
                   : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -387,32 +687,24 @@ export default function TransactionsListPage() {
               <span>{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
             </button>
 
-            {/* Reset Button */}
-            <button
-              onClick={resetAllFilters}
-              className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white underline font-medium px-2 py-1"
-            >
-              Reset Filters
-            </button>
-          </div>
-
-          {/* Quick Search */}
-          <div className="relative w-full md:w-80">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search all fields..."
-              className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-medium"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white"
-              >
-                ✕
-              </button>
-            )}
+            {/* Quick Search */}
+            <div className="relative w-[20rem] max-w-full">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search all fields..."
+                className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-medium"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -437,7 +729,6 @@ export default function TransactionsListPage() {
                     </div>
                   </th>
                 ))}
-                <th className="py-1.5 px-4 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800"></th>
               </tr>
 
               {/* Field Label Header Row */}
@@ -456,7 +747,6 @@ export default function TransactionsListPage() {
                     </div>
                   </th>
                 ))}
-                <th className="py-3 px-4 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center">Action</th>
               </tr>
 
               {/* Dynamic Filter Inputs */}
@@ -504,7 +794,6 @@ export default function TransactionsListPage() {
                       )}
                     </th>
                   ))}
-                  <th className="p-2 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800"></th>
                 </tr>
               )}
             </thead>
@@ -513,13 +802,13 @@ export default function TransactionsListPage() {
             <tbody className="text-slate-800 dark:text-slate-200 font-medium bg-white dark:bg-slate-800">
               {isLoading ? (
                 <tr>
-                  <td colSpan={schemaFields.length + 1} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
+                  <td colSpan={schemaFields.length} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
                     Loading synchronized schema & transaction ledger...
                   </td>
                 </tr>
               ) : processedDeals.length === 0 ? (
                 <tr>
-                  <td colSpan={schemaFields.length + 1} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
+                  <td colSpan={schemaFields.length} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
                     No matching transaction records found for active filters.
                   </td>
                 </tr>
@@ -541,21 +830,20 @@ export default function TransactionsListPage() {
                             >
                               {String(deal[field.field_key] || dealId)}
                             </Link>
+                          ) : field.field_key === 'property_address' ? (
+                            <Link
+                              href={`/commission-tracker/transactions/${dealId}`}
+                              className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+                            >
+                              {deal.property_address
+                                ? String(deal.property_address)
+                                : <span className="text-slate-400 italic font-normal">-</span>}
+                            </Link>
                           ) : (
                             renderCellContent(deal, field)
                           )}
                         </td>
                       ))}
-
-                      {/* Action Button */}
-                      <td className="py-3 px-4 text-center whitespace-nowrap border-b border-slate-200 dark:border-slate-700/60">
-                        <Link
-                          href={`/commission-tracker/transactions/${dealId}`}
-                          className="bg-slate-100 dark:bg-slate-900 group-hover:bg-emerald-500/20 text-slate-700 dark:text-slate-300 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 border border-slate-300 dark:border-slate-700 group-hover:border-emerald-500/40 px-2.5 py-1 rounded text-[11px] font-bold transition"
-                        >
-                          Open Engine ➔
-                        </Link>
-                      </td>
                     </tr>
                   );
                 })
@@ -566,7 +854,7 @@ export default function TransactionsListPage() {
 
         {/* Footer */}
         <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 pt-2">
-          <span>Displaying {processedDeals.length} of {deals.length} ledger entries</span>
+          <span>Displaying {processedDeals.length} of {deals.length} records</span>
           <span className="text-[11px] italic">Columns synchronized dynamically with client schema configuration</span>
         </div>
       </div>

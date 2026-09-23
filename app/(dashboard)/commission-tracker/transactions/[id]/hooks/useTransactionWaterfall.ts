@@ -229,7 +229,6 @@ export function useTransactionWaterfall({
     });
 
     return {
-      status: 'CALCULATED_OK',
       grossCommission: grossComm,
       totalCommission: baselineTotalComm,
       offTheTopItems: offTopCalculated,

@@ -28,11 +28,14 @@ const themeInitializerScript = `
     try {
       var savedTheme = localStorage.getItem('soleox-theme');
       var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      var isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
+      var mode = (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system')
+        ? savedTheme
+        : 'system';
+      var isDark = mode === 'dark' || (mode === 'system' && prefersDark);
 
       if (isDark) {
         document.documentElement.classList.add('dark');
-        document.documentElement.style.backgroundColor = '#020617';
+        document.documentElement.style.backgroundColor = '#0f172a';
       } else {
         document.documentElement.classList.remove('dark');
         document.documentElement.style.backgroundColor = '#f1f5f9';
@@ -54,7 +57,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: themeInitializerScript }}
         />
       </head>
-      <body className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+      <body className="min-h-screen bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
         <AuthProvider>
           <Providers>
             <Navbar />
