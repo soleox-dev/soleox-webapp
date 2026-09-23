@@ -1,9 +1,9 @@
 // app/commission-tracker/transactions/[id]/page.tsx
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { AgentConfig, DynamicRule, ToastNotification } from './types';
+import { AgentConfig, DynamicRule, ToastNotification, roundCurrency, KnownAgentInfo } from './types';
 
 // Custom Hooks
 import { useTransactionData } from './hooks/useTransactionData';
@@ -19,6 +19,8 @@ import { CommissionWaterfall } from './components/CommissionWaterfall';
 import { FinalDisbursements } from './components/FinalDisbursements';
 import { RequiredFieldsModal } from './components/RequiredFieldsModal';
 import { AgentPickerModal } from './components/AgentPickerModal';
+import { TransferPrimaryAgentModal } from './components/TransferPrimaryAgentModal';
+import { RevertPrimaryAgentModal } from './components/RevertPrimaryAgentModal';
 import { generatePrefixedId } from '@/lib/id';
 
 export default function Dashboard() {
@@ -40,16 +42,6 @@ export default function Dashboard() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   const { savedDeals, overviewFields, knownAgents, knownEntities, isLoadingDeals, isSaving, saveTransaction } = useTransactionData(routeId, isNewTransaction);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'commission' | 'disbursements'>('overview');
@@ -60,6 +52,91 @@ export default function Dashboard() {
   const [selectedDeal, setSelectedDeal] = useState<any>(null);
   const [selectedDealId, setSelectedDealId] = useState('');
   const [dealNotFound, setDealNotFound] = useState(false);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+        if (selectedDeal) {
+          const clientLabel = selectedDeal.client_id ? `[${selectedDeal.client_id}] ` : '';
+          setSearchQuery(`${clientLabel}${selectedDeal.id} — ${selectedDeal.property_address || ''}`);
+        }
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [selectedDeal]);
+
+  // Dynamic search filtering & relevance ranking for transactions combobox
+  const filteredDeals = useMemo(() => {
+    if (!savedDeals || savedDeals.length === 0) return [];
+
+    const currentDealLabel = selectedDeal
+      ? `${selectedDeal.client_id ? `[${selectedDeal.client_id}] ` : ''}${selectedDeal.id} — ${selectedDeal.property_address || ''}`
+      : '';
+
+    const trimmed = searchQuery.trim();
+
+    // If query is blank or exact active deal label, show all saved deals
+    if (!trimmed || trimmed.toLowerCase() === currentDealLabel.trim().toLowerCase()) {
+      return savedDeals;
+    }
+
+    const tokens = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
+
+    // Filter deals where every token matches at least one field in the deal
+    const matched = savedDeals.filter((deal) => {
+      if (!deal) return false;
+
+      const idStr = String(deal.id || '').toLowerCase();
+      const addrStr = String(deal.property_address || '').toLowerCase();
+      const clientStr = String(deal.client_name || '').toLowerCase();
+      const agentStr = String(deal.primary_agent || deal.agent_name || deal.agent_id || '').toLowerCase();
+      const tenantStr = String(deal.client_id || '').toLowerCase();
+      const leadStr = String(deal.lead_source || '').toLowerCase();
+      const statusStr = String(deal.transaction_status || deal.status || '').toLowerCase();
+      const priceStr = deal.sales_price != null ? `$${Number(deal.sales_price).toLocaleString()} ${deal.sales_price}`.toLowerCase() : '';
+
+      const combined = `${tenantStr} ${idStr} ${addrStr} ${clientStr} ${agentStr} ${leadStr} ${statusStr} ${priceStr}`;
+
+      return tokens.every((token) => combined.includes(token));
+    });
+
+    // Rank matched deals by address / ID relevance
+    const queryLower = trimmed.toLowerCase();
+    return matched.sort((a, b) => {
+      const addrA = String(a.property_address || '').toLowerCase();
+      const addrB = String(b.property_address || '').toLowerCase();
+      const idA = String(a.id || '').toLowerCase();
+      const idB = String(b.id || '').toLowerCase();
+
+      // 1. Exact match on address
+      const aExactAddr = addrA === queryLower;
+      const bExactAddr = addrB === queryLower;
+      if (aExactAddr && !bExactAddr) return -1;
+      if (!aExactAddr && bExactAddr) return 1;
+
+      // 2. Full query in property address
+      const aHasFullAddr = addrA.includes(queryLower);
+      const bHasFullAddr = addrB.includes(queryLower);
+      if (aHasFullAddr && !bHasFullAddr) return -1;
+      if (!aHasFullAddr && bHasFullAddr) return 1;
+
+      // 3. Address starts with query
+      const aStartsAddr = addrA.startsWith(queryLower);
+      const bStartsAddr = addrB.startsWith(queryLower);
+      if (aStartsAddr && !bStartsAddr) return -1;
+      if (!aStartsAddr && bStartsAddr) return 1;
+
+      // 4. ID starts with query
+      const aStartsId = idA.startsWith(queryLower);
+      const bStartsId = idB.startsWith(queryLower);
+      if (aStartsId && !bStartsId) return -1;
+      if (!aStartsId && bStartsId) return 1;
+
+      return 0;
+    });
+  }, [savedDeals, searchQuery, selectedDeal]);
   
   // Real Overview State Variables
   const [propertyAddress, setPropertyAddress] = useState('');
@@ -80,12 +157,82 @@ export default function Dashboard() {
   const [agentPickerSearch, setAgentPickerSearch] = useState('');
 
   const [offTheTopRules, setOffTheTopRules] = useState<DynamicRule[]>([]);
+  const [preSplitRules, setPreSplitRules] = useState<DynamicRule[]>([]);
   const [postSplitRulesByAgent, setPostSplitRulesByAgent] = useState<Record<string, DynamicRule[]>>({});
+  const [postSplit2RulesByAgent, setPostSplit2RulesByAgent] = useState<Record<string, DynamicRule[]>>({});
   const [agents, setAgents] = useState<AgentConfig[]>([]);
 
-  const dealResult = useTransactionWaterfall({ salesPrice, gciPerc, offTheTopRules, postSplitRulesByAgent, agents, overviewFields, selectedDeal, overviewFormValues: {}, clientType });
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isRevertModalOpen, setIsRevertModalOpen] = useState(false);
+  const [transferInfo, setTransferInfo] = useState<{
+    formerAgent: string;
+    newAgent: KnownAgentInfo;
+    proceedApply: () => void;
+  } | null>(null);
 
-  const activeClientId = selectedDeal?.client_id || 'DEMO';
+  const handleRequestOverviewApply = (proceedWithApply: () => void, currentFormValues?: Record<string, any>) => {
+    // 1. Identify former primary agent
+    const formerAgentName = agents[0]?.name || primaryAgent || '';
+
+    // 2. Identify new primary agent from form values
+    const formVals = currentFormValues || overviewForm.overviewFormValues;
+    const newAgentRaw = formVals.agent_id ?? formVals.primary_agent;
+    const matchedNewAgent = knownAgents.find(
+      (a) => a.id === newAgentRaw || a.name.toLowerCase() === String(newAgentRaw || '').trim().toLowerCase()
+    );
+    const newAgentName = matchedNewAgent ? matchedNewAgent.name : String(newAgentRaw || '').trim();
+
+    const hasFormer = Boolean(formerAgentName && formerAgentName.trim() !== '');
+    const hasNew = Boolean(newAgentName && newAgentName.trim() !== '');
+    const isChanged = hasFormer && hasNew && (formerAgentName.trim().toLowerCase() !== newAgentName.trim().toLowerCase());
+
+    if (isChanged) {
+      const resolvedNewAgentInfo: KnownAgentInfo = matchedNewAgent || {
+        id: `AGT_${newAgentName}`,
+        name: newAgentName,
+        isTeamLead: false,
+        brokerCapLimit: 8000,
+        brokerCapPaidYTD: 0,
+        riskCapLimit: 750,
+        riskPaidYTD: 0,
+      };
+
+      setTransferInfo({
+        formerAgent: formerAgentName,
+        newAgent: resolvedNewAgentInfo,
+        proceedApply: proceedWithApply,
+      });
+      setIsTransferModalOpen(true);
+    } else {
+      // If no former agent existed (e.g. brand new transaction), but now new agent is selected:
+      if (!hasFormer && hasNew) {
+        const resolvedNewAgentInfo: KnownAgentInfo = matchedNewAgent || {
+          id: `AGT_${newAgentName}`,
+          name: newAgentName,
+          isTeamLead: false,
+          brokerCapLimit: 8000,
+          brokerCapPaidYTD: 0,
+          riskCapLimit: 750,
+          riskPaidYTD: 0,
+        };
+        setAgents([
+          {
+            id: resolvedNewAgentInfo.id,
+            name: resolvedNewAgentInfo.name,
+            isTeamLead: resolvedNewAgentInfo.isTeamLead,
+            splitType: 'PERCENT',
+            splitVal: 1.0,
+            brokerCapLimit: resolvedNewAgentInfo.brokerCapLimit,
+            brokerCapPaidYTD: resolvedNewAgentInfo.brokerCapPaidYTD,
+            riskCapLimit: resolvedNewAgentInfo.riskCapLimit,
+            riskPaidYTD: resolvedNewAgentInfo.riskPaidYTD,
+          },
+        ]);
+        setPrimaryAgent(resolvedNewAgentInfo.name);
+      }
+      proceedWithApply();
+    }
+  };
 
   const overviewForm = useOverviewForm({
     overviewFields,
@@ -106,9 +253,114 @@ export default function Dashboard() {
     setListDate,
     setLeadSource,
     setSelectedDeal,
-    grossCommission: dealResult.grossCommission,
-    totalCommission: dealResult.totalCommission,
+    grossCommission: roundCurrency(salesPrice * gciPerc),
+    totalCommission: Number(selectedDeal?.total_commission) || roundCurrency(salesPrice * gciPerc),
+    onRequestApply: handleRequestOverviewApply,
   });
+
+  const handleConfirmTransfer = () => {
+    if (!transferInfo) return;
+    const { formerAgent, newAgent, proceedApply } = transferInfo;
+
+    // 1. Update primary agent in agents[0] (or create if empty)
+    setAgents((prev) => {
+      if (prev.length === 0) {
+        return [
+          {
+            id: newAgent.id,
+            name: newAgent.name,
+            isTeamLead: newAgent.isTeamLead,
+            splitType: 'PERCENT',
+            splitVal: 1.0,
+            brokerCapLimit: newAgent.brokerCapLimit,
+            brokerCapPaidYTD: newAgent.brokerCapPaidYTD,
+            riskCapLimit: newAgent.riskCapLimit,
+            riskPaidYTD: newAgent.riskPaidYTD,
+          },
+        ];
+      }
+
+      const primary = prev[0];
+      const updatedPrimary: AgentConfig = {
+        ...primary,
+        id: newAgent.id,
+        name: newAgent.name,
+        isTeamLead: newAgent.isTeamLead,
+        brokerCapLimit: newAgent.brokerCapLimit,
+        brokerCapPaidYTD: newAgent.brokerCapPaidYTD,
+        riskCapLimit: newAgent.riskCapLimit,
+        riskPaidYTD: newAgent.riskPaidYTD,
+      };
+
+      // Filter out if newAgent was listed as a secondary agent
+      const remainingSecondary = prev.slice(1).filter((a) => a.name.toLowerCase() !== newAgent.name.toLowerCase());
+      return [updatedPrimary, ...remainingSecondary];
+    });
+
+    // 2. Transfer Level 1 post-splits from formerAgent to newAgent
+    setPostSplitRulesByAgent((prev) => {
+      const next = { ...prev };
+      if (next[formerAgent]) {
+        next[newAgent.name] = next[formerAgent];
+        delete next[formerAgent];
+      }
+      return next;
+    });
+
+    // 3. Transfer Level 2 post-splits from formerAgent to newAgent
+    setPostSplit2RulesByAgent((prev) => {
+      const next = { ...prev };
+      if (next[formerAgent]) {
+        next[newAgent.name] = next[formerAgent];
+        delete next[formerAgent];
+      }
+      return next;
+    });
+
+    // 4. Update primaryAgent in page state
+    setPrimaryAgent(newAgent.name);
+
+    // 5. Apply the overview changes and exit edit mode
+    proceedApply();
+
+    // 6. Close transfer modal & clear transferInfo
+    setIsTransferModalOpen(false);
+    showToast(`Primary Agent updated to ${newAgent.name}. Splits & deductions transferred successfully.`, 'success');
+  };
+
+  const handleCancelTransfer = () => {
+    // "If the user doesn't confirm the popup, they should be asked if they want to revert the Primary Agent to the previous one (in case they changed it by accident)."
+    setIsTransferModalOpen(false);
+    setIsRevertModalOpen(true);
+  };
+
+  const handleRevertYes = () => {
+    // "If they answer Yes, they will be back in Edit Mode for the Transaction Overview and the Primary Agent will be set again to the Primary Agent that was there before the user started editing the Transaction Overview."
+    overviewForm.revertPrimaryAgentToInitial();
+    setIsRevertModalOpen(false);
+    showToast(`Primary Agent reverted back to ${transferInfo?.formerAgent || 'previous agent'}.`, 'info');
+  };
+
+  const handleRevertNo = () => {
+    // "If they answer No to this popup, they will be back in Edit mode for the Transaction Overview."
+    setIsRevertModalOpen(false);
+  };
+
+  const dealResult = useTransactionWaterfall({
+    salesPrice: overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.sales_price) || salesPrice) : salesPrice,
+    gciPerc: overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.gci_perc) || gciPerc) : gciPerc,
+    offTheTopRules,
+    preSplitRules,
+    postSplitRulesByAgent,
+    postSplit2RulesByAgent,
+    agents,
+    overviewFields,
+    selectedDeal,
+    overviewFormValues: overviewForm.overviewFormValues,
+    clientType,
+  });
+
+  const activeClientId = selectedDeal?.client_id || 'DEMO';
 
   useEffect(() => {
     if (isNewTransaction) {
@@ -128,7 +380,9 @@ export default function Dashboard() {
       setLeadSource('');
       setAgents([]);
       setOffTheTopRules([]);
+      setPreSplitRules([]);
       setPostSplitRulesByAgent({});
+      setPostSplit2RulesByAgent({});
       setSearchQuery(`[NEW] ${freshId} — Draft Transaction`);
     } else if (routeId && savedDeals.length > 0) {
       const matched = savedDeals.find((d) => d.id === routeId);
@@ -191,11 +445,25 @@ export default function Dashboard() {
         setOffTheTopRules([]);
       }
 
+      const dealPreSplits = dealCustomAttrs.preSplitRules || matched.preSplitRules;
+      if (Array.isArray(dealPreSplits)) {
+        setPreSplitRules(dealPreSplits);
+      } else {
+        setPreSplitRules([]);
+      }
+
       const dealPostSplits = dealCustomAttrs.postSplitRulesByAgent || matched.postSplitRulesByAgent;
       if (dealPostSplits && typeof dealPostSplits === 'object') {
         setPostSplitRulesByAgent(dealPostSplits);
       } else {
         setPostSplitRulesByAgent({});
+      }
+
+      const dealPostSplits2 = dealCustomAttrs.postSplit2RulesByAgent || matched.postSplit2RulesByAgent;
+      if (dealPostSplits2 && typeof dealPostSplits2 === 'object') {
+        setPostSplit2RulesByAgent(dealPostSplits2);
+      } else {
+        setPostSplit2RulesByAgent({});
       }
 
       const clientLabel = matched.client_id ? `[${matched.client_id}] ` : '';
@@ -277,7 +545,9 @@ export default function Dashboard() {
       ...(selectedDeal?.custom_attributes || {}),
       agents,
       offTheTopRules,
+      preSplitRules,
       postSplitRulesByAgent,
+      postSplit2RulesByAgent,
     };
 
     // 🔍 LOG 2: Check payload sent to API
@@ -295,41 +565,188 @@ export default function Dashboard() {
 
     // Build granular commission items from waterfall result
     const commissionItems = [
-      ...dealResult.offTheTopItems.map((item: any, idx: number) => ({
-        step_number: idx + 1,
-        rule_name: item.name,
-        section: 'OFF_THE_TOP',
-        payee_type: 'ENTITY',
-        payee_entity_id: item.entity,
-        agent_id: null,
-        calculated_amount: item.amount,
-        final_amount: item.amount,
-      })),
-      ...dealResult.agentSplitItems.map((item: any, idx: number) => ({
-        step_number: 10 + idx + 1,
-        rule_name: `${item.agentName} Split`,
-        section: 'AGENT_SPLIT',
-        payee_type: 'AGENT',
-        payee_entity_id: null,
-        agent_id: item.agentId || item.agentName,
-        calculated_amount: item.amount,
-        final_amount: item.amount,
-      })),
-      ...dealResult.postSplitItems.map((item: any, idx: number) => ({
-        step_number: 20 + idx + 1,
-        rule_name: item.ruleName,
-        section: 'POST_SPLIT',
-        payee_type: 'ENTITY',
-        payee_entity_id: item.entity,
-        agent_id: item.agentName,
-        calculated_amount: item.amount,
-        final_amount: item.amount,
-      })),
+      ...dealResult.offTheTopItems.map((item: any, idx: number) => {
+        const matchedEntity = knownEntities.find((e) => e.name === item.entity || e.id === item.entity);
+        const splitType = item.type || 'PERCENT';
+        const cleanVal = item.value !== undefined && item.value !== null
+          ? (splitType === 'PERCENT'
+              ? Number((item.value > 1 ? item.value / 100 : item.value).toFixed(4))
+              : roundCurrency(Number(item.value)))
+          : null;
+        return {
+          step_number: idx + 1,
+          rule_name: item.entity || item.ruleName || 'Off-the-Top Deduction',
+          section: 'OFF_THE_TOP',
+          split_type: splitType,
+          split_value: cleanVal,
+          note: item.note || null,
+          payee_type: 'ENTITY',
+          payee_entity_id: matchedEntity?.id || null,
+          entity_name: matchedEntity?.name || item.entity,
+          agent_id: null,
+          agent_name: null,
+          is_primary: false,
+          calculated_amount: item.amount,
+          final_amount: item.amount,
+        };
+      }),
+      ...(dealResult.preSplitItems || []).map((item: any, idx: number) => {
+        const matchedEntity = knownEntities.find((e) => e.name === item.entity || e.id === item.entity);
+        const splitType = item.type || 'PERCENT';
+        const cleanVal = item.value !== undefined && item.value !== null
+          ? (splitType === 'PERCENT'
+              ? Number((item.value > 1 ? item.value / 100 : item.value).toFixed(4))
+              : roundCurrency(Number(item.value)))
+          : null;
+        return {
+          step_number: 10 + idx + 1,
+          rule_name: item.entity || item.ruleName || 'Pre-Split Deduction',
+          section: 'PRE_SPLIT',
+          split_type: splitType,
+          split_value: cleanVal,
+          note: item.note || null,
+          payee_type: 'ENTITY',
+          payee_entity_id: matchedEntity?.id || null,
+          entity_name: matchedEntity?.name || item.entity,
+          agent_id: null,
+          agent_name: null,
+          is_primary: false,
+          calculated_amount: item.amount,
+          final_amount: item.amount,
+        };
+      }),
+      ...dealResult.agentSplitItems.map((item: any, idx: number) => {
+        const matchedAgent = knownAgents.find((a) => a.id === item.agentId || a.name === item.agentName);
+        const isPrimary = idx === 0 || item.isPrimary;
+        const splitType = item.splitType || 'PERCENT';
+        let cleanSplitVal: number | null = null;
+
+        if (splitType === 'PERCENT') {
+          const raw = item.percent !== undefined && item.percent !== null
+            ? item.percent
+            : (item.splitVal !== undefined && item.splitVal !== null
+                ? (item.splitVal > 1 ? item.splitVal / 100 : item.splitVal)
+                : null);
+          cleanSplitVal = raw !== null ? Number(Number(raw).toFixed(4)) : null;
+        } else {
+          cleanSplitVal = item.splitVal !== undefined && item.splitVal !== null
+            ? roundCurrency(Number(item.splitVal))
+            : (item.amount !== undefined ? roundCurrency(Number(item.amount)) : null);
+        }
+
+        return {
+          step_number: 20 + idx + 1,
+          rule_name: `${item.agentName} Split`,
+          section: 'AGENT_SPLIT',
+          split_type: splitType,
+          split_value: cleanSplitVal,
+          note: null,
+          payee_type: 'AGENT',
+          payee_entity_id: null,
+          entity_name: null,
+          agent_id: matchedAgent?.id || item.agentId || null,
+          agent_name: matchedAgent?.name || item.agentName,
+          is_primary: isPrimary,
+          calculated_amount: item.amount,
+          final_amount: item.amount,
+        };
+      }),
+      ...dealResult.postSplitItems.map((item: any, idx: number) => {
+        const matchedEntity = knownEntities.find((e) => e.name === item.entity || e.id === item.entity);
+        const matchedAgent = knownAgents.find((a) => a.id === item.agentId || a.name === item.agentName);
+        const splitType = item.type || 'PERCENT';
+        const cleanVal = item.value !== undefined && item.value !== null
+          ? (splitType === 'PERCENT'
+              ? Number((item.value > 1 ? item.value / 100 : item.value).toFixed(4))
+              : roundCurrency(Number(item.value)))
+          : null;
+        return {
+          step_number: 30 + idx + 1,
+          rule_name: item.entity || item.ruleName || 'Post-Split Deduction',
+          section: 'POST_SPLIT',
+          split_type: splitType,
+          split_value: cleanVal,
+          note: item.note || null,
+          payee_type: item.entity === 'Broker' || item.entity === 'Brokerage' ? 'BROKERAGE' : 'ENTITY',
+          payee_entity_id: matchedEntity?.id || null,
+          entity_name: matchedEntity?.name || item.entity,
+          agent_id: matchedAgent?.id || item.agentId || null,
+          agent_name: matchedAgent?.name || item.agentName,
+          is_primary: false,
+          calculated_amount: item.amount,
+          final_amount: item.amount,
+        };
+      }),
+      ...(dealResult.postSplit2Items || []).map((item: any, idx: number) => {
+        const matchedEntity = knownEntities.find((e) => e.name === item.entity || e.id === item.entity);
+        const matchedAgent = knownAgents.find((a) => a.id === item.agentId || a.name === item.agentName);
+        const splitType = item.type || 'PERCENT';
+        const cleanVal = item.value !== undefined && item.value !== null
+          ? (splitType === 'PERCENT'
+              ? Number((item.value > 1 ? item.value / 100 : item.value).toFixed(4))
+              : roundCurrency(Number(item.value)))
+          : null;
+        return {
+          step_number: 50 + idx + 1,
+          rule_name: item.entity || item.ruleName || 'Post-Split L2 Deduction',
+          section: 'POST_SPLIT_L2',
+          split_type: splitType,
+          split_value: cleanVal,
+          note: item.note || null,
+          payee_type: 'ENTITY',
+          payee_entity_id: matchedEntity?.id || null,
+          entity_name: matchedEntity?.name || item.entity,
+          agent_id: matchedAgent?.id || item.agentId || null,
+          agent_name: matchedAgent?.name || item.agentName,
+          is_primary: false,
+          calculated_amount: item.amount,
+          final_amount: item.amount,
+        };
+      }),
+    ];
+
+    // Build Final Disbursements & Payment Authorizations
+    const currentAgentDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => agents.some((a) => a.name === e)) as [string, number][];
+    const currentEntityDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => !agents.some((a) => a.name === e)) as [string, number][];
+    const primaryAgentName = agents[0]?.name || (typeof primaryAgent === 'string' ? primaryAgent : '') || 'Primary Agent';
+
+    const paymentItems = [
+      ...currentAgentDisbursements.map(([agentName, amount]) => {
+        const matchedAgent = knownAgents.find((a) => a.name === agentName || a.id === agentName);
+        return {
+          payee_type: 'AGENT',
+          payee_name: matchedAgent?.name || agentName,
+          agent_id: matchedAgent?.id || null,
+          payee_entity_id: null,
+          amount_paid: amount,
+          payment_method: 'ACH',
+          payment_status: 'Ready to Pay',
+          disbursement_type: 'AGENT_NET',
+          notes: `${matchedAgent?.name || agentName} (Agent) - Primary: ${primaryAgentName}`,
+          payment_date: coreDbFields.closing_date ? String(coreDbFields.closing_date).substring(0, 10) : new Date().toISOString().substring(0, 10),
+        };
+      }),
+      ...currentEntityDisbursements.map(([entityName, amount]) => {
+        const matchedEntity = knownEntities.find((e) => e.name === entityName || e.id === entityName);
+        return {
+          payee_type: entityName.toLowerCase().includes('broker') ? 'BROKERAGE' : 'ENTITY',
+          payee_name: matchedEntity?.name || entityName,
+          agent_id: null,
+          payee_entity_id: matchedEntity?.id || null,
+          amount_paid: amount,
+          payment_method: 'Escrow Wire',
+          payment_status: 'Pending Escrow Wire',
+          disbursement_type: 'THIRD_PARTY_DISBURSEMENT',
+          notes: `${matchedEntity?.name || entityName} (Entity) - Primary: ${primaryAgentName}`,
+          payment_date: coreDbFields.closing_date ? String(coreDbFields.closing_date).substring(0, 10) : new Date().toISOString().substring(0, 10),
+        };
+      }),
     ];
 
     const payload = {
       ...coreDbFields,
       commission_items: commissionItems,
+      payments: paymentItems,
       custom_attributes: customAttrs,
     };
 
@@ -357,6 +774,37 @@ export default function Dashboard() {
   const agentDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => agents.some((a) => a.name === e)) as [string, number][];
   const entityDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => !agents.some((a) => a.name === e)) as [string, number][];
 
+  // Identify fee / admin fee field from transaction schema if present
+  const feeFieldSetting = useMemo(() => {
+    return overviewFields.find(
+      (f) =>
+        f.key === 'transaction_fee' ||
+        f.key === 'admin_fee' ||
+        f.key.toLowerCase().includes('fee') ||
+        (f.label && (f.label.toLowerCase().includes('transaction fee') || f.label.toLowerCase().includes('admin fee')))
+    );
+  }, [overviewFields]);
+
+  const feeField = useMemo(() => {
+    if (!feeFieldSetting) return null;
+    const rawVal = overviewForm.isEditingOverview
+      ? overviewForm.overviewFormValues[feeFieldSetting.key]
+      : selectedDeal?.[feeFieldSetting.key];
+    const amount = Number(rawVal) || 0;
+    return {
+      label: feeFieldSetting.label || 'Transaction Fee',
+      amount,
+    };
+  }, [feeFieldSetting, overviewForm.isEditingOverview, overviewForm.overviewFormValues, selectedDeal]);
+
+  // Filter available agents for picker modal so already added agents are excluded
+  const availableAgentsToPick = useMemo(() => {
+    const assignedNames = new Set(agents.map((a) => (a?.name || '').trim().toLowerCase()));
+    return knownAgents.filter(
+      (a) => !assignedNames.has((a?.name || '').trim().toLowerCase())
+    );
+  }, [knownAgents, agents]);
+
   if (dealNotFound) {
     return (
       <div className="p-12 text-center space-y-4 max-w-md mx-auto">
@@ -381,7 +829,7 @@ export default function Dashboard() {
         setSearchQuery={setSearchQuery}
         isDropdownOpen={isDropdownOpen}
         setIsDropdownOpen={setIsDropdownOpen}
-        filteredDeals={savedDeals}
+        filteredDeals={filteredDeals}
         savedDealsCount={savedDeals.length}
         isLoadingDeals={isLoadingDeals}
         selectedDealId={selectedDealId}
@@ -407,10 +855,11 @@ export default function Dashboard() {
           overviewFieldsCount={overviewFields.length}
           agentsCount={agents.length}
           entitiesCount={agentDisbursements.length + entityDisbursements.length}
-          salesPrice={salesPrice}
-          gciPerc={gciPerc}
-          grossCommission={dealResult.grossCommission}
-          commissionAfterOffTop={dealResult.grossCommission - offTheTopRules.reduce((a, b) => a + b.value, 0)}
+          salesPrice={overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.sales_price) || salesPrice) : salesPrice}
+          gciPerc={overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.gci_perc) || gciPerc) : gciPerc}
+          gciAmount={overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.gci_amount) || dealResult.grossCommission) : dealResult.grossCommission}
+          feeField={feeField}
+          totalCommission={dealResult.totalCommission || dealResult.grossCommission}
         />
 
         <div className="lg:col-span-9 space-y-8">
@@ -438,27 +887,195 @@ export default function Dashboard() {
           <CommissionWaterfall
             isCollapsed={collapsed.commission}
             onToggleSection={() => toggleSection('commission')}
-            salesPrice={salesPrice}
-            setSalesPrice={setSalesPrice}
-            gciPerc={gciPerc}
-            setGciPerc={setGciPerc}
             agents={agents}
             onOpenAddAgentModal={() => setIsAddAgentModalOpen(true)}
-            onRemoveAgent={(name) => setAgents((p) => p.filter((a) => a.name !== name))}
-            onToggleAgentSplitType={(id) => setAgents((p) => p.map((a) => a.id === id ? { ...a, splitType: a.splitType === 'PERCENT' ? 'AMOUNT' : 'PERCENT' } : a))}
+            onRemoveAgent={(name) => {
+              setAgents((prev) => {
+                const toRemove = prev.find((a) => a.name === name);
+                const remaining = prev.filter((a) => a.name !== name);
+                if (!toRemove || remaining.length === 0) return remaining;
+
+                const primary = remaining[0];
+                let restoredVal = primary.splitVal;
+                const baselinePool = dealResult.commissionAfterPreSplit ?? dealResult.commissionAfterOffTop;
+                if (toRemove.splitType === 'PERCENT') {
+                  restoredVal = Math.min(1.0, primary.splitVal + toRemove.splitVal);
+                } else if (baselinePool > 0) {
+                  restoredVal = Math.min(1.0, primary.splitVal + (toRemove.splitVal / baselinePool));
+                }
+                remaining[0] = { ...primary, splitVal: restoredVal };
+                return [...remaining];
+              });
+            }}
+            onSwitchAgent={(agentId, newAgentName) => {
+              const newAgentInfo = knownAgents.find((a) => a.name === newAgentName);
+              if (!newAgentInfo) return;
+
+              setAgents((prev) => {
+                const targetIndex = prev.findIndex((a) => a.id === agentId);
+                if (targetIndex === -1) return prev;
+                const oldAgent = prev[targetIndex];
+
+                const updated: AgentConfig = {
+                  ...oldAgent,
+                  id: newAgentInfo.id || `A_${Date.now()}`,
+                  name: newAgentInfo.name,
+                  isTeamLead: newAgentInfo.isTeamLead,
+                  brokerCapLimit: newAgentInfo.brokerCapLimit,
+                  brokerCapPaidYTD: newAgentInfo.brokerCapPaidYTD,
+                  riskCapLimit: newAgentInfo.riskCapLimit,
+                  riskPaidYTD: newAgentInfo.riskPaidYTD,
+                };
+
+                if (targetIndex === 0) {
+                  setPrimaryAgent(newAgentInfo.name);
+                }
+
+                // Migrate post-split rules if registered under old name
+                if (postSplitRulesByAgent[oldAgent.name] && !postSplitRulesByAgent[newAgentInfo.name]) {
+                  setPostSplitRulesByAgent((p) => {
+                    const next = { ...p };
+                    next[newAgentInfo.name] = next[oldAgent.name];
+                    delete next[oldAgent.name];
+                    return next;
+                  });
+                }
+
+                if (postSplit2RulesByAgent[oldAgent.name] && !postSplit2RulesByAgent[newAgentInfo.name]) {
+                  setPostSplit2RulesByAgent((p) => {
+                    const next = { ...p };
+                    next[newAgentInfo.name] = next[oldAgent.name];
+                    delete next[oldAgent.name];
+                    return next;
+                  });
+                }
+
+                const nextList = [...prev];
+                nextList[targetIndex] = updated;
+                return nextList;
+              });
+            }}
+            onToggleAgentSplitType={(id) => setAgents((p) => p.map((a) => {
+              if (a.id !== id) return a;
+              const newType = a.splitType === 'PERCENT' ? 'AMOUNT' : 'PERCENT';
+              const normalizedVal = (a.splitType === 'PERCENT' && a.splitVal <= 1 && a.splitVal > 0)
+                ? Number((a.splitVal * 100).toFixed(4))
+                : a.splitVal;
+              return { ...a, splitType: newType, splitVal: normalizedVal };
+            }))}
             onSplitValueChange={(id, val) => setAgents((p) => p.map((a) => a.id === id ? { ...a, splitVal: val } : a))}
             dealResult={dealResult}
             offTheTopRules={offTheTopRules}
             onAddOffTopRule={(rule) => setOffTheTopRules((p) => [...p, rule])}
             onDeleteOffTopRule={(id) => setOffTheTopRules((p) => p.filter((r) => r.id !== id))}
-            onToggleOffTopRuleType={(id) => setOffTheTopRules((p) => p.map((r) => r.id === id ? { ...r, type: r.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT' } : r))}
+            onToggleOffTopRuleType={(id) => setOffTheTopRules((p) => p.map((r) => {
+              if (r.id !== id) return r;
+              const newType = r.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT';
+              const normalizedVal = (r.type === 'PERCENT' && r.value <= 1 && r.value > 0)
+                ? Number((r.value * 100).toFixed(4))
+                : r.value;
+              return { ...r, type: newType, value: normalizedVal };
+            }))}
             onUpdateOffTopRuleValue={(id, val) => setOffTheTopRules((p) => p.map((r) => r.id === id ? { ...r, value: val } : r))}
+            onUpdateOffTopRuleEntity={(id, ent) => setOffTheTopRules((p) => p.map((r) => r.id === id ? { ...r, entity: ent, name: ent } : r))}
+            onUpdateOffTopRuleNote={(id, note) => setOffTheTopRules((p) => p.map((r) => r.id === id ? { ...r, note } : r))}
+            onReorderOffTopRules={(fromIndex, toIndex) => {
+              setOffTheTopRules((prev) => {
+                if (fromIndex < 0 || toIndex < 0 || fromIndex >= prev.length || toIndex >= prev.length) return prev;
+                const next = [...prev];
+                const [moved] = next.splice(fromIndex, 1);
+                next.splice(toIndex, 0, moved);
+                return next;
+              });
+            }}
+            preSplitRules={preSplitRules}
+            onAddPreSplitRule={(rule) => setPreSplitRules((p) => [...p, rule])}
+            onDeletePreSplitRule={(id) => setPreSplitRules((p) => p.filter((r) => r.id !== id))}
+            onTogglePreSplitRuleType={(id) => setPreSplitRules((p) => p.map((r) => {
+              if (r.id !== id) return r;
+              const newType = r.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT';
+              const normalizedVal = (r.type === 'PERCENT' && r.value <= 1 && r.value > 0)
+                ? Number((r.value * 100).toFixed(4))
+                : r.value;
+              return { ...r, type: newType, value: normalizedVal };
+            }))}
+            onUpdatePreSplitRuleValue={(id, val) => setPreSplitRules((p) => p.map((r) => r.id === id ? { ...r, value: val } : r))}
+            onUpdatePreSplitRuleEntity={(id, ent) => setPreSplitRules((p) => p.map((r) => r.id === id ? { ...r, entity: ent, name: ent } : r))}
+            onUpdatePreSplitRuleNote={(id, note) => setPreSplitRules((p) => p.map((r) => r.id === id ? { ...r, note } : r))}
+            onReorderPreSplitRules={(fromIndex, toIndex) => {
+              setPreSplitRules((prev) => {
+                if (fromIndex < 0 || toIndex < 0 || fromIndex >= prev.length || toIndex >= prev.length) return prev;
+                const next = [...prev];
+                const [moved] = next.splice(fromIndex, 1);
+                next.splice(toIndex, 0, moved);
+                return next;
+              });
+            }}
+            onReorderAgents={(fromIndex, toIndex) => {
+              setAgents((prev) => {
+                if (fromIndex < 0 || toIndex < 0 || fromIndex >= prev.length || toIndex >= prev.length) return prev;
+                const next = [...prev];
+                const [moved] = next.splice(fromIndex, 1);
+                next.splice(toIndex, 0, moved);
+                return next;
+              });
+            }}
             postSplitRulesByAgent={postSplitRulesByAgent}
             onAddAgentPostSplitRule={(name, rule) => setPostSplitRulesByAgent((p) => ({ ...p, [name]: [...(p[name] || []), rule] }))}
             onDeleteAgentPostSplitRule={(name, id) => setPostSplitRulesByAgent((p) => ({ ...p, [name]: (p[name] || []).filter((r) => r.id !== id) }))}
-            onToggleAgentPostSplitType={(name, id) => setPostSplitRulesByAgent((p) => ({ ...p, [name]: (p[name] || []).map((r) => r.id === id ? { ...r, type: r.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT' } : r) }))}
+            onToggleAgentPostSplitType={(name, id) => setPostSplitRulesByAgent((p) => ({
+              ...p,
+              [name]: (p[name] || []).map((r) => {
+                if (r.id !== id) return r;
+                const newType = r.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT';
+                const normalizedVal = (r.type === 'PERCENT' && r.value <= 1 && r.value > 0)
+                  ? Number((r.value * 100).toFixed(4))
+                  : r.value;
+                return { ...r, type: newType, value: normalizedVal };
+              })
+            }))}
             onUpdateAgentPostSplitValue={(name, id, val) => setPostSplitRulesByAgent((p) => ({ ...p, [name]: (p[name] || []).map((r) => r.id === id ? { ...r, value: val } : r) }))}
+            onUpdateAgentPostSplitEntity={(name, id, ent) => setPostSplitRulesByAgent((p) => ({ ...p, [name]: (p[name] || []).map((r) => r.id === id ? { ...r, entity: ent, name: ent } : r) }))}
+            onUpdateAgentPostSplitNote={(name, id, note) => setPostSplitRulesByAgent((p) => ({ ...p, [name]: (p[name] || []).map((r) => r.id === id ? { ...r, note } : r) }))}
+            onReorderAgentPostSplitRules={(agentName, fromIndex, toIndex) => {
+              setPostSplitRulesByAgent((prev) => {
+                const current = prev[agentName] || [];
+                if (fromIndex < 0 || toIndex < 0 || fromIndex >= current.length || toIndex >= current.length) return prev;
+                const next = [...current];
+                const [moved] = next.splice(fromIndex, 1);
+                next.splice(toIndex, 0, moved);
+                return { ...prev, [agentName]: next };
+              });
+            }}
+            postSplit2RulesByAgent={postSplit2RulesByAgent}
+            onAddAgentPostSplit2Rule={(name, rule) => setPostSplit2RulesByAgent((p) => ({ ...p, [name]: [...(p[name] || []), rule] }))}
+            onDeleteAgentPostSplit2Rule={(name, id) => setPostSplit2RulesByAgent((p) => ({ ...p, [name]: (p[name] || []).filter((r) => r.id !== id) }))}
+            onToggleAgentPostSplit2Type={(name, id) => setPostSplit2RulesByAgent((p) => ({
+              ...p,
+              [name]: (p[name] || []).map((r) => {
+                if (r.id !== id) return r;
+                const newType = r.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT';
+                const normalizedVal = (r.type === 'PERCENT' && r.value <= 1 && r.value > 0)
+                  ? Number((r.value * 100).toFixed(4))
+                  : r.value;
+                return { ...r, type: newType, value: normalizedVal };
+              })
+            }))}
+            onUpdateAgentPostSplit2Value={(name, id, val) => setPostSplit2RulesByAgent((p) => ({ ...p, [name]: (p[name] || []).map((r) => r.id === id ? { ...r, value: val } : r) }))}
+            onUpdateAgentPostSplit2Entity={(name, id, ent) => setPostSplit2RulesByAgent((p) => ({ ...p, [name]: (p[name] || []).map((r) => r.id === id ? { ...r, entity: ent, name: ent } : r) }))}
+            onUpdateAgentPostSplit2Note={(name, id, note) => setPostSplit2RulesByAgent((p) => ({ ...p, [name]: (p[name] || []).map((r) => r.id === id ? { ...r, note } : r) }))}
+            onReorderAgentPostSplit2Rules={(agentName, fromIndex, toIndex) => {
+              setPostSplit2RulesByAgent((prev) => {
+                const current = prev[agentName] || [];
+                if (fromIndex < 0 || toIndex < 0 || fromIndex >= current.length || toIndex >= current.length) return prev;
+                const next = [...current];
+                const [moved] = next.splice(fromIndex, 1);
+                next.splice(toIndex, 0, moved);
+                return { ...prev, [agentName]: next };
+              });
+            }}
             knownEntities={knownEntities}
+            knownAgents={knownAgents}
             preventMinus={(e) => { if (e.key === '-') e.preventDefault(); }}
             formatNumberWithCommas={(v) => String(v)}
           />
@@ -476,7 +1093,33 @@ export default function Dashboard() {
         isOpen={overviewForm.showRequiredFieldsWarningModal}
         missingLabels={overviewForm.missingRequiredLabels}
         onCancel={() => overviewForm.setShowRequiredFieldsWarningModal(false)}
-        onConfirm={overviewForm.executeOverviewApply}
+        onConfirm={() => {
+          overviewForm.setShowRequiredFieldsWarningModal(false);
+          handleRequestOverviewApply(overviewForm.executeOverviewApply, overviewForm.overviewFormValues);
+        }}
+      />
+
+      <TransferPrimaryAgentModal
+        isOpen={isTransferModalOpen}
+        formerAgentName={transferInfo?.formerAgent || ''}
+        newAgentName={transferInfo?.newAgent.name || ''}
+        primarySplitPercent={
+          agents[0]?.splitType === 'PERCENT'
+            ? agents[0].splitVal * 100
+            : (dealResult.agentSplitItems?.[0]?.percent || 1) * 100
+        }
+        level1RulesCount={(transferInfo && postSplitRulesByAgent[transferInfo.formerAgent]?.length) || 0}
+        level2RulesCount={(transferInfo && postSplit2RulesByAgent[transferInfo.formerAgent]?.length) || 0}
+        onConfirm={handleConfirmTransfer}
+        onCancel={handleCancelTransfer}
+      />
+
+      <RevertPrimaryAgentModal
+        isOpen={isRevertModalOpen}
+        formerAgentName={transferInfo?.formerAgent || ''}
+        newAgentName={transferInfo?.newAgent.name || ''}
+        onRevertYes={handleRevertYes}
+        onRevertNo={handleRevertNo}
       />
 
       <AgentPickerModal
@@ -484,34 +1127,39 @@ export default function Dashboard() {
         onClose={() => setIsAddAgentModalOpen(false)}
         searchQuery={agentPickerSearch}
         setSearchQuery={setAgentPickerSearch}
-        availableAgents={knownAgents}
-        onConfirmAddAgent={(selected) => {
+        availableAgents={availableAgentsToPick}
+        primaryAgentName={agents[0]?.name || 'Primary Agent'}
+        commissionAfterOffTop={dealResult.commissionAfterPreSplit ?? dealResult.commissionAfterOffTop}
+        onConfirmAddAgent={(selected, splitType, splitVal) => {
           const isFirstAgent = agents.length === 0;
+
           const newAgent: AgentConfig = {
             id: selected.id || `A_${Date.now()}`,
             name: selected.name,
             isTeamLead: selected.isTeamLead,
-            splitType: 'PERCENT',
-            splitVal: isFirstAgent ? 1.0 : 0.1,
+            splitType: isFirstAgent ? 'PERCENT' : splitType,
+            splitVal: isFirstAgent ? 100 : splitVal,
             brokerCapLimit: selected.brokerCapLimit,
             brokerCapPaidYTD: selected.brokerCapPaidYTD,
             riskCapLimit: selected.riskCapLimit,
             riskPaidYTD: selected.riskPaidYTD,
           };
-          setAgents((p) => [...p, newAgent]);
+
+          setAgents((prev) => {
+            if (prev.length === 0) return [newAgent];
+            const primary = prev[0];
+            const baselinePool = dealResult.commissionAfterPreSplit ?? dealResult.commissionAfterOffTop;
+            const rate = splitType === 'PERCENT' ? (splitVal > 1 ? splitVal / 100 : splitVal) : (baselinePool > 0 ? splitVal / baselinePool : 0);
+            const primaryRate = (primary.splitVal > 1 ? primary.splitVal / 100 : primary.splitVal);
+            const remainingRate = Math.max(0, primaryRate - rate);
+            const newPrimaryVal = primary.splitVal > 1 ? Number((remainingRate * 100).toFixed(4)) : Number(remainingRate.toFixed(4));
+            return [{ ...primary, splitVal: newPrimaryVal }, ...prev.slice(1), newAgent];
+          });
+
           if (isFirstAgent) {
             setPrimaryAgent(selected.name);
           }
-          setPostSplitRulesByAgent((prev) => {
-            if (prev[selected.name]) return prev;
-            return {
-              ...prev,
-              [selected.name]: [
-                { id: `risk_${Date.now()}`, name: 'Risk Mgmt', entity: 'Risk Management Reserve', type: 'AMOUNT', value: selected.isTeamLead ? 0 : 60 },
-                { id: `review_${Date.now()}`, name: 'Broker Review', entity: 'Soleox Brokerage', type: 'AMOUNT', value: selected.isTeamLead ? 0 : 25 },
-              ],
-            };
-          });
+
           setIsAddAgentModalOpen(false);
         }}
       />

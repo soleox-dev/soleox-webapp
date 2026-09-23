@@ -56,8 +56,9 @@ export interface AgentConfig {
 
 export interface DynamicRule {
   id: string;
-  name: string;
+  name?: string;
   entity: string;
+  note?: string;
   type: 'PERCENT' | 'AMOUNT';
   value: number;
 }

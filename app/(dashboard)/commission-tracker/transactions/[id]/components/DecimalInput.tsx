@@ -12,6 +12,8 @@ interface DecimalInputProps {
   placeholder?: string;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   disabled?: boolean;
+  colorCode?: boolean;
+  allowEmpty?: boolean;
 }
 
 export function DecimalInput({
@@ -23,9 +25,12 @@ export function DecimalInput({
   placeholder = '0.00',
   onKeyDown,
   disabled = false,
+  colorCode = false,
+  allowEmpty = false,
 }: DecimalInputProps) {
   const formatVal = (num: number) => {
     if (num === null || num === undefined || isNaN(num)) return '';
+    if (allowEmpty && num === 0) return '';
     if (isPercent) return formatPercentageClean(num);
 
     const formatted = num.toFixed(2);
@@ -60,8 +65,7 @@ export function DecimalInput({
 
       if (!isNaN(parsed)) {
         if (isPercent) {
-          const cleanRate = parsed > 100 ? 1.0 : parsed > 1 ? parsed / 100 : parsed;
-          onChange(cleanRate);
+          onChange(parsed);
         } else {
           onChange(roundCurrency(parsed));
         }
@@ -70,6 +74,12 @@ export function DecimalInput({
       }
     }
   };
+
+  const colorStyles = colorCode
+    ? isPercent
+      ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/30 border-blue-300 dark:border-blue-700/80 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 placeholder-slate-400 dark:placeholder-slate-500'
+      : 'text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700/80 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 placeholder-slate-400 dark:placeholder-slate-500'
+    : '';
 
   return (
     <input
@@ -83,7 +93,7 @@ export function DecimalInput({
       }}
       onKeyDown={onKeyDown}
       placeholder={placeholder}
-      className={className}
+      className={`${colorStyles} ${className}`.trim()}
       disabled={disabled}
     />
   );

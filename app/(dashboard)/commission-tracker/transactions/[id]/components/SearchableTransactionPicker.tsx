@@ -28,7 +28,9 @@ export function SearchableTransactionPicker({
   return (
     <section className="bg-white dark:bg-slate-800 border border-emerald-500/40 dark:border-emerald-500/30 p-4 rounded-xl shadow-xl space-y-2 relative transition-colors" ref={dropdownRef}>
       <label className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block flex items-center justify-between">
-        <span>🔍 Search Transactions ({savedDealsCount} Loaded)</span>
+        <span>
+          🔍 Search Transactions ({filteredDeals.length < savedDealsCount ? `${filteredDeals.length} of ` : ''}{savedDealsCount} Loaded)
+        </span>
         {isLoadingDeals && <span className="text-slate-500 dark:text-slate-400 font-normal">Loading records...</span>}
       </label>
       
@@ -36,19 +38,47 @@ export function SearchableTransactionPicker({
         <input
           type="text"
           value={searchQuery}
-          onFocus={() => setIsDropdownOpen(true)}
+          onFocus={(e) => {
+            setIsDropdownOpen(true);
+            e.target.select();
+          }}
           onChange={(e) => {
             setSearchQuery(e.target.value);
             setIsDropdownOpen(true);
           }}
-          placeholder="Type address or ID (e.g. TR000505, 123 Main St)..."
-          className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3.5 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-medium placeholder-slate-400 dark:placeholder-slate-500"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setIsDropdownOpen(false);
+            } else if (e.key === 'Enter' && filteredDeals.length > 0) {
+              e.preventDefault();
+              onSelectDeal(filteredDeals[0], filteredDeals[0].id);
+              setIsDropdownOpen(false);
+            }
+          }}
+          placeholder="Type address or ID (e.g. TXN_..., 123 Main St)..."
+          className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3.5 pr-9 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-medium placeholder-slate-400 dark:placeholder-slate-500"
         />
+
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchQuery('');
+              setIsDropdownOpen(true);
+            }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition cursor-pointer"
+            title="Clear search"
+          >
+            ✕
+          </button>
+        )}
 
         {isDropdownOpen && (
           <div className="absolute z-50 mt-1.5 w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl shadow-2xl max-h-64 overflow-y-auto divide-y divide-slate-200 dark:divide-slate-800">
             {filteredDeals.length === 0 ? (
-              <div className="p-3 text-xs text-slate-500 dark:text-slate-400 text-center">No matching transactions found</div>
+              <div className="p-4 text-xs text-slate-500 dark:text-slate-400 text-center italic">
+                No matching transactions found for &ldquo;{searchQuery}&rdquo;
+              </div>
             ) : (
               filteredDeals.map((deal) => (
                 <div

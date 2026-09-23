@@ -23,6 +23,7 @@ interface UseOverviewFormProps {
   setSelectedDeal: React.Dispatch<React.SetStateAction<any>>;
   grossCommission: number;
   totalCommission: number;
+  onRequestApply?: (proceed: () => void, currentFormValues?: Record<string, any>) => void;
 }
 
 export function useOverviewForm({
@@ -46,11 +47,13 @@ export function useOverviewForm({
   setSelectedDeal,
   grossCommission,
   totalCommission,
+  onRequestApply,
 }: UseOverviewFormProps) {
   const [isEditingOverview, setIsEditingOverview] = useState<boolean>(false);
   const [overviewFormValues, setOverviewFormValues] = useState<Record<string, any>>({});
   const [showRequiredFieldsWarningModal, setShowRequiredFieldsWarningModal] = useState<boolean>(false);
   const [missingRequiredLabels, setMissingRequiredLabels] = useState<string[]>([]);
+  const [initialPrimaryAgentRawVal, setInitialPrimaryAgentRawVal] = useState<any>('');
 
   // Restores section grouping from overviewFields
   const groupedOverviewSections = useMemo(() => {
@@ -67,7 +70,7 @@ export function useOverviewForm({
 
     console.log('--- STEP 2: GROUPED SECTIONS PROCESSED ---', groups);
     return groups;
-    }, [overviewFields]);
+  }, [overviewFields]);
 
   const handleStartOverviewEdit = () => {
     const initialForm: Record<string, any> = {};
@@ -87,7 +90,9 @@ export function useOverviewForm({
         // System field defaults
         if (rawVal === undefined || rawVal === null || rawVal === '') {
           if (field.key === 'id') rawVal = dealId;
-          else if (field.key === 'agent_id') rawVal = selectedDeal?.agent_id || selectedDeal?.primary_agent || '';
+          else if (field.key === 'agent_id' || field.key === 'primary_agent') {
+            rawVal = selectedDeal?.agent_id || selectedDeal?.primary_agent || '';
+          }
           else if (field.key === 'gci_type') rawVal = gciType;
           else if (field.key === 'gci_perc') rawVal = gciPerc;
           else if (field.key === 'gci_amount') rawVal = grossCommission;
@@ -102,13 +107,29 @@ export function useOverviewForm({
         initialForm[field.key] = rawVal ?? '';
     });
 
+    const agentVal = initialForm['agent_id'] ?? initialForm['primary_agent'] ?? selectedDeal?.agent_id ?? selectedDeal?.primary_agent ?? '';
+    setInitialPrimaryAgentRawVal(agentVal);
+
     setOverviewFormValues(initialForm);
     setIsEditingOverview(true);
+  };
+
+  const revertPrimaryAgentToInitial = () => {
+    setOverviewFormValues((prev) => ({
+      ...prev,
+      agent_id: initialPrimaryAgentRawVal,
+      primary_agent: initialPrimaryAgentRawVal,
+    }));
   };
 
   const handleOverviewInputChange = (key: string, val: any) => {
     setOverviewFormValues((prev) => {
       const next = { ...prev, [key]: val };
+      if (key === 'agent_id' || key === 'primary_agent') {
+        next.agent_id = val;
+        next.primary_agent = val;
+      }
+
       const currentSalesPrice = Number(key === 'sales_price' ? val : next.sales_price) || 0;
       const rawGciType = key === 'gci_type' ? val : (next.gci_type || gciType);
       const cleanGciType = String(rawGciType || '').toUpperCase().replace(/[\s_]+/g, '');
@@ -230,7 +251,11 @@ export function useOverviewForm({
       setMissingRequiredLabels(missing);
       setShowRequiredFieldsWarningModal(true);
     } else {
-      executeOverviewApply();
+      if (onRequestApply) {
+        onRequestApply(executeOverviewApply, overviewFormValues);
+      } else {
+        executeOverviewApply();
+      }
     }
   };
 
@@ -238,10 +263,13 @@ export function useOverviewForm({
     isEditingOverview,
     setIsEditingOverview,
     overviewFormValues,
+    setOverviewFormValues,
     groupedOverviewSections,
     showRequiredFieldsWarningModal,
     setShowRequiredFieldsWarningModal,
     missingRequiredLabels,
+    initialPrimaryAgentRawVal,
+    revertPrimaryAgentToInitial,
     handleStartOverviewEdit,
     handleOverviewInputChange,
     validateFieldValue,

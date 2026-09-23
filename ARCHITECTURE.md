@@ -60,15 +60,34 @@ Example: `TXN_6C59DB33ADE8` (Length: 16 characters total).
 4. **Waterfall State**: Embedded JSON in `custom_attributes` (`agents`, `offTheTopRules`, `postSplitRulesByAgent`) references agents by valid `id` (`AGT_<HEX>`) and `name` (`First Last`).
 
 ### C. Commission Items (`transaction_commission_items`)
-1. **Primary Key**: Always formatted as `TCI_<12_HEX_CHARS>`.
+1. **Primary Key**: Always formatted as `TCI_<12_HEX_CHARS>` (default: `generate_prefixed_id('TCI')`).
 2. **Parent Deal**: Strictly references `transactions.id` (`TXN_<HEX>`).
-3. **Agent Link**: When `payee_type = 'AGENT'`, `agent_id` references `agents.id` (`AGT_<HEX>`).
-4. **Entity Link**: When `payee_type IN ('ENTITY', 'BROKERAGE')`, `payee_entity_id` references `commission_entities.id` (`ENT_<HEX>`).
+3. **Agent Link**: When `payee_type = 'AGENT'`, or when a deduction applies to a specific agent, `agent_id` references `agents.id` (`AGT_<HEX>`) and `agent_name` stores `First Last`.
+4. **Entity Link**: When `payee_type IN ('ENTITY', 'BROKERAGE')`, `payee_entity_id` references `commission_entities.id` (`ENT_<HEX>`) and `entity_name` stores the display entity name.
+5. **Waterfall Rule Metadata**:
+   - `section`: `'OFF_THE_TOP'`, `'PRE_SPLIT'`, `'AGENT_SPLIT'`, `'POST_SPLIT'` (Level 1), `'POST_SPLIT_L2'` (Level 2).
+   - `split_type`: `'PERCENT'` or `'AMOUNT'`.
+   - `split_value`: Raw user-configured percentage or dollar amount.
+   - `note`: User-provided descriptive note.
+   - `is_primary`: Boolean indicating if agent split belongs to the primary agent.
+   - `calculated_amount` & `final_amount`: Evaluated dollar value.
+   - `custom_attributes`: JSONB container for extensible rule attributes.
 
 ### D. Payments & Disbursements (`payments`)
-1. **Primary Key**: Always formatted as `PAY_<12_HEX_CHARS>`.
+1. **Primary Key**: Always formatted as `PAY_<12_HEX_CHARS>` (default: `generate_prefixed_id('PAY')`).
 2. **Parent Deal**: Strictly references `transactions.id` (`TXN_<HEX>`).
-3. **Item Link**: Optionally links to `transaction_commission_items.id` (`TCI_<HEX>`).
+3. **Payee Details**:
+   - `payee_type`: `'AGENT'` or `'ENTITY'` / `'BROKERAGE'`.
+   - `payee_name`: Display name of agent or entity receiving disbursement.
+   - `agent_id`: References `agents.id` (`AGT_<HEX>`) for agent payouts.
+   - `payee_entity_id`: References `commission_entities.id` (`ENT_<HEX>`) for 3rd-party/brokerage payouts.
+4. **Disbursement Attributes**:
+   - `amount_paid`: Net payable amount calculated from waterfall engine.
+   - `payment_method`: `'ACH'` (Direct Deposit) or `'Escrow Wire'` / `'Wire'`.
+   - `payment_status`: `'Ready to Pay'` (Agent Net) or `'Pending Escrow Wire'` / `'Completed'`.
+   - `disbursement_type`: `'AGENT_NET'` or `'THIRD_PARTY_DISBURSEMENT'`.
+   - `notes`: Descriptive disbursement context (e.g. `Recipient (Agent/Entity) - Primary: Primary Agent`).
+   - `custom_attributes`: JSONB container for disbursement metadata.
 
 ---
 

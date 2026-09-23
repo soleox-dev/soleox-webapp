@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatPercentageClean } from '../types';
+import { formatPercent } from '../types';
 
 interface LeftSidebarProps {
   activeTab: 'overview' | 'commission' | 'disbursements';
@@ -9,8 +9,9 @@ interface LeftSidebarProps {
   entitiesCount: number;
   salesPrice: number;
   gciPerc: number;
-  grossCommission: number;
-  commissionAfterOffTop: number;
+  gciAmount: number;
+  feeField?: { label: string; amount: number } | null;
+  totalCommission: number;
 }
 
 export function LeftSidebar({
@@ -21,8 +22,9 @@ export function LeftSidebar({
   entitiesCount,
   salesPrice,
   gciPerc,
-  grossCommission,
-  commissionAfterOffTop,
+  gciAmount,
+  feeField,
+  totalCommission,
 }: LeftSidebarProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -90,17 +92,29 @@ export function LeftSidebar({
         <span className="font-bold text-slate-800 dark:text-slate-300 block border-b border-slate-200 dark:border-slate-700 pb-2">
           Deal Quick Metrics
         </span>
-        <div className="flex justify-between text-slate-500 dark:text-slate-400">
-          <span>Sales Price:</span>
-          <span className="text-slate-900 dark:text-white font-semibold">{formatCurrency(salesPrice)}</span>
-        </div>
-        <div className="flex justify-between text-slate-500 dark:text-slate-400">
-          <span>Gross Comm ({formatPercentageClean(gciPerc)}%):</span>
-          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{formatCurrency(grossCommission)}</span>
-        </div>
-        <div className="flex justify-between text-slate-500 dark:text-slate-400">
-          <span>Net Off-The-Top:</span>
-          <span className="text-slate-800 dark:text-slate-300 font-semibold">{formatCurrency(commissionAfterOffTop)}</span>
+        <div className="space-y-1.5 pt-1">
+          <div className="flex justify-between text-slate-500 dark:text-slate-400">
+            <span>Sales Price:</span>
+            <span className="text-slate-900 dark:text-white font-semibold">{formatCurrency(salesPrice)}</span>
+          </div>
+          <div className="flex justify-between text-slate-500 dark:text-slate-400">
+            <span>GCI %:</span>
+            <span className="text-slate-900 dark:text-white font-semibold">{formatPercent(gciPerc)}</span>
+          </div>
+          <div className="flex justify-between text-slate-500 dark:text-slate-400">
+            <span>GCI Amount:</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{formatCurrency(gciAmount)}</span>
+          </div>
+          {feeField && (
+            <div className="flex justify-between text-slate-500 dark:text-slate-400">
+              <span>{feeField.label}:</span>
+              <span className="text-slate-900 dark:text-white font-semibold">{formatCurrency(feeField.amount)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700/60 pt-1.5">
+            <span className="font-bold text-slate-700 dark:text-slate-300">Total Commission:</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-bold">{formatCurrency(totalCommission)}</span>
+          </div>
         </div>
       </div>
     </aside>

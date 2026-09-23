@@ -221,7 +221,9 @@ export default function FieldCustomizationsPage() {
               ...col,
               field_label: formatFieldLabel(col.field_key, col.field_label),
               field_type: resolvedFieldType,
-              dropdown_options: isAgentStatus ? DEFAULT_AGENT_STATUS_OPTIONS : col.dropdown_options,
+              dropdown_options: isAgentStatus
+                ? (col.dropdown_options && col.dropdown_options.length > 0 ? col.dropdown_options : DEFAULT_AGENT_STATUS_OPTIONS)
+                : col.dropdown_options,
               is_enabled: isAudit ? false : isSystemMandatory ? true : col.is_enabled,
               is_system: isSystemMandatory ? true : col.is_system,
               calculation_formula: cleanFormula,
@@ -254,7 +256,9 @@ export default function FieldCustomizationsPage() {
             ...col,
             field_label: formatFieldLabel(col.field_key, col.field_label),
             field_type: isAgentStatus ? 'SELECT' : col.field_type,
-            dropdown_options: isAgentStatus ? DEFAULT_AGENT_STATUS_OPTIONS : col.dropdown_options,
+            dropdown_options: isAgentStatus
+              ? (col.dropdown_options && col.dropdown_options.length > 0 ? col.dropdown_options : DEFAULT_AGENT_STATUS_OPTIONS)
+              : col.dropdown_options,
             is_enabled: isAudit ? false : isSystemMandatory ? true : (col.is_enabled !== false),
             is_system: isSystemMandatory ? true : Boolean(col.is_system),
             storage_type: 'CORE_COLUMN' as const,
@@ -285,6 +289,38 @@ export default function FieldCustomizationsPage() {
   const [selectionMode, setSelectionMode] = useState<'EXISTING' | 'CUSTOM'>('EXISTING');
   const [selectedCatalogKey, setSelectedCatalogKey] = useState<string>('');
   const [newDropdownOption, setNewDropdownOption] = useState<string>('');
+
+  // States for renaming dropdown option with database update confirmation & impact message
+  const [renameModal, setRenameModal] = useState<{
+    isOpen: boolean;
+    oldValue: string;
+    newValue: string;
+    hasConfirmedUnderstanding: boolean;
+    isSubmitting: boolean;
+    error?: string;
+  }>({
+    isOpen: false,
+    oldValue: '',
+    newValue: '',
+    hasConfirmedUnderstanding: false,
+    isSubmitting: false,
+  });
+
+  const [renameResultModal, setRenameResultModal] = useState<{
+    isOpen: boolean;
+    oldValue: string;
+    newValue: string;
+    updatedCount: number;
+    fieldKey: string;
+    fieldLabel: string;
+  }>({
+    isOpen: false,
+    oldValue: '',
+    newValue: '',
+    updatedCount: 0,
+    fieldKey: '',
+    fieldLabel: '',
+  });
 
   useEffect(() => {
     if (isModalOpen) {
@@ -683,6 +719,141 @@ export default function FieldCustomizationsPage() {
       a.localeCompare(b, undefined, { sensitivity: 'base' })
     );
     setFormData({ ...formData, dropdown_options: list });
+  };
+
+  const handleStartRenameOption = (opt: string) => {
+    setRenameModal({
+      isOpen: true,
+      oldValue: opt,
+      newValue: opt,
+      hasConfirmedUnderstanding: false,
+      isSubmitting: false,
+      error: undefined,
+    });
+  };
+
+  const handleConfirmRename = async () => {
+    const trimmedNew = renameModal.newValue.trim();
+    const oldVal = renameModal.oldValue;
+
+    if (!trimmedNew) {
+      setRenameModal((prev) => ({ ...prev, error: 'Option value cannot be empty.' }));
+      return;
+    }
+
+    if (trimmedNew === oldVal) {
+      setRenameModal((prev) => ({
+        ...prev,
+        error: 'The new value must be different from the current value.',
+      }));
+      return;
+    }
+
+    const existingOptions = formData.dropdown_options || [];
+    const isDuplicate = existingOptions.some(
+      (opt) => opt !== oldVal && opt.toLowerCase() === trimmedNew.toLowerCase()
+    );
+    if (isDuplicate) {
+      setRenameModal((prev) => ({
+        ...prev,
+        error: `An option named "${trimmedNew}" already exists in this dropdown.`,
+      }));
+      return;
+    }
+
+    if (!renameModal.hasConfirmedUnderstanding) {
+      setRenameModal((prev) => ({
+        ...prev,
+        error: 'Please confirm that you understand this operation will update all existing records in the database.',
+      }));
+      return;
+    }
+
+    const effectiveFieldKey =
+      formData.field_key ||
+      editingField?.field_key ||
+      `custom_${(formData.field_label || '').toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+
+    if (!effectiveFieldKey) {
+      setRenameModal((prev) => ({
+        ...prev,
+        error: 'Database field key could not be determined. Please save the field first.',
+      }));
+      return;
+    }
+
+    try {
+      setRenameModal((prev) => ({ ...prev, isSubmitting: true, error: undefined }));
+
+      const headers = await getAuthHeaders(true);
+      const res = await fetch('/api/schema/rename-option', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          clientId: 'DEMO',
+          targetTable: activeTab,
+          fieldKey: effectiveFieldKey,
+          oldValue: oldVal,
+          newValue: trimmedNew,
+          storageType: formData.storage_type || editingField?.storage_type || 'CORE_COLUMN',
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to rename option in database');
+      }
+
+      // Update dropdown_options in the active modal form data
+      const updatedOptions = (formData.dropdown_options || []).map((opt) =>
+        opt === oldVal ? trimmedNew : opt
+      );
+      setFormData((prev) => ({
+        ...prev,
+        dropdown_options: updatedOptions,
+      }));
+
+      // Update catalog list in background state
+      const updateCatalog = (prevList: FieldConfig[]) =>
+        prevList.map((f) => {
+          if (f.field_key === effectiveFieldKey) {
+            return {
+              ...f,
+              dropdown_options: (f.dropdown_options || []).map((opt) =>
+                opt === oldVal ? trimmedNew : opt
+              ),
+            };
+          }
+          return f;
+        });
+
+      if (activeTab === 'transactions') setTxFields(updateCatalog);
+      else setAgentFields(updateCatalog);
+
+      // Close the confirmation modal
+      setRenameModal((prev) => ({ ...prev, isOpen: false, isSubmitting: false }));
+
+      // Open the result popup modal
+      setRenameResultModal({
+        isOpen: true,
+        oldValue: oldVal,
+        newValue: trimmedNew,
+        updatedCount: data.updatedCount ?? 0,
+        fieldKey: effectiveFieldKey,
+        fieldLabel: formData.field_label || effectiveFieldKey,
+      });
+
+      showToast(
+        `Successfully renamed "${oldVal}" to "${trimmedNew}" (${data.updatedCount ?? 0} record${data.updatedCount === 1 ? '' : 's'} updated).`,
+        'success'
+      );
+    } catch (err: any) {
+      setRenameModal((prev) => ({
+        ...prev,
+        isSubmitting: false,
+        error: err.message || 'Error executing rename operation',
+      }));
+    }
   };
 
   const handleSaveField = async (e: React.FormEvent) => {
@@ -1568,11 +1739,21 @@ export default function FieldCustomizationsPage() {
                         return (
                           <div
                             key={opt}
-                            className="flex justify-between items-center px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200"
+                            className="flex justify-between items-center px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 group hover:border-slate-300 dark:hover:border-slate-600 transition"
                           >
-                            <span className="font-medium">{opt}</span>
+                            <span className="font-medium truncate mr-2" title={opt}>{opt}</span>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleStartRenameOption(opt)}
+                                className="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
+                                title={`Rename "${opt}" across all records`}
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                              </button>
                               <ReorderControls
                                 size="sm"
                                 onMoveUp={() => handleMoveOption(idx, 'UP')}
@@ -1698,6 +1879,205 @@ export default function FieldCustomizationsPage() {
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP MODAL: CONFIRM DROPDOWN OPTION RENAME & DATABASE UPDATE */}
+      {renameModal.isOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-sm flex justify-center items-center p-4 animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-lg rounded-2xl p-6 shadow-2xl space-y-5">
+            {/* Header */}
+            <div className="flex justify-between items-start border-b border-slate-200 dark:border-slate-700 pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span className="text-amber-500">✏️</span> Rename Dropdown Value
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Field: <strong className="text-slate-800 dark:text-slate-200">{formData.field_label || 'Select Field'}</strong>
+                  {' '}&bull;{' '}
+                  Target Table: <span className="font-semibold text-slate-700 dark:text-slate-300 capitalize">{activeTab}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => !renameModal.isSubmitting && setRenameModal((prev) => ({ ...prev, isOpen: false }))}
+                disabled={renameModal.isSubmitting}
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-bold p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Inputs & Values */}
+            <div className="space-y-4">
+              <div>
+                <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                  Current Value
+                </label>
+                <div className="px-3 py-2 bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  {renameModal.oldValue}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1">
+                  New Value *
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={renameModal.newValue}
+                  onChange={(e) =>
+                    setRenameModal((prev) => ({ ...prev, newValue: e.target.value, error: undefined }))
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (
+                        renameModal.hasConfirmedUnderstanding &&
+                        renameModal.newValue.trim() &&
+                        renameModal.newValue.trim() !== renameModal.oldValue
+                      ) {
+                        handleConfirmRename();
+                      }
+                    }
+                  }}
+                  placeholder="Enter new value..."
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+                {renameModal.error && (
+                  <p className="text-xs font-semibold text-rose-500 mt-1.5 flex items-center gap-1">
+                    <span>⚠️</span> {renameModal.error}
+                  </p>
+                )}
+              </div>
+
+              {/* Confirmation / Understanding Callout */}
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700/60 rounded-xl space-y-3">
+                <div className="flex items-start gap-2.5">
+                  <span className="text-amber-600 dark:text-amber-400 text-lg leading-none mt-0.5">⚠️</span>
+                  <div className="text-xs text-amber-900 dark:text-amber-200 space-y-1">
+                    <p className="font-bold text-amber-950 dark:text-amber-100 text-sm">
+                      Database Records Update Confirmation
+                    </p>
+                    <p className="text-amber-800 dark:text-amber-300 leading-relaxed">
+                      Renaming this option will update <strong>all existing records</strong> in the database where{' '}
+                      <code className="font-mono bg-amber-100 dark:bg-amber-900/50 px-1 py-0.5 rounded text-amber-950 dark:text-amber-100 font-bold">
+                        {formData.field_key || editingField?.field_key || 'field_key'}
+                      </code>{' '}
+                      is currently set to &ldquo;<strong>{renameModal.oldValue}</strong>&rdquo; for your organization.
+                    </p>
+                  </div>
+                </div>
+
+                <label className="flex items-start gap-2.5 pt-2.5 border-t border-amber-200 dark:border-amber-800/40 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={renameModal.hasConfirmedUnderstanding}
+                    onChange={(e) =>
+                      setRenameModal((prev) => ({
+                        ...prev,
+                        hasConfirmedUnderstanding: e.target.checked,
+                        error: undefined,
+                      }))
+                    }
+                    className="mt-0.5 w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                  />
+                  <span className="text-xs font-semibold text-amber-950 dark:text-amber-100 select-none group-hover:text-amber-800 dark:group-hover:text-amber-200 transition">
+                    I understand that this renaming operation will update all records to the new value in the Database Field Key (
+                    <span className="font-mono font-bold text-amber-900 dark:text-amber-200">
+                      {formData.field_key || editingField?.field_key || 'field_key'}
+                    </span>
+                    ) for this client.
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex justify-end items-center gap-2 pt-3 border-t border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                disabled={renameModal.isSubmitting}
+                onClick={() => setRenameModal((prev) => ({ ...prev, isOpen: false }))}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold border border-slate-300 dark:border-slate-700 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={
+                  renameModal.isSubmitting ||
+                  !renameModal.newValue.trim() ||
+                  renameModal.newValue.trim() === renameModal.oldValue ||
+                  !renameModal.hasConfirmedUnderstanding
+                }
+                onClick={handleConfirmRename}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-lg text-xs shadow-md transition flex items-center gap-2 cursor-pointer"
+              >
+                {renameModal.isSubmitting ? (
+                  <>
+                    <span className="animate-spin text-sm">⏳</span>
+                    <span>Updating Database Records...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Confirm & Update Records</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP MODAL: RENAME OPERATION RESULT MESSAGE */}
+      {renameResultModal.isOpen && (
+        <div className="fixed inset-0 z-[70] bg-black/75 backdrop-blur-sm flex justify-center items-center p-4 animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4 text-center">
+            {/* Success Icon */}
+            <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-500/40 rounded-full flex items-center justify-center mx-auto text-emerald-600 dark:text-emerald-400 text-2xl font-bold">
+              ✓
+            </div>
+
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                Rename Operation Completed
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Database records and field options have been updated successfully.
+              </p>
+            </div>
+
+            {/* Impact Metric Box */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2">
+              <div className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">
+                {renameResultModal.updatedCount}
+              </div>
+              <div className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                {renameResultModal.updatedCount === 1 ? 'Record has' : 'Records have'} been updated with the new value
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-700/60">
+                Field: <span className="font-semibold text-slate-700 dark:text-slate-300">{renameResultModal.fieldLabel}</span>{' '}
+                (<code className="font-mono text-emerald-600 dark:text-emerald-400">{renameResultModal.fieldKey}</code>)
+                <div className="mt-1">
+                  &ldquo;<span className="line-through opacity-70">{renameResultModal.oldValue}</span>&rdquo; &rarr;{' '}
+                  <strong className="text-slate-800 dark:text-slate-200">&ldquo;{renameResultModal.newValue}&rdquo;</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setRenameResultModal((prev) => ({ ...prev, isOpen: false }))}
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-md transition cursor-pointer"
+              >
+                OK
+              </button>
+            </div>
           </div>
         </div>
       )}

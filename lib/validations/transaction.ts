@@ -74,6 +74,7 @@ export const CreateTransactionSchema = z
     // 4. SYSTEM CONTAINERS & AUDIT
     // ==========================================
     commission_items: z.array(z.any()).optional().nullable(),
+    payments: z.array(z.any()).optional().nullable(),
     custom_attributes: z.record(z.string(), z.any()).optional().nullable(),
     archived: z.boolean().optional().nullable(),
     created_at: nullableString,

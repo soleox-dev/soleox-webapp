@@ -311,7 +311,7 @@ export function TransactionOverview({
                           <div className="w-2/3 md:w-3/5 pl-2 text-left relative flex items-center">
                             {isEditing ? (
                               <div className="max-w-md w-full">
-                                {field.type === 'AGENT_PICKER' || field.key === 'agent_id' ? (
+                                {field.type === 'AGENT_PICKER' || field.key === 'agent_id' || field.key === 'primary_agent' ? (
                                   <select
                                     disabled={isInputDisabled}
                                     value={

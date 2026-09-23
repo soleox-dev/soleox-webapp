@@ -183,17 +183,24 @@ export async function createTransaction(
       const rowsToInsert = input.commission_items.map((item: any, idx: number) => ({
         client_id: input.client_id,
         transaction_id: finalTransactionId,
-        submission_id: `SUB_${finalTransactionId}`,
+        submission_id: item.submission_id || `SUB_${finalTransactionId}`,
         step_number: item.step_number || idx + 1,
         rule_name: item.rule_name || item.name || 'Commission Item',
         section: item.section || 'POST_SPLIT',
+        split_type: item.split_type || item.type || null,
+        split_value: item.split_value !== undefined && item.split_value !== null ? Number(item.split_value) : null,
+        note: item.note || null,
         payee_type: item.payee_type || (item.agent_id || item.agentName ? 'AGENT' : 'ENTITY'),
-        payee_entity_id: item.payee_entity_id || item.entity || null,
-        agent_id: item.agent_id || item.agentName || finalRecord.agent_id || null,
+        payee_entity_id: item.payee_entity_id || null,
+        entity_name: item.entity_name || null,
+        agent_id: item.agent_id || null,
+        agent_name: item.agent_name || null,
+        is_primary: Boolean(item.is_primary),
         calculated_amount: item.calculated_amount !== undefined ? roundCurrency(Number(item.calculated_amount)) : roundCurrency(Number(item.amount || 0)),
         final_amount: item.final_amount !== undefined ? roundCurrency(Number(item.final_amount)) : roundCurrency(Number(item.amount || 0)),
         is_manual_override: Boolean(item.is_manual_override),
         override_reason: item.override_reason || null,
+        custom_attributes: item.custom_attributes || {},
         created_by: userId,
         updated_at: new Date().toISOString(),
         updated_by: userId,
@@ -212,6 +219,49 @@ export async function createTransaction(
   } else if (templateId) {
     const submissionId = `SUB_${finalTransactionId}`;
     await processTransactionWaterfall(input.client_id, finalTransactionId, templateId, submissionId, sb);
+  }
+
+  // Persist final disbursements & payment authorizations if provided
+  if (Array.isArray(input.payments) && input.payments.length > 0) {
+    try {
+      // Remove any existing payments for this transaction
+      await sb
+        .from('payments')
+        .delete()
+        .eq('transaction_id', finalTransactionId)
+        .eq('client_id', input.client_id);
+
+      const payRowsToInsert = input.payments.map((p: any) => ({
+        client_id: input.client_id,
+        transaction_id: finalTransactionId,
+        amount_paid: roundCurrency(Number(p.amount_paid !== undefined ? p.amount_paid : p.amount || 0)),
+        payment_status: p.payment_status || (p.payee_type === 'AGENT' ? 'Ready to Pay' : 'Pending Escrow Wire'),
+        payment_date: p.payment_date || (finalRecord.closing_date ? String(finalRecord.closing_date).substring(0, 10) : new Date().toISOString().substring(0, 10)),
+        payment_method: p.payment_method || (p.payee_type === 'AGENT' ? 'ACH' : 'Escrow Wire'),
+        payee_type: p.payee_type || 'AGENT',
+        payee_name: p.payee_name || p.recipient || p.name || 'Recipient',
+        agent_id: p.agent_id || null,
+        payee_entity_id: p.payee_entity_id || null,
+        disbursement_type: p.disbursement_type || (p.payee_type === 'AGENT' ? 'AGENT_NET' : 'THIRD_PARTY_DISBURSEMENT'),
+        reference_number: p.reference_number || null,
+        notes: p.notes || null,
+        custom_attributes: p.custom_attributes || {},
+        archived: false,
+        created_by: userId,
+        updated_at: new Date().toISOString(),
+        updated_by: userId,
+      }));
+
+      const { error: payErr } = await sb
+        .from('payments')
+        .insert(payRowsToInsert);
+
+      if (payErr) {
+        console.warn('Warning: Could not persist payments:', payErr.message);
+      }
+    } catch (err) {
+      console.warn('Warning: Error saving payments:', err);
+    }
   }
 
   return { transactionId: finalTransactionId, success: true, transaction: finalRecord };

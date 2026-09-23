@@ -586,14 +586,20 @@ export type Database = {
       }
       payments: {
         Row: {
+          agent_id: string | null
           amount_paid: number
           archived: boolean | null
           client_id: string | null
           commission_item_id: string | null
           created_at: string | null
           created_by: string | null
+          custom_attributes: Json | null
+          disbursement_type: string | null
           id: string
           notes: string | null
+          payee_entity_id: string | null
+          payee_name: string | null
+          payee_type: string | null
           payment_date: string | null
           payment_method: string | null
           payment_status: string | null
@@ -603,14 +609,20 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          agent_id?: string | null
           amount_paid?: number
           archived?: boolean | null
           client_id?: string | null
           commission_item_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          custom_attributes?: Json | null
+          disbursement_type?: string | null
           id?: string
           notes?: string | null
+          payee_entity_id?: string | null
+          payee_name?: string | null
+          payee_type?: string | null
           payment_date?: string | null
           payment_method?: string | null
           payment_status?: string | null
@@ -620,14 +632,20 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          agent_id?: string | null
           amount_paid?: number
           archived?: boolean | null
           client_id?: string | null
           commission_item_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          custom_attributes?: Json | null
+          disbursement_type?: string | null
           id?: string
           notes?: string | null
+          payee_entity_id?: string | null
+          payee_name?: string | null
+          payee_type?: string | null
           payment_date?: string | null
           payment_method?: string | null
           payment_status?: string | null
@@ -686,19 +704,26 @@ export type Database = {
       transaction_commission_items: {
         Row: {
           agent_id: string | null
+          agent_name: string | null
           archived: boolean | null
           calculated_amount: number | null
           client_id: string | null
           created_at: string | null
           created_by: string | null
+          custom_attributes: Json | null
+          entity_name: string | null
           final_amount: number | null
           id: string
           is_manual_override: boolean | null
+          is_primary: boolean | null
+          note: string | null
           override_reason: string | null
           payee_entity_id: string | null
           payee_type: string | null
           rule_name: string
           section: string | null
+          split_type: string | null
+          split_value: number | null
           step_number: number
           submission_id: string | null
           transaction_id: string
@@ -707,19 +732,26 @@ export type Database = {
         }
         Insert: {
           agent_id?: string | null
+          agent_name?: string | null
           archived?: boolean | null
           calculated_amount?: number | null
           client_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          custom_attributes?: Json | null
+          entity_name?: string | null
           final_amount?: number | null
           id?: string
           is_manual_override?: boolean | null
+          is_primary?: boolean | null
+          note?: string | null
           override_reason?: string | null
           payee_entity_id?: string | null
           payee_type?: string | null
           rule_name: string
           section?: string | null
+          split_type?: string | null
+          split_value?: number | null
           step_number?: number
           submission_id?: string | null
           transaction_id: string
@@ -728,19 +760,26 @@ export type Database = {
         }
         Update: {
           agent_id?: string | null
+          agent_name?: string | null
           archived?: boolean | null
           calculated_amount?: number | null
           client_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          custom_attributes?: Json | null
+          entity_name?: string | null
           final_amount?: number | null
           id?: string
           is_manual_override?: boolean | null
+          is_primary?: boolean | null
+          note?: string | null
           override_reason?: string | null
           payee_entity_id?: string | null
           payee_type?: string | null
           rule_name?: string
           section?: string | null
+          split_type?: string | null
+          split_value?: number | null
           step_number?: number
           submission_id?: string | null
           transaction_id?: string
