@@ -259,12 +259,23 @@ export default function Dashboard() {
   };
 
   const handleApplyWaterfallEdit = () => {
-    // Local apply only — DB persistence happens via Save Transaction
+    const currentWaterfall = {
+      agents,
+      offTheTopRules,
+      preSplitRules,
+      postSplitRulesByAgent,
+      postSplit2RulesByAgent,
+    };
+    const unchanged = waterfallEditSnapshot !== null
+      && JSON.stringify(waterfallEditSnapshot) === JSON.stringify(currentWaterfall);
+
     setWaterfallEditSnapshot(null);
     setIsEditingWaterfall(false);
     setIsAddAgentModalOpen(false);
+    if (unchanged) return;
+
+    // Local apply only — DB persistence happens via Save Transaction
     setHasUnsavedLocalChanges(true);
-    showToast('Waterfall changes applied locally. Click Save Transaction to persist.', 'info');
   };
 
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);

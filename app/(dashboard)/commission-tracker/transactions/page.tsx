@@ -661,7 +661,7 @@ export default function TransactionsListPage() {
                       if (tab === ALL_TAB) resetAllFilters();
                       else setStatusFilter(tab);
                     }}
-                    className={`inline-flex items-center px-3.5 py-1.5 rounded-md text-xs font-bold transition whitespace-nowrap ${tabClass} ${isAll ? 'mr-1' : ''}`}
+                    className={`inline-flex items-center px-3.5 py-1.5 rounded-md text-xs font-bold transition whitespace-nowrap cursor-pointer ${tabClass} ${isAll ? 'mr-1' : ''}`}
                   >
                     {tab}
                     <span className={`ml-1.5 tabular-nums ${countClass}`}>
@@ -677,7 +677,7 @@ export default function TransactionsListPage() {
             {/* Toggle Filters Button */}
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`px-3 py-2 rounded-lg text-xs font-bold border transition flex items-center gap-1.5 whitespace-nowrap ${
+              className={`px-3 py-2 rounded-lg text-xs font-bold border transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 showFilters
                   ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
                   : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'

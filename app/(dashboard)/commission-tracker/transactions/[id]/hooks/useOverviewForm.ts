@@ -54,6 +54,7 @@ export function useOverviewForm({
   const [showRequiredFieldsWarningModal, setShowRequiredFieldsWarningModal] = useState<boolean>(false);
   const [missingRequiredLabels, setMissingRequiredLabels] = useState<string[]>([]);
   const [initialPrimaryAgentRawVal, setInitialPrimaryAgentRawVal] = useState<any>('');
+  const [overviewEditSnapshot, setOverviewEditSnapshot] = useState<Record<string, any> | null>(null);
 
   // Restores section grouping from overviewFields
   const groupedOverviewSections = useMemo(() => {
@@ -111,7 +112,24 @@ export function useOverviewForm({
     setInitialPrimaryAgentRawVal(agentVal);
 
     setOverviewFormValues(initialForm);
+    setOverviewEditSnapshot(initialForm);
     setIsEditingOverview(true);
+  };
+
+  const overviewValuesUnchanged = () => {
+    if (!overviewEditSnapshot) return false;
+    const keys = new Set([...Object.keys(overviewEditSnapshot), ...Object.keys(overviewFormValues)]);
+    for (const key of keys) {
+      const left = overviewEditSnapshot[key];
+      const right = overviewFormValues[key];
+      if (left === right) continue;
+      if ((left === undefined || left === null || left === '') && (right === undefined || right === null || right === '')) continue;
+      const leftNum = typeof left === 'number' || (typeof left === 'string' && left.trim() !== '' && !Number.isNaN(Number(left)));
+      const rightNum = typeof right === 'number' || (typeof right === 'string' && right.trim() !== '' && !Number.isNaN(Number(right)));
+      if (leftNum && rightNum && Number(left) === Number(right)) continue;
+      if (String(left ?? '') !== String(right ?? '')) return false;
+    }
+    return true;
   };
 
   const revertPrimaryAgentToInitial = () => {
@@ -235,6 +253,13 @@ export function useOverviewForm({
   };
 
   const handleApplyOverviewEdit = () => {
+    if (overviewValuesUnchanged()) {
+      setIsEditingOverview(false);
+      setShowRequiredFieldsWarningModal(false);
+      setOverviewEditSnapshot(null);
+      return;
+    }
+
     const missing: string[] = [];
 
     overviewFields.forEach((field) => {
