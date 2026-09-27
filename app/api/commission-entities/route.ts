@@ -10,17 +10,33 @@ export async function GET(request: Request) {
     const clientId = request.headers.get('x-client-id') || request.headers.get('client_id') || searchParams.get('client_id') || 'DEMO';
 
     const supabase = await getAuthenticatedSupabase();
-    const { data, error } = await supabase
-      .from('commission_entities')
-      .select('*')
-      .eq('client_id', clientId)
-      .or('archived.is.null,archived.eq.false')
-      .order('is_active', { ascending: false })
-      .order('entity_name', { ascending: true });
+    const [{ data, error }, { data: paymentRows, error: paymentsError }] = await Promise.all([
+      supabase
+        .from('commission_entities')
+        .select('*')
+        .eq('client_id', clientId)
+        .or('archived.is.null,archived.eq.false')
+        .order('is_active', { ascending: false })
+        .order('entity_name', { ascending: true }),
+      supabase
+        .from('payments')
+        .select('payee_entity_id')
+        .eq('client_id', clientId)
+        .not('payee_entity_id', 'is', null),
+    ]);
 
     if (error) throw error;
+    if (paymentsError) throw paymentsError;
 
-    return NextResponse.json({ success: true, entities: data || [] });
+    const entityIdsWithPayments = new Set(
+      (paymentRows || []).map((row) => String(row.payee_entity_id)).filter(Boolean)
+    );
+    const entities = (data || []).map((entity) => ({
+      ...entity,
+      has_payments: entityIdsWithPayments.has(String(entity.id)),
+    }));
+
+    return NextResponse.json({ success: true, entities });
   } catch (error: any) {
     console.error('Error fetching commission entities:', error);
     const status = error.message?.includes('Unauthorized') ? 401 : 500;
@@ -46,14 +62,15 @@ export async function POST(request: Request) {
     }
 
     const existingId = entity.id ? String(entity.id) : null;
-    const isUpdate = Boolean(existingId);
+    const isUpdate = body.action === 'CREATE' ? false : Boolean(existingId);
     const clientId = String(entity.client_id || 'DEMO');
     const user = session.user.email || entity.updated_by || entity.created_by || 'system_admin';
+    const nextName = String(entity.entity_name).trim();
 
     // 2. Format row payload matching schema
     const rowPayload: Record<string, any> = {
       client_id: clientId,
-      entity_name: String(entity.entity_name),
+      entity_name: nextName,
       entity_type: String(entity.entity_type || 'BROKERAGE'),
       contact_name: entity.contact_name ? String(entity.contact_name) : null,
       contact_email: entity.contact_email ? String(entity.contact_email) : null,
@@ -65,7 +82,7 @@ export async function POST(request: Request) {
       updated_by: String(user),
     };
 
-    // Attach ID only if updating an existing record explicitly
+    // New rows omit id so Postgres assigns generate_prefixed_id('ENT').
     if (isUpdate) {
       rowPayload.id = existingId;
     }
@@ -114,6 +131,20 @@ export async function DELETE(request: Request) {
     }
 
     const supabase = await getAuthenticatedSupabase();
+    const { count, error: paymentsError } = await supabase
+      .from('payments')
+      .select('id', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('payee_entity_id', id);
+
+    if (paymentsError) throw paymentsError;
+    if ((count || 0) > 0) {
+      return NextResponse.json(
+        { error: 'Cannot delete this commission entity because payments are mapped to it. Set it to Inactive instead.' },
+        { status: 409 }
+      );
+    }
+
     const { error } = await supabase
       .from('commission_entities')
       .update({

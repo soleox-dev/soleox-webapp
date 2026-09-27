@@ -25,7 +25,6 @@ export default function MainMenu() {
       active: true,
       links: [
         { label: '📋 Transactions List', href: '/commission-tracker/transactions', isPrimary: false },
-        { label: '⚡ Waterfall Engine', href: '/commission-tracker/transactions/TR000505', isPrimary: true },
       ],
     },
     {
@@ -149,7 +148,7 @@ export default function MainMenu() {
               {/* Action Buttons Footer */}
               <div className="pt-3 border-t border-slate-200 dark:border-slate-700/80">
                 {mod.active ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className={`grid gap-2.5 ${mod.links.length > 1 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
                     {mod.links.map((link) => (
                       <Link
                         key={link.label}

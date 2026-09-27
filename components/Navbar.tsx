@@ -27,9 +27,11 @@ export default function Navbar() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const isMainMenu = pathname === '/';
+  const isCommissionTracker = pathname.startsWith('/commission-tracker');
   const isSettingsActive = pathname.startsWith('/commission-tracker/settings');
   const isTransactionsActive = pathname.startsWith('/commission-tracker/transactions');
-  const isModuleActive = pathname.startsWith('/commission-tracker') && !isSettingsActive;
+  const isModuleActive = isCommissionTracker && !isSettingsActive;
 
   // Calculate user initials dynamically from NextAuth session
   const getUserInitials = () => {
@@ -91,37 +93,45 @@ export default function Navbar() {
 
         {/* Right Nav Actions */}
         <div className="flex items-center space-x-3 text-xs font-medium text-slate-700 dark:text-slate-300">
-          <Link
-            href="/"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:text-slate-900 dark:hover:text-white transition"
-          >
-            <span>🏠</span> Main Menu
-          </Link>
-          
-          <Link
-            href="/commission-tracker/transactions"
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border text-xs font-medium transition ${
-              isTransactionsActive
-                ? 'bg-emerald-500/10 dark:bg-emerald-950/80 border-emerald-500/80 text-emerald-700 dark:text-emerald-400 font-bold'
-                : 'bg-slate-100 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <span>📋</span> Transactions
-          </Link>
+          {!isMainMenu && (
+            <Link
+              href="/"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:text-slate-900 dark:hover:text-white transition"
+            >
+              <span>🏠</span> Main Menu
+            </Link>
+          )}
 
-          <Link
-            href="/commission-tracker/settings"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition ${
-              isSettingsActive
-                ? 'bg-emerald-500/10 dark:bg-emerald-950/80 border-emerald-500/80 text-emerald-700 dark:text-emerald-400 font-bold'
-                : 'border-transparent hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <span>⚙️</span> Settings
-          </Link>
+          {isCommissionTracker && (
+            <>
+              <Link
+                href="/commission-tracker/transactions"
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border text-xs font-medium transition ${
+                  isTransactionsActive
+                    ? 'bg-emerald-500/10 dark:bg-emerald-950/80 border-emerald-500/80 text-emerald-700 dark:text-emerald-400 font-bold'
+                    : 'bg-slate-100 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span>📋</span> Transactions
+              </Link>
+
+              <Link
+                href="/commission-tracker/settings"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition ${
+                  isSettingsActive
+                    ? 'bg-emerald-500/10 dark:bg-emerald-950/80 border-emerald-500/80 text-emerald-700 dark:text-emerald-400 font-bold'
+                    : 'border-transparent hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span>⚙️</span> Settings
+              </Link>
+            </>
+          )}
 
           {/* Vertical Divider */}
-          <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 my-auto" />
+          {!isMainMenu && (
+            <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 my-auto" />
+          )}
 
           {/* Theme Toggle Button: Light → Dark → System */}
           <button

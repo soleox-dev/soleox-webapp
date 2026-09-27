@@ -51,18 +51,12 @@ export default function Home() {
               Manage real estate transactions, execute multi-agent waterfall commission calculations, track YTD broker caps, and process final disbursement payables.
             </p>
           </div>
-          <div className="flex space-x-3 pt-2">
+          <div className="pt-2">
             <Link 
               href="/commission-tracker/transactions" 
-              className="flex-1 py-2 text-center text-xs font-bold rounded-lg border bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border-slate-300/80 dark:border-slate-700 transition"
+              className="block py-2 text-center text-xs font-bold rounded-lg border bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border-slate-300/80 dark:border-slate-700 transition"
             >
               📋 Transactions List
-            </Link>
-            <Link 
-              href="/commission-tracker/transactions/TR000505" 
-              className="flex-1 py-2 text-center text-xs font-bold rounded-lg border bg-emerald-100/80 dark:bg-emerald-950/80 hover:bg-emerald-200 dark:hover:bg-emerald-900 text-emerald-900 dark:text-emerald-400 border-emerald-300/80 dark:border-emerald-800 transition"
-            >
-              ⚡ Waterfall Engine
             </Link>
           </div>
         </div>

@@ -6,7 +6,7 @@ export interface CommissionEntity {
   id: string;
   client_id?: string;
   entity_name: string;
-  entity_type: 'REFERRAL' | 'FRANCHISE' | 'BROKERAGE' | 'TEAM' | 'VENDOR' | 'EQUITY' | 'OTHER' | string;
+  entity_type: 'REFERRAL' | 'FRANCHISE' | 'BROKERAGE' | 'CLIENT' | 'TEAM' | 'VENDOR' | 'EQUITY' | 'OTHER' | string;
   contact_name?: string;
   contact_email?: string;
   tax_id?: string;
@@ -25,7 +25,7 @@ interface DialogState {
   onConfirm?: () => void;
 }
 
-const ENTITY_TYPES = ['REFERRAL', 'FRANCHISE', 'BROKERAGE', 'TEAM', 'VENDOR', 'EQUITY', 'OTHER'];
+const ENTITY_TYPES = ['REFERRAL', 'FRANCHISE', 'BROKERAGE', 'CLIENT', 'TEAM', 'VENDOR', 'EQUITY', 'OTHER'];
 
 export default function CommissionEntitiesPage() {
   const [entities, setEntities] = useState<CommissionEntity[]>([]);
@@ -185,7 +185,6 @@ export default function CommissionEntitiesPage() {
   const handleOpenAdd = () => {
     setEditingEntity(null);
     setFormData({
-      id: `[DEMO] ENT_${Math.floor(1000 + Math.random() * 9000)}`,
       entity_type: 'BROKERAGE',
       is_active: true,
     });
@@ -198,20 +197,8 @@ export default function CommissionEntitiesPage() {
     setIsModalOpen(true);
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.entity_name || isSubmitting) return;
-
+  const persistEntity = async (targetEntity: Partial<CommissionEntity>, isEditing: boolean) => {
     setIsSubmitting(true);
-    const isEditing = Boolean(editingEntity);
-    const targetEntity: CommissionEntity = {
-      id: formData.id || `[DEMO] ENT_${Math.floor(1000 + Math.random() * 9000)}`,
-      entity_name: formData.entity_name || '',
-      entity_type: formData.entity_type || 'BROKERAGE',
-      is_active: formData.is_active !== undefined ? formData.is_active : true,
-      ...formData,
-    };
-
     try {
       const res = await fetch('/api/commission-entities', {
         method: 'POST',
@@ -232,6 +219,40 @@ export default function CommissionEntitiesPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.entity_name || isSubmitting) return;
+
+    const isEditing = Boolean(editingEntity);
+    const entityFields: Partial<CommissionEntity> = { ...formData };
+    delete entityFields.id;
+    const targetEntity: Partial<CommissionEntity> = {
+      ...entityFields,
+      ...(isEditing && editingEntity ? { id: editingEntity.id } : {}),
+      entity_name: formData.entity_name || '',
+      entity_type: formData.entity_type || 'BROKERAGE',
+      is_active: formData.is_active !== undefined ? formData.is_active : true,
+    };
+
+    const previousName = editingEntity?.entity_name.trim() ?? '';
+    const nextName = String(formData.entity_name).trim();
+    if (isEditing && previousName !== nextName) {
+      showConfirm(
+        'Confirm Rename',
+        `Rename "${previousName}" to "${nextName}"? Every transaction that uses this entity will show the new name.`,
+        () => {
+          closeDialog();
+          void persistEntity(targetEntity, true);
+        },
+        'Rename',
+        'primary'
+      );
+      return;
+    }
+
+    void persistEntity(targetEntity, isEditing);
   };
 
   const toggleStatus = (entity: CommissionEntity) => {
@@ -291,12 +312,15 @@ export default function CommissionEntitiesPage() {
             method: 'DELETE',
           });
 
-          if (!res.ok) throw new Error('Failed to delete entity');
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            throw new Error(body.error || 'Failed to delete entity');
+          }
 
           await loadEntities();
         } catch (err) {
           console.error('Delete failed:', err);
-          showAlert('Delete Failed', 'Failed to delete entity.');
+          showAlert('Delete Failed', err instanceof Error ? err.message : 'Failed to delete entity.');
         } finally {
           setActionLoadingId(null);
         }
@@ -646,8 +670,8 @@ export default function CommissionEntitiesPage() {
 
       {/* Custom React Confirm/Alert Dialog */}
       {dialog.isOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-center items-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-sm rounded-xl p-5 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-md rounded-xl p-5 shadow-2xl space-y-4">
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white">{dialog.title}</h3>
               <p className="text-xs text-slate-600 dark:text-slate-300 mt-1.5 leading-relaxed">{dialog.message}</p>
