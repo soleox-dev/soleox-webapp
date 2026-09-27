@@ -43,7 +43,7 @@ export default function Dashboard() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const { savedDeals, overviewFields, knownAgents, knownEntities, isLoadingDeals, isSaving, saveTransaction } = useTransactionData(routeId, isNewTransaction);
+  const { savedDeals, setSavedDeals, overviewFields, knownAgents, knownEntities, isLoadingDeals, isSaving, saveTransaction } = useTransactionData(routeId, isNewTransaction);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'commission' | 'disbursements'>('overview');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ overview: false, commission: false, disbursements: false });
@@ -877,6 +877,10 @@ export default function Dashboard() {
 
       setHasUnsavedLocalChanges(false);
       setSelectedDeal(savedTxn);
+      setSavedDeals((current) => {
+        const exists = current.some((deal) => deal.id === savedTxn.id);
+        return exists ? current.map((deal) => (deal.id === savedTxn.id ? savedTxn : deal)) : [savedTxn, ...current];
+      });
 
       if (savedTxn.list_date) setListDate(String(savedTxn.list_date).substring(0, 10));
       if (savedTxn.acceptance_date) setAcceptanceDate(String(savedTxn.acceptance_date).substring(0, 10));
@@ -1077,6 +1081,10 @@ export default function Dashboard() {
           gciAmount={overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.gci_amount) || dealResult.grossCommission) : dealResult.grossCommission}
           feeField={feeField}
           totalCommission={dealResult.totalCommission || dealResult.grossCommission}
+          clientId={selectedDeal?.client_id || 'DEMO'}
+          transactionId={selectedDeal?.id || dealId || ''}
+          deal={selectedDeal}
+          templateAgents={knownAgents.map((agent) => ({ id: agent.id, name: agent.name, isTeamLead: agent.isTeamLead }))}
         />
 
         <div className="lg:col-span-9 space-y-8">

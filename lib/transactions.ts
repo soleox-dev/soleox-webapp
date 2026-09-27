@@ -12,6 +12,27 @@ const roundCurrency = (num: number): number => {
   return Math.round((num + Number.EPSILON) * 100) / 100;
 };
 
+function readCustomAttributes(row: any): Record<string, any> {
+  try {
+    if (!row?.custom_attributes) return {};
+    return typeof row.custom_attributes === 'string'
+      ? JSON.parse(row.custom_attributes)
+      : row.custom_attributes;
+  } catch {
+    return {};
+  }
+}
+
+/** Puts saved custom field values on the transaction object the screen reads. */
+export function presentTransaction(row: any): any {
+  const customAttrs = readCustomAttributes(row);
+  return {
+    ...row,
+    ...customAttrs,
+    custom_attributes: customAttrs,
+  };
+}
+
 /**
  * Fetch active, non-archived transactions for a specific client tenant.
  * Joins/resolves agent_id to the agents table to provide agent_name and primary_agent.
@@ -46,31 +67,20 @@ export async function getTransactions(clientId: string, client?: SupabaseClient)
 
   // Parse custom attributes and format numeric values without forcing fallbacks
   return (txRes.data || []).map((row: any) => {
-    let customAttrs: Record<string, any> = {};
-    try {
-      if (row.custom_attributes) {
-        customAttrs = typeof row.custom_attributes === 'string'
-          ? JSON.parse(row.custom_attributes)
-          : row.custom_attributes;
-      }
-    } catch (e) {
-      console.warn('JSON parse error on transaction row:', e);
-    }
-
+    const customAttrs = readCustomAttributes(row);
     const resolvedAgentName = row.agent_id ? (agentMap.get(String(row.agent_id)) || null) : null;
 
-    return {
+    return presentTransaction({
       ...row,
-      agent_name: resolvedAgentName || (customAttrs as any)?.primary_agent || null,
-      primary_agent: resolvedAgentName || (customAttrs as any)?.primary_agent || null,
+      agent_name: resolvedAgentName || customAttrs.primary_agent || null,
+      primary_agent: resolvedAgentName || customAttrs.primary_agent || null,
       list_price: row.list_price ? roundCurrency(Number(row.list_price)) : null,
       sales_price: row.sales_price ? roundCurrency(Number(row.sales_price)) : null,
       gci_perc: row.gci_perc ? Number(row.gci_perc) : null,
       gci_amount: row.gci_amount ? roundCurrency(Number(row.gci_amount)) : null,
       transaction_fee: row.transaction_fee ? roundCurrency(Number(row.transaction_fee)) : null,
       total_commission: row.total_commission ? roundCurrency(Number(row.total_commission)) : null,
-      ...customAttrs,
-    } as Transaction;
+    }) as Transaction;
   });
 }
 
@@ -261,5 +271,5 @@ export async function createTransaction(
     }
   }
 
-  return { transactionId: finalTransactionId, success: true, transaction: finalRecord };
+  return { transactionId: finalTransactionId, success: true, transaction: presentTransaction(finalRecord) };
 }

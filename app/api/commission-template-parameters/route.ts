@@ -61,10 +61,13 @@ export async function POST(request: Request) {
       template_id: String(param.template_id),
       parameter_name: String(param.parameter_name),
       parameter_key: String(param.parameter_key || param.parameter_name.toLowerCase().replace(/\s+/g, '_')),
-      data_type: String(param.data_type || 'NUMERIC'),
-      default_value: param.default_value !== undefined && param.default_value !== '' ? Number(param.default_value) : null,
+      data_type: String(param.data_type || 'CURRENCY'),
+      default_value: param.default_value !== undefined && param.default_value !== '' && param.default_value !== null ? Number(param.default_value) : null,
       autofill_formula: param.autofill_formula ? String(param.autofill_formula) : null,
+      validation_rule: param.validation_rule ? String(param.validation_rule) : null,
+      notes: param.notes ? String(param.notes) : null,
       sort_order: param.sort_order !== undefined ? Number(param.sort_order) : 0,
+      is_required: param.is_required !== undefined ? Boolean(param.is_required) : false,
       is_user_editable: param.is_user_editable !== undefined ? Boolean(param.is_user_editable) : true,
       archived: Boolean(param.archived),
       created_by: param.created_by || user,
@@ -92,7 +95,18 @@ export async function POST(request: Request) {
         .select();
     }
 
-    const { data, error } = await query;
+    let { data, error } = await query;
+    if (error?.message?.includes('schema cache')) {
+      delete rowPayload.is_required;
+      delete rowPayload.validation_rule;
+      delete rowPayload.notes;
+      const retry = isUpdate
+        ? supabase.from('commission_template_parameters').upsert(rowPayload, { onConflict: 'id' }).select()
+        : supabase.from('commission_template_parameters').insert(rowPayload).select();
+      const retried = await retry;
+      data = retried.data;
+      error = retried.error;
+    }
     if (error) throw error;
 
     const returnedRow = data ? data[0] : rowPayload;

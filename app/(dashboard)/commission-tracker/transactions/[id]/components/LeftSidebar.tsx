@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatPercent } from '../types';
+import { CommissionTemplatePanel } from './CommissionTemplatePanel';
 
 interface LeftSidebarProps {
   activeTab: 'overview' | 'commission' | 'disbursements';
@@ -12,6 +13,10 @@ interface LeftSidebarProps {
   gciAmount: number;
   feeField?: { label: string; amount: number } | null;
   totalCommission: number;
+  clientId: string;
+  transactionId: string;
+  deal: Record<string, unknown> | null;
+  templateAgents: { id: string; name: string; isTeamLead?: boolean }[];
 }
 
 export function LeftSidebar({
@@ -25,6 +30,10 @@ export function LeftSidebar({
   gciAmount,
   feeField,
   totalCommission,
+  clientId,
+  transactionId,
+  deal,
+  templateAgents,
 }: LeftSidebarProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -117,6 +126,8 @@ export function LeftSidebar({
           </div>
         </div>
       </div>
+
+      <CommissionTemplatePanel clientId={clientId} transactionId={transactionId} deal={deal} agents={templateAgents} />
     </aside>
   );
 }

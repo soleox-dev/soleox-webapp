@@ -1,6 +1,6 @@
 // app/commission-tracker/transactions/[id]/hooks/useOverviewForm.ts
 import { useState, useMemo } from 'react';
-import { FieldSetting, roundCurrency, evaluateFormula } from '../types';
+import { FieldSetting, roundCurrency, evaluateFormula, readTransactionField } from '../types';
 
 interface UseOverviewFormProps {
   overviewFields: FieldSetting[];
@@ -77,16 +77,7 @@ export function useOverviewForm({
     const initialForm: Record<string, any> = {};
 
     overviewFields.forEach((field) => {
-        let rawVal = selectedDeal ? selectedDeal[field.key] : undefined;
-
-        // Fallback to custom_attributes if not found on top-level deal
-        if (rawVal === undefined && selectedDeal?.custom_attributes) {
-        let attrs = selectedDeal.custom_attributes;
-        if (typeof attrs === 'string') {
-            try { attrs = JSON.parse(attrs); } catch (e) { attrs = {}; }
-        }
-        rawVal = attrs[field.key];
-        }
+        let rawVal = readTransactionField(selectedDeal, field.key);
 
         // System field defaults
         if (rawVal === undefined || rawVal === null || rawVal === '') {
@@ -263,7 +254,7 @@ export function useOverviewForm({
     const missing: string[] = [];
 
     overviewFields.forEach((field) => {
-      const rawDbVal = selectedDeal ? selectedDeal[field.key] : undefined;
+      const rawDbVal = readTransactionField(selectedDeal, field.key);
       const val = overviewFormValues[field.key] ?? rawDbVal;
 
       const validation = validateFieldValue(field, val);

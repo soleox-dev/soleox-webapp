@@ -1,5 +1,24 @@
 import React from 'react';
 
+export function readTransactionField(deal: any, fieldKey: string): any {
+  if (!deal) return undefined;
+  const direct = deal[fieldKey];
+  if (direct !== undefined && direct !== null && direct !== '') return direct;
+  let attributes = deal.custom_attributes;
+  if (typeof attributes === 'string') {
+    try {
+      attributes = JSON.parse(attributes);
+    } catch {
+      attributes = undefined;
+    }
+  }
+  if (attributes && typeof attributes === 'object') {
+    const custom = attributes[fieldKey];
+    if (custom !== undefined && custom !== null && custom !== '') return custom;
+  }
+  return direct;
+}
+
 export interface VisibilityCondition {
   id?: string;
   field_key: string;

@@ -456,11 +456,14 @@ export type Database = {
           data_type: string | null
           default_value: number | null
           id: string
+          is_required: boolean | null
           is_user_editable: boolean | null
+          notes: string | null
           parameter_key: string
           parameter_name: string
           sort_order: number | null
           template_id: string
+          validation_rule: string | null
           updated_at: string | null
           updated_by: string | null
         }
@@ -473,11 +476,14 @@ export type Database = {
           data_type?: string | null
           default_value?: number | null
           id?: string
+          is_required?: boolean | null
           is_user_editable?: boolean | null
+          notes?: string | null
           parameter_key: string
           parameter_name: string
           sort_order?: number | null
           template_id: string
+          validation_rule?: string | null
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -490,11 +496,14 @@ export type Database = {
           data_type?: string | null
           default_value?: number | null
           id?: string
+          is_required?: boolean | null
           is_user_editable?: boolean | null
+          notes?: string | null
           parameter_key?: string
           parameter_name?: string
           sort_order?: number | null
           template_id?: string
+          validation_rule?: string | null
           updated_at?: string | null
           updated_by?: string | null
         }

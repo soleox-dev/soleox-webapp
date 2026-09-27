@@ -5,6 +5,7 @@ import {
   formatPercent,
   VisibilityCondition,
   KnownAgentInfo,
+  readTransactionField,
 } from '../types';
 
 import {
@@ -83,18 +84,9 @@ export function TransactionOverview({
       return overviewFormValues[fieldKey];
     }
     if (selectedDeal) {
-      if (selectedDeal[fieldKey] !== undefined && selectedDeal[fieldKey] !== null) {
-        return selectedDeal[fieldKey];
-      }
-      let customAttrs: any = {};
-      try {
-        customAttrs = typeof selectedDeal.custom_attributes === 'string'
-          ? JSON.parse(selectedDeal.custom_attributes)
-          : (selectedDeal.custom_attributes || {});
-      } catch (e) {}
-
-      if (customAttrs[fieldKey] !== undefined && customAttrs[fieldKey] !== null) {
-        return customAttrs[fieldKey];
+      const stored = readTransactionField(selectedDeal, fieldKey);
+      if (stored !== undefined && stored !== null && stored !== '') {
+        return stored;
       }
       if (fieldKey === 'transaction_status' || fieldKey === 'status') {
         return selectedDeal.transaction_status || selectedDeal.status;
@@ -146,7 +138,7 @@ export function TransactionOverview({
   };
 
   const getFieldValue = (fieldKey: string, fieldType: string): { text: string } => {
-    let rawVal = selectedDeal ? selectedDeal[fieldKey] : undefined;
+    let rawVal = readTransactionField(selectedDeal, fieldKey);
 
     if (rawVal === undefined || rawVal === null || rawVal === '') {
       if (fieldKey === 'id') rawVal = dealId;
@@ -223,7 +215,7 @@ export function TransactionOverview({
           ) : (
             Object.entries(groupedSections).map(([sectionName, fields]) => {
               const visibleFields = fields.filter((field) => {
-                const rawDbVal = selectedDeal ? selectedDeal[field.key] : undefined;
+                const rawDbVal = readTransactionField(selectedDeal, field.key);
                 const activeValue = isEditing
                   ? (overviewFormValues[field.key] ?? rawDbVal ?? '')
                   : (rawDbVal ?? '');
@@ -257,7 +249,7 @@ export function TransactionOverview({
                       const isGciAmountLocked = field.key === 'gci_amount' && (cleanGciType.includes('PERCENT') || !cleanGciType);
                       const isInputDisabled = isSystemLocked || isGciPercLocked || isGciAmountLocked;
 
-                      let currentValueToValidate = selectedDeal ? selectedDeal[field.key] : undefined;
+                      let currentValueToValidate = readTransactionField(selectedDeal, field.key);
                       const activeValue = isEditing
                         ? (overviewFormValues[field.key] ?? currentValueToValidate ?? '')
                         : (currentValueToValidate ?? fieldData.text);
