@@ -1,12 +1,15 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { FormulaEditor, FormulaExplain, FormulaPreview, type FormulaName } from '../FormulaEditor';
+import { EditPencil } from '@/components/ui/edit-pencil';
+import { ReorderControls } from '@/components/ui/reorder-controls';
 import { normalizeFormula, validateFormula } from '../formula-validator';
 
-type ParameterType = 'CURRENCY' | 'PERCENT' | 'AGENT' | 'YES_NO' | 'TEXT';
+type ParameterType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
 
 interface CommissionTemplate {
   id: string;
@@ -25,6 +28,8 @@ interface TemplateParameter {
   is_required?: boolean | null;
   is_user_editable?: boolean | null;
   sort_order?: number | null;
+  section?: string | null;
+  dropdown_options?: string[] | null;
 }
 
 interface LogicStep {
@@ -43,11 +48,14 @@ interface CommissionEntity {
 }
 
 const PARAMETER_TYPES: { value: ParameterType; label: string }[] = [
-  { value: 'CURRENCY', label: 'Currency' },
+  { value: 'TEXT', label: 'Text Input' },
+  { value: 'CURRENCY', label: 'Currency ($)' },
   { value: 'PERCENT', label: 'Percent' },
-  { value: 'AGENT', label: 'Agent' },
-  { value: 'YES_NO', label: 'Yes / No' },
-  { value: 'TEXT', label: 'Text' },
+  { value: 'NUMBER', label: 'Number' },
+  { value: 'DATE', label: 'Date Picker' },
+  { value: 'SELECT', label: 'Select Dropdown' },
+  { value: 'AGENT_PICKER', label: 'Agent Picker' },
+  { value: 'BOOLEAN', label: 'Boolean Toggle' },
 ];
 
 const PAYEE_TYPES = ['AGENT', 'ENTITY', 'BROKERAGE'];
@@ -55,13 +63,43 @@ const PAYEE_TYPES = ['AGENT', 'ENTITY', 'BROKERAGE'];
 const inputClass =
   'w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500';
 
+const rowActionClass =
+  'inline-flex h-7 w-7 items-center justify-center rounded transition cursor-pointer';
+
 function typeLabel(dataType?: string | null): string {
-  return PARAMETER_TYPES.find((type) => type.value === dataType)?.label || dataType || '—';
+  return PARAMETER_TYPES.find((type) => type.value === canonicalParameterType(dataType))?.label || dataType || '—';
+}
+
+function canonicalParameterType(value?: string | null): ParameterType {
+  if (value === 'AGENT') return 'AGENT_PICKER';
+  if (value === 'YES_NO') return 'BOOLEAN';
+  if (PARAMETER_TYPES.some((type) => type.value === value)) return value as ParameterType;
+  return 'CURRENCY';
+}
+
+function withDropdownOption(options: string[], raw: string): string[] {
+  const next = [...options];
+  raw.split(/:::|\r?\n/).map((option) => option.trim()).filter(Boolean).forEach((option) => {
+    if (!next.includes(option)) next.push(option);
+  });
+  return next;
 }
 
 function parameterKeyFromName(name: string): string {
   const key = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
   return key || 'parameter';
+}
+
+function parameterGroups(parameters: TemplateParameter[]): { name: string; items: TemplateParameter[] }[] {
+  const ordered = [...parameters].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const groups: { name: string; items: TemplateParameter[] }[] = [];
+  for (const parameter of ordered) {
+    const name = parameter.section?.trim() || 'No Section';
+    const existing = groups.find((group) => group.name === name);
+    if (existing) existing.items.push(parameter);
+    else groups.push({ name, items: [parameter] });
+  }
+  return groups.sort((a, b) => Number(a.name === 'No Section') - Number(b.name === 'No Section'));
 }
 
 const emptyParameter = {
@@ -72,6 +110,8 @@ const emptyParameter = {
   autofill_formula: '',
   validation_rule: '',
   notes: '',
+  section: '',
+  dropdown_options: [] as string[],
 };
 
 const emptyLogic = {
@@ -95,6 +135,8 @@ export default function CommissionTemplateDetailPage() {
   const [agentFields, setAgentFields] = useState<FormulaName[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isReordering, setIsReordering] = useState(false);
+  const [dropTarget, setDropTarget] = useState<null | { parameterId: string; placement: 'before' | 'after' } | { sectionName: string }>(null);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [parameterForm, setParameterForm] = useState<typeof emptyParameter | null>(null);
@@ -102,6 +144,12 @@ export default function CommissionTemplateDetailPage() {
   const [logicForm, setLogicForm] = useState<typeof emptyLogic | null>(null);
   const [editingLogicId, setEditingLogicId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<null | { kind: 'template' | 'parameter' | 'logic'; id?: string; label: string }>(null);
+  const [sectionMenuOpen, setSectionMenuOpen] = useState(false);
+  const [sectionMenuBox, setSectionMenuBox] = useState({ top: 0, left: 0, width: 0 });
+  const sectionInputRef = useRef<HTMLInputElement>(null);
+  const [newDropdownOption, setNewDropdownOption] = useState('');
+  const [renamingOption, setRenamingOption] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState('');
 
   const loadTemplate = async () => {
     if (!templateId) return;
@@ -224,6 +272,8 @@ export default function CommissionTemplateDetailPage() {
             autofill_formula: normalizedFormula.trim() || null,
             validation_rule: parameterForm.validation_rule.trim() || null,
             notes: parameterForm.notes.trim() || null,
+            section: parameterForm.section.trim() || null,
+            dropdown_options: parameterForm.data_type === 'SELECT' ? parameterForm.dropdown_options : null,
             sort_order: existing?.sort_order ?? parameters.length + 1,
           },
         }),
@@ -239,6 +289,103 @@ export default function CommissionTemplateDetailPage() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const persistParameter = async (parameter: TemplateParameter) => {
+    const response = await fetch('/api/commission-template-parameters', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        parameter: {
+          id: parameter.id,
+          template_id: templateId,
+          client_id: 'DEMO',
+          parameter_name: parameter.parameter_name,
+          parameter_key: parameter.parameter_key,
+          data_type: parameter.data_type || 'CURRENCY',
+          is_required: Boolean(parameter.is_required),
+          is_user_editable: parameter.is_user_editable !== false,
+          autofill_formula: parameter.autofill_formula || null,
+          validation_rule: parameter.validation_rule || null,
+          notes: parameter.notes || null,
+          section: parameter.section || null,
+          dropdown_options: parameter.dropdown_options || null,
+          sort_order: parameter.sort_order ?? 0,
+        },
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data.error || 'Failed to save the parameter order.');
+  };
+
+  const commitParameterLayout = async (updated: TemplateParameter[]) => {
+    const previous = new Map(parameters.map((item) => [item.id, { sort_order: item.sort_order ?? 0, section: item.section?.trim() || '' }]));
+    const changed = updated.filter((item) => {
+      const prior = previous.get(item.id);
+      return prior?.sort_order !== item.sort_order || (prior?.section || '') !== (item.section?.trim() || '');
+    });
+    setParameters((current) => current.map((item) => updated.find((next) => next.id === item.id) ?? item));
+    if (changed.length === 0) return;
+    setIsReordering(true);
+    setError(null);
+    try {
+      await Promise.all(changed.map((item) => persistParameter(item)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save the parameter order.');
+      await loadTemplate();
+    } finally {
+      setIsReordering(false);
+    }
+  };
+
+  const moveParameter = async (parameterId: string, direction: 'UP' | 'DOWN') => {
+    if (isReordering) return;
+    const groups = parameterGroups(parameters);
+    const groupIndex = groups.findIndex((group) => group.items.some((item) => item.id === parameterId));
+    if (groupIndex < 0) return;
+    const items = groups[groupIndex].items;
+    const index = items.findIndex((item) => item.id === parameterId);
+    const targetIndex = direction === 'UP' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= items.length) return;
+
+    const reorderedItems = [...items];
+    const [moved] = reorderedItems.splice(index, 1);
+    reorderedItems.splice(targetIndex, 0, moved);
+    const flat = groups.flatMap((group, i) => (i === groupIndex ? reorderedItems : group.items));
+    await commitParameterLayout(flat.map((item, i) => ({ ...item, sort_order: i + 1 })));
+  };
+
+  const dropParameter = async (sourceId: string, target: { parameterId: string; placement: 'before' | 'after' } | { sectionName: string }) => {
+    if (isReordering || ('parameterId' in target && target.parameterId === sourceId)) return;
+    const groups = parameterGroups(parameters).map((group) => ({ ...group, items: [...group.items] }));
+    let moved: TemplateParameter | undefined;
+    for (const group of groups) {
+      const index = group.items.findIndex((item) => item.id === sourceId);
+      if (index >= 0) {
+        [moved] = group.items.splice(index, 1);
+        break;
+      }
+    }
+    if (!moved) return;
+
+    const destinationName = 'sectionName' in target
+      ? target.sectionName
+      : groups.find((group) => group.items.some((item) => item.id === target.parameterId))?.name;
+    const destination = groups.find((group) => group.name === destinationName);
+    if (!destination) return;
+
+    const section = destination.name === 'No Section' ? null : destination.name;
+    const next = { ...moved, section };
+    if ('sectionName' in target) {
+      destination.items.push(next);
+    } else {
+      const index = destination.items.findIndex((item) => item.id === target.parameterId);
+      destination.items.splice(target.placement === 'before' ? index : index + 1, 0, next);
+    }
+
+    const flat = groups.filter((group) => group.items.length > 0).flatMap((group) => group.items);
+    setDropTarget(null);
+    await commitParameterLayout(flat.map((item, index) => ({ ...item, sort_order: index + 1 })));
   };
 
   const saveLogic = async (event: React.FormEvent) => {
@@ -310,13 +457,17 @@ export default function CommissionTemplateDetailPage() {
     setEditingParameterId(parameter.id);
     setParameterForm({
       parameter_name: parameter.parameter_name,
-      data_type: (parameter.data_type as ParameterType) || 'CURRENCY',
+      data_type: canonicalParameterType(parameter.data_type),
       is_required: Boolean(parameter.is_required),
       is_user_editable: parameter.is_user_editable !== false,
       autofill_formula: parameter.autofill_formula || '',
       validation_rule: parameter.validation_rule || '',
       notes: parameter.notes || '',
+      section: parameter.section || '',
+      dropdown_options: Array.isArray(parameter.dropdown_options) ? parameter.dropdown_options : [],
     });
+    setNewDropdownOption('');
+    setRenamingOption(null);
   };
 
   const openEditLogic = (step: LogicStep) => {
@@ -351,6 +502,18 @@ export default function CommissionTemplateDetailPage() {
     { id: 'agents', title: 'Agents', fields: agentFields },
     { id: 'parameters', title: 'Template Parameters', fields: parameterFields },
   ];
+
+  const sectionOptions = [...new Set(parameters.map((parameter) => parameter.section?.trim()).filter((section): section is string => Boolean(section)))];
+
+  const openSectionMenu = () => {
+    const rect = sectionInputRef.current?.getBoundingClientRect();
+    if (!rect || sectionOptions.length === 0) {
+      setSectionMenuOpen(false);
+      return;
+    }
+    setSectionMenuBox({ top: rect.bottom + 6, left: rect.left, width: rect.width });
+    setSectionMenuOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -424,8 +587,53 @@ export default function CommissionTemplateDetailPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {parameters.map((parameter) => (
-                      <tr key={parameter.id} className="align-top">
+                    {parameterGroups(parameters).map((group) => {
+                      const isUnsectioned = group.name === 'No Section';
+                      return (
+                      <React.Fragment key={group.name}>
+                        <tr
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            setDropTarget({ sectionName: group.name });
+                          }}
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            const sourceId = event.dataTransfer.getData('text/plain');
+                            setDropTarget(null);
+                            if (sourceId) void dropParameter(sourceId, { sectionName: group.name });
+                          }}
+                        >
+                          <td colSpan={8} className={`px-4 py-2 ${dropTarget && 'sectionName' in dropTarget && dropTarget.sectionName === group.name ? (isUnsectioned ? 'bg-amber-500/20' : 'bg-emerald-500/15') : 'bg-slate-50 dark:bg-slate-900/60'}`}>
+                            <div className="flex items-center gap-2">
+                              <span className={`w-2 h-2 rounded-full ${isUnsectioned ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                              <span className={`text-[10px] font-bold uppercase tracking-wider ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                Section: {group.name}
+                              </span>
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold ml-auto">
+                                {group.items.length} {group.items.length === 1 ? 'Parameter' : 'Parameters'}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        {group.items.map((parameter, itemIndex) => (
+                      <tr
+                        key={parameter.id}
+                        className={`align-top ${dropTarget && 'parameterId' in dropTarget && dropTarget.parameterId === parameter.id ? (dropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          const bounds = event.currentTarget.getBoundingClientRect();
+                          const placement = event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
+                          setDropTarget({ parameterId: parameter.id, placement });
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          const sourceId = event.dataTransfer.getData('text/plain');
+                          const bounds = event.currentTarget.getBoundingClientRect();
+                          const placement = event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
+                          setDropTarget(null);
+                          if (sourceId) void dropParameter(sourceId, { parameterId: parameter.id, placement });
+                        }}
+                      >
                         <td className="px-4 py-3 font-mono text-slate-500">{parameter.sort_order ?? '—'}</td>
                         <td className="px-4 py-3">
                           <p className="font-bold text-slate-900 dark:text-white">{parameter.parameter_name}</p>
@@ -447,13 +655,38 @@ export default function CommissionTemplateDetailPage() {
                           {parameter.validation_rule || '—'}
                         </td>
                         <td className="sticky right-0 z-10 bg-white dark:bg-slate-800 px-4 py-3 whitespace-nowrap text-right border-l border-slate-200 dark:border-slate-700 shadow-[-10px_0_12px_-12px_rgba(15,23,42,0.7)]">
-                          <button type="button" onClick={() => openEditParameter(parameter)} className="text-xs p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer transition" title="Edit" aria-label="Edit">
-                            <span className="inline-block -scale-x-100">✏️</span>
-                          </button>
-                          <button type="button" onClick={() => setConfirmDelete({ kind: 'parameter', id: parameter.id, label: parameter.parameter_name })} className="text-xs text-rose-500 hover:text-rose-600 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition ml-1" title="Delete" aria-label="Delete">🗑️</button>
+                          <div className="inline-flex items-center justify-end gap-1">
+                            <span
+                              draggable={!isReordering}
+                              onDragStart={(event) => {
+                                event.dataTransfer.setData('text/plain', parameter.id);
+                                event.dataTransfer.effectAllowed = 'move';
+                              }}
+                              onDragEnd={() => setDropTarget(null)}
+                              className="cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm px-0.5 select-none"
+                              title="Drag to reorder or move to a section"
+                            >
+                              ⠿
+                            </span>
+                            <ReorderControls
+                              size="sm"
+                              orientation="vertical"
+                              onMoveUp={() => void moveParameter(parameter.id, 'UP')}
+                              onMoveDown={() => void moveParameter(parameter.id, 'DOWN')}
+                              isFirst={itemIndex === 0 || isReordering}
+                              isLast={itemIndex === group.items.length - 1 || isReordering}
+                            />
+                            <button type="button" onClick={() => openEditParameter(parameter)} className={`${rowActionClass} text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700`} title="Edit" aria-label="Edit">
+                              <EditPencil className="h-[18px] w-[18px]" />
+                            </button>
+                            <button type="button" onClick={() => setConfirmDelete({ kind: 'parameter', id: parameter.id, label: parameter.parameter_name })} className={`${rowActionClass} text-[18px] leading-none text-rose-500 hover:text-rose-600 hover:bg-rose-500/10`} title="Delete" aria-label="Delete">🗑️</button>
+                          </div>
                         </td>
                       </tr>
-                    ))}
+                        ))}
+                      </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -511,10 +744,12 @@ export default function CommissionTemplateDetailPage() {
                           </div>
                         </td>
                         <td className="sticky right-0 z-10 bg-white dark:bg-slate-800 px-4 py-3 whitespace-nowrap text-right border-l border-slate-200 dark:border-slate-700 shadow-[-10px_0_12px_-12px_rgba(15,23,42,0.7)]">
-                          <button type="button" onClick={() => openEditLogic(step)} className="text-xs p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer transition" title="Edit" aria-label="Edit">
-                            <span className="inline-block -scale-x-100">✏️</span>
-                          </button>
-                          <button type="button" onClick={() => setConfirmDelete({ kind: 'logic', id: step.id, label: step.rule_name })} className="text-xs text-rose-500 hover:text-rose-600 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition ml-1" title="Delete" aria-label="Delete">🗑️</button>
+                          <div className="inline-flex items-center justify-end">
+                            <button type="button" onClick={() => openEditLogic(step)} className={`${rowActionClass} text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700`} title="Edit" aria-label="Edit">
+                              <EditPencil className="h-[18px] w-[18px]" />
+                            </button>
+                            <button type="button" onClick={() => setConfirmDelete({ kind: 'logic', id: step.id, label: step.rule_name })} className={`${rowActionClass} text-[18px] leading-none text-rose-500 hover:text-rose-600 hover:bg-rose-500/10`} title="Delete" aria-label="Delete">🗑️</button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -534,6 +769,18 @@ export default function CommissionTemplateDetailPage() {
             <label className="block text-[11px] font-bold text-slate-500">Name
               <input required value={parameterForm.parameter_name} onChange={(event) => setParameterForm({ ...parameterForm, parameter_name: event.target.value })} className={`${inputClass} mt-1`} />
             </label>
+            <label className="block text-[11px] font-bold text-slate-500">Section
+              <input
+                ref={sectionInputRef}
+                value={parameterForm.section}
+                onChange={(event) => setParameterForm({ ...parameterForm, section: event.target.value })}
+                onFocus={() => openSectionMenu()}
+                onClick={() => openSectionMenu()}
+                onBlur={() => setSectionMenuOpen(false)}
+                placeholder="Example: Off the top"
+                className={`${inputClass} dropdown-chevron mt-1`}
+              />
+            </label>
             <label className="block text-[11px] font-bold text-slate-500">Key
               <input
                 readOnly
@@ -546,8 +793,135 @@ export default function CommissionTemplateDetailPage() {
                 {PARAMETER_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
               </select>
             </label>
-            <div className="block text-[11px] font-bold text-slate-500">
-              Formula
+            {parameterForm.data_type === 'SELECT' && (
+              <div className="space-y-3 bg-slate-50 dark:bg-slate-900/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                <div className="flex justify-between items-center">
+                  <label className="block text-slate-700 dark:text-slate-300 font-bold text-xs">
+                    Dropdown Select Options ({parameterForm.dropdown_options.length})
+                  </label>
+                  {parameterForm.dropdown_options.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setParameterForm({
+                        ...parameterForm,
+                        dropdown_options: [...parameterForm.dropdown_options].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
+                      })}
+                      className="px-2 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded font-bold text-[10px] border border-slate-300 dark:border-slate-600 transition cursor-pointer"
+                    >
+                      Sort A to Z
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newDropdownOption}
+                    onChange={(event) => setNewDropdownOption(event.target.value)}
+                    onPaste={(event) => {
+                      const pastedText = event.clipboardData.getData('text');
+                      if (!pastedText.includes('\n') && !pastedText.includes('\r') && !pastedText.includes(':::')) return;
+                      event.preventDefault();
+                      setParameterForm({ ...parameterForm, dropdown_options: withDropdownOption(parameterForm.dropdown_options, pastedText) });
+                      setNewDropdownOption('');
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter') return;
+                      event.preventDefault();
+                      if (!newDropdownOption.trim()) return;
+                      setParameterForm({ ...parameterForm, dropdown_options: withDropdownOption(parameterForm.dropdown_options, newDropdownOption) });
+                      setNewDropdownOption('');
+                    }}
+                    placeholder="Add option, paste copied Sheet column, or use 'Option A ::: Option B'..."
+                    className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!newDropdownOption.trim()) return;
+                      setParameterForm({ ...parameterForm, dropdown_options: withDropdownOption(parameterForm.dropdown_options, newDropdownOption) });
+                      setNewDropdownOption('');
+                    }}
+                    className="px-3 py-2 bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 rounded-lg font-bold hover:bg-emerald-500/30 transition cursor-pointer"
+                  >
+                    + Add Option
+                  </button>
+                </div>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {parameterForm.dropdown_options.map((option, index) => (
+                    <div key={`${option}-${index}`} className="flex justify-between items-center px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600 transition">
+                      {renamingOption === option ? (
+                        <input
+                          autoFocus
+                          value={renameDraft}
+                          onChange={(event) => setRenameDraft(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              const next = renameDraft.trim();
+                              if (!next || (next !== option && parameterForm.dropdown_options.some((item) => item.toLowerCase() === next.toLowerCase()))) return;
+                              setParameterForm({
+                                ...parameterForm,
+                                dropdown_options: parameterForm.dropdown_options.map((item) => item === option ? next : item),
+                              });
+                              setRenamingOption(null);
+                            }
+                            if (event.key === 'Escape') setRenamingOption(null);
+                          }}
+                          onBlur={() => setRenamingOption(null)}
+                          className="flex-1 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2 py-1 text-xs"
+                        />
+                      ) : (
+                        <span className="font-medium truncate mr-2" title={option}>{option}</span>
+                      )}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRenamingOption(option);
+                            setRenameDraft(option);
+                          }}
+                          className="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
+                          title={`Rename "${option}"`}
+                        >
+                          <EditPencil />
+                        </button>
+                        <ReorderControls
+                          size="sm"
+                          onMoveUp={() => {
+                            if (index === 0) return;
+                            const next = [...parameterForm.dropdown_options];
+                            const [item] = next.splice(index, 1);
+                            next.splice(index - 1, 0, item);
+                            setParameterForm({ ...parameterForm, dropdown_options: next });
+                          }}
+                          onMoveDown={() => {
+                            if (index === parameterForm.dropdown_options.length - 1) return;
+                            const next = [...parameterForm.dropdown_options];
+                            const [item] = next.splice(index, 1);
+                            next.splice(index + 1, 0, item);
+                            setParameterForm({ ...parameterForm, dropdown_options: next });
+                          }}
+                          isFirst={index === 0}
+                          isLast={index === parameterForm.dropdown_options.length - 1}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setParameterForm({
+                            ...parameterForm,
+                            dropdown_options: parameterForm.dropdown_options.filter((item) => item !== option),
+                          })}
+                          className="text-rose-500 hover:text-rose-600 font-bold px-1.5 py-0.5 rounded hover:bg-rose-500/10 cursor-pointer"
+                          title="Remove Option"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div>
               <FormulaEditor
                 value={parameterForm.autofill_formula}
                 onChange={(formula) => setParameterForm({ ...parameterForm, autofill_formula: formula })}
@@ -574,6 +948,39 @@ export default function CommissionTemplateDetailPage() {
               <button type="submit" disabled={isSaving} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 text-slate-950 cursor-pointer disabled:opacity-50">{isSaving ? 'Saving...' : 'Save parameter'}</button>
             </div>
           </form>
+          {sectionMenuOpen && sectionOptions.length > 0 && createPortal(
+            <ul
+              className="fixed z-[90] max-h-60 overflow-y-auto rounded-lg border border-black/10 bg-white/95 py-1 text-[13px] text-slate-900 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-[#3a3a3c]/95 dark:text-white"
+              style={{ top: sectionMenuBox.top, left: sectionMenuBox.left, width: sectionMenuBox.width }}
+            >
+              {sectionOptions.map((section) => {
+                const selected = section === parameterForm.section.trim();
+                return (
+                  <li key={section}>
+                    <button
+                      type="button"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        setParameterForm({ ...parameterForm, section });
+                        setSectionMenuOpen(false);
+                      }}
+                      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left cursor-pointer ${selected ? 'bg-[#007aff] text-white' : 'hover:bg-[#007aff] hover:text-white'}`}
+                    >
+                      <span className="inline-flex w-3.5 shrink-0 justify-center">
+                        {selected && (
+                          <svg viewBox="0 0 12 12" aria-hidden className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M2 6.2 4.6 8.8 10 3.2" />
+                          </svg>
+                        )}
+                      </span>
+                      {section}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>,
+            document.body,
+          )}
         </div>
       )}
 
@@ -611,17 +1018,36 @@ export default function CommissionTemplateDetailPage() {
         </div>
       )}
 
-      {confirmDelete && (
-        <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4">
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-md rounded-xl p-5 shadow-2xl space-y-4">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">Delete {confirmDelete.label}?</h3>
-            <p className="text-xs text-slate-600 dark:text-slate-300">This removes it from the template.</p>
+      {confirmDelete && createPortal(
+        <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => { if (!isSaving) setConfirmDelete(null); }}>
+          <div
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-md rounded-xl p-5 shadow-2xl space-y-4"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-delete-title"
+          >
+            <h3 id="confirm-delete-title" className="text-base font-bold text-slate-900 dark:text-white">
+              {confirmDelete.kind === 'template'
+                ? `Delete template "${confirmDelete.label}"?`
+                : confirmDelete.kind === 'parameter'
+                  ? `Delete parameter "${confirmDelete.label}"?`
+                  : `Delete step "${confirmDelete.label}"?`}
+            </h3>
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              {confirmDelete.kind === 'template'
+                ? 'This removes the template, including its parameters and calculation steps.'
+                : confirmDelete.kind === 'parameter'
+                  ? 'This removes the parameter from the template.'
+                  : 'This removes the calculation step from the template.'}
+            </p>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setConfirmDelete(null)} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer">Cancel</button>
-              <button type="button" onClick={() => void runDelete()} disabled={isSaving} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-rose-600 text-white cursor-pointer disabled:opacity-50">Delete</button>
+              <button type="button" onClick={() => setConfirmDelete(null)} disabled={isSaving} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer disabled:opacity-50">Cancel</button>
+              <button type="button" onClick={() => void runDelete()} disabled={isSaving} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-rose-600 text-white cursor-pointer disabled:opacity-50">{isSaving ? 'Deleting...' : 'Delete'}</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

@@ -39,7 +39,7 @@ export function ReorderControls({
         title={upTooltip}
         className={`${
           isSmall ? 'px-1 py-0.5 text-[8px]' : 'px-1.5 py-0.5 text-[10px]'
-        } font-bold text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-slate-800 rounded disabled:opacity-20 disabled:hover:bg-transparent transition-all`}
+        } font-bold text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-slate-800 rounded cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-all`}
       >
         ▲
       </button>
@@ -60,7 +60,7 @@ export function ReorderControls({
         title={downTooltip}
         className={`${
           isSmall ? 'px-1 py-0.5 text-[8px]' : 'px-1.5 py-0.5 text-[10px]'
-        } font-bold text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-slate-800 rounded disabled:opacity-20 disabled:hover:bg-transparent transition-all`}
+        } font-bold text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-slate-800 rounded cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-all`}
       >
         ▼
       </button>

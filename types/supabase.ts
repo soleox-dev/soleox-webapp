@@ -460,6 +460,8 @@ export type Database = {
           is_user_editable: boolean | null
           notes: string | null
           parameter_key: string
+          section: string | null
+          dropdown_options: string[] | null
           parameter_name: string
           sort_order: number | null
           template_id: string
@@ -480,6 +482,8 @@ export type Database = {
           is_user_editable?: boolean | null
           notes?: string | null
           parameter_key: string
+          section?: string | null
+          dropdown_options?: string[] | null
           parameter_name: string
           sort_order?: number | null
           template_id: string
@@ -500,6 +504,8 @@ export type Database = {
           is_user_editable?: boolean | null
           notes?: string | null
           parameter_key?: string
+          section?: string | null
+          dropdown_options?: string[] | null
           parameter_name?: string
           sort_order?: number | null
           template_id?: string

@@ -17,6 +17,8 @@ interface TemplateParameter {
   autofill_formula?: string | null;
   is_user_editable?: boolean | null;
   sort_order?: number | null;
+  section?: string | null;
+  dropdown_options?: string[] | null;
 }
 
 interface AgentOption {
@@ -156,6 +158,17 @@ function resolveDefaults(
   });
 }
 
+function groupedParameterRows(rows: ParameterDefault[]): { name: string; rows: ParameterDefault[] }[] {
+  const groups: { name: string; rows: ParameterDefault[] }[] = [];
+  for (const row of rows) {
+    const name = row.parameter.section?.trim() || 'No Section';
+    const existing = groups.find((group) => group.name === name);
+    if (existing) existing.rows.push(row);
+    else groups.push({ name, rows: [row] });
+  }
+  return groups.sort((a, b) => Number(a.name === 'No Section') - Number(b.name === 'No Section'));
+}
+
 export function CommissionTemplatePanel({
   clientId,
   transactionId,
@@ -248,7 +261,9 @@ export function CommissionTemplatePanel({
   }, [popupOpen, draftTemplateId]);
 
   const rows = useMemo(() => resolveDefaults(parameters, deal, agents), [parameters, deal, agents]);
+  const groups = useMemo(() => groupedParameterRows(rows), [rows]);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [activeGroup, setActiveGroup] = useState('');
 
   useEffect(() => {
     const next: Record<string, string> = {};
@@ -256,12 +271,18 @@ export function CommissionTemplatePanel({
     setValues(next);
   }, [rows]);
 
+  useEffect(() => {
+    setActiveGroup('');
+  }, [draftTemplateId]);
+
   const closePopup = () => {
     setPopupOpen(false);
     setDraftTemplateId('');
   };
 
   const selectedTemplate = templates.find((template) => template.id === draftTemplateId);
+  const showGroupNav = groups.length > 1;
+  const visibleGroups = activeGroup ? groups.filter((group) => group.name === activeGroup) : groups;
 
   return (
     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xl space-y-3 text-xs transition-colors">
@@ -291,32 +312,89 @@ export function CommissionTemplatePanel({
 
       {popupOpen && createPortal(
         <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4">
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-2xl rounded-xl p-5 shadow-2xl space-y-3 max-h-[calc(100vh-2rem)] overflow-y-auto">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-2xl rounded-xl p-5 shadow-2xl flex flex-col max-h-[calc(100vh-2rem)]">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">{selectedTemplate?.template_name || 'Commission template'}</h3>
-            {loadError && <p className="text-xs text-rose-600 dark:text-rose-400">{loadError}</p>}
-            {isLoadingParameters ? (
-              <p className="text-xs text-slate-500">Loading parameters...</p>
-            ) : rows.length === 0 ? (
-              <p className="text-xs text-slate-500">This template has no parameters.</p>
-            ) : (
-              <div className="space-y-1">
-                {rows.map(({ parameter }) => (
-                  <div key={parameter.id} className="flex items-center justify-between gap-4">
-                    <label htmlFor={`template-parameter-${parameter.id}`} className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                      {parameter.parameter_name}
-                    </label>
-                    <input
-                      id={`template-parameter-${parameter.id}`}
-                      value={values[parameter.id] ?? ''}
-                      onChange={(event) => setValues((current) => ({ ...current, [parameter.id]: event.target.value }))}
-                      readOnly={parameter.is_user_editable === false}
-                      className="w-56 shrink-0 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 read-only:opacity-80"
-                    />
-                  </div>
+            {loadError && <p className="text-xs text-rose-600 dark:text-rose-400 mt-3">{loadError}</p>}
+            {showGroupNav && (
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveGroup('')}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${activeGroup === '' ? 'bg-emerald-500 text-slate-950' : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300'}`}
+                >
+                  All
+                </button>
+                {groups.map((group) => (
+                  <button
+                    key={group.name}
+                    type="button"
+                    onClick={() => setActiveGroup(group.name)}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${activeGroup === group.name ? 'bg-emerald-500 text-slate-950' : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300'}`}
+                  >
+                    {group.name}
+                  </button>
                 ))}
               </div>
             )}
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="mt-3 overflow-y-auto min-h-0 flex-1">
+              {isLoadingParameters ? (
+                <p className="text-xs text-slate-500">Loading parameters...</p>
+              ) : rows.length === 0 ? (
+                <p className="text-xs text-slate-500">This template has no parameters.</p>
+              ) : (
+                <div className="space-y-3">
+                  {visibleGroups.map((group) => {
+                    const isUnsectioned = group.name === 'No Section';
+                    return (
+                    <div key={group.name} className="space-y-1">
+                      <div className="border-b border-slate-300 dark:border-slate-700 pb-1.5 mb-1 flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${isUnsectioned ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                          Section: {group.name}
+                        </span>
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold ml-auto">
+                          {group.rows.length} {group.rows.length === 1 ? 'Parameter' : 'Parameters'}
+                        </span>
+                      </div>
+                      {group.rows.map(({ parameter }) => {
+                        const options = parameter.dropdown_options || [];
+                        const currentValue = values[parameter.id] ?? '';
+                        const selectOptions = currentValue && !options.includes(currentValue) ? [currentValue, ...options] : options;
+                        return (
+                        <div key={parameter.id} className="flex items-center justify-between gap-4">
+                          <label htmlFor={`template-parameter-${parameter.id}`} className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                            {parameter.parameter_name}
+                          </label>
+                          {parameter.data_type === 'SELECT' ? (
+                            <select
+                              id={`template-parameter-${parameter.id}`}
+                              value={currentValue}
+                              onChange={(event) => setValues((current) => ({ ...current, [parameter.id]: event.target.value }))}
+                              disabled={parameter.is_user_editable === false}
+                              className="w-56 shrink-0 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 disabled:opacity-80"
+                            >
+                              <option value=""></option>
+                              {selectOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                            </select>
+                          ) : (
+                          <input
+                            id={`template-parameter-${parameter.id}`}
+                            value={currentValue}
+                            onChange={(event) => setValues((current) => ({ ...current, [parameter.id]: event.target.value }))}
+                            readOnly={parameter.is_user_editable === false}
+                            className="w-56 shrink-0 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 read-only:opacity-80"
+                          />
+                          )}
+                        </div>
+                        );
+                      })}
+                    </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 pt-3">
               <button type="button" onClick={closePopup} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer">Close</button>
               <button type="button" disabled title="Split calculations are not available yet." className="px-4 py-1.5 text-xs font-bold rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed">Submit</button>
             </div>

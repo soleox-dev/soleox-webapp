@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ReorderControls } from '@/components/ui/reorder-controls';
+import { EditPencil } from '@/components/ui/edit-pencil';
 import { DB_TRANSACTION_COLUMNS, DB_AGENT_COLUMNS } from '@/lib/fields';
 
 type FieldType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
@@ -1750,9 +1751,7 @@ export default function FieldCustomizationsPage() {
                                 className="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
                                 title={`Rename "${opt}" across all records`}
                               >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                </svg>
+                                <EditPencil />
                               </button>
                               <ReorderControls
                                 size="sm"
@@ -1891,7 +1890,7 @@ export default function FieldCustomizationsPage() {
             <div className="flex justify-between items-start border-b border-slate-200 dark:border-slate-700 pb-3">
               <div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <span className="text-amber-500">✏️</span> Rename Dropdown Value
+                  <EditPencil className="w-3.5 h-3.5 text-slate-400" /> Rename Dropdown Value
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Field: <strong className="text-slate-800 dark:text-slate-200">{formData.field_label || 'Select Field'}</strong>

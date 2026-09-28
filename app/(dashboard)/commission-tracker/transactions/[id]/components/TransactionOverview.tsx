@@ -12,6 +12,7 @@ import {
   DecimalInput,
 } from './DecimalInput';
 import { normalizeAgentName } from '@/lib/id';
+import { EditPencil } from '@/components/ui/edit-pencil';
 
 interface TransactionOverviewProps {
   isCollapsed: boolean;
@@ -177,7 +178,7 @@ export function TransactionOverview({
               onClick={onStartEdit}
               className="text-xs bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer"
             >
-              <span>✏️</span> Edit Transaction Overview
+              <EditPencil /> Edit Transaction Overview
             </button>
           ) : (
             <div className="flex items-center gap-2">

@@ -66,6 +66,10 @@ export async function POST(request: Request) {
       autofill_formula: param.autofill_formula ? String(param.autofill_formula) : null,
       validation_rule: param.validation_rule ? String(param.validation_rule) : null,
       notes: param.notes ? String(param.notes) : null,
+      section: param.section ? String(param.section).trim() : null,
+      dropdown_options: Array.isArray(param.dropdown_options)
+        ? param.dropdown_options.map((option: unknown) => String(option).trim()).filter(Boolean)
+        : null,
       sort_order: param.sort_order !== undefined ? Number(param.sort_order) : 0,
       is_required: param.is_required !== undefined ? Boolean(param.is_required) : false,
       is_user_editable: param.is_user_editable !== undefined ? Boolean(param.is_user_editable) : true,
@@ -96,10 +100,12 @@ export async function POST(request: Request) {
     }
 
     let { data, error } = await query;
-    if (error?.message?.includes('schema cache')) {
-      delete rowPayload.is_required;
-      delete rowPayload.validation_rule;
-      delete rowPayload.notes;
+    const omittedColumns = new Set<string>();
+    while (error?.message?.includes('schema cache')) {
+      const missingColumn = error.message.match(/Could not find the '([^']+)' column/)?.[1];
+      if (!missingColumn || omittedColumns.has(missingColumn) || !(missingColumn in rowPayload)) break;
+      omittedColumns.add(missingColumn);
+      delete rowPayload[missingColumn];
       const retry = isUpdate
         ? supabase.from('commission_template_parameters').upsert(rowPayload, { onConflict: 'id' }).select()
         : supabase.from('commission_template_parameters').insert(rowPayload).select();

@@ -322,9 +322,12 @@ export function FormulaEditor({
   });
 
   return (
-    <div className="mt-1 space-y-2">
-      <div className="flex items-center justify-between">
-        <FormulaExplain value={value} names={names} />
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[11px] font-bold text-slate-500">Formula</span>
+          <FormulaExplain value={value} names={names} />
+        </div>
         <button
           type="button"
           onClick={() => {
@@ -336,7 +339,7 @@ export function FormulaEditor({
             setBoxHeight(needed);
             setExpanded(true);
           }}
-          className="ml-auto text-[11px] font-bold text-emerald-700 dark:text-emerald-400 cursor-pointer"
+          className="shrink-0 px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
         >
           {expanded ? 'Collapse' : 'Expand'}
         </button>
