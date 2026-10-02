@@ -47,3 +47,34 @@ html.dark select:not([multiple]):not([size]),
 html.dark input.dropdown-chevron {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23cbd5e1' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
+
+select.parameter-locked:not([multiple]):not([size]) {
+  background-image: none;
+  padding-inline-end: 0.5rem;
+}
+
+select.parameter-locked:disabled,
+input.parameter-locked:disabled,
+input.parameter-locked:read-only {
+  opacity: 1;
+  color: #0369a1;
+  -webkit-text-fill-color: #0369a1;
+}
+
+html.dark select.parameter-locked:not([multiple]):not([size]) {
+  background-image: none;
+  padding-inline-end: 0.5rem;
+}
+
+html.dark select.parameter-locked:disabled,
+html.dark input.parameter-locked:disabled,
+html.dark input.parameter-locked:read-only {
+  opacity: 1;
+  color: #7dd3fc;
+  -webkit-text-fill-color: #7dd3fc;
+}
+
+input.parameter-locked[type="date"]::-webkit-calendar-picker-indicator {
+  display: none;
+  -webkit-appearance: none;
+}

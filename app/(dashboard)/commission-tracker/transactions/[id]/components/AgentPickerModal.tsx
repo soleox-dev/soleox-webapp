@@ -202,7 +202,7 @@ export function AgentPickerModal({
                 }`}>
                   {splitType === 'PERCENT'
                     ? `≈ ${formatCurrency(commissionAfterOffTop * (numericVal > 1 ? numericVal / 100 : numericVal))}`
-                    : `≈ ${((numericVal / commissionAfterOffTop) * 100).toFixed(1)}% of net commission`}
+                    : `≈ ${((numericVal / commissionAfterOffTop) * 100).toFixed(2)}% of net commission`}
                 </span>
               )}
             </div>

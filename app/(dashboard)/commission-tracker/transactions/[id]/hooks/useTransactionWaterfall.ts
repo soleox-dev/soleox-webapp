@@ -4,6 +4,7 @@ import {
   DynamicRule,
   FieldSetting,
   roundCurrency,
+  roundPercentRate,
   evaluateFormula,
 } from '../types';
 import { normalizeAgentName } from '@/lib/id';
@@ -87,45 +88,52 @@ export function useTransactionWaterfall({
     const totalPreSplit = preSplitCalculated.reduce((sum, r) => sum + r.amount, 0);
     const netToSplit = roundCurrency(Math.max(0, netOffTopComm - totalPreSplit));
 
-    // 3. Agent Splits (from Net Commission after Pre-Splits)
-    let totalSecondarySplitDollars = 0;
+    // 3. Agent Splits (from Net Commission after Pre-Splits).
+    // Secondary splits are allocated left to right. A split that asks for more
+    // than the commission still left is kept on screen and flagged, but only the
+    // remainder is paid so the primary balance cannot go negative.
+    let remainingSplitDollars = netToSplit;
     const splitCalculated: any[] = [];
 
     agents.forEach((ag, idx) => {
       if (idx === 0) return;
 
-      let dollarAmt = 0;
-      let effectivePerc = 0;
+      let requested = 0;
+      let requestedRate = 0;
 
       if (ag.splitType === 'PERCENT') {
         const rate = ag.splitVal > 1 ? ag.splitVal / 100 : ag.splitVal;
-        const cleanRate = Number(rate.toFixed(4));
-        dollarAmt = roundCurrency(netToSplit * cleanRate);
-        effectivePerc = cleanRate;
+        requestedRate = roundPercentRate(rate);
+        requested = roundCurrency(netToSplit * requestedRate);
       } else {
-        dollarAmt = roundCurrency(ag.splitVal);
-        effectivePerc = netToSplit > 0 ? Number((dollarAmt / netToSplit).toFixed(4)) : 0;
+        requested = roundCurrency(Math.max(0, ag.splitVal));
+        requestedRate = netToSplit > 0 ? roundPercentRate(requested / netToSplit) : 0;
       }
 
-      totalSecondarySplitDollars += dollarAmt;
+      const room = roundCurrency(Math.max(0, remainingSplitDollars));
+      const overAllocated = requested > room + 0.009;
+      const dollarAmt = roundCurrency(Math.min(requested, room));
+      remainingSplitDollars = roundCurrency(room - dollarAmt);
 
       splitCalculated.push({
         agentId: ag.id,
         agentName: ag.name,
         splitType: ag.splitType,
         splitVal: ag.splitVal,
-        percent: effectivePerc,
+        percent: requestedRate,
         amount: dollarAmt,
+        overAllocated,
         isPrimary: false,
       });
     });
 
-    const primaryDollarAmt = roundCurrency(Math.max(0, netToSplit - totalSecondarySplitDollars));
+    const primaryDollarAmt = roundCurrency(Math.max(0, remainingSplitDollars));
     const allSecondaryArePercent = agents.slice(1).every((a) => a.splitType === 'PERCENT');
+    const splitsExceedPool = splitCalculated.some((s) => s.overAllocated);
     const totalSecondaryPercent = splitCalculated.reduce((sum, s) => sum + (s.splitType === 'PERCENT' ? s.percent : 0), 0);
-    const primaryEffectivePerc = allSecondaryArePercent && agents.length > 1
-      ? Math.max(0, Number((1 - totalSecondaryPercent).toFixed(4)))
-      : (netToSplit > 0 ? Number((primaryDollarAmt / netToSplit).toFixed(4)) : 0);
+    const primaryEffectivePerc = !splitsExceedPool && allSecondaryArePercent && agents.length > 1
+      ? Math.max(0, roundPercentRate(1 - totalSecondaryPercent))
+      : (netToSplit > 0 ? roundPercentRate(primaryDollarAmt / netToSplit) : 0);
 
     if (agents.length > 0) {
       splitCalculated.unshift({

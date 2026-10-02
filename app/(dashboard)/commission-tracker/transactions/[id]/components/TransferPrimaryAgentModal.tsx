@@ -71,7 +71,7 @@ export function TransferPrimaryAgentModal({
             <div className="flex justify-between items-center">
               <span>Primary Agent Split:</span>
               <span className="font-semibold text-slate-900 dark:text-white">
-                {primarySplitPercent.toFixed(1)}%
+                {(primarySplitPercent ?? 0).toFixed(2)}%
               </span>
             </div>
             <div className="flex justify-between items-center">

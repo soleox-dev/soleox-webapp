@@ -114,6 +114,10 @@ export const roundCurrency = (num: number): number => {
   return Math.round((num + Number.EPSILON) * 100) / 100;
 };
 
+export function roundPercentRate(rate: number): number {
+  return Number(Number(rate).toFixed(7));
+}
+
 export const formatPercent = (val: any, decimals: number = 3): string => {
   if (val === undefined || val === null || val === '') return '—';
   const num = Number(val);

@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { evaluateFormula, formulaValueToInput, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
+import { normalizeAgentName } from '@/lib/id';
 
 interface TemplateOption {
   id: string;
@@ -62,6 +63,193 @@ function displayValue(dataType: string | null | undefined, raw: string): string 
   if (dataType === 'CURRENCY') return formatMoney(raw);
   if (dataType === 'PERCENT') return raw.endsWith('%') ? raw : `${raw}%`;
   return raw;
+}
+
+type ParameterControlType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
+
+const parameterControlClass =
+  'w-56 shrink-0 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 group-focus-within/field:bg-transparent dark:group-focus-within/field:bg-transparent';
+
+const lockedParameterClass =
+  'parameter-locked w-56 shrink-0 border border-transparent bg-transparent rounded-lg px-2 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300 cursor-default focus:outline-none';
+
+function controlClass(locked: boolean): string {
+  return locked ? lockedParameterClass : parameterControlClass;
+}
+
+function canonicalParameterType(value?: string | null): ParameterControlType {
+  if (value === 'AGENT') return 'AGENT_PICKER';
+  if (value === 'YES_NO') return 'BOOLEAN';
+  if (
+    value === 'TEXT' ||
+    value === 'NUMBER' ||
+    value === 'CURRENCY' ||
+    value === 'PERCENT' ||
+    value === 'DATE' ||
+    value === 'SELECT' ||
+    value === 'AGENT_PICKER' ||
+    value === 'BOOLEAN'
+  ) {
+    return value;
+  }
+  return 'CURRENCY';
+}
+
+function numericCore(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  const core = trimmed.replace(/[$,]/g, '').replace(/%$/, '').trim();
+  if (!/^-?\d+(\.\d+)?$/.test(core)) return null;
+  return core;
+}
+
+function formatCommitted(kind: 'CURRENCY' | 'PERCENT' | 'NUMBER', core: string): string {
+  if (!core) return '';
+  const amount = Number(core);
+  if (!Number.isFinite(amount)) return '';
+  if (kind === 'CURRENCY') {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  }
+  const clean = Number(Math.round(Number(amount + 'e8')) + 'e-8');
+  return kind === 'PERCENT' ? `${clean}%` : String(clean);
+}
+
+function NumericParameterInput({
+  id,
+  kind,
+  value,
+  readOnly,
+  onChange,
+}: {
+  id: string;
+  kind: 'CURRENCY' | 'PERCENT' | 'NUMBER';
+  value: string;
+  readOnly: boolean;
+  onChange: (next: string) => void;
+}) {
+  const core = numericCore(value);
+  const shown = core === null ? value : formatCommitted(kind, core);
+  const [focused, setFocused] = useState(false);
+  const [draft, setDraft] = useState(core ?? value);
+
+  useEffect(() => {
+    if (!focused) setDraft(core ?? value);
+  }, [focused, core, value]);
+
+  return (
+    <input
+      id={id}
+      inputMode="decimal"
+      readOnly={readOnly}
+      value={focused ? draft : shown}
+      onFocus={() => {
+        setDraft(core ?? value);
+        setFocused(true);
+      }}
+      onBlur={() => {
+        setFocused(false);
+        if (readOnly) return;
+        const nextCore = numericCore(draft);
+        if (nextCore === null) {
+          setDraft(core ?? value);
+          return;
+        }
+        const next = formatCommitted(kind, nextCore);
+        if (next !== value) onChange(next);
+      }}
+      onChange={(event) => {
+        if (readOnly) return;
+        let raw = event.target.value.replace(/[$,%\s]/g, '');
+        if (kind === 'CURRENCY' && raw.includes('.')) {
+          const [integer, decimals] = raw.split('.');
+          if (decimals && decimals.length > 2) raw = `${integer}.${decimals.slice(0, 2)}`;
+        }
+        if (raw === '' || /^-?\d*\.?\d*$/.test(raw)) setDraft(raw);
+      }}
+      className={controlClass(readOnly)}
+    />
+  );
+}
+
+function ParameterControl({
+  parameter,
+  value,
+  agents,
+  onChange,
+}: {
+  parameter: TemplateParameter;
+  value: string;
+  agents: AgentOption[];
+  onChange: (next: string) => void;
+}) {
+  const control = canonicalParameterType(parameter.data_type);
+  const locked = parameter.is_user_editable === false;
+  const id = `template-parameter-${parameter.id}`;
+
+  if (control === 'SELECT') {
+    const options = parameter.dropdown_options || [];
+    const selectOptions = value && !options.includes(value) ? [value, ...options] : options;
+    return (
+      <select id={id} value={value} disabled={locked} onChange={(event) => onChange(event.target.value)} className={controlClass(locked)}>
+        <option value=""></option>
+        {selectOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+      </select>
+    );
+  }
+
+  if (control === 'AGENT_PICKER') {
+    const matched = agents.find((agent) => (
+      agent.id === value ||
+      agent.name === value ||
+      normalizeAgentName(agent.name).toLowerCase() === normalizeAgentName(value).toLowerCase()
+    ));
+    const choices = matched || !value ? agents : [{ id: value, name: value }, ...agents];
+    return (
+      <select
+        id={id}
+        value={matched?.id || (value ? value : '')}
+        disabled={locked}
+        onChange={(event) => {
+          const agent = choices.find((item) => item.id === event.target.value);
+          onChange(agent?.name || '');
+        }}
+        className={controlClass(locked)}
+      >
+        <option value=""></option>
+        {choices.map((agent) => (
+          <option key={agent.id} value={agent.id}>
+            {agent.name}{agent.isTeamLead ? ' (Team Lead)' : ''}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  if (control === 'BOOLEAN') {
+    const yesNo = value === 'Yes' || value === 'No' ? value : '';
+    return (
+      <select id={id} value={yesNo} disabled={locked} onChange={(event) => onChange(event.target.value)} className={controlClass(locked)}>
+        <option value=""></option>
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+      </select>
+    );
+  }
+
+  if (control === 'DATE') {
+    const date = /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : '';
+    return (
+      <input id={id} type="date" value={date} disabled={locked} onChange={(event) => onChange(event.target.value)} className={controlClass(locked)} />
+    );
+  }
+
+  if (control === 'CURRENCY' || control === 'PERCENT' || control === 'NUMBER') {
+    return <NumericParameterInput id={id} kind={control} value={value} readOnly={locked} onChange={onChange} />;
+  }
+
+  return (
+    <input id={id} value={value} readOnly={locked} onChange={(event) => onChange(event.target.value)} className={controlClass(locked)} />
+  );
 }
 
 function defaultFromFormula(
@@ -262,8 +450,20 @@ export function CommissionTemplatePanel({
 
   const rows = useMemo(() => resolveDefaults(parameters, deal, agents), [parameters, deal, agents]);
   const groups = useMemo(() => groupedParameterRows(rows), [rows]);
+  const uniqueAgents = useMemo(() => {
+    const seen = new Set<string>();
+    const list: AgentOption[] = [];
+    for (const agent of agents) {
+      const norm = normalizeAgentName(agent.name || '').trim().toLowerCase();
+      if (!norm || seen.has(norm)) continue;
+      seen.add(norm);
+      list.push(agent);
+    }
+    return list;
+  }, [agents]);
   const [values, setValues] = useState<Record<string, string>>({});
   const [activeGroup, setActiveGroup] = useState('');
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const next: Record<string, string> = {};
@@ -273,7 +473,12 @@ export function CommissionTemplatePanel({
 
   useEffect(() => {
     setActiveGroup('');
+    setCollapsedSections({});
   }, [draftTemplateId]);
+
+  const toggleSection = (name: string) => {
+    setCollapsedSections((current) => ({ ...current, [name]: !current[name] }));
+  };
 
   const closePopup = () => {
     setPopupOpen(false);
@@ -328,7 +533,10 @@ export function CommissionTemplatePanel({
                   <button
                     key={group.name}
                     type="button"
-                    onClick={() => setActiveGroup(group.name)}
+                    onClick={() => {
+                      setActiveGroup(group.name);
+                      setCollapsedSections((current) => ({ ...current, [group.name]: false }));
+                    }}
                     className={`px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${activeGroup === group.name ? 'bg-emerald-500 text-slate-950' : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300'}`}
                   >
                     {group.name}
@@ -345,49 +553,44 @@ export function CommissionTemplatePanel({
                 <div className="space-y-3">
                   {visibleGroups.map((group) => {
                     const isUnsectioned = group.name === 'No Section';
+                    const isCollapsed = collapsedSections[group.name] === true;
                     return (
-                    <div key={group.name} className="space-y-1">
-                      <div className="border-b border-slate-300 dark:border-slate-700 pb-1.5 mb-1 flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${isUnsectioned ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                        <span className={`text-[10px] font-bold uppercase tracking-wider ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                          Section: {group.name}
-                        </span>
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold ml-auto">
+                    <div key={group.name} className={`rounded-lg border bg-slate-100 dark:bg-slate-900/80 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-slate-200 dark:border-slate-700'}`}>
+                      <div className={`px-3 py-2 flex items-center gap-2 ${isCollapsed ? '' : 'border-b border-slate-200 dark:border-slate-700'}`}>
+                        <button
+                          type="button"
+                          onClick={() => toggleSection(group.name)}
+                          title={isCollapsed ? 'Expand Section' : 'Collapse Section'}
+                          className="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
+                        >
+                          <span className={`w-3 shrink-0 text-center text-sm font-bold leading-none ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                            {isCollapsed ? '+' : '−'}
+                          </span>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                            {group.name}
+                          </span>
+                        </button>
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold">
                           {group.rows.length} {group.rows.length === 1 ? 'Parameter' : 'Parameters'}
                         </span>
                       </div>
-                      {group.rows.map(({ parameter }) => {
-                        const options = parameter.dropdown_options || [];
-                        const currentValue = values[parameter.id] ?? '';
-                        const selectOptions = currentValue && !options.includes(currentValue) ? [currentValue, ...options] : options;
-                        return (
-                        <div key={parameter.id} className="flex items-center justify-between gap-4">
-                          <label htmlFor={`template-parameter-${parameter.id}`} className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                            {parameter.parameter_name}
-                          </label>
-                          {parameter.data_type === 'SELECT' ? (
-                            <select
-                              id={`template-parameter-${parameter.id}`}
-                              value={currentValue}
-                              onChange={(event) => setValues((current) => ({ ...current, [parameter.id]: event.target.value }))}
-                              disabled={parameter.is_user_editable === false}
-                              className="w-56 shrink-0 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 disabled:opacity-80"
-                            >
-                              <option value=""></option>
-                              {selectOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-                            </select>
-                          ) : (
-                          <input
-                            id={`template-parameter-${parameter.id}`}
-                            value={currentValue}
-                            onChange={(event) => setValues((current) => ({ ...current, [parameter.id]: event.target.value }))}
-                            readOnly={parameter.is_user_editable === false}
-                            className="w-56 shrink-0 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 read-only:opacity-80"
-                          />
-                          )}
+                      {!isCollapsed && (
+                        <div className="px-3 py-2 space-y-1">
+                          {group.rows.map(({ parameter }) => (
+                            <div key={parameter.id} className="group/field flex items-center justify-between gap-4 rounded transition-colors focus-within:bg-emerald-50 dark:focus-within:bg-emerald-500/10">
+                              <label htmlFor={`template-parameter-${parameter.id}`} className={`text-xs font-bold transition-colors ${parameter.is_user_editable === false ? 'text-sky-700 dark:text-sky-300 group-focus-within/field:text-sky-600 dark:group-focus-within/field:text-sky-200' : 'text-slate-700 dark:text-slate-200 group-focus-within/field:text-emerald-700 dark:group-focus-within/field:text-emerald-300'}`}>
+                                {parameter.parameter_name}
+                              </label>
+                              <ParameterControl
+                                parameter={parameter}
+                                value={values[parameter.id] ?? ''}
+                                agents={uniqueAgents}
+                                onChange={(next) => setValues((current) => ({ ...current, [parameter.id]: next }))}
+                              />
+                            </div>
+                          ))}
                         </div>
-                        );
-                      })}
+                      )}
                     </div>
                     );
                   })}

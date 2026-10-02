@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { AgentConfig, DynamicRule, ToastNotification, roundCurrency, KnownAgentInfo } from './types';
+import { AgentConfig, DynamicRule, ToastNotification, roundCurrency, roundPercentRate, KnownAgentInfo } from './types';
 
 // Custom Hooks
 import { useTransactionData } from './hooks/useTransactionData';
@@ -16,6 +16,7 @@ import { SearchableTransactionPicker } from './components/SearchableTransactionP
 import { LeftSidebar } from './components/LeftSidebar';
 import { TransactionOverview } from './components/TransactionOverview';
 import { CommissionWaterfall } from './components/CommissionWaterfall';
+import { orderRulesByEntities } from './components/CommissionWaterfallTable';
 import { FinalDisbursements } from './components/FinalDisbursements';
 import { RequiredFieldsModal } from './components/RequiredFieldsModal';
 import { AgentPickerModal } from './components/AgentPickerModal';
@@ -47,6 +48,19 @@ export default function Dashboard() {
 
   const [activeTab, setActiveTab] = useState<'overview' | 'commission' | 'disbursements'>('overview');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ overview: false, commission: false, disbursements: false });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (window.localStorage.getItem('soleox-txn-sidebar-collapsed') === '1') setSidebarCollapsed(true);
+  }, []);
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      window.localStorage.setItem('soleox-txn-sidebar-collapsed', next ? '1' : '0');
+      return next;
+    });
+  };
   const isProgrammaticScrollRef = useRef(false);
   const toggleSection = (key: string) => setCollapsed((p) => ({ ...p, [key]: !p[key] }));
 
@@ -697,7 +711,7 @@ export default function Dashboard() {
         const splitType = item.type || 'PERCENT';
         const cleanVal = item.value !== undefined && item.value !== null
           ? (splitType === 'PERCENT'
-              ? Number((item.value > 1 ? item.value / 100 : item.value).toFixed(4))
+              ? roundPercentRate(item.value > 1 ? item.value / 100 : item.value)
               : roundCurrency(Number(item.value)))
           : null;
         return {
@@ -720,7 +734,7 @@ export default function Dashboard() {
         const splitType = item.type || 'PERCENT';
         const cleanVal = item.value !== undefined && item.value !== null
           ? (splitType === 'PERCENT'
-              ? Number((item.value > 1 ? item.value / 100 : item.value).toFixed(4))
+              ? roundPercentRate(item.value > 1 ? item.value / 100 : item.value)
               : roundCurrency(Number(item.value)))
           : null;
         return {
@@ -750,7 +764,7 @@ export default function Dashboard() {
             : (item.splitVal !== undefined && item.splitVal !== null
                 ? (item.splitVal > 1 ? item.splitVal / 100 : item.splitVal)
                 : null);
-          cleanSplitVal = raw !== null ? Number(Number(raw).toFixed(4)) : null;
+          cleanSplitVal = raw !== null ? roundPercentRate(Number(raw)) : null;
         } else {
           cleanSplitVal = item.splitVal !== undefined && item.splitVal !== null
             ? roundCurrency(Number(item.splitVal))
@@ -778,7 +792,7 @@ export default function Dashboard() {
         const splitType = item.type || 'PERCENT';
         const cleanVal = item.value !== undefined && item.value !== null
           ? (splitType === 'PERCENT'
-              ? Number((item.value > 1 ? item.value / 100 : item.value).toFixed(4))
+              ? roundPercentRate(item.value > 1 ? item.value / 100 : item.value)
               : roundCurrency(Number(item.value)))
           : null;
         return {
@@ -802,7 +816,7 @@ export default function Dashboard() {
         const splitType = item.type || 'PERCENT';
         const cleanVal = item.value !== undefined && item.value !== null
           ? (splitType === 'PERCENT'
-              ? Number((item.value > 1 ? item.value / 100 : item.value).toFixed(4))
+              ? roundPercentRate(item.value > 1 ? item.value / 100 : item.value)
               : roundCurrency(Number(item.value)))
           : null;
         return {
@@ -1026,7 +1040,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6 relative">
+    <div className={`p-8 mx-auto space-y-6 relative ${sidebarCollapsed ? 'max-w-[100rem]' : 'max-w-7xl'}`}>
       {toast && <div className="fixed top-5 right-5 z-50 px-4 py-3 bg-slate-900 text-white rounded-xl shadow-xl">{toast.message}</div>}
 
       <HeaderCard
@@ -1069,7 +1083,7 @@ export default function Dashboard() {
         dropdownRef={dropdownRef}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] gap-6 items-start">
         <LeftSidebar
           activeTab={activeTab}
           scrollToSection={scrollToSection}
@@ -1085,9 +1099,11 @@ export default function Dashboard() {
           transactionId={selectedDeal?.id || dealId || ''}
           deal={selectedDeal}
           templateAgents={knownAgents.map((agent) => ({ id: agent.id, name: agent.name, isTeamLead: agent.isTeamLead }))}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={toggleSidebar}
         />
 
-        <div className="lg:col-span-9 space-y-8">
+        <div className="min-w-0 space-y-8">
           <TransactionOverview
             isCollapsed={collapsed.overview}
             onToggleSection={() => toggleSection('overview')}
@@ -1191,7 +1207,7 @@ export default function Dashboard() {
               if (a.id !== id) return a;
               const newType = a.splitType === 'PERCENT' ? 'AMOUNT' : 'PERCENT';
               const normalizedVal = (a.splitType === 'PERCENT' && a.splitVal <= 1 && a.splitVal > 0)
-                ? Number((a.splitVal * 100).toFixed(4))
+                ? Number((a.splitVal * 100).toFixed(5))
                 : a.splitVal;
               return { ...a, splitType: newType, splitVal: normalizedVal };
             }))}
@@ -1204,7 +1220,7 @@ export default function Dashboard() {
               if (r.id !== id) return r;
               const newType = r.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT';
               const normalizedVal = (r.type === 'PERCENT' && r.value <= 1 && r.value > 0)
-                ? Number((r.value * 100).toFixed(4))
+                ? Number((r.value * 100).toFixed(5))
                 : r.value;
               return { ...r, type: newType, value: normalizedVal };
             }))}
@@ -1227,7 +1243,7 @@ export default function Dashboard() {
               if (r.id !== id) return r;
               const newType = r.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT';
               const normalizedVal = (r.type === 'PERCENT' && r.value <= 1 && r.value > 0)
-                ? Number((r.value * 100).toFixed(4))
+                ? Number((r.value * 100).toFixed(5))
                 : r.value;
               return { ...r, type: newType, value: normalizedVal };
             }))}
@@ -1261,7 +1277,7 @@ export default function Dashboard() {
                 if (r.id !== id) return r;
                 const newType = r.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT';
                 const normalizedVal = (r.type === 'PERCENT' && r.value <= 1 && r.value > 0)
-                  ? Number((r.value * 100).toFixed(4))
+                  ? Number((r.value * 100).toFixed(5))
                   : r.value;
                 return { ...r, type: newType, value: normalizedVal };
               })
@@ -1279,6 +1295,9 @@ export default function Dashboard() {
                 return { ...prev, [agentName]: next };
               });
             }}
+            onReorderPostSplitEntities={(entityOrder) => {
+              setPostSplitRulesByAgent((prev) => orderRulesByEntities(prev, entityOrder));
+            }}
             postSplit2RulesByAgent={postSplit2RulesByAgent}
             onAddAgentPostSplit2Rule={(name, rule) => setPostSplit2RulesByAgent((p) => ({ ...p, [name]: [...(p[name] || []), rule] }))}
             onDeleteAgentPostSplit2Rule={(name, id) => setPostSplit2RulesByAgent((p) => ({ ...p, [name]: (p[name] || []).filter((r) => r.id !== id) }))}
@@ -1288,7 +1307,7 @@ export default function Dashboard() {
                 if (r.id !== id) return r;
                 const newType = r.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT';
                 const normalizedVal = (r.type === 'PERCENT' && r.value <= 1 && r.value > 0)
-                  ? Number((r.value * 100).toFixed(4))
+                  ? Number((r.value * 100).toFixed(5))
                   : r.value;
                 return { ...r, type: newType, value: normalizedVal };
               })
@@ -1305,6 +1324,9 @@ export default function Dashboard() {
                 next.splice(toIndex, 0, moved);
                 return { ...prev, [agentName]: next };
               });
+            }}
+            onReorderPostSplit2Entities={(entityOrder) => {
+              setPostSplit2RulesByAgent((prev) => orderRulesByEntities(prev, entityOrder));
             }}
             knownEntities={knownEntities}
             knownAgents={knownAgents}
@@ -1392,7 +1414,7 @@ export default function Dashboard() {
             const rate = splitType === 'PERCENT' ? (splitVal > 1 ? splitVal / 100 : splitVal) : (baselinePool > 0 ? splitVal / baselinePool : 0);
             const primaryRate = (primary.splitVal > 1 ? primary.splitVal / 100 : primary.splitVal);
             const remainingRate = Math.max(0, primaryRate - rate);
-            const newPrimaryVal = primary.splitVal > 1 ? Number((remainingRate * 100).toFixed(4)) : Number(remainingRate.toFixed(4));
+            const newPrimaryVal = primary.splitVal > 1 ? Number((remainingRate * 100).toFixed(5)) : roundPercentRate(remainingRate);
             return [{ ...primary, splitVal: newPrimaryVal }, ...prev.slice(1), newAgent];
           });
 

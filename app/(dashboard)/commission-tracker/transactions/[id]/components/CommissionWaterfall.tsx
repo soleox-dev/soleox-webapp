@@ -1,8 +1,10 @@
 // app/commission-tracker/transactions/[id]/components/CommissionWaterfall.tsx
 import React, { useEffect, useState } from 'react';
-import { AgentConfig, DynamicRule, CommissionEntityOption, KnownAgentInfo, formatPercentageClean } from '../types';
-import { DecimalInput } from './DecimalInput';
+import { AgentConfig, DynamicRule, CommissionEntityOption, KnownAgentInfo } from '../types';
+import { CommissionWaterfallTable } from './CommissionWaterfallTable';
+import { SplitPair } from './SplitPair';
 import { EditPencil } from '@/components/ui/edit-pencil';
+import { SectionIcon } from './SectionIcon';
 
 interface CommissionWaterfallProps {
   isCollapsed: boolean;
@@ -42,6 +44,7 @@ interface CommissionWaterfallProps {
   onUpdateAgentPostSplitEntity?: (agentName: string, ruleId: string, entity: string) => void;
   onUpdateAgentPostSplitNote?: (agentName: string, ruleId: string, note: string) => void;
   onReorderAgentPostSplitRules?: (agentName: string, fromIndex: number, toIndex: number) => void;
+  onReorderPostSplitEntities?: (entityOrder: string[]) => void;
   postSplit2RulesByAgent?: Record<string, DynamicRule[]>;
   onAddAgentPostSplit2Rule?: (agentName: string, rule: DynamicRule) => void;
   onDeleteAgentPostSplit2Rule?: (agentName: string, ruleId: string) => void;
@@ -50,6 +53,7 @@ interface CommissionWaterfallProps {
   onUpdateAgentPostSplit2Entity?: (agentName: string, ruleId: string, entity: string) => void;
   onUpdateAgentPostSplit2Note?: (agentName: string, ruleId: string, note: string) => void;
   onReorderAgentPostSplit2Rules?: (agentName: string, fromIndex: number, toIndex: number) => void;
+  onReorderPostSplit2Entities?: (entityOrder: string[]) => void;
   onReorderAgents?: (fromIndex: number, toIndex: number) => void;
   knownEntities?: CommissionEntityOption[];
   knownAgents?: KnownAgentInfo[];
@@ -95,6 +99,7 @@ export function CommissionWaterfall({
   onUpdateAgentPostSplitEntity,
   onUpdateAgentPostSplitNote,
   onReorderAgentPostSplitRules,
+  onReorderPostSplitEntities,
   postSplit2RulesByAgent = {},
   onAddAgentPostSplit2Rule,
   onDeleteAgentPostSplit2Rule,
@@ -103,11 +108,11 @@ export function CommissionWaterfall({
   onUpdateAgentPostSplit2Entity,
   onUpdateAgentPostSplit2Note,
   onReorderAgentPostSplit2Rules,
+  onReorderPostSplit2Entities,
   onReorderAgents,
   knownEntities = [],
   knownAgents = [],
   preventMinus,
-  formatNumberWithCommas,
 }: CommissionWaterfallProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -115,7 +120,19 @@ export function CommissionWaterfall({
   const baselineTotalCommission = dealResult.totalCommission || dealResult.grossCommission || 0;
   const commissionAfterOffTop = dealResult.commissionAfterOffTop ?? 0;
   const commissionAfterPreSplit = dealResult.commissionAfterPreSplit ?? commissionAfterOffTop;
+  const agentSplitsExceedPool = (dealResult.agentSplitItems || []).some((item: { overAllocated?: boolean }) => item.overAllocated);
   const agentNames = agents.map((a) => a.name);
+  const [agentLayout, setAgentLayout] = useState<'table' | 'cards'>('table');
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem('soleox-waterfall-agent-layout');
+    if (saved === 'cards' || saved === 'table') setAgentLayout(saved);
+  }, []);
+
+  const chooseAgentLayout = (next: 'table' | 'cards') => {
+    setAgentLayout(next);
+    window.localStorage.setItem('soleox-waterfall-agent-layout', next);
+  };
 
   // 1. Off-the-Top Inline Form State
   const [isAddingOffTop, setIsAddingOffTop] = useState(false);
@@ -153,29 +170,6 @@ export function CommissionWaterfall({
       setAddingPostSplit2ForAgent(null);
     }
   }, [isEditing]);
-
-  const renderReadonlySplitValue = (type: 'PERCENT' | 'AMOUNT', value: number) => (
-    <div className="flex items-center gap-1.5">
-      <span
-        className={`w-7 h-7 inline-flex items-center justify-center rounded-md font-bold text-xs border shrink-0 ${
-          type === 'PERCENT'
-            ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700/80'
-            : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700/80'
-        }`}
-      >
-        {type === 'PERCENT' ? '%' : '$'}
-      </span>
-      <span
-        className={`w-20 h-7 inline-flex items-center justify-end rounded-md px-2 text-xs font-semibold border ${
-          type === 'PERCENT'
-            ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/30 border-blue-300 dark:border-blue-700/80'
-            : 'text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700/80'
-        }`}
-      >
-        {type === 'PERCENT' ? formatPercentageClean(value) : formatNumberWithCommas(Number(value || 0).toFixed(2))}
-      </span>
-    </div>
-  );
 
   const handleStartAddOffTop = () => {
     setIsAddingOffTop(true);
@@ -281,40 +275,38 @@ export function CommissionWaterfall({
     setAddingPostSplit2ForAgent(null);
   };
 
+  const handleAddPostSplitCell = (agentName: string, entity: string, level: 1 | 2) => {
+    const name = entity.trim();
+    const add = level === 1 ? onAddAgentPostSplitRule : onAddAgentPostSplit2Rule;
+    if (!name || !add) return;
+    add(agentName, {
+      id: `postsplit${level === 1 ? '' : '2'}_${Date.now()}_${agentName.replace(/\s+/g, '')}`,
+      name,
+      entity: name,
+      type: level === 1 ? 'AMOUNT' : 'PERCENT',
+      value: 0,
+    });
+  };
+
   const toggleNewOffTopType = () => {
-    setNewOffTopValue((v) => (newOffTopType === 'PERCENT' && v <= 1 && v > 0 ? Number((v * 100).toFixed(4)) : v));
+    setNewOffTopValue((v) => (newOffTopType === 'PERCENT' && v <= 1 && v > 0 ? Number((v * 100).toFixed(5)) : v));
     setNewOffTopType((p) => (p === 'PERCENT' ? 'AMOUNT' : 'PERCENT'));
   };
 
   const toggleNewPreSplitType = () => {
-    setNewPreSplitValue((v) => (newPreSplitType === 'PERCENT' && v <= 1 && v > 0 ? Number((v * 100).toFixed(4)) : v));
+    setNewPreSplitValue((v) => (newPreSplitType === 'PERCENT' && v <= 1 && v > 0 ? Number((v * 100).toFixed(5)) : v));
     setNewPreSplitType((p) => (p === 'PERCENT' ? 'AMOUNT' : 'PERCENT'));
   };
 
   const toggleNewPostSplitType = () => {
-    setNewPostSplitValue((v) => (newPostSplitType === 'PERCENT' && v <= 1 && v > 0 ? Number((v * 100).toFixed(4)) : v));
+    setNewPostSplitValue((v) => (newPostSplitType === 'PERCENT' && v <= 1 && v > 0 ? Number((v * 100).toFixed(5)) : v));
     setNewPostSplitType((p) => (p === 'PERCENT' ? 'AMOUNT' : 'PERCENT'));
   };
 
   const toggleNewPostSplit2Type = () => {
-    setNewPostSplit2Value((v) => (newPostSplit2Type === 'PERCENT' && v <= 1 && v > 0 ? Number((v * 100).toFixed(4)) : v));
+    setNewPostSplit2Value((v) => (newPostSplit2Type === 'PERCENT' && v <= 1 && v > 0 ? Number((v * 100).toFixed(5)) : v));
     setNewPostSplit2Type((p) => (p === 'PERCENT' ? 'AMOUNT' : 'PERCENT'));
   };
-
-  const renderSplitTypeButton = (type: 'PERCENT' | 'AMOUNT', onToggle: () => void, title = 'Toggle % / $') => (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={`w-7 h-7 inline-flex items-center justify-center rounded-md font-bold text-xs cursor-pointer whitespace-nowrap transition border shrink-0 ${
-        type === 'PERCENT'
-          ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700/80 hover:bg-blue-100 dark:hover:bg-blue-900/50'
-          : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700/80 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
-      }`}
-      title={title}
-    >
-      {type === 'PERCENT' ? '%' : '$'}
-    </button>
-  );
 
   const renderReorderControls = (
     index: number,
@@ -394,7 +386,7 @@ export function CommissionWaterfall({
       {/* Top Header with Total Commission label */}
       <div className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <span className="text-lg">⚙️</span>
+          <SectionIcon name="commission" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">2. Commission Waterfall</h2>
         </div>
 
@@ -428,7 +420,9 @@ export function CommissionWaterfall({
               <button
                 type="button"
                 onClick={onApplyEdit}
-                className="text-xs bg-emerald-500 text-slate-950 px-3 py-1.5 rounded-lg font-bold transition hover:bg-emerald-400 shadow-md cursor-pointer"
+                disabled={agentSplitsExceedPool}
+                title={agentSplitsExceedPool ? "Agent splits can't exceed 100% of the remaining commission." : undefined}
+                className={`text-xs bg-emerald-500 text-slate-950 px-3 py-1.5 rounded-lg font-bold transition shadow-md ${agentSplitsExceedPool ? 'opacity-40 cursor-not-allowed' : 'hover:bg-emerald-400 cursor-pointer'}`}
               >
                 Apply Changes
               </button>
@@ -477,7 +471,7 @@ export function CommissionWaterfall({
                     <select
                       value={newOffTopEntity}
                       onChange={(e) => setNewOffTopEntity(e.target.value)}
-                      className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-medium sm:w-44"
+                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
                     >
                       <option value="">Select Entity...</option>
                       {knownEntities.map((ent) => (
@@ -490,29 +484,23 @@ export function CommissionWaterfall({
                       placeholder="Entity Name (e.g. Soleox Realty)"
                       value={newOffTopEntity}
                       onChange={(e) => setNewOffTopEntity(e.target.value)}
-                      className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-medium sm:w-44"
+                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
                     />
                   )}
-                  <div className="flex items-center gap-1.5">
-                    {renderSplitTypeButton(newOffTopType, toggleNewOffTopType)}
-                    <DecimalInput
-                      value={newOffTopValue}
-                      onChange={setNewOffTopValue}
-                      isPercent={newOffTopType === 'PERCENT'}
-                      useCommas={newOffTopType === 'AMOUNT'}
-                      onKeyDown={preventMinus}
-                      colorCode
-                      allowEmpty
-                      placeholder="0.00"
-                      className="w-20 h-7 border rounded-md px-2 text-xs text-right font-semibold focus:outline-none transition shrink-0"
-                    />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Note (optional)"
-                    value={newOffTopNote}
-                    onChange={(e) => setNewOffTopNote(e.target.value)}
-                    className="flex-1 min-w-[130px] bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-medium"
+                  <SplitPair
+                    isEditing
+                    type={newOffTopType}
+                    percentPoints={newOffTopType === 'PERCENT' ? newOffTopValue : (baselineTotalCommission > 0 ? (newOffTopValue / baselineTotalCommission) * 100 : 0)}
+                    dollarAmount={newOffTopType === 'AMOUNT' ? newOffTopValue : baselineTotalCommission * (newOffTopValue > 1 ? newOffTopValue / 100 : newOffTopValue)}
+                    onPercentChange={(val) => {
+                      if (newOffTopType !== 'PERCENT') toggleNewOffTopType();
+                      setNewOffTopValue(val);
+                    }}
+                    onAmountChange={(val) => {
+                      if (newOffTopType !== 'AMOUNT') toggleNewOffTopType();
+                      setNewOffTopValue(val);
+                    }}
+                    preventMinus={preventMinus}
                   />
                   <div className="flex items-center gap-2 justify-end">
                     <button
@@ -565,7 +553,7 @@ export function CommissionWaterfall({
                           <select
                             value={rule.entity}
                             onChange={(e) => onUpdateOffTopRuleEntity?.(rule.id, e.target.value)}
-                            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 cursor-pointer max-w-[150px] sm:max-w-[190px]"
+                            className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[150px] sm:max-w-[190px]"
                             title="Switch entity"
                           >
                             <option value={rule.entity}>{rule.entity}</option>
@@ -578,7 +566,7 @@ export function CommissionWaterfall({
                             type="text"
                             value={rule.entity}
                             onChange={(e) => onUpdateOffTopRuleEntity?.(rule.id, e.target.value)}
-                            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 w-28"
+                            className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] w-28"
                           />
                         )
                       ) : (
@@ -587,43 +575,23 @@ export function CommissionWaterfall({
                         </span>
                       )}
 
-                      {isEditing ? (
-                        <div className="flex items-center gap-1.5">
-                          {renderSplitTypeButton(rule.type, () => onToggleOffTopRuleType(rule.id))}
-                          <DecimalInput
-                            value={rule.value}
-                            onChange={(val) => onUpdateOffTopRuleValue(rule.id, val)}
-                            isPercent={rule.type === 'PERCENT'}
-                            useCommas={rule.type === 'AMOUNT'}
-                            onKeyDown={preventMinus}
-                            colorCode
-                            className="w-20 h-7 border rounded-md px-2 text-xs text-right font-semibold focus:outline-none transition shrink-0"
-                          />
-                        </div>
-                      ) : (
-                        renderReadonlySplitValue(rule.type, rule.value)
-                      )}
-
-                      {isEditing ? (
-                        <input
-                          type="text"
-                          value={rule.note || ''}
-                          onChange={(e) => onUpdateOffTopRuleNote?.(rule.id, e.target.value)}
-                          placeholder="+ Note"
-                          className="bg-transparent border-b border-dashed border-slate-300 dark:border-slate-700 hover:border-slate-400 focus:border-emerald-500 focus:border-solid text-[11px] text-slate-500 dark:text-slate-400 placeholder-slate-400 focus:outline-none px-1 py-0.5 w-24 sm:w-36 transition"
-                          title="Click to edit note"
-                        />
-                      ) : (
-                        rule.note ? (
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[9rem]" title={rule.note}>
-                            {rule.note}
-                          </span>
-                        ) : null
-                      )}
                     </div>
-                    <span className="font-bold text-slate-900 dark:text-white">
-                      -{formatCurrency(calculatedItem?.amount || 0)}
-                    </span>
+                    <SplitPair
+                      isEditing={isEditing}
+                      type={rule.type}
+                      percentPoints={rule.type === 'PERCENT' ? rule.value : (baselineTotalCommission > 0 ? ((calculatedItem?.amount || 0) / baselineTotalCommission) * 100 : 0)}
+                      dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
+                      deduction
+                      onPercentChange={(val) => {
+                        if (rule.type !== 'PERCENT') onToggleOffTopRuleType(rule.id);
+                        onUpdateOffTopRuleValue(rule.id, val);
+                      }}
+                      onAmountChange={(val) => {
+                        if (rule.type !== 'AMOUNT') onToggleOffTopRuleType(rule.id);
+                        onUpdateOffTopRuleValue(rule.id, val);
+                      }}
+                      preventMinus={preventMinus}
+                    />
                   </div>
                 );
               })}
@@ -663,7 +631,7 @@ export function CommissionWaterfall({
                     <select
                       value={newPreSplitEntity}
                       onChange={(e) => setNewPreSplitEntity(e.target.value)}
-                      className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-medium sm:w-44"
+                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
                     >
                       <option value="">Select Entity...</option>
                       {knownEntities.map((ent) => (
@@ -676,29 +644,23 @@ export function CommissionWaterfall({
                       placeholder="Entity Name (e.g. TC Fee, Referral)"
                       value={newPreSplitEntity}
                       onChange={(e) => setNewPreSplitEntity(e.target.value)}
-                      className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-medium sm:w-44"
+                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
                     />
                   )}
-                  <div className="flex items-center gap-1.5">
-                    {renderSplitTypeButton(newPreSplitType, toggleNewPreSplitType)}
-                    <DecimalInput
-                      value={newPreSplitValue}
-                      onChange={setNewPreSplitValue}
-                      isPercent={newPreSplitType === 'PERCENT'}
-                      useCommas={newPreSplitType === 'AMOUNT'}
-                      onKeyDown={preventMinus}
-                      colorCode
-                      allowEmpty
-                      placeholder="0.00"
-                      className="w-20 h-7 border rounded-md px-2 text-xs text-right font-semibold focus:outline-none transition shrink-0"
-                    />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Note (optional)"
-                    value={newPreSplitNote}
-                    onChange={(e) => setNewPreSplitNote(e.target.value)}
-                    className="flex-1 min-w-[130px] bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-medium"
+                  <SplitPair
+                    isEditing
+                    type={newPreSplitType}
+                    percentPoints={newPreSplitType === 'PERCENT' ? newPreSplitValue : (commissionAfterOffTop > 0 ? (newPreSplitValue / commissionAfterOffTop) * 100 : 0)}
+                    dollarAmount={newPreSplitType === 'AMOUNT' ? newPreSplitValue : commissionAfterOffTop * (newPreSplitValue > 1 ? newPreSplitValue / 100 : newPreSplitValue)}
+                    onPercentChange={(val) => {
+                      if (newPreSplitType !== 'PERCENT') toggleNewPreSplitType();
+                      setNewPreSplitValue(val);
+                    }}
+                    onAmountChange={(val) => {
+                      if (newPreSplitType !== 'AMOUNT') toggleNewPreSplitType();
+                      setNewPreSplitValue(val);
+                    }}
+                    preventMinus={preventMinus}
                   />
                   <div className="flex items-center gap-2 justify-end">
                     <button
@@ -751,7 +713,7 @@ export function CommissionWaterfall({
                           <select
                             value={rule.entity}
                             onChange={(e) => onUpdatePreSplitRuleEntity?.(rule.id, e.target.value)}
-                            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 cursor-pointer max-w-[150px] sm:max-w-[190px]"
+                            className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[150px] sm:max-w-[190px]"
                             title="Switch entity"
                           >
                             <option value={rule.entity}>{rule.entity}</option>
@@ -764,7 +726,7 @@ export function CommissionWaterfall({
                             type="text"
                             value={rule.entity}
                             onChange={(e) => onUpdatePreSplitRuleEntity?.(rule.id, e.target.value)}
-                            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 w-28"
+                            className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] w-28"
                           />
                         )
                       ) : (
@@ -773,49 +735,79 @@ export function CommissionWaterfall({
                         </span>
                       )}
 
-                      {isEditing ? (
-                        <div className="flex items-center gap-1.5">
-                          {renderSplitTypeButton(rule.type, () => onTogglePreSplitRuleType?.(rule.id))}
-                          <DecimalInput
-                            value={rule.value}
-                            onChange={(val) => onUpdatePreSplitRuleValue?.(rule.id, val)}
-                            isPercent={rule.type === 'PERCENT'}
-                            useCommas={rule.type === 'AMOUNT'}
-                            onKeyDown={preventMinus}
-                            colorCode
-                            className="w-20 h-7 border rounded-md px-2 text-xs text-right font-semibold focus:outline-none transition shrink-0"
-                          />
-                        </div>
-                      ) : (
-                        renderReadonlySplitValue(rule.type, rule.value)
-                      )}
-
-                      {isEditing ? (
-                        <input
-                          type="text"
-                          value={rule.note || ''}
-                          onChange={(e) => onUpdatePreSplitRuleNote?.(rule.id, e.target.value)}
-                          placeholder="+ Note"
-                          className="bg-transparent border-b border-dashed border-slate-300 dark:border-slate-700 hover:border-slate-400 focus:border-emerald-500 focus:border-solid text-[11px] text-slate-500 dark:text-slate-400 placeholder-slate-400 focus:outline-none px-1 py-0.5 w-24 sm:w-36 transition"
-                          title="Click to edit note"
-                        />
-                      ) : (
-                        rule.note ? (
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[9rem]" title={rule.note}>
-                            {rule.note}
-                          </span>
-                        ) : null
-                      )}
                     </div>
-                    <span className="font-bold text-slate-900 dark:text-white">
-                      -{formatCurrency(calculatedItem?.amount || 0)}
-                    </span>
+                    <SplitPair
+                      isEditing={isEditing}
+                      type={rule.type}
+                      percentPoints={rule.type === 'PERCENT' ? rule.value : (commissionAfterOffTop > 0 ? ((calculatedItem?.amount || 0) / commissionAfterOffTop) * 100 : 0)}
+                      dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
+                      deduction
+                      onPercentChange={(val) => {
+                        if (rule.type !== 'PERCENT') onTogglePreSplitRuleType?.(rule.id);
+                        onUpdatePreSplitRuleValue?.(rule.id, val);
+                      }}
+                      onAmountChange={(val) => {
+                        if (rule.type !== 'AMOUNT') onTogglePreSplitRuleType?.(rule.id);
+                        onUpdatePreSplitRuleValue?.(rule.id, val);
+                      }}
+                      preventMinus={preventMinus}
+                    />
                   </div>
                 );
               })}
             </div>
           </div>
 
+          <div className="flex justify-end">
+            <div role="group" aria-label="Agent splits layout" className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 text-[10px] font-bold">
+              <button
+                type="button"
+                onClick={() => chooseAgentLayout('table')}
+                className={`px-2.5 py-1 rounded-md cursor-pointer ${agentLayout === 'table' ? 'bg-emerald-500 text-slate-950' : 'text-slate-500 dark:text-slate-400'}`}
+              >
+                Table
+              </button>
+              <button
+                type="button"
+                onClick={() => chooseAgentLayout('cards')}
+                className={`px-2.5 py-1 rounded-md cursor-pointer ${agentLayout === 'cards' ? 'bg-emerald-500 text-slate-950' : 'text-slate-500 dark:text-slate-400'}`}
+              >
+                Cards
+              </button>
+            </div>
+          </div>
+
+          {agentLayout === 'table' ? (
+            <CommissionWaterfallTable
+              isEditing={isEditing}
+              agents={agents}
+              dealResult={dealResult}
+              knownEntities={knownEntities}
+              knownAgents={knownAgents}
+              postSplitRulesByAgent={postSplitRulesByAgent}
+              postSplit2RulesByAgent={postSplit2RulesByAgent}
+              commissionAfterPreSplit={commissionAfterPreSplit}
+              preventMinus={preventMinus}
+              onOpenAddAgentModal={onOpenAddAgentModal}
+              onRemoveAgent={onRemoveAgent}
+              onSwitchAgent={onSwitchAgent}
+              onToggleAgentSplitType={onToggleAgentSplitType}
+              onSplitValueChange={onSplitValueChange}
+              onDeleteAgentPostSplitRule={onDeleteAgentPostSplitRule}
+              onToggleAgentPostSplitType={onToggleAgentPostSplitType}
+              onUpdateAgentPostSplitValue={onUpdateAgentPostSplitValue}
+              onUpdateAgentPostSplitEntity={onUpdateAgentPostSplitEntity}
+              onReorderPostSplitEntities={onReorderPostSplitEntities}
+              onDeleteAgentPostSplit2Rule={onDeleteAgentPostSplit2Rule}
+              onToggleAgentPostSplit2Type={onToggleAgentPostSplit2Type}
+              onUpdateAgentPostSplit2Value={onUpdateAgentPostSplit2Value}
+              onUpdateAgentPostSplit2Entity={onUpdateAgentPostSplit2Entity}
+              onReorderPostSplit2Entities={onReorderPostSplit2Entities}
+              onAddLevel1Cell={(agentName, entity) => handleAddPostSplitCell(agentName, entity, 1)}
+              onAddLevel2Cell={(agentName, entity) => handleAddPostSplitCell(agentName, entity, 2)}
+            />
+          ) : (
+          <>
           {/* Step 3: Agent Splits Breakdown */}
           <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-3 shadow-sm">
             <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
@@ -838,6 +830,11 @@ export function CommissionWaterfall({
                 Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
               </span>
             </div>
+            {agentSplitsExceedPool && (
+              <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                Agent splits can&apos;t exceed 100% of the remaining commission. Lower the highlighted split before applying.
+              </p>
+            )}
 
             {agents.length === 0 ? (
               <p className="text-xs text-slate-400 italic py-1">
@@ -900,7 +897,7 @@ export function CommissionWaterfall({
                           </div>
                           <div className="flex items-center gap-4">
                             <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                              {((computedSplitItem?.percent || 0) * 100).toFixed(1)}% Split
+                              {((computedSplitItem?.percent || 0) * 100).toFixed(2)}% Split
                             </span>
                             <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
                               {formatCurrency(computedSplitItem?.amount || 0)}
@@ -941,7 +938,7 @@ export function CommissionWaterfall({
                             <select
                               value={agent.name}
                               onChange={(e) => onSwitchAgent?.(agent.id, e.target.value)}
-                              className="bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-emerald-500 text-xs font-bold text-slate-900 dark:text-white focus:outline-none py-0.5 cursor-pointer max-w-[160px] sm:max-w-[220px]"
+                              className="bg-transparent border-b border-slate-300 dark:border-slate-600 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] py-0.5 cursor-pointer max-w-[160px] sm:max-w-[220px]"
                               title="Switch agent"
                             >
                               <option value={agent.name}>{agent.name}</option>
@@ -963,34 +960,24 @@ export function CommissionWaterfall({
                             </span>
                           )}
 
-                          {isEditing ? (
-                            <div className="flex items-center gap-1.5 ml-1">
-                              {renderSplitTypeButton(agent.splitType, () => onToggleAgentSplitType(agent.id))}
-                              <DecimalInput
-                                value={agent.splitVal}
-                                onChange={(val) => onSplitValueChange(agent.id, val)}
-                                isPercent={agent.splitType === 'PERCENT'}
-                                useCommas={agent.splitType === 'AMOUNT'}
-                                onKeyDown={preventMinus}
-                                colorCode
-                                className="w-20 h-7 border rounded-md px-2 text-xs text-right font-semibold focus:outline-none transition shrink-0"
-                              />
-                            </div>
-                          ) : (
-                            <div className="ml-1">
-                              {renderReadonlySplitValue(agent.splitType, agent.splitVal)}
-                            </div>
-                          )}
                         </div>
 
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold min-w-[55px] text-right">
-                            ({((computedSplitItem?.percent || 0) * 100).toFixed(1)}%)
-                          </span>
-                          <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 min-w-[85px] text-right">
-                            {formatCurrency(computedSplitItem?.amount || 0)}
-                          </span>
-                        </div>
+                        <SplitPair
+                          isEditing={isEditing}
+                          type={agent.splitType}
+                          percentPoints={agent.splitType === 'PERCENT' ? agent.splitVal : ((computedSplitItem?.percent || 0) * 100)}
+                          dollarAmount={agent.splitType === 'AMOUNT' ? agent.splitVal : (computedSplitItem?.amount || 0)}
+                          invalid={Boolean(computedSplitItem?.overAllocated)}
+                          onPercentChange={(val) => {
+                            if (agent.splitType !== 'PERCENT') onToggleAgentSplitType(agent.id);
+                            onSplitValueChange(agent.id, val);
+                          }}
+                          onAmountChange={(val) => {
+                            if (agent.splitType !== 'AMOUNT') onToggleAgentSplitType(agent.id);
+                            onSplitValueChange(agent.id, val);
+                          }}
+                          preventMinus={preventMinus}
+                        />
                       </div>
                     </div>
                   );
@@ -1120,7 +1107,7 @@ export function CommissionWaterfall({
                               <select
                                 value={newPostSplitEntity}
                                 onChange={(e) => setNewPostSplitEntity(e.target.value)}
-                                className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-medium sm:w-44"
+                                className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
                               >
                                 <option value="">Select Entity...</option>
                                 {knownEntities.map((ent) => (
@@ -1133,29 +1120,23 @@ export function CommissionWaterfall({
                                 placeholder="Entity Name (e.g. Soleox Realty)"
                                 value={newPostSplitEntity}
                                 onChange={(e) => setNewPostSplitEntity(e.target.value)}
-                                className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-medium sm:w-44"
+                                className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
                               />
                             )}
-                            <div className="flex items-center gap-1.5">
-                              {renderSplitTypeButton(newPostSplitType, toggleNewPostSplitType)}
-                              <DecimalInput
-                                value={newPostSplitValue}
-                                onChange={setNewPostSplitValue}
-                                isPercent={newPostSplitType === 'PERCENT'}
-                                useCommas={newPostSplitType === 'AMOUNT'}
-                                onKeyDown={preventMinus}
-                                colorCode
-                                allowEmpty
-                                placeholder="0.00"
-                                className="w-20 h-7 border rounded-md px-2 text-xs text-right font-semibold focus:outline-none transition shrink-0"
-                              />
-                            </div>
-                            <input
-                              type="text"
-                              placeholder="Note (optional)"
-                              value={newPostSplitNote}
-                              onChange={(e) => setNewPostSplitNote(e.target.value)}
-                              className="flex-1 min-w-[130px] bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-medium"
+                            <SplitPair
+                              isEditing
+                              type={newPostSplitType}
+                              percentPoints={newPostSplitType === 'PERCENT' ? newPostSplitValue : (agentGrossSplit > 0 ? (newPostSplitValue / agentGrossSplit) * 100 : 0)}
+                              dollarAmount={newPostSplitType === 'AMOUNT' ? newPostSplitValue : agentGrossSplit * (newPostSplitValue > 1 ? newPostSplitValue / 100 : newPostSplitValue)}
+                              onPercentChange={(val) => {
+                                if (newPostSplitType !== 'PERCENT') toggleNewPostSplitType();
+                                setNewPostSplitValue(val);
+                              }}
+                              onAmountChange={(val) => {
+                                if (newPostSplitType !== 'AMOUNT') toggleNewPostSplitType();
+                                setNewPostSplitValue(val);
+                              }}
+                              preventMinus={preventMinus}
                             />
                             <div className="flex items-center gap-2 justify-end">
                               <button
@@ -1210,7 +1191,7 @@ export function CommissionWaterfall({
                                     <select
                                       value={rule.entity}
                                       onChange={(e) => onUpdateAgentPostSplitEntity?.(agentName, rule.id, e.target.value)}
-                                      className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 cursor-pointer max-w-[140px] sm:max-w-[170px]"
+                                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[140px] sm:max-w-[170px]"
                                       title="Switch entity"
                                     >
                                       <option value={rule.entity}>{rule.entity}</option>
@@ -1223,7 +1204,7 @@ export function CommissionWaterfall({
                                       type="text"
                                       value={rule.entity}
                                       onChange={(e) => onUpdateAgentPostSplitEntity?.(agentName, rule.id, e.target.value)}
-                                      className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 w-24"
+                                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] w-24"
                                     />
                                   )
                                 ) : (
@@ -1232,43 +1213,23 @@ export function CommissionWaterfall({
                                   </span>
                                 )}
 
-                                {isEditing ? (
-                                  <div className="flex items-center gap-1.5">
-                                    {renderSplitTypeButton(rule.type, () => onToggleAgentPostSplitType(agentName, rule.id))}
-                                    <DecimalInput
-                                      value={rule.value}
-                                      onChange={(val) => onUpdateAgentPostSplitValue(agentName, rule.id, val)}
-                                      isPercent={rule.type === 'PERCENT'}
-                                      useCommas={rule.type === 'AMOUNT'}
-                                      onKeyDown={preventMinus}
-                                      colorCode
-                                      className="w-20 h-7 border rounded-md px-2 text-xs text-right font-semibold focus:outline-none transition shrink-0"
-                                    />
-                                  </div>
-                                ) : (
-                                  renderReadonlySplitValue(rule.type, rule.value)
-                                )}
-
-                                {isEditing ? (
-                                  <input
-                                    type="text"
-                                    value={rule.note || ''}
-                                    onChange={(e) => onUpdateAgentPostSplitNote?.(agentName, rule.id, e.target.value)}
-                                    placeholder="+ Note"
-                                    className="bg-transparent border-b border-dashed border-slate-300 dark:border-slate-700 hover:border-slate-400 focus:border-emerald-500 focus:border-solid text-[11px] text-slate-500 dark:text-slate-400 placeholder-slate-400 focus:outline-none px-1 py-0.5 w-20 sm:w-28 transition"
-                                    title="Click to edit note"
-                                  />
-                                ) : (
-                                  rule.note ? (
-                                    <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[7rem]" title={rule.note}>
-                                      {rule.note}
-                                    </span>
-                                  ) : null
-                                )}
                               </div>
-                              <span className="font-semibold text-slate-900 dark:text-white">
-                                -{formatCurrency(calculatedItem?.amount || 0)}
-                              </span>
+                              <SplitPair
+                                isEditing={isEditing}
+                                type={rule.type}
+                                percentPoints={rule.type === 'PERCENT' ? rule.value : (agentGrossSplit > 0 ? ((calculatedItem?.amount || 0) / agentGrossSplit) * 100 : 0)}
+                                dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
+                                deduction
+                                onPercentChange={(val) => {
+                                  if (rule.type !== 'PERCENT') onToggleAgentPostSplitType(agentName, rule.id);
+                                  onUpdateAgentPostSplitValue(agentName, rule.id, val);
+                                }}
+                                onAmountChange={(val) => {
+                                  if (rule.type !== 'AMOUNT') onToggleAgentPostSplitType(agentName, rule.id);
+                                  onUpdateAgentPostSplitValue(agentName, rule.id, val);
+                                }}
+                                preventMinus={preventMinus}
+                              />
                             </div>
                           );
                         })}
@@ -1309,7 +1270,7 @@ export function CommissionWaterfall({
                         <div className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg border border-emerald-500/30 space-y-2 my-2">
                           <div className="flex justify-between items-center">
                             <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                              Add Level 2 Post-split (e.g. eXp 5% Stock Program)
+                              New Level 2 Post-split for {agentName}
                             </span>
                             <span className="text-[10px] text-slate-500 dark:text-slate-400">
                               Baseline: {formatCurrency(netAfterL1)}
@@ -1320,7 +1281,7 @@ export function CommissionWaterfall({
                               <select
                                 value={newPostSplit2Entity}
                                 onChange={(e) => setNewPostSplit2Entity(e.target.value)}
-                                className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-medium sm:w-44"
+                                className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
                               >
                                 <option value="">Select Entity...</option>
                                 {knownEntities.map((ent) => (
@@ -1333,34 +1294,23 @@ export function CommissionWaterfall({
                                 placeholder="Payee Entity (e.g. Stock)"
                                 value={newPostSplit2Entity}
                                 onChange={(e) => setNewPostSplit2Entity(e.target.value)}
-                                className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-medium sm:w-44"
+                                className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
                               />
                             )}
-                            <div className="flex items-center gap-1.5">
-                              {renderSplitTypeButton(newPostSplit2Type, toggleNewPostSplit2Type)}
-                              <DecimalInput
-                                value={newPostSplit2Value}
-                                onChange={setNewPostSplit2Value}
-                                isPercent={newPostSplit2Type === 'PERCENT'}
-                                useCommas={newPostSplit2Type === 'AMOUNT'}
-                                onKeyDown={preventMinus}
-                                colorCode
-                                allowEmpty
-                                placeholder="0.00"
-                                className="w-20 h-7 border rounded-md px-2 text-xs text-right font-semibold focus:outline-none transition shrink-0"
-                              />
-                              <span className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold whitespace-nowrap">
-                                {newPostSplit2Type === 'PERCENT' && newPostSplit2Value > 0
-                                  ? `≈ ${formatCurrency(netAfterL1 * (newPostSplit2Value > 1 ? newPostSplit2Value / 100 : newPostSplit2Value))}`
-                                  : ''}
-                              </span>
-                            </div>
-                            <input
-                              type="text"
-                              placeholder="Note (optional)"
-                              value={newPostSplit2Note}
-                              onChange={(e) => setNewPostSplit2Note(e.target.value)}
-                              className="flex-1 min-w-[130px] bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-medium"
+                            <SplitPair
+                              isEditing
+                              type={newPostSplit2Type}
+                              percentPoints={newPostSplit2Type === 'PERCENT' ? newPostSplit2Value : (netAfterL1 > 0 ? (newPostSplit2Value / netAfterL1) * 100 : 0)}
+                              dollarAmount={newPostSplit2Type === 'AMOUNT' ? newPostSplit2Value : netAfterL1 * (newPostSplit2Value > 1 ? newPostSplit2Value / 100 : newPostSplit2Value)}
+                              onPercentChange={(val) => {
+                                if (newPostSplit2Type !== 'PERCENT') toggleNewPostSplit2Type();
+                                setNewPostSplit2Value(val);
+                              }}
+                              onAmountChange={(val) => {
+                                if (newPostSplit2Type !== 'AMOUNT') toggleNewPostSplit2Type();
+                                setNewPostSplit2Value(val);
+                              }}
+                              preventMinus={preventMinus}
                             />
                             <div className="flex items-center gap-2 justify-end">
                               <button
@@ -1415,7 +1365,7 @@ export function CommissionWaterfall({
                                     <select
                                       value={rule.entity}
                                       onChange={(e) => onUpdateAgentPostSplit2Entity?.(agentName, rule.id, e.target.value)}
-                                      className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 cursor-pointer max-w-[140px] sm:max-w-[170px]"
+                                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[140px] sm:max-w-[170px]"
                                       title="Switch entity"
                                     >
                                       <option value={rule.entity}>{rule.entity}</option>
@@ -1428,7 +1378,7 @@ export function CommissionWaterfall({
                                       type="text"
                                       value={rule.entity}
                                       onChange={(e) => onUpdateAgentPostSplit2Entity?.(agentName, rule.id, e.target.value)}
-                                      className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 w-24"
+                                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] w-24"
                                     />
                                   )
                                 ) : (
@@ -1437,43 +1387,23 @@ export function CommissionWaterfall({
                                   </span>
                                 )}
 
-                                {isEditing ? (
-                                  <div className="flex items-center gap-1.5">
-                                    {renderSplitTypeButton(rule.type, () => onToggleAgentPostSplit2Type?.(agentName, rule.id))}
-                                    <DecimalInput
-                                      value={rule.value}
-                                      onChange={(val) => onUpdateAgentPostSplit2Value?.(agentName, rule.id, val)}
-                                      isPercent={rule.type === 'PERCENT'}
-                                      useCommas={rule.type === 'AMOUNT'}
-                                      onKeyDown={preventMinus}
-                                      colorCode
-                                      className="w-20 h-7 border rounded-md px-2 text-xs text-right font-semibold focus:outline-none transition shrink-0"
-                                    />
-                                  </div>
-                                ) : (
-                                  renderReadonlySplitValue(rule.type, rule.value)
-                                )}
-
-                                {isEditing ? (
-                                  <input
-                                    type="text"
-                                    value={rule.note || ''}
-                                    onChange={(e) => onUpdateAgentPostSplit2Note?.(agentName, rule.id, e.target.value)}
-                                    placeholder="+ Note"
-                                    className="bg-transparent border-b border-dashed border-slate-300 dark:border-slate-700 hover:border-slate-400 focus:border-emerald-500 focus:border-solid text-[11px] text-slate-500 dark:text-slate-400 placeholder-slate-400 focus:outline-none px-1 py-0.5 w-20 sm:w-28 transition"
-                                    title="Click to edit note"
-                                  />
-                                ) : (
-                                  rule.note ? (
-                                    <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[7rem]" title={rule.note}>
-                                      {rule.note}
-                                    </span>
-                                  ) : null
-                                )}
                               </div>
-                              <span className="font-semibold text-slate-900 dark:text-white">
-                                -{formatCurrency(calculatedItem2?.amount || 0)}
-                              </span>
+                              <SplitPair
+                                isEditing={isEditing}
+                                type={rule.type}
+                                percentPoints={rule.type === 'PERCENT' ? rule.value : (netAfterL1 > 0 ? ((calculatedItem2?.amount || 0) / netAfterL1) * 100 : 0)}
+                                dollarAmount={calculatedItem2?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
+                                deduction
+                                onPercentChange={(val) => {
+                                  if (rule.type !== 'PERCENT') onToggleAgentPostSplit2Type?.(agentName, rule.id);
+                                  onUpdateAgentPostSplit2Value?.(agentName, rule.id, val);
+                                }}
+                                onAmountChange={(val) => {
+                                  if (rule.type !== 'AMOUNT') onToggleAgentPostSplit2Type?.(agentName, rule.id);
+                                  onUpdateAgentPostSplit2Value?.(agentName, rule.id, val);
+                                }}
+                                preventMinus={preventMinus}
+                              />
                             </div>
                           );
                         })}
@@ -1494,6 +1424,8 @@ export function CommissionWaterfall({
               })
             )}
           </div>
+          </>
+          )}
         </div>
       )}
     </section>

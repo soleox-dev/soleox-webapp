@@ -13,6 +13,7 @@ import {
 } from './DecimalInput';
 import { normalizeAgentName } from '@/lib/id';
 import { EditPencil } from '@/components/ui/edit-pencil';
+import { SectionIcon } from './SectionIcon';
 
 interface TransactionOverviewProps {
   isCollapsed: boolean;
@@ -168,7 +169,7 @@ export function TransactionOverview({
     <section id="overview" className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-8 transition-colors">
       <div className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <span className="text-lg">📋</span>
+          <SectionIcon name="overview" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">1. Transaction Overview</h2>
         </div>
         
@@ -238,7 +239,7 @@ export function TransactionOverview({
                     </span>
                   </div>
 
-                  <div className="divide-y divide-slate-200 dark:divide-slate-800/80 border-b border-slate-200 dark:border-slate-800">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                     {visibleFields.map((field) => {
                       const fieldData = getFieldValue(field.key, field.type);
                       const isSystemLocked = field.key === 'id' || field.key === 'total_commission';
@@ -263,48 +264,45 @@ export function TransactionOverview({
                         dynamicOptions.unshift(String(formVal));
                       }
 
-                      return (
-                        <div
-                          key={field.id}
-                          className={`py-1.5 px-2 flex items-center transition relative group ${
-                            validationResult.isLegacyUnmatched
-                              ? 'bg-amber-500/10 dark:bg-amber-500/10'
-                              : validationResult.isRequiredMissing && isEditing
-                              ? 'bg-rose-500/10 dark:bg-rose-500/10'
-                              : 'hover:bg-slate-100/50 dark:hover:bg-slate-800/40'
-                          }`}
-                        >
-                          <div className="w-1/3 md:w-2/5 pr-4 text-right flex justify-end items-center gap-1.5">
-                            {isSystemLocked && isEditing && (
-                              <span className="text-[9px] bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1 py-0.5 rounded font-mono">
-                                LOCKED
-                              </span>
-                            )}
-                            {field.is_required && (
-                              <span className="text-rose-500 font-bold text-xs" title="Required Field">*</span>
-                            )}
-                            {validationResult.isLegacyUnmatched && (
-                              <span className="cursor-help text-xs" title={validationResult.message}>⚠️</span>
-                            )}
-                            <span
-                              className={`text-xs font-semibold uppercase tracking-wide truncate ${
-                                validationResult.isLegacyUnmatched
-                                  ? 'text-amber-600 dark:text-amber-400 font-bold'
-                                  : validationResult.isRequiredMissing && isEditing
-                                  ? 'text-rose-600 dark:text-rose-400 font-bold'
-                                  : field.is_required
-                                  ? 'text-slate-800 dark:text-slate-200 font-bold'
-                                  : 'text-slate-500 dark:text-slate-400'
-                              }`}
-                            >
-                              {field.label}
-                            </span>
-                          </div>
+                      const labelKey = `${field.key} ${field.label}`.trim().toLowerCase();
+                      const spansBoth = labelKey.includes('property address') || labelKey.includes('commission split');
+                      const showError = Boolean(validationResult.isRequiredMissing && isEditing);
+                      const showWarning = Boolean(validationResult.isLegacyUnmatched);
+                      const assistiveMessage = (showError || showWarning || (isEditing && !validationResult.isValid))
+                        ? validationResult.message
+                        : '';
+                      const filledControl = 'w-full bg-transparent border-0 p-0 h-7 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-0 font-medium disabled:opacity-50 disabled:cursor-not-allowed';
+                      const shellBorder = showError
+                        ? 'border-b-rose-500'
+                        : showWarning
+                        ? 'border-b-amber-500'
+                        : 'border-b-slate-300 dark:border-b-slate-600 focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)]';
+                      const labelTone = showError
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : showWarning
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-slate-500 dark:text-slate-400';
 
-                          <div className="w-2/3 md:w-3/5 pl-2 text-left relative flex items-center">
-                            {isEditing ? (
-                              <div className="max-w-md w-full">
-                                {field.type === 'AGENT_PICKER' || field.key === 'agent_id' || field.key === 'primary_agent' ? (
+                      return (
+                        <div key={field.id} className={`min-w-0 ${spansBoth ? 'sm:col-span-2' : ''}`}>
+                          <div className={`rounded-t-md bg-slate-100 dark:bg-slate-900 px-3 pt-1.5 pb-1 border-b transition-colors ${shellBorder} ${isInputDisabled && isEditing ? 'opacity-70' : ''}`}>
+                            <div className="flex items-center gap-1.5 min-h-4">
+                              <span className={`text-[11px] font-medium truncate ${labelTone}`}>
+                                {field.label}
+                                {field.is_required && <span className="text-rose-500" title="Required Field">*</span>}
+                              </span>
+                              {isSystemLocked && isEditing && (
+                                <span className="text-[9px] bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1 py-0.5 rounded font-mono shrink-0">
+                                  LOCKED
+                                </span>
+                              )}
+                              {showWarning && (
+                                <span className="cursor-help text-xs shrink-0" title={validationResult.message}>⚠️</span>
+                              )}
+                            </div>
+                            <div className="min-h-7 flex items-center">
+                              {isEditing ? (
+                                field.type === 'AGENT_PICKER' || field.key === 'agent_id' || field.key === 'primary_agent' ? (
                                   <select
                                     disabled={isInputDisabled}
                                     value={
@@ -313,13 +311,9 @@ export function TransactionOverview({
                                       )?.id || formVal || ''
                                     }
                                     onChange={(e) => handleOverviewInputChange(field.key, e.target.value)}
-                                    className={`w-full bg-white dark:bg-slate-900 border rounded px-2.5 py-1 text-xs focus:outline-none font-medium disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-800 h-7 ${
-                                      validationResult.isRequiredMissing
-                                        ? 'border-rose-500 text-rose-600 dark:text-rose-400 font-bold'
-                                        : 'border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:border-emerald-500'
-                                    }`}
+                                    className={`${filledControl} cursor-pointer`}
                                   >
-                                    <option value="">— Select Primary Agent —</option>
+                                    <option value="">Select primary agent</option>
                                     {uniqueKnownAgents.map((ag) => (
                                       <option key={ag.id} value={ag.id}>
                                         {ag.name} {ag.isTeamLead ? '(Team Lead)' : ''}
@@ -331,15 +325,9 @@ export function TransactionOverview({
                                     disabled={isInputDisabled}
                                     value={formVal}
                                     onChange={(e) => handleOverviewInputChange(field.key, e.target.value)}
-                                    className={`w-full bg-white dark:bg-slate-900 border rounded px-2.5 py-1 text-xs focus:outline-none font-medium disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-800 h-7 ${
-                                      validationResult.isLegacyUnmatched
-                                        ? 'border-amber-500 text-amber-600 dark:text-amber-400 font-bold'
-                                        : validationResult.isRequiredMissing
-                                        ? 'border-rose-500 text-rose-600 dark:text-rose-400 font-bold'
-                                        : 'border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:border-emerald-500'
-                                    }`}
+                                    className={`${filledControl} cursor-pointer ${showWarning ? 'text-amber-600 dark:text-amber-400 font-semibold' : ''}`}
                                   >
-                                    <option value="">— Select Option —</option>
+                                    <option value="">Select an option</option>
                                     {dynamicOptions.map((opt) => (
                                       <option key={opt} value={opt}>{opt}</option>
                                     ))}
@@ -354,11 +342,7 @@ export function TransactionOverview({
                                         : ''
                                     }
                                     onChange={(e) => handleOverviewInputChange(field.key, e.target.value)}
-                                    className={`w-full bg-white dark:bg-slate-900 border rounded px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none font-medium disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-800 h-7 ${
-                                      validationResult.isRequiredMissing
-                                        ? 'border-rose-500 text-rose-600 dark:text-rose-400 font-bold'
-                                        : 'border-slate-300 dark:border-slate-700 focus:border-emerald-500'
-                                    }`}
+                                    className={`${filledControl} dark:[color-scheme:dark]`}
                                   />
                                 ) : field.type === 'CURRENCY' || field.type === 'NUMBER' || field.type === 'PERCENT' ? (
                                   <DecimalInput
@@ -368,11 +352,7 @@ export function TransactionOverview({
                                     isPercent={field.type === 'PERCENT' || field.key === 'gci_perc'}
                                     useCommas={field.type === 'CURRENCY'}
                                     onKeyDown={preventMinus}
-                                    className={`w-full bg-white dark:bg-slate-900 border rounded px-2.5 py-1 text-xs text-slate-900 dark:text-white text-left focus:outline-none font-medium disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-800 h-7 ${
-                                      validationResult.isRequiredMissing
-                                        ? 'border-rose-500 text-rose-600 dark:text-rose-400 font-bold'
-                                        : 'border-slate-300 dark:border-slate-700 focus:border-emerald-500'
-                                    }`}
+                                    className={`${filledControl} text-left`}
                                   />
                                 ) : (
                                   <input
@@ -380,28 +360,31 @@ export function TransactionOverview({
                                     disabled={isInputDisabled}
                                     value={overviewFormValues[field.key] ?? ''}
                                     onChange={(e) => handleOverviewInputChange(field.key, e.target.value)}
-                                    className={`w-full bg-white dark:bg-slate-900 border rounded px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none font-medium disabled:opacity-50 disabled:bg-slate-100 dark:disabled:bg-slate-800 h-7 ${
-                                      validationResult.isRequiredMissing
-                                        ? 'border-rose-500 text-rose-600 dark:text-rose-400 font-bold'
-                                        : 'border-slate-300 dark:border-slate-700 focus:border-emerald-500'
-                                    }`}
+                                    className={filledControl}
                                   />
-                                )}
-                              </div>
-                            ) : (
-                              <span
-                                className={`text-xs ${
-                                  validationResult.isLegacyUnmatched
-                                    ? 'text-amber-600 dark:text-amber-400 font-bold'
-                                    : field.type === 'SELECT' || field.key === 'transaction_status' || field.key === 'agent_id' || field.type === 'AGENT_PICKER'
-                                    ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
-                                    : 'text-slate-900 dark:text-white font-medium'
-                                }`}
-                              >
-                                {fieldData.text}
-                              </span>
-                            )}
+                                )
+                              ) : (
+                                <span
+                                  className={`text-sm ${spansBoth ? '' : 'truncate'} ${
+                                    showWarning
+                                      ? 'text-amber-600 dark:text-amber-400 font-semibold'
+                                      : fieldData.text === '—'
+                                      ? 'text-slate-400 dark:text-slate-500'
+                                      : field.type === 'SELECT' || field.key === 'transaction_status' || field.key === 'agent_id' || field.type === 'AGENT_PICKER'
+                                      ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
+                                      : 'text-slate-900 dark:text-white font-medium'
+                                  }`}
+                                >
+                                  {fieldData.text}
+                                </span>
+                              )}
+                            </div>
                           </div>
+                          {assistiveMessage && (
+                            <p className={`mt-1 text-[11px] font-medium ${showWarning && !showError ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                              {assistiveMessage}
+                            </p>
+                          )}
                         </div>
                       );
                     })}
