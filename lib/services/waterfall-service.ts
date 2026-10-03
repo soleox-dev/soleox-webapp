@@ -20,7 +20,7 @@ export async function calculateWaterfallForTransaction(
   if (templateId) {
     const { data, error } = await sb
       .from('commission_template_logic')
-      .select('id, step_number, rule_name, section, payee_type, payee_entity_id, calculation_formula')
+      .select('id, step_number, rule_name, section, payee_entity_id, calculation_formula')
       .eq('template_id', templateId)
       .eq('client_id', clientId)
       .or('archived.is.null,archived.eq.false')
@@ -30,6 +30,7 @@ export async function calculateWaterfallForTransaction(
       logicSteps = data.map((step: any) => ({
         ...step,
         step_number: Number(step.step_number),
+        payee_type: step.payee_entity_id ? 'ENTITY' : 'AGENT',
       }));
     }
   }

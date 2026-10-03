@@ -2,8 +2,12 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { RotateCcw, Zap } from 'lucide-react';
 import { evaluateFormula, formulaValueToInput, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { normalizeAgentName } from '@/lib/id';
+import { applyTemplateLogic, type AppliedTemplateRules, type TemplateLogicStep } from './applyTemplateLogic';
+import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { NativeDateInput } from '@/components/ui/NativeDateInput';
 
 interface TemplateOption {
   id: string;
@@ -72,7 +76,7 @@ const valueControl =
 
 function controlClass(locked: boolean, select = false): string {
   if (select) return `${valueControl} overview-field-select cursor-pointer font-medium text-slate-900 dark:text-white`;
-  if (locked) return `parameter-locked ${valueControl} cursor-default font-semibold text-sky-700 dark:text-sky-300`;
+  if (locked) return `parameter-locked ${valueControl} cursor-default font-medium text-slate-400 dark:text-slate-500`;
   return `${valueControl} font-medium text-slate-900 dark:text-white`;
 }
 
@@ -80,30 +84,49 @@ function LabeledParameter({
   id,
   label,
   locked,
+  changed,
   showChevron,
   mirror,
+  onReset,
   children,
 }: {
   id: string;
   label: string;
   locked: boolean;
+  changed: boolean;
   showChevron: boolean;
   mirror?: string;
+  onReset?: () => void;
   children: React.ReactNode;
 }) {
-  const labelTone = 'text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
+  const labelTone = locked
+    ? 'text-slate-400 dark:text-slate-500'
+    : 'text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
   const shellBorder = locked
-    ? 'border-b-slate-300 dark:border-b-slate-600'
+    ? 'border-b-slate-200 dark:border-b-slate-700'
     : 'border-b-slate-300 dark:border-b-slate-600 focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)]';
 
   return (
-    <div className={`group/field relative underline-field rounded-t-md pl-2.5 pr-2.5 pt-1 pb-0.5 border-b transition-colors ${shellBorder}`}>
-      <label htmlFor={id} className={`block truncate text-[10px] leading-3 font-medium ${labelTone}`}>
-        {label}
-      </label>
+    <div className={`group/field relative underline-field rounded-t-md pl-2.5 pr-2.5 pt-1 pb-0.5 border-b transition-colors ${locked ? 'is-locked' : ''} ${changed ? 'is-changed' : ''} ${shellBorder}`}>
+      <div className="flex min-w-0 items-center gap-1">
+        <label htmlFor={id} className={`min-w-0 truncate text-[10px] leading-3 font-medium ${labelTone}`}>
+          {label}
+        </label>
+        {onReset && (
+          <button
+            type="button"
+            onClick={onReset}
+            aria-label={`Reset ${label} to default`}
+            title="Reset to default"
+            className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center text-amber-600/80 transition hover:text-emerald-600 dark:text-amber-300/80 dark:hover:text-emerald-400 cursor-pointer"
+          >
+            <RotateCcw className="h-3 w-3" strokeWidth={1.75} aria-hidden />
+          </button>
+        )}
+      </div>
       <div className="flex h-5 items-center">
         {children ?? (
-          <span className={`truncate text-xs leading-4 font-semibold ${locked ? 'text-sky-700 dark:text-sky-300' : 'text-slate-900 dark:text-white'}`}>
+          <span className={`truncate text-xs leading-4 font-medium ${locked ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'}`}>
             {mirror}
           </span>
         )}
@@ -156,6 +179,36 @@ function formatCommitted(kind: 'CURRENCY' | 'PERCENT' | 'NUMBER', core: string):
   }
   const clean = Number(Math.round(Number(amount + 'e8')) + 'e-8');
   return kind === 'PERCENT' ? `${clean}%` : String(clean);
+}
+
+function parameterValuesMatch(
+  parameter: TemplateParameter,
+  current: string,
+  fallback: string,
+  agents: AgentOption[],
+): boolean {
+  const control = canonicalParameterType(parameter.data_type);
+  const left = current.trim();
+  const right = fallback.trim();
+  if (control === 'CURRENCY' || control === 'PERCENT' || control === 'NUMBER') {
+    const leftCore = numericCore(left);
+    const rightCore = numericCore(right);
+    if (leftCore !== null && rightCore !== null) return Number(leftCore) === Number(rightCore);
+    return left === right;
+  }
+  if (control === 'AGENT_PICKER') {
+    const agentName = (value: string) => {
+      const agent = agents.find((item) => (
+        item.id === value ||
+        item.name === value ||
+        normalizeAgentName(item.name).toLowerCase() === normalizeAgentName(value).toLowerCase()
+      ));
+      return (agent?.name || value).trim().toLowerCase();
+    };
+    return agentName(left) === agentName(right);
+  }
+  if (control === 'DATE') return left.slice(0, 10) === right.slice(0, 10);
+  return left === right;
 }
 
 function NumericParameterInput({
@@ -220,11 +273,13 @@ function ParameterControl({
   value,
   agents,
   onChange,
+  onReset,
 }: {
   parameter: TemplateParameter;
   value: string;
   agents: AgentOption[];
   onChange: (next: string) => void;
+  onReset?: () => void;
 }) {
   const control = canonicalParameterType(parameter.data_type);
   const locked = parameter.is_user_editable === false;
@@ -238,10 +293,9 @@ function ParameterControl({
     const options = parameter.dropdown_options || [];
     const selectOptions = value && !options.includes(value) ? [value, ...options] : options;
     field = (
-      <select id={id} value={value} disabled={locked} onChange={(event) => onChange(event.target.value)} className={controlClass(locked, true)}>
-        <option value=""></option>
+      <ClearableSelect id={id} value={value} disabled={locked} onChange={(event) => onChange(event.target.value)} className={controlClass(locked, true)}>
         {selectOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-      </select>
+      </ClearableSelect>
     );
   } else if (control === 'AGENT_PICKER') {
     const matched = agents.find((agent) => (
@@ -251,7 +305,7 @@ function ParameterControl({
     ));
     const choices = matched || !value ? agents : [{ id: value, name: value }, ...agents];
     field = (
-      <select
+      <ClearableSelect
         id={id}
         value={matched?.id || (value ? value : '')}
         disabled={locked}
@@ -261,27 +315,25 @@ function ParameterControl({
         }}
         className={controlClass(false, true)}
       >
-        <option value=""></option>
         {choices.map((agent) => (
           <option key={agent.id} value={agent.id}>
             {agent.name}{agent.isTeamLead ? ' (Team Lead)' : ''}
           </option>
         ))}
-      </select>
+      </ClearableSelect>
     );
   } else if (control === 'BOOLEAN') {
     const yesNo = value === 'Yes' || value === 'No' ? value : '';
     field = (
-      <select id={id} value={yesNo} disabled={locked} onChange={(event) => onChange(event.target.value)} className={controlClass(locked, true)}>
-        <option value=""></option>
+      <ClearableSelect id={id} value={yesNo} disabled={locked} onChange={(event) => onChange(event.target.value)} className={controlClass(locked, true)}>
         <option value="Yes">Yes</option>
         <option value="No">No</option>
-      </select>
+      </ClearableSelect>
     );
   } else if (control === 'DATE') {
     const date = /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : '';
     field = (
-      <input id={id} type="date" value={date} disabled={locked} onChange={(event) => onChange(event.target.value)} className={`${controlClass(locked)} dark:[color-scheme:dark]`} />
+      <NativeDateInput id={id} value={date} disabled={locked} onChange={(event) => onChange(event.target.value)} className={`${controlClass(locked)} dark:[color-scheme:dark]`} />
     );
   } else if (control === 'CURRENCY' || control === 'PERCENT' || control === 'NUMBER') {
     field = <NumericParameterInput id={id} kind={control} value={value} readOnly={locked} onChange={onChange} />;
@@ -292,7 +344,7 @@ function ParameterControl({
   }
 
   return (
-    <LabeledParameter id={id} label={parameter.parameter_name} locked={locked} showChevron={isSelect && !locked} mirror={isSelect ? value : undefined}>
+    <LabeledParameter id={id} label={parameter.parameter_name} locked={locked} changed={Boolean(onReset)} showChevron={isSelect && !locked} mirror={isSelect ? value : undefined} onReset={onReset}>
       {field}
     </LabeledParameter>
   );
@@ -392,6 +444,21 @@ function resolveDefaults(
   });
 }
 
+function parameterRecord(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const record: Record<string, string> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    record[key] = raw === undefined || raw === null ? '' : String(raw);
+  }
+  return record;
+}
+
+function savedParameterValue(saved: Record<string, string>, key: string): string | undefined {
+  if (Object.prototype.hasOwnProperty.call(saved, key)) return saved[key];
+  const match = Object.keys(saved).find((item) => item.toLowerCase() === key.toLowerCase());
+  return match === undefined ? undefined : saved[match];
+}
+
 function groupedParameterRows(rows: ParameterDefault[]): { name: string; rows: ParameterDefault[] }[] {
   const groups: { name: string; rows: ParameterDefault[] }[] = [];
   for (const row of rows) {
@@ -408,16 +475,28 @@ export function CommissionTemplatePanel({
   transactionId,
   deal,
   agents,
+  dealAgents = [],
+  entities = [],
+  totalCommission = 0,
+  onApplied,
   embedded = false,
 }: {
   clientId: string;
   transactionId: string;
   deal: Record<string, unknown> | null;
   agents: AgentOption[];
+  dealAgents?: AgentOption[];
+  entities?: { id: string; name: string }[];
+  totalCommission?: number;
+  onApplied?: (applied: AppliedTemplateRules) => void;
   embedded?: boolean;
 }) {
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [committedTemplateId, setCommittedTemplateId] = useState('');
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
+  const [submittedTemplateId, setSubmittedTemplateId] = useState('');
+  const [submittedParameters, setSubmittedParameters] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [draftTemplateId, setDraftTemplateId] = useState('');
   const [popupOpen, setPopupOpen] = useState(false);
   const [parameters, setParameters] = useState<TemplateParameter[]>([]);
@@ -454,6 +533,9 @@ export function CommissionTemplatePanel({
   useEffect(() => {
     if (!transactionId) {
       setCommittedTemplateId('');
+      setSubmissionId(null);
+      setSubmittedTemplateId('');
+      setSubmittedParameters({});
       return;
     }
     let cancelled = false;
@@ -464,8 +546,16 @@ export function CommissionTemplatePanel({
         if (!response.ok || !data.success || cancelled) return;
         const submitted = (data.submissions || [])[0];
         setCommittedTemplateId(submitted?.template_id || '');
+        setSubmissionId(submitted?.id || null);
+        setSubmittedTemplateId(submitted?.template_id || '');
+        setSubmittedParameters(parameterRecord(submitted?.submitted_parameters));
       } catch {
-        if (!cancelled) setCommittedTemplateId('');
+        if (!cancelled) {
+          setCommittedTemplateId('');
+          setSubmissionId(null);
+          setSubmittedTemplateId('');
+          setSubmittedParameters({});
+        }
       }
     };
     void loadSubmission();
@@ -518,10 +608,14 @@ export function CommissionTemplatePanel({
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
+    const useSubmission = draftTemplateId === submittedTemplateId;
     const next: Record<string, string> = {};
-    for (const row of rows) next[row.parameter.id] = row.raw;
+    for (const row of rows) {
+      const saved = useSubmission ? savedParameterValue(submittedParameters, row.parameter.parameter_key) : undefined;
+      next[row.parameter.id] = saved !== undefined ? saved : row.raw;
+    }
     setValues(next);
-  }, [rows]);
+  }, [rows, draftTemplateId, submittedTemplateId, submittedParameters]);
 
   useEffect(() => {
     setActiveGroup('');
@@ -535,6 +629,61 @@ export function CommissionTemplatePanel({
   const closePopup = () => {
     setPopupOpen(false);
     setDraftTemplateId('');
+  };
+
+  const submitTemplate = async () => {
+    if (!draftTemplateId || !transactionId || isSubmitting) return;
+    setIsSubmitting(true);
+    setLoadError('');
+    try {
+      const parameterValues: Record<string, string> = {};
+      for (const parameter of parameters) {
+        parameterValues[parameter.parameter_key] = values[parameter.id] ?? '';
+      }
+
+      const logicResponse = await fetch(`/api/commission-template-logic?template_id=${encodeURIComponent(draftTemplateId)}`);
+      const logicData = await logicResponse.json();
+      if (!logicResponse.ok || !logicData.success) throw new Error(logicData.error || 'Failed to load template logic.');
+
+      const applied = applyTemplateLogic({
+        steps: (logicData.logic_steps || []) as TemplateLogicStep[],
+        parameters: parameterValues,
+        deal,
+        entities,
+        rosterAgents: agents,
+        dealAgents,
+        totalCommission,
+      });
+
+      const response = await fetch('/api/commission-template-submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          submission: {
+            ...(submissionId ? { id: submissionId } : {}),
+            client_id: clientId,
+            transaction_id: transactionId,
+            template_id: draftTemplateId,
+            submitted_parameters: parameterValues,
+            status: 'SUBMITTED',
+          },
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || 'Failed to submit the template.');
+
+      setSubmissionId(data.submission?.id || submissionId);
+      setCommittedTemplateId(draftTemplateId);
+      setSubmittedTemplateId(draftTemplateId);
+      setSubmittedParameters(parameterValues);
+      onApplied?.(applied);
+      setPopupOpen(false);
+      setDraftTemplateId('');
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to submit the template.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   useEffect(() => {
@@ -574,19 +723,38 @@ export function CommissionTemplatePanel({
   const shownTemplateId = popupOpen ? draftTemplateId : committedTemplateId;
   const shownTemplateName = templates.find((template) => template.id === shownTemplateId)?.template_name
     || (templates.length === 0 && !isLoadingTemplates ? 'No templates' : '');
+  const singleTemplate = templates.length === 1 ? templates[0] : null;
+
+  const openTemplate = (templateId: string) => {
+    setDraftTemplateId(templateId);
+    setPopupOpen(true);
+    setTemplateMenuOpen(false);
+  };
 
   const selectedTemplate = templates.find((template) => template.id === draftTemplateId);
   const showGroupNav = groups.length > 1;
   const visibleGroups = activeGroup ? groups.filter((group) => group.name === activeGroup) : groups;
 
   return (
-    <div className={embedded ? 'w-56 shrink-0 text-xs sm:w-64' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xl space-y-3 text-xs transition-colors'}>
+    <div className={embedded ? `${singleTemplate ? 'shrink-0' : 'w-56 sm:w-64'} text-xs` : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xl space-y-3 text-xs transition-colors'}>
       {!embedded && (
         <span className="font-bold text-slate-800 dark:text-slate-300 block border-b border-slate-200 dark:border-slate-700 pb-2">
           Commission Template
         </span>
       )}
       <div ref={templateFieldRef} className="relative">
+        {singleTemplate ? (
+          <button
+            type="button"
+            onClick={() => openTemplate(singleTemplate.id)}
+            className="inline-flex h-7 max-w-64 items-center gap-1.5 rounded-md bg-emerald-600 px-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 cursor-pointer"
+          >
+            <Zap className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+            <span className="truncate">
+              {committedTemplateId === singleTemplate.id ? singleTemplate.template_name : `Add ${singleTemplate.template_name}`}
+            </span>
+          </button>
+        ) : (
         <button
           type="button"
           disabled={isLoadingTemplates || templates.length === 0}
@@ -609,17 +777,14 @@ export function CommissionTemplatePanel({
             <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        {templateMenuOpen && createPortal(
+        )}
+        {templateMenuOpen && templates.length > 1 && createPortal(
           <ul ref={templateMenuRef} role="listbox" aria-label="Template" style={{ top: templateMenuBox.top, left: templateMenuBox.left, width: templateMenuBox.width }} className="fixed z-50 max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-xs shadow-lg dark:border-slate-600 dark:bg-slate-800">
             {templates.map((template) => (
               <li key={template.id} role="option" aria-selected={template.id === shownTemplateId}>
                 <button
                   type="button"
-                  onClick={() => {
-                    setDraftTemplateId(template.id);
-                    setPopupOpen(true);
-                    setTemplateMenuOpen(false);
-                  }}
+                  onClick={() => openTemplate(template.id)}
                   className={`block w-full cursor-pointer px-2.5 py-1.5 text-left font-medium text-slate-900 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700 ${template.id === shownTemplateId ? 'bg-slate-100 dark:bg-slate-700' : ''}`}
                 >
                   {template.template_name}
@@ -693,13 +858,16 @@ export function CommissionTemplatePanel({
                       </div>
                       {!isCollapsed && (
                         <div className="space-y-2 px-3 py-2">
-                          {group.rows.map(({ parameter }) => (
+                          {group.rows.map(({ parameter, raw }) => (
                             <ParameterControl
                               key={parameter.id}
                               parameter={parameter}
                               value={values[parameter.id] ?? ''}
                               agents={uniqueAgents}
                               onChange={(next) => setValues((current) => ({ ...current, [parameter.id]: next }))}
+                              onReset={parameterValuesMatch(parameter, values[parameter.id] ?? '', raw, uniqueAgents)
+                                ? undefined
+                                : () => setValues((current) => ({ ...current, [parameter.id]: raw }))}
                             />
                           ))}
                         </div>
@@ -710,9 +878,31 @@ export function CommissionTemplatePanel({
                 </div>
               )}
             </div>
-            <div className="flex justify-end gap-2 pt-3">
+            <div className="flex items-center justify-between gap-2 pt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  const next: Record<string, string> = {};
+                  for (const row of rows) next[row.parameter.id] = row.raw;
+                  setValues(next);
+                }}
+                disabled={!rows.some((row) => !parameterValuesMatch(row.parameter, values[row.parameter.id] ?? '', row.raw, uniqueAgents))}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 text-slate-600 transition hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                Reset all
+              </button>
+              <div className="flex gap-2">
               <button type="button" onClick={closePopup} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer">Close</button>
-              <button type="button" disabled title="Split calculations are not available yet." className="px-4 py-1.5 text-xs font-bold rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed">Submit</button>
+              <button
+                type="button"
+                onClick={() => void submitTemplate()}
+                disabled={isSubmitting || isLoadingParameters || !draftTemplateId}
+                className="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 text-slate-950 transition hover:bg-emerald-400 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit'}
+              </button>
+              </div>
             </div>
           </div>
         </div>,

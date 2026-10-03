@@ -3,11 +3,6 @@
 /* Enable class-based dark mode for Tailwind v4 */
 @variant dark (&:where(.dark, .dark *));
 
-/* Inter everywhere, with the system UI font behind it if the file has not loaded yet. */
-@theme inline {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-}
-
 /* Underline fields. A faint fill at rest; the full grey on hover or focus.
    Full grey is slate-100 / slate-900. */
 .underline-field {
@@ -27,6 +22,53 @@ html.dark .underline-field {
 html.dark .underline-field:hover,
 html.dark .underline-field:focus-within {
   background-color: #0f172a;
+}
+
+/* A value that differs from its formula default. Quiet wash plus a short left mark. */
+.underline-field.is-changed::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.35rem;
+  bottom: 0.35rem;
+  width: 2px;
+  border-radius: 999px;
+  background-color: #d97706;
+}
+
+.underline-field.is-changed:not(.is-locked) {
+  background-color: color-mix(in srgb, #fbbf24 14%, transparent);
+}
+
+.underline-field.is-changed:not(.is-locked):hover,
+.underline-field.is-changed:not(.is-locked):focus-within {
+  background-color: color-mix(in srgb, #fef3c7 72%, #f1f5f9);
+}
+
+html.dark .underline-field.is-changed::before {
+  background-color: #fbbf24;
+}
+
+html.dark .underline-field.is-changed:not(.is-locked) {
+  background-color: color-mix(in srgb, #fbbf24 12%, transparent);
+}
+
+html.dark .underline-field.is-changed:not(.is-locked):hover,
+html.dark .underline-field.is-changed:not(.is-locked):focus-within {
+  background-color: color-mix(in srgb, #fbbf24 18%, #0f172a);
+}
+
+/* Read-only parameters stay flat and do not brighten on hover. */
+.underline-field.is-locked,
+.underline-field.is-locked:hover,
+.underline-field.is-locked:focus-within {
+  background-color: #f8fafc;
+}
+
+html.dark .underline-field.is-locked,
+html.dark .underline-field.is-locked:hover,
+html.dark .underline-field.is-locked:focus-within {
+  background-color: color-mix(in srgb, #020617 42%, transparent);
 }
 
 /* Set explicit document canvas defaults & smooth theme transitions */
@@ -94,8 +136,8 @@ select.parameter-locked:disabled,
 input.parameter-locked:disabled,
 input.parameter-locked:read-only {
   opacity: 1;
-  color: #0369a1;
-  -webkit-text-fill-color: #0369a1;
+  color: #94a3b8;
+  -webkit-text-fill-color: #94a3b8;
 }
 
 html.dark select.parameter-locked:not([multiple]):not([size]) {
@@ -107,11 +149,21 @@ html.dark select.parameter-locked:disabled,
 html.dark input.parameter-locked:disabled,
 html.dark input.parameter-locked:read-only {
   opacity: 1;
-  color: #7dd3fc;
-  -webkit-text-fill-color: #7dd3fc;
+  color: #64748b;
+  -webkit-text-fill-color: #64748b;
 }
 
 input.parameter-locked[type="date"]::-webkit-calendar-picker-indicator {
   display: none;
   -webkit-appearance: none;
+}
+
+input[type="date"].date-all-selected::-webkit-datetime-edit-fields-wrapper,
+input[type="date"].date-all-selected::-webkit-datetime-edit-month-field,
+input[type="date"].date-all-selected::-webkit-datetime-edit-day-field,
+input[type="date"].date-all-selected::-webkit-datetime-edit-year-field,
+input[type="date"].date-all-selected::-webkit-datetime-edit-text {
+  background-color: Highlight;
+  color: HighlightText;
+  -webkit-text-fill-color: HighlightText;
 }

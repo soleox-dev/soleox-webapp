@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AgentConfig, DynamicRule, CommissionEntityOption, KnownAgentInfo } from '../types';
 import { HoverNote } from './HoverNote';
 import { SplitPair } from './SplitPair';
+import { ClearableSelect } from '@/components/ui/ClearableSelect';
 
 type SplitType = 'PERCENT' | 'AMOUNT';
 
@@ -32,7 +33,7 @@ interface CommissionWaterfallTableProps {
   onReorderPostSplit2Entities?: (entityOrder: string[]) => void;
   onAddLevel1Cell: (agentName: string, entity: string) => void;
   onAddLevel2Cell: (agentName: string, entity: string) => void;
-  layoutToggle?: React.ReactNode;
+  onDraftDirty?: (dirty: boolean) => void;
 }
 
 function entityOrder(rulesByAgent: Record<string, DynamicRule[]>, names: string[]): string[] {
@@ -144,7 +145,7 @@ export function CommissionWaterfallTable({
   onReorderPostSplit2Entities,
   onAddLevel1Cell,
   onAddLevel2Cell,
-  layoutToggle,
+  onDraftDirty,
 }: CommissionWaterfallTableProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -168,6 +169,15 @@ export function CommissionWaterfallTable({
     setNewLevel1Entity('');
     setNewLevel2Entity('');
   }, [isEditing]);
+
+  useEffect(() => {
+    onDraftDirty?.(
+      draftLevel1.length > 0 ||
+      draftLevel2.length > 0 ||
+      newLevel1Entity.trim() !== '' ||
+      newLevel2Entity.trim() !== ''
+    );
+  }, [draftLevel1, draftLevel2, newLevel1Entity, newLevel2Entity, onDraftDirty]);
 
   const labelCell = 'sticky left-0 z-10 bg-white dark:bg-slate-900 px-3 py-2 text-left align-middle border-b border-slate-200 dark:border-slate-700';
   const agentCell = 'px-2 py-2 text-center align-middle border-b border-slate-200 dark:border-slate-700 min-w-[14.5rem]';
@@ -205,12 +215,11 @@ export function CommissionWaterfallTable({
     return (
       <div className="flex items-center gap-1.5">
         {knownEntities.length > 0 ? (
-          <select value={entity} onChange={(event) => setEntity(event.target.value)} className={`${fieldClass} max-w-[9rem]`}>
-            <option value="">Entity...</option>
+          <ClearableSelect value={entity} onChange={(event) => setEntity(event.target.value)} className={`${fieldClass} max-w-[9rem]`}>
             {available.map((item) => (
               <option key={item.id} value={item.name}>{item.name}</option>
             ))}
-          </select>
+          </ClearableSelect>
         ) : (
           <input type="text" value={entity} placeholder="Entity" onChange={(event) => setEntity(event.target.value)} className={`${fieldClass} w-28`} />
         )}
@@ -322,7 +331,7 @@ export function CommissionWaterfallTable({
     if (!isEditing) return <span>{entity}</span>;
     if (knownEntities.length > 0) {
       return (
-        <select
+        <ClearableSelect
           value={entity}
           onChange={(event) => onChange(event.target.value)}
           className="max-w-[10rem] bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer"
@@ -332,7 +341,7 @@ export function CommissionWaterfallTable({
           {knownEntities.filter((item) => item.name !== entity).map((item) => (
             <option key={item.id} value={item.name}>{item.name}</option>
           ))}
-        </select>
+        </ClearableSelect>
       );
     }
     return (
@@ -410,8 +419,7 @@ export function CommissionWaterfallTable({
           </span>
         </div>
         <div className="flex items-center gap-3">
-          {layoutToggle}
-          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+          <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-4'}`}>
             Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
           </span>
         </div>
@@ -454,7 +462,7 @@ export function CommissionWaterfallTable({
                           <button type="button" onClick={() => onRemoveAgent(agent.name)} className="text-xs text-rose-500 hover:text-rose-600 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition" title={`Remove ${agent.name}`} aria-label={`Remove ${agent.name}`}>🗑️</button>
                         )}
                         {isEditing && index > 0 && knownAgents.length > 0 ? (
-                          <select
+                          <ClearableSelect
                             value={agent.name}
                             onChange={(event) => onSwitchAgent?.(agent.id, event.target.value)}
                             className="w-max max-w-none bg-transparent border-b border-slate-300 dark:border-slate-600 text-right text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer"
@@ -465,7 +473,7 @@ export function CommissionWaterfallTable({
                               .map((item) => (
                                 <option key={item.id} value={item.name}>{item.name}</option>
                               ))}
-                          </select>
+                          </ClearableSelect>
                         ) : (
                           <span className="whitespace-nowrap text-right font-bold text-slate-900 dark:text-white">{agent.name}</span>
                         )}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { ClearableSelect } from '@/components/ui/ClearableSelect';
 
 export interface CommissionEntity {
   id: string;
@@ -596,7 +597,7 @@ export default function CommissionEntitiesPage() {
                     Entity Type <span className="text-rose-500">*</span>
                   </label>
                   <div className="flex h-5 items-center">
-                    <select
+                    <ClearableSelect
                       required
                       tabIndex={2}
                       disabled={isSubmitting}
@@ -609,7 +610,7 @@ export default function CommissionEntitiesPage() {
                           {type}
                         </option>
                       ))}
-                    </select>
+                    </ClearableSelect>
                   </div>
                   <FieldChevron />
                 </div>

@@ -24,6 +24,7 @@ import { TransferPrimaryAgentModal } from './components/TransferPrimaryAgentModa
 import { RevertPrimaryAgentModal } from './components/RevertPrimaryAgentModal';
 import { UnsavedChangesModal } from './components/UnsavedChangesModal';
 import { generatePrefixedId } from '@/lib/id';
+import type { AppliedTemplateRules } from './components/applyTemplateLogic';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -272,7 +273,8 @@ export default function Dashboard() {
     setIsAddAgentModalOpen(false);
   };
 
-  const handleApplyWaterfallEdit = () => {
+  const waterfallHasEdits = () => {
+    if (!waterfallEditSnapshot) return false;
     const currentWaterfall = {
       agents,
       offTheTopRules,
@@ -280,8 +282,11 @@ export default function Dashboard() {
       postSplitRulesByAgent,
       postSplit2RulesByAgent,
     };
-    const unchanged = waterfallEditSnapshot !== null
-      && JSON.stringify(waterfallEditSnapshot) === JSON.stringify(currentWaterfall);
+    return JSON.stringify(waterfallEditSnapshot) !== JSON.stringify(currentWaterfall);
+  };
+
+  const handleApplyWaterfallEdit = () => {
+    const unchanged = !waterfallHasEdits();
 
     setWaterfallEditSnapshot(null);
     setIsEditingWaterfall(false);
@@ -290,6 +295,61 @@ export default function Dashboard() {
 
     // Local apply only — DB persistence happens via Save Transaction
     setHasUnsavedLocalChanges(true);
+  };
+
+  const handleApplyTemplateRules = (applied: AppliedTemplateRules) => {
+    const nextOff = applied.offTheTopRules ?? [];
+    const nextPre = applied.preSplitRules ?? [];
+    const nextPost = applied.postSplitRulesByAgent ?? {};
+    const nextPost2 = applied.postSplit2RulesByAgent ?? {};
+    const templateSplits = applied.agentSplits ?? [];
+    const namesMatch = (left: string, right: string) => left.trim().toLowerCase() === right.trim().toLowerCase();
+    const primary = agents[0]?.name?.trim() ? agents[0] : null;
+    const agentNames = [
+      ...templateSplits.map((split) => split.name),
+      ...Object.keys(nextPost),
+      ...Object.keys(nextPost2),
+    ].filter((name, index, all) => (
+      name.trim() &&
+      all.findIndex((item) => namesMatch(item, name)) === index &&
+      !(primary && namesMatch(primary.name, name))
+    ));
+
+    const templateAgents: AgentConfig[] = agentNames.map((name) => {
+      const known = knownAgents.find((agent) => namesMatch(agent.name, name));
+      const previous = agents.find((agent) => namesMatch(agent.name, name));
+      const split = templateSplits.find((item) => namesMatch(item.name, name));
+      return {
+        id: known?.id || previous?.id || `AGT_${name.trim()}`,
+        name: known?.name || previous?.name || name.trim(),
+        isTeamLead: known?.isTeamLead ?? previous?.isTeamLead ?? false,
+        splitType: split?.splitType ?? 'PERCENT',
+        splitVal: split?.splitVal ?? 0,
+        brokerCapLimit: known?.brokerCapLimit ?? previous?.brokerCapLimit ?? 0,
+        brokerCapPaidYTD: known?.brokerCapPaidYTD ?? previous?.brokerCapPaidYTD ?? 0,
+        riskCapLimit: known?.riskCapLimit ?? previous?.riskCapLimit ?? 0,
+        riskPaidYTD: known?.riskPaidYTD ?? previous?.riskPaidYTD ?? 0,
+      };
+    });
+    // The primary agent stays, with their existing split. Every other agent split is replaced by the template.
+    const nextAgents = primary ? [primary, ...templateAgents] : templateAgents;
+
+    const changed =
+      JSON.stringify(nextOff) !== JSON.stringify(offTheTopRules) ||
+      JSON.stringify(nextPre) !== JSON.stringify(preSplitRules) ||
+      JSON.stringify(nextPost) !== JSON.stringify(postSplitRulesByAgent) ||
+      JSON.stringify(nextPost2) !== JSON.stringify(postSplit2RulesByAgent) ||
+      JSON.stringify(nextAgents) !== JSON.stringify(agents);
+
+    setOffTheTopRules(nextOff);
+    setPreSplitRules(nextPre);
+    setPostSplitRulesByAgent(nextPost);
+    setPostSplit2RulesByAgent(nextPost2);
+    setAgents(nextAgents);
+    setWaterfallEditSnapshot(null);
+    setIsEditingWaterfall(false);
+    setIsAddAgentModalOpen(false);
+    if (changed) setHasUnsavedLocalChanges(true);
   };
 
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
@@ -918,6 +978,91 @@ export default function Dashboard() {
     );
   }, [knownAgents, agents]);
 
+  const handleDiscardChanges = () => {
+    overviewForm.setIsEditingOverview(false);
+    setIsEditingWaterfall(false);
+    setWaterfallEditSnapshot(null);
+    setIsAddAgentModalOpen(false);
+    setIsUnsavedModalOpen(false);
+    pendingNavigationRef.current = null;
+    setHasUnsavedLocalChanges(false);
+
+    if (isNewTransaction) {
+      setSalesPrice(0);
+      setGciPerc(0);
+      setGciType('PERCENTAGE');
+      setPropertyAddress('');
+      setClientName('');
+      setPrimaryAgent('');
+      setClientType('');
+      setClosingDate('');
+      setListDate('');
+      setAcceptanceDate('');
+      setLeadSource('');
+      setAgents([]);
+      setOffTheTopRules([]);
+      setPreSplitRules([]);
+      setPostSplitRulesByAgent({});
+      setPostSplit2RulesByAgent({});
+      return;
+    }
+
+    const matched = savedDeals.find((deal) => deal.id === routeId);
+    if (!matched) return;
+    const saved = JSON.parse(JSON.stringify(matched));
+
+    setSelectedDeal(saved);
+    setSelectedDealId(saved.id);
+    setDealId(saved.id);
+    setPropertyAddress(saved.property_address || '');
+    setClientName(saved.client_name || '');
+    const rawAgent = saved.agent_id || saved.primary_agent || '';
+    const foundAgent = knownAgents.find(
+      (agent) => agent.id === rawAgent || agent.name.toLowerCase() === String(rawAgent).toLowerCase()
+    );
+    const agentDisplayName = foundAgent ? foundAgent.name : (saved.primary_agent || rawAgent);
+    setPrimaryAgent(agentDisplayName);
+    setClientType(saved.client_type || saved.deal_type || saved.transaction_side || '');
+    setClosingDate(saved.closing_date ? String(saved.closing_date).substring(0, 10) : '');
+    setAcceptanceDate(saved.acceptance_date ? String(saved.acceptance_date).substring(0, 10) : '');
+    setListDate(saved.list_date ? String(saved.list_date).substring(0, 10) : '');
+    setLeadSource(saved.lead_source || '');
+    setSalesPrice(saved.sales_price ? Math.abs(Number(saved.sales_price)) : 0);
+    setGciPerc(saved.gci_perc ? (Math.abs(Number(saved.gci_perc)) > 1 ? Number(saved.gci_perc) / 100 : Number(saved.gci_perc)) : 0);
+    setGciType(saved.gci_type || 'PERCENTAGE');
+
+    const dealCustomAttrs = saved.custom_attributes || {};
+    const dealAgents = dealCustomAttrs.agents || saved.agents;
+    if (Array.isArray(dealAgents) && dealAgents.length > 0) {
+      setAgents(dealAgents.map((agent: AgentConfig) => ({ ...agent })));
+    } else if (rawAgent) {
+      setAgents([
+        {
+          id: foundAgent?.id || `A_${Date.now()}`,
+          name: agentDisplayName,
+          isTeamLead: foundAgent?.isTeamLead || false,
+          splitType: 'PERCENT',
+          splitVal: 1.0,
+          brokerCapLimit: foundAgent?.brokerCapLimit || 8000,
+          brokerCapPaidYTD: foundAgent?.brokerCapPaidYTD || 0,
+          riskCapLimit: foundAgent?.riskCapLimit || 750,
+          riskPaidYTD: foundAgent?.riskPaidYTD || 0,
+        },
+      ]);
+    } else {
+      setAgents([]);
+    }
+
+    const dealOffTop = dealCustomAttrs.offTheTopRules || saved.offTheTopRules;
+    setOffTheTopRules(Array.isArray(dealOffTop) ? cloneWaterfallRules(dealOffTop) : []);
+    const dealPreSplits = dealCustomAttrs.preSplitRules || saved.preSplitRules;
+    setPreSplitRules(Array.isArray(dealPreSplits) ? cloneWaterfallRules(dealPreSplits) : []);
+    const dealPostSplits = dealCustomAttrs.postSplitRulesByAgent || saved.postSplitRulesByAgent;
+    setPostSplitRulesByAgent(dealPostSplits && typeof dealPostSplits === 'object' ? cloneWaterfallRulesByAgent(dealPostSplits) : {});
+    const dealPostSplits2 = dealCustomAttrs.postSplit2RulesByAgent || saved.postSplit2RulesByAgent;
+    setPostSplit2RulesByAgent(dealPostSplits2 && typeof dealPostSplits2 === 'object' ? cloneWaterfallRulesByAgent(dealPostSplits2) : {});
+  };
+
   const requestNavigation = (navigate: () => void) => {
     if (!hasUnsavedLocalChanges) {
       navigate();
@@ -1024,6 +1169,7 @@ export default function Dashboard() {
         isNewTransaction={isNewTransaction}
         isSaving={isSaving}
         onSave={() => handleSave()}
+        onDiscard={handleDiscardChanges}
         hasUnsavedChanges={hasUnsavedLocalChanges}
       />
 
@@ -1076,6 +1222,7 @@ export default function Dashboard() {
             isCollapsed={collapsed.overview}
             onToggleSection={() => toggleSection('overview')}
             isEditing={overviewForm.isEditingOverview}
+            hasChanges={!overviewForm.overviewValuesUnchanged()}
             onStartEdit={overviewForm.handleStartOverviewEdit}
             onCancelEdit={() => overviewForm.setIsEditingOverview(false)}
             onApplyEdit={overviewForm.handleApplyOverviewEdit}
@@ -1097,6 +1244,7 @@ export default function Dashboard() {
             isCollapsed={collapsed.commission}
             onToggleSection={() => toggleSection('commission')}
             isEditing={isEditingWaterfall}
+            hasChanges={waterfallHasEdits()}
             onStartEdit={handleStartWaterfallEdit}
             onCancelEdit={handleCancelWaterfallEdit}
             onApplyEdit={handleApplyWaterfallEdit}
@@ -1304,6 +1452,7 @@ export default function Dashboard() {
             transactionId={selectedDeal?.id || dealId || ''}
             deal={selectedDeal}
             templateAgents={knownAgents.map((agent) => ({ id: agent.id, name: agent.name, isTeamLead: agent.isTeamLead }))}
+            onApplyTemplate={handleApplyTemplateRules}
           />
 
           <FinalDisbursements

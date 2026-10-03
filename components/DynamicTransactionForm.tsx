@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { DynamicFormSection, LookupValue } from '@/lib/fields';
+import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { NativeDateInput } from '@/components/ui/NativeDateInput';
 
 interface DynamicTransactionFormProps {
   clientId?: string;
@@ -112,13 +114,12 @@ export default function DynamicTransactionForm({
 
                   {/* SELECT / DROPDOWN CONTROL */}
                   {field.fieldType === 'SELECT' && (
-                    <select
+                    <ClearableSelect
                       value={formData[fieldKey] || ''}
                       onChange={(e) => handleChange(fieldKey, e.target.value)}
                       required={field.isRequired}
                       className="p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
                     >
-                      <option value="">Select option...</option>
                       {field.dropdownOptions && field.dropdownOptions.length > 0
                         ? field.dropdownOptions.map((opt) => (
                             <option key={opt} value={opt}>{opt}</option>
@@ -128,7 +129,7 @@ export default function DynamicTransactionForm({
                               {lkp.optionLabel}
                             </option>
                           ))}
-                    </select>
+                    </ClearableSelect>
                   )}
 
                   {/* CURRENCY, NUMBER, OR PERCENT INPUT CONTROL */}
@@ -146,8 +147,7 @@ export default function DynamicTransactionForm({
 
                   {/* DATE CONTROL */}
                   {field.fieldType === 'DATE' && (
-                    <input
-                      type="date"
+                    <NativeDateInput
                       value={formData[fieldKey] || ''}
                       onChange={(e) => handleChange(fieldKey, e.target.value)}
                       required={field.isRequired}

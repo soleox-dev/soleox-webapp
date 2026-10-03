@@ -4,10 +4,11 @@ interface HeaderCardProps {
   isNewTransaction: boolean;
   isSaving: boolean;
   onSave: () => void;
+  onDiscard?: () => void;
   hasUnsavedChanges?: boolean;
 }
 
-export function HeaderCard({ isNewTransaction, isSaving, onSave, hasUnsavedChanges = false }: HeaderCardProps) {
+export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, hasUnsavedChanges = false }: HeaderCardProps) {
   return (
     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl flex justify-between items-center transition-colors">
       <div>
@@ -26,19 +27,28 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, hasUnsavedChang
         </div>
         <p className="text-slate-500 dark:text-slate-400 text-sm">Overview, commission waterfall, and payments</p>
       </div>
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onSave}
-          disabled={isSaving}
-          className={`px-4 py-2 font-bold text-xs rounded-lg shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer ${
-            hasUnsavedChanges
-              ? 'bg-amber-500 hover:bg-amber-400 text-slate-950'
-              : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
-          }`}
-        >
-          <span>{isSaving ? '⏳' : '💾'}</span>
-          <span>{isSaving ? 'Saving Transaction...' : 'Save Transaction'}</span>
-        </button>
+      <div className="flex items-center gap-2">
+        {hasUnsavedChanges && (
+          <button
+            type="button"
+            onClick={onDiscard}
+            disabled={isSaving}
+            className="px-4 py-2 text-xs font-bold rounded-lg border border-slate-300 text-slate-600 transition hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+          >
+            Discard Changes
+          </button>
+        )}
+        {(hasUnsavedChanges || isSaving) && (
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={isSaving}
+            className="px-4 py-2 font-bold text-xs rounded-lg shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer bg-amber-500 hover:bg-amber-400 text-slate-950"
+          >
+            <span>{isSaving ? '⏳' : '💾'}</span>
+            <span>{isSaving ? 'Saving Transaction...' : 'Save Transaction'}</span>
+          </button>
+        )}
       </div>
     </div>
   );

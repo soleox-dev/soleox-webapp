@@ -14,6 +14,8 @@ interface SplitPairProps {
   preventMinus: (event: React.KeyboardEvent<HTMLInputElement>) => void;
   deduction?: boolean;
   compact?: boolean;
+  /** View mode: pin the percent to the same column as compact rows, without moving the dollar. */
+  matchColumns?: boolean;
   beforePercent?: React.ReactNode;
   invalid?: boolean;
   locked?: boolean;
@@ -38,6 +40,7 @@ export function SplitPair({
   preventMinus,
   deduction = false,
   compact = false,
+  matchColumns = false,
   beforePercent,
   invalid = false,
   locked = false,
@@ -128,8 +131,22 @@ export function SplitPair({
   }
 
   if (!isEditing) {
+    const percentClass = `text-right text-xs font-semibold whitespace-nowrap ${invalid ? 'text-rose-600 dark:text-rose-400' : 'text-blue-600 dark:text-blue-400'}`;
+    const dollarClass = `text-right text-xs font-bold whitespace-nowrap ${invalid ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`;
+    if (matchColumns) {
+      return (
+        <div className="flex items-center justify-end">
+          {!amountBased && (
+            <span className={percentClass}>({shownPercent.toFixed(2)}%)</span>
+          )}
+          <span className={`w-[6.375rem] shrink-0 ${dollarClass}`}>
+            {deduction ? '-' : ''}{formatCurrency(dollarAmount)}
+          </span>
+        </div>
+      );
+    }
     return (
-      <div className={`flex items-center justify-end ${compact ? 'w-full gap-1.5' : 'gap-3'}`}>
+      <div className={`flex items-center justify-end ${compact ? 'gap-1.5' : 'gap-3'}`}>
         {compact ? (
           <span className={`${percentBox} shrink-0 text-right text-xs font-semibold ${invalid ? 'text-rose-600 dark:text-rose-400' : 'text-blue-600 dark:text-blue-400'}`}>
             {!amountBased && `(${shownPercent.toFixed(2)}%)`}
@@ -139,7 +156,7 @@ export function SplitPair({
             ({shownPercent.toFixed(2)}%)
           </span>
         ) : null}
-        <span className={`${compact ? `${dollarBox} shrink-0 pr-2 text-xs` : 'text-sm'} text-right font-bold whitespace-nowrap ${invalid ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+        <span className={`${compact ? `${dollarBox} shrink-0 pr-2 text-xs` : 'text-xs'} text-right font-bold whitespace-nowrap ${invalid ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
           {deduction ? '-' : ''}{formatCurrency(dollarAmount)}
         </span>
       </div>

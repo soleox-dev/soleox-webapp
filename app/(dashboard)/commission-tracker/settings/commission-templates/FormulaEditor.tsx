@@ -243,11 +243,22 @@ export function FormulaEditor({
   onChange,
   names,
   fieldGroups = [],
+  fieldsAside = false,
+  fieldsOpen: fieldsOpenProp,
+  showFieldsToggle = true,
+  onFieldsPanelChange,
 }: {
   value: string;
   onChange: (value: string) => void;
   names: FormulaName[];
   fieldGroups?: { id: string; title: string; fields: FormulaName[] }[];
+  /** Place Fields and Parameters beside the formula instead of below it. */
+  fieldsAside?: boolean;
+  /** When set, the parent decides whether the side card is visible. */
+  fieldsOpen?: boolean;
+  /** Show the per-formula button that opens the side card. */
+  showFieldsToggle?: boolean;
+  onFieldsPanelChange?: (open: boolean) => void;
 }) {
   const areaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
@@ -259,6 +270,13 @@ export function FormulaEditor({
   const [boxHeight, setBoxHeight] = useState(144);
   const [activeGroup, setActiveGroup] = useState(fieldGroups[0]?.id || '');
   const [fieldQuery, setFieldQuery] = useState('');
+  const [fieldsOpenState, setFieldsOpenState] = useState(false);
+  const fieldsOpen = fieldsOpenProp ?? fieldsOpenState;
+
+  const setFieldsPanel = (open: boolean) => {
+    if (fieldsOpenProp === undefined) setFieldsOpenState(open);
+    onFieldsPanelChange?.(open);
+  };
 
   const known = useMemo(() => new Set(names.map((item) => item.name.toLowerCase())), [names]);
   const tokens = useMemo(() => tokenize(value, known), [value, known]);
@@ -321,29 +339,96 @@ export function FormulaEditor({
     return field.name.toLowerCase().includes(query) || field.label.toLowerCase().includes(query);
   });
 
-  return (
-    <div className="space-y-2">
+  const fieldsCard = fieldGroups.length > 0 && (!fieldsAside || fieldsOpen) ? (
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+          <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200">Fields and Parameters</p>
+            <div className="flex gap-1 flex-wrap">
+              {fieldGroups.map((group) => (
+                <button
+                  key={group.id}
+                  type="button"
+                  onClick={() => setActiveGroup(group.id)}
+                  className={`px-2 py-1 rounded text-[10px] font-bold cursor-pointer ${
+                    selectedGroup?.id === group.id
+                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  {group.title}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="p-2">
+            <label className="group/field underline-field mb-2 block rounded-t-md border-b border-b-slate-300 px-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600">
+              <span className="block truncate text-[10px] leading-3 font-medium text-slate-500 group-focus-within/field:text-emerald-600 dark:text-slate-400 dark:group-focus-within/field:text-emerald-400">Search</span>
+              <input
+                value={fieldQuery}
+                onChange={(event) => setFieldQuery(event.target.value)}
+                placeholder="Fields and parameters"
+                className="h-5 w-full border-0 bg-transparent p-0 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 dark:text-white dark:placeholder:text-slate-500"
+              />
+            </label>
+            <ul className="max-h-40 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700">
+              {visibleFields.length === 0 ? (
+                <li className="px-2 py-2 text-[11px] text-slate-400">Nothing matches.</li>
+              ) : visibleFields.map((field) => (
+                <li key={field.name}>
+                  <button
+                    type="button"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      const area = areaRef.current;
+                      insertText(field.name, area?.selectionStart ?? cursor, area?.selectionEnd ?? cursor);
+                    }}
+                    className="w-full px-2 py-1.5 flex items-center justify-between gap-3 text-left cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/60"
+                  >
+                    <span className="text-xs text-slate-800 dark:text-slate-100">{field.label}</span>
+                    <span className="font-mono text-[11px] text-sky-700 dark:text-sky-300">{field.name}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+  ) : null;
+
+  const formulaColumn = (
+    <div className={`min-w-0 space-y-2 ${fieldsAside ? 'w-full max-w-[39rem] shrink-0' : ''}`}>
       <div className="group/field underline-field rounded-t-md border-b border-b-slate-300 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600">
       <div className="flex items-center justify-between gap-2 px-2.5 pt-1">
         <div className="flex items-center gap-2 min-w-0">
           <span className="truncate text-[10px] leading-3 font-medium text-slate-500 group-focus-within/field:text-emerald-600 dark:text-slate-400 dark:group-focus-within/field:text-emerald-400">Formula</span>
           <FormulaExplain value={value} names={names} />
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            if (expanded) {
-              setExpanded(false);
-              return;
-            }
-            const needed = Math.max(areaRef.current?.scrollHeight || 0, 160);
-            setBoxHeight(needed);
-            setExpanded(true);
-          }}
-          className="shrink-0 px-2 py-0.5 text-[10px] font-bold rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700 cursor-pointer"
-        >
-          {expanded ? 'Collapse' : 'Expand'}
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          {fieldsAside && showFieldsToggle && fieldGroups.length > 0 && (
+            <button
+              type="button"
+              aria-expanded={fieldsOpen}
+              onClick={() => setFieldsPanel(!fieldsOpen)}
+              className="px-2 py-0.5 text-[10px] font-bold rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700 cursor-pointer"
+            >
+              {fieldsOpen ? 'Hide fields' : 'Fields'}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              if (expanded) {
+                setExpanded(false);
+                return;
+              }
+              const needed = Math.max(areaRef.current?.scrollHeight || 0, 160);
+              setBoxHeight(needed);
+              setExpanded(true);
+            }}
+            className="px-2 py-0.5 text-[10px] font-bold rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700 cursor-pointer"
+          >
+            {expanded ? 'Collapse' : 'Expand'}
+          </button>
+        </div>
       </div>
       <div
         className={`relative ${expanded ? 'overflow-hidden' : 'h-32 overflow-hidden'}`}
@@ -450,59 +535,17 @@ export function FormulaEditor({
         <span><span className={TOKEN_CLASS.number}>35%</span> number</span>
       </p>
 
-      {fieldGroups.length > 0 && (
-        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-          <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200">Fields and Parameters</p>
-            <div className="flex gap-1">
-              {fieldGroups.map((group) => (
-                <button
-                  key={group.id}
-                  type="button"
-                  onClick={() => setActiveGroup(group.id)}
-                  className={`px-2 py-1 rounded text-[10px] font-bold cursor-pointer ${
-                    selectedGroup?.id === group.id
-                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                  }`}
-                >
-                  {group.title}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="p-2">
-            <label className="group/field underline-field mb-2 block rounded-t-md border-b border-b-slate-300 px-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600">
-              <span className="block truncate text-[10px] leading-3 font-medium text-slate-500 group-focus-within/field:text-emerald-600 dark:text-slate-400 dark:group-focus-within/field:text-emerald-400">Search</span>
-              <input
-                value={fieldQuery}
-                onChange={(event) => setFieldQuery(event.target.value)}
-                placeholder="Fields and parameters"
-                className="h-5 w-full border-0 bg-transparent p-0 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 dark:text-white dark:placeholder:text-slate-500"
-              />
-            </label>
-            <ul className="max-h-40 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700">
-              {visibleFields.length === 0 ? (
-                <li className="px-2 py-2 text-[11px] text-slate-400">Nothing matches.</li>
-              ) : visibleFields.map((field) => (
-                <li key={field.name}>
-                  <button
-                    type="button"
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      const area = areaRef.current;
-                      insertText(field.name, area?.selectionStart ?? cursor, area?.selectionEnd ?? cursor);
-                    }}
-                    className="w-full px-2 py-1.5 flex items-center justify-between gap-3 text-left cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/60"
-                  >
-                    <span className="text-xs text-slate-800 dark:text-slate-100">{field.label}</span>
-                    <span className="font-mono text-[11px] text-sky-700 dark:text-sky-300">{field.name}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+      {!fieldsAside && fieldsCard}
+    </div>
+  );
+
+  if (!fieldsAside) return formulaColumn;
+
+  return (
+    <div className="flex items-start gap-4">
+      {formulaColumn}
+      {fieldsOpen && fieldsCard && (
+        <div className="w-[32rem] shrink-0">{fieldsCard}</div>
       )}
     </div>
   );

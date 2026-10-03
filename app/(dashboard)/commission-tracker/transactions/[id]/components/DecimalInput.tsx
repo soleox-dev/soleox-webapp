@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { formatPercentageClean, roundCurrency } from '../types';
+import { undoKeyAction, useUndoHistory } from '@/components/ui/undo-history';
 
 interface DecimalInputProps {
   value: number;
@@ -58,10 +59,29 @@ export const DecimalInput = React.forwardRef<HTMLInputElement, DecimalInputProps
 
   const [localStr, setLocalStr] = useState<string>(formatVal(value));
   const [isFocused, setIsFocused] = useState<boolean>(false);
+  const history = useUndoHistory();
+  const lastEmitted = useRef(value);
+
+  const emit = (raw: string) => {
+    const parsed = parseFloat(raw.replace(/[$,%\s]/g, ''));
+    if (!isNaN(parsed)) {
+      const next = isPercent || decimalPlaces != null ? parsed : roundCurrency(parsed);
+      lastEmitted.current = next;
+      onChange(next);
+      return;
+    }
+    lastEmitted.current = 0;
+    onChange(0);
+  };
 
   useEffect(() => {
-    if (!isFocused) setLocalStr(formatVal(value));
-  }, [value, isPercent, useCommas, isFocused, decimalPlaces]);
+    if (isFocused) return;
+    setLocalStr(formatVal(value));
+    if (value !== lastEmitted.current) {
+      history.reset();
+      lastEmitted.current = value;
+    }
+  }, [value, isPercent, useCommas, isFocused, decimalPlaces, allowEmpty]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (disabled) return;
@@ -76,19 +96,25 @@ export const DecimalInput = React.forwardRef<HTMLInputElement, DecimalInputProps
     }
 
     if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+      history.record(localStr, raw);
       setLocalStr(raw);
-      let parsed = parseFloat(raw);
-
-      if (!isNaN(parsed)) {
-        if (isPercent || decimalPlaces != null) {
-          onChange(parsed);
-        } else {
-          onChange(roundCurrency(parsed));
-        }
-      } else {
-        onChange(0);
-      }
+      emit(raw);
     }
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    onKeyDown?.(event);
+    if (event.defaultPrevented || disabled) return;
+    const action = undoKeyAction(event);
+    if (!action) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const next = history.take(action, localStr);
+    if (next === null) return;
+    history.restoring.current = true;
+    setLocalStr(next);
+    emit(next);
+    history.restoring.current = false;
   };
 
   const colorStyles = invalid
@@ -116,13 +142,15 @@ export const DecimalInput = React.forwardRef<HTMLInputElement, DecimalInputProps
         onFocus?.(event);
       }}
       onBlur={() => {
+        const formatted = formatVal(value);
+        if (formatted !== localStr) history.record(localStr, formatted);
         setIsFocused(false);
-        setLocalStr(formatVal(value));
+        setLocalStr(formatted);
       }}
       onMouseDown={onMouseDown}
       onMouseUp={onMouseUp}
       onClick={onClick}
-      onKeyDown={onKeyDown}
+      onKeyDown={handleKeyDown}
       placeholder={placeholder}
       className={`${colorStyles} ${className}`.trim()}
       disabled={disabled}

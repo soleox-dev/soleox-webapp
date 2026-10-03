@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { formatPercent } from '@/lib/fields';
+import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { NativeDateInput } from '@/components/ui/NativeDateInput';
 
 type FieldType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
 
@@ -806,7 +808,7 @@ export default function AgentsSettingsPage() {
                                 {cfg.is_required && <span className="text-rose-500"> *</span>}
                               </label>
                               <div className="flex h-5 items-center">
-                                <select
+                                <ClearableSelect
                                   required={cfg.is_required}
                                   disabled={isSubmitting}
                                   value={String(val)}
@@ -818,7 +820,7 @@ export default function AgentsSettingsPage() {
                                       {opt}
                                     </option>
                                   ))}
-                                </select>
+                                </ClearableSelect>
                               </div>
                               <FieldChevron />
                             </div>
@@ -864,8 +866,7 @@ export default function AgentsSettingsPage() {
                                 {cfg.is_required && <span className="text-rose-500"> *</span>}
                               </label>
                               <div className="flex h-5 items-center">
-                                <input
-                                  type="date"
+                                <NativeDateInput
                                   required={cfg.is_required}
                                   disabled={isSubmitting}
                                   min={cfg.min_date}

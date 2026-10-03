@@ -7,12 +7,18 @@ import { HoverNote } from './HoverNote';
 import { SplitPair } from './SplitPair';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { SectionIcon } from './SectionIcon';
+import { CancelEditPrompt } from './CancelEditPrompt';
+import { useEditOnDoublePress } from './useEditOnDoublePress';
+import { useSectionEditKeys } from './useSectionEditKeys';
 import { CommissionTemplatePanel } from './CommissionTemplatePanel';
+import type { AppliedTemplateRules } from './applyTemplateLogic';
+import { ClearableSelect } from '@/components/ui/ClearableSelect';
 
 interface CommissionWaterfallProps {
   isCollapsed: boolean;
   onToggleSection: () => void;
   isEditing: boolean;
+  hasChanges: boolean;
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onApplyEdit: () => void;
@@ -66,12 +72,14 @@ interface CommissionWaterfallProps {
   transactionId: string;
   deal: Record<string, unknown> | null;
   templateAgents: { id: string; name: string; isTeamLead?: boolean }[];
+  onApplyTemplate?: (applied: AppliedTemplateRules) => void;
 }
 
 export function CommissionWaterfall({
   isCollapsed,
   onToggleSection,
   isEditing,
+  hasChanges,
   onStartEdit,
   onCancelEdit,
   onApplyEdit,
@@ -124,6 +132,7 @@ export function CommissionWaterfall({
   transactionId,
   deal,
   templateAgents,
+  onApplyTemplate,
 }: CommissionWaterfallProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -134,6 +143,7 @@ export function CommissionWaterfall({
   const agentSplitsExceedPool = (dealResult.agentSplitItems || []).some((item: { overAllocated?: boolean }) => item.overAllocated);
   const agentNames = agents.map((a) => a.name);
   const [agentLayout, setAgentLayout] = useState<'table' | 'cards'>('table');
+  const editOnDoublePress = useEditOnDoublePress(!isEditing, onStartEdit);
 
   useEffect(() => {
     const saved = window.localStorage.getItem('soleox-waterfall-agent-layout');
@@ -195,6 +205,14 @@ export function CommissionWaterfall({
   const [newPostSplit2Note, setNewPostSplit2Note] = useState('');
   const [newPostSplit2Type, setNewPostSplit2Type] = useState<'PERCENT' | 'AMOUNT'>('PERCENT');
   const [newPostSplit2Value, setNewPostSplit2Value] = useState<number>(0);
+  const [tableDraftDirty, setTableDraftDirty] = useState(false);
+
+  const inlineDraftDirty =
+    (isAddingOffTop && (newOffTopEntity.trim() !== '' || newOffTopNote.trim() !== '' || newOffTopValue !== 0)) ||
+    (isAddingPreSplit && (newPreSplitEntity.trim() !== '' || newPreSplitNote.trim() !== '' || newPreSplitValue !== 0)) ||
+    (Boolean(addingPostSplitForAgent) && (newPostSplitEntity.trim() !== '' || newPostSplitNote.trim() !== '' || newPostSplitValue !== 0)) ||
+    (Boolean(addingPostSplit2ForAgent) && (newPostSplit2Entity.trim() !== '' || newPostSplit2Note.trim() !== '' || newPostSplit2Value !== 0));
+  const editKeys = useSectionEditKeys(isEditing, onCancelEdit, hasChanges || inlineDraftDirty || tableDraftDirty);
 
   useEffect(() => {
     if (!isEditing) {
@@ -202,6 +220,7 @@ export function CommissionWaterfall({
       setIsAddingPreSplit(false);
       setAddingPostSplitForAgent(null);
       setAddingPostSplit2ForAgent(null);
+      setTableDraftDirty(false);
     }
   }, [isEditing]);
 
@@ -416,7 +435,7 @@ export function CommissionWaterfall({
   };
 
   return (
-    <section id="commission" className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-8 transition-colors">
+    <section id="commission" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-8 transition-colors">
       {/* Top Header */}
       <div className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
         <div className="flex shrink-0 items-center gap-3">
@@ -431,7 +450,12 @@ export function CommissionWaterfall({
             transactionId={transactionId}
             deal={deal}
             agents={templateAgents}
+            dealAgents={agents.map((agent) => ({ id: agent.id, name: agent.name, isTeamLead: agent.isTeamLead }))}
+            entities={knownEntities}
+            totalCommission={baselineTotalCommission}
+            onApplied={onApplyTemplate}
           />
+          {agentLayoutToggle}
           {!isEditing ? (
             <HoverNote label="Edit Commission Waterfall">
               <button
@@ -475,7 +499,7 @@ export function CommissionWaterfall({
       </div>
 
       {!isCollapsed && (
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6" {...editOnDoublePress}>
           {/* Step 1: Off-The-Top Deductions */}
           <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-3 shadow-sm">
             <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
@@ -508,22 +532,21 @@ export function CommissionWaterfall({
             </div>
 
             {isEditing && isAddingOffTop && (
-              <div className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-lg border border-emerald-500/30 space-y-2 mb-2">
+              <div data-inline-save className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-lg border border-emerald-500/30 space-y-2 mb-2">
                 <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block">
                   Add Off-The-Top Deduction
                 </span>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                   {knownEntities.length > 0 ? (
-                    <select
+                    <ClearableSelect
                       value={newOffTopEntity}
                       onChange={(e) => setNewOffTopEntity(e.target.value)}
                       className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
                     >
-                      <option value="">Select Entity...</option>
                       {knownEntities.map((ent) => (
                         <option key={ent.id} value={ent.name}>{ent.name}</option>
                       ))}
-                    </select>
+                    </ClearableSelect>
                   ) : (
                     <input
                       type="text"
@@ -596,7 +619,7 @@ export function CommissionWaterfall({
 
                       {isEditing ? (
                         knownEntities.length > 0 ? (
-                          <select
+                          <ClearableSelect
                             value={rule.entity}
                             onChange={(e) => onUpdateOffTopRuleEntity?.(rule.id, e.target.value)}
                             className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[150px] sm:max-w-[190px]"
@@ -606,7 +629,7 @@ export function CommissionWaterfall({
                             {knownEntities.filter((e) => e.name !== rule.entity).map((ent) => (
                               <option key={ent.id} value={ent.name}>{ent.name}</option>
                             ))}
-                          </select>
+                          </ClearableSelect>
                         ) : (
                           <input
                             type="text"
@@ -622,7 +645,9 @@ export function CommissionWaterfall({
                       )}
 
                     </div>
+                    <div className={isEditing ? undefined : 'pr-2'}>
                     <SplitPair
+                      compact={!isEditing}
                       isEditing={isEditing}
                       type={rule.type}
                       percentPoints={rule.type === 'PERCENT' ? rule.value : (baselineTotalCommission > 0 ? ((calculatedItem?.amount || 0) / baselineTotalCommission) * 100 : 0)}
@@ -638,6 +663,7 @@ export function CommissionWaterfall({
                       }}
                       preventMinus={preventMinus}
                     />
+                    </div>
                   </div>
                 );
               })}
@@ -665,28 +691,27 @@ export function CommissionWaterfall({
                   </button>
                 )}
               </div>
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-4'}`}>
                 Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterOffTop)}</strong>
               </span>
             </div>
 
             {isEditing && isAddingPreSplit && (
-              <div className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-lg border border-emerald-500/30 space-y-2 mb-2">
+              <div data-inline-save className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-lg border border-emerald-500/30 space-y-2 mb-2">
                 <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block">
                   Add Pre-Split Deduction
                 </span>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                   {knownEntities.length > 0 ? (
-                    <select
+                    <ClearableSelect
                       value={newPreSplitEntity}
                       onChange={(e) => setNewPreSplitEntity(e.target.value)}
                       className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
                     >
-                      <option value="">Select Entity...</option>
                       {knownEntities.map((ent) => (
                         <option key={ent.id} value={ent.name}>{ent.name}</option>
                       ))}
-                    </select>
+                    </ClearableSelect>
                   ) : (
                     <input
                       type="text"
@@ -759,7 +784,7 @@ export function CommissionWaterfall({
 
                       {isEditing ? (
                         knownEntities.length > 0 ? (
-                          <select
+                          <ClearableSelect
                             value={rule.entity}
                             onChange={(e) => onUpdatePreSplitRuleEntity?.(rule.id, e.target.value)}
                             className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[150px] sm:max-w-[190px]"
@@ -769,7 +794,7 @@ export function CommissionWaterfall({
                             {knownEntities.filter((e) => e.name !== rule.entity).map((ent) => (
                               <option key={ent.id} value={ent.name}>{ent.name}</option>
                             ))}
-                          </select>
+                          </ClearableSelect>
                         ) : (
                           <input
                             type="text"
@@ -785,7 +810,9 @@ export function CommissionWaterfall({
                       )}
 
                     </div>
+                    <div className={isEditing ? undefined : 'pr-2'}>
                     <SplitPair
+                      compact={!isEditing}
                       isEditing={isEditing}
                       type={rule.type}
                       percentPoints={rule.type === 'PERCENT' ? rule.value : (commissionAfterOffTop > 0 ? ((calculatedItem?.amount || 0) / commissionAfterOffTop) * 100 : 0)}
@@ -801,6 +828,7 @@ export function CommissionWaterfall({
                       }}
                       preventMinus={preventMinus}
                     />
+                    </div>
                   </div>
                 );
               })}
@@ -809,7 +837,6 @@ export function CommissionWaterfall({
 
           {agentLayout === 'table' ? (
             <CommissionWaterfallTable
-              layoutToggle={agentLayoutToggle}
               isEditing={isEditing}
               agents={agents}
               dealResult={dealResult}
@@ -836,6 +863,7 @@ export function CommissionWaterfall({
               onReorderPostSplit2Entities={onReorderPostSplit2Entities}
               onAddLevel1Cell={(agentName, entity) => handleAddPostSplitCell(agentName, entity, 1)}
               onAddLevel2Cell={(agentName, entity) => handleAddPostSplitCell(agentName, entity, 2)}
+              onDraftDirty={setTableDraftDirty}
             />
           ) : (
           <>
@@ -861,8 +889,7 @@ export function CommissionWaterfall({
                 )}
               </div>
               <div className="flex items-center gap-3">
-                {agentLayoutToggle}
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-[15px]'}`}>
                   Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
                 </span>
               </div>
@@ -933,6 +960,7 @@ export function CommissionWaterfall({
                           <SplitPair
                             isEditing={false}
                             locked={isEditing}
+                            matchColumns
                             type="PERCENT"
                             percentPoints={(computedSplitItem?.percent || 0) * 100}
                             dollarAmount={computedSplitItem?.amount || 0}
@@ -972,7 +1000,7 @@ export function CommissionWaterfall({
                           <span className="text-xs select-none">👤</span>
 
                           {isEditing && knownAgents.length > 0 ? (
-                            <select
+                            <ClearableSelect
                               value={agent.name}
                               onChange={(e) => onSwitchAgent?.(agent.id, e.target.value)}
                               className="bg-transparent border-b border-slate-300 dark:border-slate-600 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] py-0.5 cursor-pointer max-w-[160px] sm:max-w-[220px]"
@@ -986,7 +1014,7 @@ export function CommissionWaterfall({
                                     {a.name} {a.isTeamLead ? '(LEAD)' : ''}
                                   </option>
                                 ))}
-                            </select>
+                            </ClearableSelect>
                           ) : (
                             <span className="text-xs font-bold text-slate-900 dark:text-white">{agent.name}</span>
                           )}
@@ -1001,6 +1029,7 @@ export function CommissionWaterfall({
 
                         <SplitPair
                           isEditing={isEditing}
+                          matchColumns
                           type={agent.splitType}
                           percentPoints={agent.splitType === 'PERCENT' ? agent.splitVal : ((computedSplitItem?.percent || 0) * 100)}
                           dollarAmount={agent.splitType === 'AMOUNT' ? agent.splitVal : (computedSplitItem?.amount || 0)}
@@ -1137,22 +1166,21 @@ export function CommissionWaterfall({
                       </div>
 
                       {isEditing && isAddingL1 && (
-                        <div className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg border border-emerald-500/30 space-y-2 my-2">
+                        <div data-inline-save className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg border border-emerald-500/30 space-y-2 my-2">
                           <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
                             New Level 1 Post-split for {agentName}
                           </span>
                           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                             {knownEntities.length > 0 ? (
-                              <select
+                              <ClearableSelect
                                 value={newPostSplitEntity}
                                 onChange={(e) => setNewPostSplitEntity(e.target.value)}
                                 className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
                               >
-                                <option value="">Select Entity...</option>
                                 {knownEntities.map((ent) => (
                                   <option key={ent.id} value={ent.name}>{ent.name}</option>
                                 ))}
-                              </select>
+                              </ClearableSelect>
                             ) : (
                               <input
                                 type="text"
@@ -1227,7 +1255,7 @@ export function CommissionWaterfall({
 
                                 {isEditing ? (
                                   knownEntities.length > 0 ? (
-                                    <select
+                                    <ClearableSelect
                                       value={rule.entity}
                                       onChange={(e) => onUpdateAgentPostSplitEntity?.(agentName, rule.id, e.target.value)}
                                       className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[140px] sm:max-w-[170px]"
@@ -1237,7 +1265,7 @@ export function CommissionWaterfall({
                                       {knownEntities.filter((e) => e.name !== rule.entity).map((ent) => (
                                         <option key={ent.id} value={ent.name}>{ent.name}</option>
                                       ))}
-                                    </select>
+                                    </ClearableSelect>
                                   ) : (
                                     <input
                                       type="text"
@@ -1255,6 +1283,7 @@ export function CommissionWaterfall({
                               </div>
                               <SplitPair
                                 isEditing={isEditing}
+                                matchColumns
                                 type={rule.type}
                                 percentPoints={rule.type === 'PERCENT' ? rule.value : (agentGrossSplit > 0 ? ((calculatedItem?.amount || 0) / agentGrossSplit) * 100 : 0)}
                                 dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
@@ -1314,7 +1343,7 @@ export function CommissionWaterfall({
                       </div>
 
                       {isEditing && isAddingL2 && (
-                        <div className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg border border-emerald-500/30 space-y-2 my-2">
+                        <div data-inline-save className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg border border-emerald-500/30 space-y-2 my-2">
                           <div className="flex justify-between items-center">
                             <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
                               New Level 2 Post-split for {agentName}
@@ -1325,16 +1354,15 @@ export function CommissionWaterfall({
                           </div>
                           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                             {knownEntities.length > 0 ? (
-                              <select
+                              <ClearableSelect
                                 value={newPostSplit2Entity}
                                 onChange={(e) => setNewPostSplit2Entity(e.target.value)}
                                 className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
                               >
-                                <option value="">Select Entity...</option>
                                 {knownEntities.map((ent) => (
                                   <option key={ent.id} value={ent.name}>{ent.name}</option>
                                 ))}
-                              </select>
+                              </ClearableSelect>
                             ) : (
                               <input
                                 type="text"
@@ -1409,7 +1437,7 @@ export function CommissionWaterfall({
 
                                 {isEditing ? (
                                   knownEntities.length > 0 ? (
-                                    <select
+                                    <ClearableSelect
                                       value={rule.entity}
                                       onChange={(e) => onUpdateAgentPostSplit2Entity?.(agentName, rule.id, e.target.value)}
                                       className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[140px] sm:max-w-[170px]"
@@ -1419,7 +1447,7 @@ export function CommissionWaterfall({
                                       {knownEntities.filter((e) => e.name !== rule.entity).map((ent) => (
                                         <option key={ent.id} value={ent.name}>{ent.name}</option>
                                       ))}
-                                    </select>
+                                    </ClearableSelect>
                                   ) : (
                                     <input
                                       type="text"
@@ -1437,6 +1465,7 @@ export function CommissionWaterfall({
                               </div>
                               <SplitPair
                                 isEditing={isEditing}
+                                matchColumns
                                 type={rule.type}
                                 percentPoints={rule.type === 'PERCENT' ? rule.value : (netAfterL1 > 0 ? ((calculatedItem2?.amount || 0) / netAfterL1) * 100 : 0)}
                                 dollarAmount={calculatedItem2?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
@@ -1475,6 +1504,12 @@ export function CommissionWaterfall({
           )}
         </div>
       )}
+      <CancelEditPrompt
+        open={editKeys.confirmCancel}
+        sectionLabel="Commission Waterfall"
+        onKeepEditing={editKeys.keepEditing}
+        onDiscard={editKeys.discard}
+      />
     </section>
   );
 }

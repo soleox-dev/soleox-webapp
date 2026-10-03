@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { ClearableSelect } from '@/components/ui/ClearableSelect';
 
 interface CommissionRule {
   id: string;
@@ -256,14 +257,14 @@ export default function CommissionRulesSettingsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">Waterfall Stage</label>
-                  <select
+                  <ClearableSelect
                     value={newRule.category}
                     onChange={(e) => setNewRule({ ...newRule, category: e.target.value as any })}
                     className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                   >
                     <option value="Off-The-Top">Off-The-Top</option>
                     <option value="Post-Split">Post-Split</option>
-                  </select>
+                  </ClearableSelect>
                 </div>
 
                 <div>
@@ -282,14 +283,14 @@ export default function CommissionRulesSettingsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">Calculation Type</label>
-                  <select
+                  <ClearableSelect
                     value={newRule.type}
                     onChange={(e) => setNewRule({ ...newRule, type: e.target.value as any })}
                     className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                   >
                     <option value="PERCENT">Percentage (%)</option>
                     <option value="AMOUNT">Flat Amount ($)</option>
-                  </select>
+                  </ClearableSelect>
                 </div>
 
                 <div>

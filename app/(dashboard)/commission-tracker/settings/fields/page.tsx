@@ -4,6 +4,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ReorderControls } from '@/components/ui/reorder-controls';
+import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { NativeDateInput } from '@/components/ui/NativeDateInput';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { DB_TRANSACTION_COLUMNS, DB_AGENT_COLUMNS } from '@/lib/fields';
 
@@ -1398,7 +1400,7 @@ export default function FieldCustomizationsPage() {
                   <span className={underlineLabel}>
                     Select Existing Database Column <span className="text-rose-500">*</span>
                   </span>
-                  <select
+                  <ClearableSelect
                     value={selectedCatalogKey}
                     onChange={(e) => handleCatalogSelectChange(e.target.value)}
                     className={`${underlineControl} overview-field-select cursor-pointer`}
@@ -1408,7 +1410,7 @@ export default function FieldCustomizationsPage() {
                         {item.field_label} ({item.field_key} • {item.field_type})
                       </option>
                     ))}
-                  </select>
+                  </ClearableSelect>
                   <FieldChevron />
                 </label>
               )}
@@ -1451,7 +1453,7 @@ export default function FieldCustomizationsPage() {
                   <span className={underlineLabel}>
                     Control Type <span className="text-rose-500">*</span>
                   </span>
-                  <select
+                  <ClearableSelect
                     tabIndex={3}
                     disabled={isSystemMandatoryField}
                     value={formData.field_type || 'TEXT'}
@@ -1473,7 +1475,7 @@ export default function FieldCustomizationsPage() {
                     <option value="SELECT">Select Dropdown</option>
                     <option value="AGENT_PICKER">Agent Picker</option>
                     <option value="BOOLEAN">Boolean Toggle</option>
-                  </select>
+                  </ClearableSelect>
                   <FieldChevron />
                 </label>
 
@@ -1547,7 +1549,7 @@ export default function FieldCustomizationsPage() {
                             <div className="grid grid-cols-12 gap-2 items-end">
                               <label className={`${underlineShell} col-span-5`}>
                                 <span className={underlineLabel}>If Field</span>
-                                <select
+                                <ClearableSelect
                                   value={cond.field_key}
                                   onChange={(e) => handleUpdateCondition(cond.id, { field_key: e.target.value })}
                                   className={`${underlineControl} overview-field-select cursor-pointer`}
@@ -1559,13 +1561,13 @@ export default function FieldCustomizationsPage() {
                                         {f.field_label} ({f.section_name})
                                       </option>
                                     ))}
-                                </select>
+                                </ClearableSelect>
                                 <FieldChevron />
                               </label>
 
                               <label className={`${underlineShell} col-span-4`}>
                                 <span className={underlineLabel}>Condition</span>
-                                <select
+                                <ClearableSelect
                                   value={cond.operator}
                                   onChange={(e) => handleUpdateCondition(cond.id, { operator: e.target.value as SingleOperator })}
                                   className={`${underlineControl} overview-field-select cursor-pointer`}
@@ -1575,7 +1577,7 @@ export default function FieldCustomizationsPage() {
                                   <option value="IN">Is In List</option>
                                   <option value="NOT_EMPTY">Is Not Empty</option>
                                   <option value="IS_EMPTY">Is Empty</option>
-                                </select>
+                                </ClearableSelect>
                                 <FieldChevron />
                               </label>
 
@@ -1686,8 +1688,7 @@ export default function FieldCustomizationsPage() {
                 {formData.field_type === 'DATE' && (
                   <label className={underlineShell}>
                     <span className={underlineLabel}>Earliest Allowed Date</span>
-                    <input
-                      type="date"
+                    <NativeDateInput
                       value={formData.min_date || ''}
                       onChange={(e) => setFormData({ ...formData, min_date: e.target.value })}
                       className={`${underlineControl} overview-date dark:[color-scheme:dark]`}
@@ -1715,14 +1716,14 @@ export default function FieldCustomizationsPage() {
                       </label>
                       <label className={underlineShell}>
                         <span className={underlineLabel}>Mode</span>
-                        <select
+                        <ClearableSelect
                           value={formData.regex_mode || 'MATCHES'}
                           onChange={(e) => setFormData({ ...formData, regex_mode: e.target.value as RegexMode })}
                           className={`${underlineControl} overview-field-select cursor-pointer`}
                         >
                           <option value="MATCHES">RegEx Matches Pattern</option>
                           <option value="EQUALS">RegEx Strictly Equals</option>
-                        </select>
+                        </ClearableSelect>
                         <FieldChevron />
                       </label>
                       <label className={underlineShell}>

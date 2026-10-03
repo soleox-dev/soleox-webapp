@@ -291,5 +291,6 @@ export function useOverviewForm({
     validateFieldValue,
     executeOverviewApply,
     handleApplyOverviewEdit,
+    overviewValuesUnchanged,
   };
 }

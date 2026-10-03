@@ -8,6 +8,7 @@ import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useSoleoxTheme } from '@/app/providers';
 import { SoleoxLogo } from '@/components/ui/logo';
+import { ClipboardList, House, Settings } from 'lucide-react';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -98,7 +99,7 @@ export default function Navbar() {
               href="/"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:text-slate-900 dark:hover:text-white transition"
             >
-              <span>🏠</span> Main Menu
+              <House className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Main Menu
             </Link>
           )}
 
@@ -112,7 +113,7 @@ export default function Navbar() {
                     : 'bg-slate-100 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <span>📋</span> Transactions
+                <ClipboardList className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Transactions
               </Link>
 
               <Link
@@ -123,7 +124,7 @@ export default function Navbar() {
                     : 'border-transparent hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <span>⚙️</span> Settings
+                <Settings className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Settings
               </Link>
             </>
           )}

@@ -395,14 +395,18 @@ export type Database = {
       commission_template_logic: {
         Row: {
           archived: boolean | null
+          agent_key: string | null
+          apply_condition: string | null
           calculation_formula: string | null
           cap_condition_key: string | null
           client_id: string | null
           created_at: string | null
           created_by: string | null
+          custom_baseline: string | null
           id: string
           payee_entity_id: string | null
-          payee_type: string | null
+          payee_formula: string | null
+          rule_key: string | null
           rule_name: string
           section: string | null
           step_number: number
@@ -411,15 +415,19 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          agent_key?: string | null
+          apply_condition?: string | null
           archived?: boolean | null
           calculation_formula?: string | null
           cap_condition_key?: string | null
           client_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          custom_baseline?: string | null
           id?: string
           payee_entity_id?: string | null
-          payee_type?: string | null
+          payee_formula?: string | null
+          rule_key?: string | null
           rule_name: string
           section?: string | null
           step_number: number
@@ -428,15 +436,19 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          agent_key?: string | null
+          apply_condition?: string | null
           archived?: boolean | null
           calculation_formula?: string | null
           cap_condition_key?: string | null
           client_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          custom_baseline?: string | null
           id?: string
           payee_entity_id?: string | null
-          payee_type?: string | null
+          payee_formula?: string | null
+          rule_key?: string | null
           rule_name?: string
           section?: string | null
           step_number?: number

@@ -83,9 +83,11 @@ export function calculateWaterfall(
       context.post_split += calculatedAmount;
     }
 
-    // Map payee targets
-    const payeeEntityId = step.payee_type === 'ENTITY' ? step.payee_entity_id : undefined;
-    const agentId = step.payee_type === 'AGENT' ? transaction.agent_id : undefined;
+    // An entity on the rule is the payee. Otherwise the agent is.
+    // Preview fallbacks have no entity id, so they keep the type they were given.
+    const payeeEntityId = step.payee_entity_id || undefined;
+    const payeeType: PayeeType = payeeEntityId ? 'ENTITY' : (step.payee_type || 'AGENT');
+    const agentId = payeeType === 'AGENT' ? transaction.agent_id : undefined;
 
     calculatedItems.push({
       client_id: transaction.client_id,
@@ -94,7 +96,7 @@ export function calculateWaterfall(
       step_number: step.step_number,
       rule_name: step.rule_name,
       section: step.section,
-      payee_type: step.payee_type,
+      payee_type: payeeType,
       payee_entity_id: payeeEntityId,
       agent_id: agentId,
       calculated_amount: calculatedAmount,

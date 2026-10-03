@@ -1,4 +1,5 @@
 import React from 'react';
+import { Search } from 'lucide-react';
 
 interface SearchableTransactionPickerProps {
   searchQuery: string;
@@ -28,8 +29,9 @@ export function SearchableTransactionPicker({
   return (
     <section className="bg-white dark:bg-slate-800 border border-emerald-500/40 dark:border-emerald-500/30 p-4 rounded-xl shadow-xl space-y-2 relative transition-colors" ref={dropdownRef}>
       <label className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block flex items-center justify-between">
-        <span>
-          🔍 Search Transactions ({filteredDeals.length < savedDealsCount ? `${filteredDeals.length} of ` : ''}{savedDealsCount} Loaded)
+        <span className="inline-flex items-center gap-1.5">
+          <Search className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+          Search Transactions ({filteredDeals.length < savedDealsCount ? `${filteredDeals.length} of ` : ''}{savedDealsCount} Loaded)
         </span>
         {isLoadingDeals && <span className="text-slate-500 dark:text-slate-400 font-normal">Loading records...</span>}
       </label>

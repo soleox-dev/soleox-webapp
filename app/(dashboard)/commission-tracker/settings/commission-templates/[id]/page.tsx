@@ -5,9 +5,11 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { FormulaEditor, FormulaExplain, FormulaPreview, type FormulaName } from '../FormulaEditor';
+import { LogicStepForm, canonicalLogicSection, logicSectionShowsAgent, logicSectionShowsEntity, logicContextNames, ruleKeyFromName, type LogicStepDraft } from './LogicStepForm';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { ReorderControls } from '@/components/ui/reorder-controls';
 import { normalizeFormula, validateFormula } from '../formula-validator';
+import { ClearableSelect } from '@/components/ui/ClearableSelect';
 
 type ParameterType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
 
@@ -15,6 +17,11 @@ interface CommissionTemplate {
   id: string;
   template_name: string;
   description?: string | null;
+  client_id?: string | null;
+  is_default?: boolean | null;
+  is_active?: boolean | null;
+  archived?: boolean | null;
+  created_by?: string | null;
 }
 
 interface TemplateParameter {
@@ -36,9 +43,13 @@ interface LogicStep {
   id: string;
   step_number: number;
   rule_name: string;
+  rule_key?: string | null;
   section?: string | null;
-  payee_type?: string | null;
   payee_entity_id?: string | null;
+  agent_key?: string | null;
+  payee_formula?: string | null;
+  apply_condition?: string | null;
+  custom_baseline?: string | null;
   calculation_formula?: string | null;
 }
 
@@ -57,11 +68,6 @@ const PARAMETER_TYPES: { value: ParameterType; label: string }[] = [
   { value: 'AGENT_PICKER', label: 'Agent Picker' },
   { value: 'BOOLEAN', label: 'Boolean Toggle' },
 ];
-
-const PAYEE_TYPES = ['AGENT', 'ENTITY', 'BROKERAGE'];
-
-const inputClass =
-  'w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500';
 
 const underlineShell =
   'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600';
@@ -133,11 +139,16 @@ const emptyParameter = {
   dropdown_options: [] as string[],
 };
 
-const emptyLogic = {
+const emptyLogic: LogicStepDraft = {
   rule_name: '',
+  rule_key: '',
   section: '',
-  payee_type: 'ENTITY',
+  apply_condition: '',
+  agent_key: '',
+  entity_mode: 'fixed',
   payee_entity_id: '',
+  payee_formula: '',
+  custom_baseline: '',
   calculation_formula: '',
 };
 
@@ -160,9 +171,12 @@ export default function CommissionTemplateDetailPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [parameterForm, setParameterForm] = useState<typeof emptyParameter | null>(null);
   const [editingParameterId, setEditingParameterId] = useState<string | null>(null);
-  const [logicForm, setLogicForm] = useState<typeof emptyLogic | null>(null);
+  const [logicForm, setLogicForm] = useState<LogicStepDraft | null>(null);
   const [editingLogicId, setEditingLogicId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<null | { kind: 'template' | 'parameter' | 'logic'; id?: string; label: string }>(null);
+  const [editTemplateOpen, setEditTemplateOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
   const [sectionMenuOpen, setSectionMenuOpen] = useState(false);
   const [sectionMenuBox, setSectionMenuBox] = useState({ top: 0, left: 0, width: 0 });
   const sectionFieldRef = useRef<HTMLDivElement>(null);
@@ -410,8 +424,59 @@ export default function CommissionTemplateDetailPage() {
   const saveLogic = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!logicForm || !templateId || isSaving) return;
+    const otherRuleKeys = logicSteps
+      .filter((step) => step.id !== editingLogicId && step.rule_key?.trim())
+      .map((step) => step.rule_key!.trim());
+    const allowedNames = [...formulaNames.map((item) => item.name), ...logicContextNames.map((item) => item.name), ...otherRuleKeys];
+    const entityFormula = logicSectionShowsEntity(logicForm.section) && logicForm.entity_mode === 'formula';
+    const formulas = [
+      ['Condition', logicForm.apply_condition],
+      ['Custom baseline', logicForm.custom_baseline],
+      ['Formula', logicForm.calculation_formula],
+      ...(entityFormula ? [['Entity', logicForm.payee_formula] as const] : []),
+    ] as const;
+    for (const [label, raw] of formulas) {
+      const normalized = normalizeFormula(raw).text;
+      const issue = validateFormula(normalized, allowedNames);
+      if (issue) {
+        setFormError(`${label}: ${issue}`);
+        return;
+      }
+    }
+    if (!logicForm.calculation_formula.trim()) {
+      setFormError('Enter the amount formula.');
+      return;
+    }
+    const section = canonicalLogicSection(logicForm.section);
+    if (!section) {
+      setFormError('Choose a section.');
+      return;
+    }
+    const ruleKey = logicForm.rule_key.trim().toLowerCase();
+    if (!/^[a-z_][a-z0-9_]*$/.test(ruleKey)) {
+      setFormError('The key needs to start with a letter and use only letters, numbers, and underscores.');
+      return;
+    }
+    const takenKey = [...formulaNames.map((item) => item.name), ...logicContextNames.map((item) => item.name), ...otherRuleKeys, 'total_commission']
+      .some((name) => name.toLowerCase() === ruleKey);
+    if (takenKey) {
+      setFormError('That key is already used by a field, parameter, or another rule.');
+      return;
+    }
+    if (logicSectionShowsAgent(section) && !logicForm.agent_key.trim()) {
+      setFormError('Choose the agent for this rule.');
+      return;
+    }
+    if (logicSectionShowsEntity(section) && logicForm.entity_mode === 'fixed' && !logicForm.payee_entity_id) {
+      setFormError('Choose the entity for this rule.');
+      return;
+    }
+    if (logicSectionShowsEntity(section) && logicForm.entity_mode === 'formula' && !logicForm.payee_formula.trim()) {
+      setFormError('Enter the entity formula.');
+      return;
+    }
     setIsSaving(true);
-    setError(null);
+    setFormError(null);
     try {
       const existing = logicSteps.find((step) => step.id === editingLogicId);
       const response = await fetch('/api/commission-template-logic', {
@@ -424,10 +489,16 @@ export default function CommissionTemplateDetailPage() {
             client_id: 'DEMO',
             step_number: existing?.step_number ?? logicSteps.length + 1,
             rule_name: logicForm.rule_name.trim(),
-            section: logicForm.section.trim() || null,
-            payee_type: logicForm.payee_type,
-            payee_entity_id: logicForm.payee_entity_id || null,
-            calculation_formula: logicForm.calculation_formula.trim() || null,
+            rule_key: ruleKey,
+            section,
+            apply_condition: normalizeFormula(logicForm.apply_condition).text.trim() || null,
+            agent_key: logicSectionShowsAgent(section) ? logicForm.agent_key.trim() || null : null,
+            payee_entity_id: logicSectionShowsEntity(section) && logicForm.entity_mode === 'fixed' ? logicForm.payee_entity_id || null : null,
+            payee_formula: logicSectionShowsEntity(section) && logicForm.entity_mode === 'formula'
+              ? normalizeFormula(logicForm.payee_formula).text.trim() || null
+              : null,
+            custom_baseline: normalizeFormula(logicForm.custom_baseline).text.trim() || null,
+            calculation_formula: normalizeFormula(logicForm.calculation_formula).text.trim() || null,
           },
         }),
       });
@@ -437,7 +508,7 @@ export default function CommissionTemplateDetailPage() {
       setEditingLogicId(null);
       await loadTemplate();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save the logic step.');
+      setFormError(err instanceof Error ? err.message : 'Failed to save the logic step.');
     } finally {
       setIsSaving(false);
     }
@@ -490,14 +561,84 @@ export default function CommissionTemplateDetailPage() {
   };
 
   const openEditLogic = (step: LogicStep) => {
+    setFormError(null);
     setEditingLogicId(step.id);
+    const storedFormula = step.payee_formula?.trim() || '';
+    const legacyAgentKey = !step.agent_key?.trim() && /^[A-Za-z_][A-Za-z0-9_]*$/.test(storedFormula) ? storedFormula : '';
+    const entityFormula = storedFormula && storedFormula !== legacyAgentKey ? storedFormula : '';
+    const takenKeys = new Set(
+      [...formulaNames.map((item) => item.name), ...logicContextNames.map((item) => item.name), 'total_commission',
+        ...logicSteps.filter((item) => item.id !== step.id && item.rule_key?.trim()).map((item) => item.rule_key!.trim())]
+        .map((name) => name.toLowerCase()),
+    );
+    const freeRuleKey = (name: string) => {
+      const base = ruleKeyFromName(name);
+      if (!takenKeys.has(base)) return base;
+      if (!takenKeys.has(`${base}_rule`)) return `${base}_rule`;
+      let suffix = 2;
+      while (takenKeys.has(`${base}_${suffix}`)) suffix += 1;
+      return `${base}_${suffix}`;
+    };
     setLogicForm({
       rule_name: step.rule_name,
-      section: step.section || '',
-      payee_type: step.payee_type || 'ENTITY',
+      rule_key: step.rule_key?.trim() || freeRuleKey(step.rule_name),
+      section: canonicalLogicSection(step.section || ''),
+      apply_condition: step.apply_condition || '',
+      agent_key: step.agent_key?.trim() || legacyAgentKey,
+      entity_mode: entityFormula && !step.payee_entity_id ? 'formula' : 'fixed',
       payee_entity_id: step.payee_entity_id || '',
+      payee_formula: entityFormula,
+      custom_baseline: step.custom_baseline || '',
       calculation_formula: step.calculation_formula || '',
     });
+  };
+
+  const openEditTemplate = () => {
+    if (!template) return;
+    setEditName(template.template_name);
+    setEditDescription(template.description || '');
+    setError(null);
+    setEditTemplateOpen(true);
+  };
+
+  const handleSaveTemplate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!template || !editName.trim() || isSaving) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/commission-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          template: {
+            id: template.id,
+            client_id: template.client_id || 'DEMO',
+            template_name: editName.trim(),
+            description: editDescription.trim() || null,
+            is_default: Boolean(template.is_default),
+            is_active: template.is_active !== false,
+            archived: Boolean(template.archived),
+            created_by: template.created_by,
+          },
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to update the template.');
+      }
+      setTemplate({
+        ...template,
+        ...(data.template || {}),
+        template_name: editName.trim(),
+        description: editDescription.trim() || null,
+      });
+      setEditTemplateOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update the template.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const entityName = (id?: string | null) => entities.find((entity) => entity.id === id)?.entity_name || '—';
@@ -515,6 +656,7 @@ export default function CommissionTemplateDetailPage() {
     ...agentFields,
     ...parameterFields,
   ];
+  const logicFormulaNames: FormulaName[] = [...formulaNames, ...logicContextNames];
 
   const fieldGroups = [
     { id: 'transactions', title: 'Transactions', fields: transactionFields },
@@ -537,30 +679,41 @@ export default function CommissionTemplateDetailPage() {
   return (
     <div className="space-y-6">
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-md">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <Link href="/commission-tracker/settings/commission-templates" className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline">
-              ← All templates
-            </Link>
-            {isLoading ? (
-              <p className="mt-3 text-xs text-slate-500">Loading template...</p>
-            ) : template ? (
-              <h2 className="mt-3 text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                {template.template_name}
-              </h2>
-            ) : null}
-            {template?.description && (
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{template.description}</p>
-            )}
-          </div>
+        <div className="grid min-h-[4.75rem] grid-cols-[minmax(0,1fr)_auto] grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-3">
+          <Link href="/commission-tracker/settings/commission-templates" className="col-start-1 row-start-1 self-start text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline">
+            ← All templates
+          </Link>
+          {isLoading ? (
+            <p className="col-start-1 row-start-2 text-xs text-slate-500">Loading template...</p>
+          ) : template ? (
+            <h2 className="col-start-1 row-start-2 text-sm font-bold leading-5 text-slate-900 dark:text-white uppercase tracking-wider">
+              {template.template_name}
+            </h2>
+          ) : null}
+          {template?.description && (
+            <p className="col-start-1 row-start-3 self-end text-[11px] leading-4 text-slate-500 dark:text-slate-400">{template.description}</p>
+          )}
           {template && (
-            <button
-              type="button"
-              onClick={() => setConfirmDelete({ kind: 'template', label: template.template_name })}
-              className="text-xs font-bold text-rose-600 dark:text-rose-400 cursor-pointer"
-            >
-              Delete template
-            </button>
+            <div className="col-start-2 row-start-1 row-span-3 self-center flex items-center gap-1">
+              <button
+                type="button"
+                onClick={openEditTemplate}
+                className={`${rowActionClass} text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700`}
+                title="Edit template"
+                aria-label="Edit template"
+              >
+                <EditPencil className="h-[18px] w-[18px]" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete({ kind: 'template', label: template.template_name })}
+                className={`${rowActionClass} text-[18px] leading-none text-rose-500 hover:text-rose-600 hover:bg-rose-500/10`}
+                title="Delete template"
+                aria-label="Delete template"
+              >
+                🗑️
+              </button>
+            </div>
           )}
         </div>
         {error && <p className="mt-3 text-xs text-rose-600 dark:text-rose-400">{error}</p>}
@@ -717,12 +870,13 @@ export default function CommissionTemplateDetailPage() {
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">Logic</h3>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  Steps that calculate splits from the submitted parameter values. A specific payee must be an entity in this client’s settings.
+                  Each rule decides when it applies, who gets paid, and how the amount is calculated.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => {
+                  setFormError(null);
                   setEditingLogicId(null);
                   setLogicForm({ ...emptyLogic });
                 }}
@@ -740,8 +894,11 @@ export default function CommissionTemplateDetailPage() {
                     <tr>
                       <th className="px-4 py-3">#</th>
                       <th className="px-4 py-3">Rule</th>
+                      <th className="px-4 py-3">Condition</th>
                       <th className="px-4 py-3">Section</th>
-                      <th className="px-4 py-3">Payee</th>
+                      <th className="px-4 py-3">Agent</th>
+                      <th className="px-4 py-3">Entity</th>
+                      <th className="px-4 py-3">Custom baseline</th>
                       <th className="px-4 py-3">Formula</th>
                       <th className="sticky right-0 z-20 bg-slate-50 dark:bg-slate-900 px-4 py-3 border-l border-slate-200 dark:border-slate-700 shadow-[-10px_0_12px_-12px_rgba(15,23,42,0.7)]"></th>
                     </tr>
@@ -750,16 +907,46 @@ export default function CommissionTemplateDetailPage() {
                     {logicSteps.map((step) => (
                       <tr key={step.id} className="align-top">
                         <td className="px-4 py-3 font-mono text-slate-500">{step.step_number}</td>
-                        <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">{step.rule_name}</td>
-                        <td className="px-4 py-3">{step.section || '—'}</td>
                         <td className="px-4 py-3">
-                          <p>{step.payee_type || '—'}</p>
-                          {step.payee_entity_id && <p className="text-[11px] text-slate-500 mt-1">{entityName(step.payee_entity_id)}</p>}
+                          <div className="font-bold text-slate-900 dark:text-white">{step.rule_name}</div>
+                          {step.rule_key?.trim() && <div className="mt-0.5 font-mono text-[11px] text-sky-700 dark:text-sky-300">{step.rule_key}</div>}
+                        </td>
+                        <td className="px-4 py-3 min-w-[12rem] text-slate-600 dark:text-slate-300">
+                          {step.apply_condition?.trim() ? (
+                            <div className="flex items-start gap-2">
+                              <FormulaExplain value={step.apply_condition} names={logicFormulaNames} />
+                              <FormulaPreview value={step.apply_condition} names={logicFormulaNames} />
+                            </div>
+                          ) : 'Always'}
+                        </td>
+                        <td className="px-4 py-3">{canonicalLogicSection(step.section || '') || step.section?.trim() || 'No Section'}</td>
+                        <td className="px-4 py-3 font-mono text-sky-700 dark:text-sky-300">
+                          {logicSectionShowsAgent(canonicalLogicSection(step.section || '')) ? (step.agent_key?.trim() || '—') : '—'}
+                        </td>
+                        <td className="px-4 py-3 min-w-[12rem] text-slate-600 dark:text-slate-300">
+                          {logicSectionShowsEntity(canonicalLogicSection(step.section || '')) && step.payee_entity_id
+                            ? entityName(step.payee_entity_id)
+                            : logicSectionShowsEntity(canonicalLogicSection(step.section || '')) && step.payee_formula?.trim()
+                              ? (
+                                <div className="flex items-start gap-2">
+                                  <FormulaExplain value={step.payee_formula} names={logicFormulaNames} />
+                                  <FormulaPreview value={step.payee_formula} names={logicFormulaNames} />
+                                </div>
+                              )
+                              : '—'}
+                        </td>
+                        <td className="px-4 py-3 min-w-[12rem] text-slate-600 dark:text-slate-300">
+                          {step.custom_baseline?.trim() ? (
+                            <div className="flex items-start gap-2">
+                              <FormulaExplain value={step.custom_baseline} names={logicFormulaNames} />
+                              <FormulaPreview value={step.custom_baseline} names={logicFormulaNames} />
+                            </div>
+                          ) : '—'}
                         </td>
                         <td className="px-4 py-3 min-w-[16rem] leading-relaxed text-slate-600 dark:text-slate-300">
                           <div className="flex items-start gap-2">
-                            <FormulaExplain value={step.calculation_formula || ''} names={formulaNames} />
-                            <FormulaPreview value={step.calculation_formula || ''} names={formulaNames} />
+                            <FormulaExplain value={step.calculation_formula || ''} names={logicFormulaNames} />
+                            <FormulaPreview value={step.calculation_formula || ''} names={logicFormulaNames} />
                           </div>
                         </td>
                         <td className="sticky right-0 z-10 bg-white dark:bg-slate-800 px-4 py-3 whitespace-nowrap text-right border-l border-slate-200 dark:border-slate-700 shadow-[-10px_0_12px_-12px_rgba(15,23,42,0.7)]">
@@ -816,9 +1003,9 @@ export default function CommissionTemplateDetailPage() {
             </label>
             <label className={underlineShell}>
               <span className={underlineLabel}>Type</span>
-              <select value={parameterForm.data_type} onChange={(event) => setParameterForm({ ...parameterForm, data_type: event.target.value as ParameterType })} className={`${underlineControl} overview-field-select cursor-pointer`}>
+              <ClearableSelect value={parameterForm.data_type} onChange={(event) => setParameterForm({ ...parameterForm, data_type: event.target.value as ParameterType })} className={`${underlineControl} overview-field-select cursor-pointer`}>
                 {PARAMETER_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
-              </select>
+              </ClearableSelect>
               <FieldChevron />
             </label>
             {parameterForm.data_type === 'SELECT' && (
@@ -1019,37 +1206,73 @@ export default function CommissionTemplateDetailPage() {
       )}
 
       {logicForm && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-center items-center p-4">
-          <form onSubmit={saveLogic} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-lg rounded-xl p-6 shadow-2xl space-y-3 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">{editingLogicId ? 'Edit step' : 'Add step'}</h3>
-            <label className="block text-[11px] font-bold text-slate-500">Rule name
-              <input required value={logicForm.rule_name} onChange={(event) => setLogicForm({ ...logicForm, rule_name: event.target.value })} className={`${inputClass} mt-1`} />
+        <LogicStepForm
+          draft={logicForm}
+          editing={Boolean(editingLogicId)}
+          saving={isSaving}
+          error={formError}
+          entities={entities}
+          formulaNames={formulaNames}
+          fieldGroups={fieldGroups}
+          ruleFields={logicSteps
+            .filter((step) => step.id !== editingLogicId && step.rule_key?.trim())
+            .map((step) => ({ name: step.rule_key!.trim(), label: step.rule_name, kind: 'field' as const }))}
+          onChange={setLogicForm}
+          onCancel={() => { setLogicForm(null); setEditingLogicId(null); setFormError(null); }}
+          onSubmit={(event) => void saveLogic(event)}
+        />
+      )}
+
+      {editTemplateOpen && template && createPortal(
+        <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => { if (!isSaving) setEditTemplateOpen(false); }}>
+          <form
+            onSubmit={(event) => void handleSaveTemplate(event)}
+            onClick={(event) => event.stopPropagation()}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-lg rounded-xl p-6 shadow-2xl space-y-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-template-title"
+          >
+            <h3 id="edit-template-title" className="text-lg font-bold text-slate-900 dark:text-white">Edit Commission Template</h3>
+            <label className={underlineShell}>
+              <span className={underlineLabel}>Template name</span>
+              <input
+                required
+                value={editName}
+                onChange={(event) => setEditName(event.target.value)}
+                className={`${underlineControl} h-5`}
+              />
             </label>
-            <label className="block text-[11px] font-bold text-slate-500">Section
-              <input value={logicForm.section} onChange={(event) => setLogicForm({ ...logicForm, section: event.target.value })} className={`${inputClass} mt-1`} placeholder="Example: Off the top" />
+            <label className={underlineShell}>
+              <span className={underlineLabel}>Description</span>
+              <textarea
+                rows={3}
+                value={editDescription}
+                onChange={(event) => setEditDescription(event.target.value)}
+                className={`${underlineControl} min-h-16 resize-none py-1`}
+              />
             </label>
-            <label className="block text-[11px] font-bold text-slate-500">Payee type
-              <select value={logicForm.payee_type} onChange={(event) => setLogicForm({ ...logicForm, payee_type: event.target.value, payee_entity_id: '' })} className={`${inputClass} mt-1`}>
-                {PAYEE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
-              </select>
-            </label>
-            {logicForm.payee_type !== 'AGENT' && (
-              <label className="block text-[11px] font-bold text-slate-500">Entity
-                <select value={logicForm.payee_entity_id} onChange={(event) => setLogicForm({ ...logicForm, payee_entity_id: event.target.value })} className={`${inputClass} mt-1`}>
-                  <option value="">No specific entity</option>
-                  {entities.map((entity) => <option key={entity.id} value={entity.id}>{entity.entity_name}</option>)}
-                </select>
-              </label>
-            )}
-            <label className="block text-[11px] font-bold text-slate-500">Formula
-              <textarea required rows={4} value={logicForm.calculation_formula} onChange={(event) => setLogicForm({ ...logicForm, calculation_formula: event.target.value })} className={`${inputClass} mt-1`} />
-            </label>
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => { setLogicForm(null); setEditingLogicId(null); }} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer">Cancel</button>
-              <button type="submit" disabled={isSaving} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 text-slate-950 cursor-pointer disabled:opacity-50">{isSaving ? 'Saving...' : 'Save step'}</button>
+            {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditTemplateOpen(false)}
+                disabled={isSaving}
+                className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer disabled:opacity-50"
+              >
+                {isSaving ? 'Saving...' : 'Save Template'}
+              </button>
             </div>
           </form>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {confirmDelete && createPortal(

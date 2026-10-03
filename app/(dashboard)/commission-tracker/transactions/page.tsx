@@ -6,6 +6,7 @@ import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 're
 import Link from 'next/link';
 import { normalizeAgentName } from '@/lib/id';
 import { formatPercent } from '@/lib/fields';
+import { ClearableSelect } from '@/components/ui/ClearableSelect';
 
 interface SchemaField {
   id?: string;
@@ -755,7 +756,9 @@ export default function TransactionsListPage() {
                   {schemaFields.map((field) => (
                     <th key={`filter_${field.field_key}`} className="p-2 min-w-[120px] bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800 border-r border-slate-300/40 dark:border-slate-800/40 last:border-r-0">
                       {field.field_key === 'agent_id' || field.field_type === 'AGENT_PICKER' ? (
-                        <select
+                        <ClearableSelect
+                          allowBlank={false}
+                          clearValue="All"
                           value={colFilters[field.field_key] || 'All'}
                           onChange={(e) => handleFilterChange(field.field_key, e.target.value)}
                           className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-1 text-[11px] text-slate-900 dark:text-white focus:outline-none font-normal"
@@ -769,9 +772,11 @@ export default function TransactionsListPage() {
                               </option>
                             );
                           })}
-                        </select>
+                        </ClearableSelect>
                       ) : field.field_type === 'SELECT' && Array.isArray(field.dropdown_options) ? (
-                        <select
+                        <ClearableSelect
+                          allowBlank={false}
+                          clearValue="All"
                           value={colFilters[field.field_key] || 'All'}
                           onChange={(e) => handleFilterChange(field.field_key, e.target.value)}
                           className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-1 text-[11px] text-slate-900 dark:text-white focus:outline-none font-normal"
@@ -782,7 +787,7 @@ export default function TransactionsListPage() {
                               {opt}
                             </option>
                           ))}
-                        </select>
+                        </ClearableSelect>
                       ) : (
                         <input
                           type={field.field_type === 'DATE' ? 'date' : 'text'}

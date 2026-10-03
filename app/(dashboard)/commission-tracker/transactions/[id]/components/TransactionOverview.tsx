@@ -15,11 +15,17 @@ import { normalizeAgentName } from '@/lib/id';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { HoverNote } from './HoverNote';
 import { SectionIcon } from './SectionIcon';
+import { CancelEditPrompt } from './CancelEditPrompt';
+import { useEditOnDoublePress } from './useEditOnDoublePress';
+import { useSectionEditKeys } from './useSectionEditKeys';
+import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { UndoableDateInput } from '@/components/ui/UndoableDateInput';
 
 interface TransactionOverviewProps {
   isCollapsed: boolean;
   onToggleSection: () => void;
   isEditing: boolean;
+  hasChanges: boolean;
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onApplyEdit: () => void;
@@ -41,6 +47,7 @@ export function TransactionOverview({
   isCollapsed,
   onToggleSection,
   isEditing,
+  hasChanges,
   onStartEdit,
   onCancelEdit,
   onApplyEdit,
@@ -59,6 +66,8 @@ export function TransactionOverview({
 }: TransactionOverviewProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+  const editOnDoublePress = useEditOnDoublePress(!isEditing, onStartEdit);
+  const editKeys = useSectionEditKeys(isEditing, onCancelEdit, hasChanges);
 
   const uniqueKnownAgents = React.useMemo(() => {
     const seen = new Set<string>();
@@ -167,7 +176,7 @@ export function TransactionOverview({
   };
 
   return (
-    <section id="overview" className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-8 transition-colors">
+    <section id="overview" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-8 transition-colors">
       <div className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <SectionIcon name="overview" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
@@ -213,7 +222,7 @@ export function TransactionOverview({
       </div>
 
       {!isCollapsed && (
-        <div className="p-6">
+        <div className="p-6" {...editOnDoublePress}>
           {Object.keys(groupedSections).length === 0 ? (
             <div className="p-6 text-center text-xs text-slate-400 italic">
               Loading Overview fields...
@@ -237,7 +246,7 @@ export function TransactionOverview({
                   <div className="border-b border-slate-300 dark:border-slate-700 pb-1 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                     <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                      SECTION: {sectionName}
+                      {sectionName}
                     </span>
                     <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold ml-auto">
                       {visibleFields.length} {visibleFields.length === 1 ? 'Field' : 'Fields'}
@@ -304,7 +313,7 @@ export function TransactionOverview({
                             <div className={`${spansBoth ? 'min-h-5 items-start' : 'h-5 items-center'} flex`}>
                               {isEditing ? (
                                 field.type === 'AGENT_PICKER' || field.key === 'agent_id' || field.key === 'primary_agent' ? (
-                                  <select
+                                  <ClearableSelect
                                     disabled={isInputDisabled}
                                     value={
                                       uniqueKnownAgents.find(
@@ -314,35 +323,32 @@ export function TransactionOverview({
                                     onChange={(e) => handleOverviewInputChange(field.key, e.target.value)}
                                     className={`${filledControl} overview-field-select cursor-pointer`}
                                   >
-                                    <option value="">Select primary agent</option>
                                     {uniqueKnownAgents.map((ag) => (
                                       <option key={ag.id} value={ag.id}>
                                         {ag.name} {ag.isTeamLead ? '(Team Lead)' : ''}
                                       </option>
                                     ))}
-                                  </select>
+                                  </ClearableSelect>
                                 ) : field.type === 'SELECT' && dynamicOptions.length > 0 ? (
-                                  <select
+                                  <ClearableSelect
                                     disabled={isInputDisabled}
-                                    value={formVal}
+                                    value={formVal ?? ''}
                                     onChange={(e) => handleOverviewInputChange(field.key, e.target.value)}
                                     className={`${filledControl} overview-field-select cursor-pointer ${showWarning ? 'text-amber-600 dark:text-amber-400 font-semibold' : ''}`}
                                   >
-                                    <option value="">Select an option</option>
                                     {dynamicOptions.map((opt) => (
                                       <option key={opt} value={opt}>{opt}</option>
                                     ))}
-                                  </select>
+                                  </ClearableSelect>
                                 ) : field.type === 'DATE' ? (
-                                  <input
-                                    type="date"
+                                  <UndoableDateInput
                                     disabled={isInputDisabled}
                                     value={
                                       overviewFormValues[field.key]
                                         ? String(overviewFormValues[field.key]).substring(0, 10)
                                         : ''
                                     }
-                                    onChange={(e) => handleOverviewInputChange(field.key, e.target.value)}
+                                    onChange={(next) => handleOverviewInputChange(field.key, next)}
                                     className={`${filledControl} overview-date dark:[color-scheme:dark]`}
                                   />
                                 ) : field.type === 'CURRENCY' || field.type === 'NUMBER' || field.type === 'PERCENT' ? (
@@ -427,6 +433,12 @@ export function TransactionOverview({
           )}
         </div>
       )}
+      <CancelEditPrompt
+        open={editKeys.confirmCancel}
+        sectionLabel="Transaction Overview"
+        onKeepEditing={editKeys.keepEditing}
+        onDiscard={editKeys.discard}
+      />
     </section>
   );
 }

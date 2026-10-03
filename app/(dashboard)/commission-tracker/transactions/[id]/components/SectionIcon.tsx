@@ -1,7 +1,7 @@
-import { Droplet, HandCoins, House, type LucideIcon } from 'lucide-react';
+import { Droplet, FileText, HandCoins, type LucideIcon } from 'lucide-react';
 
 const sectionIcons = {
-  overview: House,
+  overview: FileText,
   commission: Droplet,
   disbursements: HandCoins,
 } as const satisfies Record<string, LucideIcon>;
