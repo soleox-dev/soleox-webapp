@@ -1,10 +1,17 @@
 // app/layout.tsx
 
 import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import { AuthProvider } from '@/components/auth-provider';
 import { Providers } from './providers';
 import Navbar from '@/components/Navbar';
 import './globals.css';
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+});
 
 export const metadata: Metadata = {
   title: {
@@ -50,14 +57,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
         <script
           id="theme-initializer"
           dangerouslySetInnerHTML={{ __html: themeInitializerScript }}
         />
       </head>
-      <body className="min-h-screen bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+      <body className={`${inter.className} min-h-screen bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100`}>
         <AuthProvider>
           <Providers>
             <Navbar />

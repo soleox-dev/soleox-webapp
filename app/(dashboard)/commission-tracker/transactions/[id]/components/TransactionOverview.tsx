@@ -13,6 +13,7 @@ import {
 } from './DecimalInput';
 import { normalizeAgentName } from '@/lib/id';
 import { EditPencil } from '@/components/ui/edit-pencil';
+import { HoverNote } from './HoverNote';
 import { SectionIcon } from './SectionIcon';
 
 interface TransactionOverviewProps {
@@ -175,12 +176,15 @@ export function TransactionOverview({
         
         <div className="flex items-center gap-3">
           {!isEditing ? (
-            <button
-              onClick={onStartEdit}
-              className="text-xs bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer"
-            >
-              <EditPencil /> Edit Transaction Overview
-            </button>
+            <HoverNote label="Edit Transaction Overview">
+              <button
+                onClick={onStartEdit}
+                aria-label="Edit Transaction Overview"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 cursor-pointer"
+              >
+                <EditPencil className="h-5 w-5" />
+              </button>
+            </HoverNote>
           ) : (
             <div className="flex items-center gap-2">
               <button
@@ -209,13 +213,14 @@ export function TransactionOverview({
       </div>
 
       {!isCollapsed && (
-        <div className="p-6 space-y-6">
+        <div className="p-6">
           {Object.keys(groupedSections).length === 0 ? (
             <div className="p-6 text-center text-xs text-slate-400 italic">
               Loading Overview fields...
             </div>
           ) : (
-            Object.entries(groupedSections).map(([sectionName, fields]) => {
+            <div className="lg:columns-2 lg:gap-x-8">
+            {Object.entries(groupedSections).map(([sectionName, fields]) => {
               const visibleFields = fields.filter((field) => {
                 const rawDbVal = readTransactionField(selectedDeal, field.key);
                 const activeValue = isEditing
@@ -228,8 +233,8 @@ export function TransactionOverview({
               if (visibleFields.length === 0) return null;
 
               return (
-                <div key={sectionName} className="space-y-1">
-                  <div className="border-b border-slate-300 dark:border-slate-700 pb-1.5 mb-2 flex items-center gap-2">
+                <div key={sectionName} className="mb-6 break-inside-avoid space-y-2">
+                  <div className="border-b border-slate-300 dark:border-slate-700 pb-1 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                     <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                       SECTION: {sectionName}
@@ -239,7 +244,7 @@ export function TransactionOverview({
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                  <div className="flex flex-col gap-2">
                     {visibleFields.map((field) => {
                       const fieldData = getFieldValue(field.key, field.type);
                       const isSystemLocked = field.key === 'id' || field.key === 'total_commission';
@@ -271,7 +276,8 @@ export function TransactionOverview({
                       const assistiveMessage = (showError || showWarning || (isEditing && !validationResult.isValid))
                         ? validationResult.message
                         : '';
-                      const filledControl = 'w-full bg-transparent border-0 p-0 h-7 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-0 font-medium disabled:opacity-50 disabled:cursor-not-allowed';
+                      const isDropdown = field.type === 'AGENT_PICKER' || field.key === 'agent_id' || field.key === 'primary_agent' || (field.type === 'SELECT' && dynamicOptions.length > 0);
+                      const filledControl = 'w-full bg-transparent border-0 p-0 h-5 text-xs leading-4 text-slate-900 dark:text-white focus:outline-none focus:ring-0 font-medium disabled:opacity-50 disabled:cursor-not-allowed';
                       const shellBorder = showError
                         ? 'border-b-rose-500'
                         : showWarning
@@ -284,23 +290,18 @@ export function TransactionOverview({
                         : 'text-slate-500 dark:text-slate-400';
 
                       return (
-                        <div key={field.id} className={`min-w-0 ${spansBoth ? 'sm:col-span-2' : ''}`}>
-                          <div className={`rounded-t-md bg-slate-100 dark:bg-slate-900 px-3 pt-1.5 pb-1 border-b transition-colors ${shellBorder} ${isInputDisabled && isEditing ? 'opacity-70' : ''}`}>
-                            <div className="flex items-center gap-1.5 min-h-4">
-                              <span className={`text-[11px] font-medium truncate ${labelTone}`}>
+                        <div key={field.id} className="min-w-0">
+                          <div className={`group relative underline-field rounded-t-md pl-2.5 ${isSystemLocked && isEditing ? 'pr-14' : 'pr-2.5'} pt-1 pb-0.5 border-b transition-colors ${shellBorder} ${isInputDisabled && isEditing ? 'opacity-70' : ''}`}>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-[10px] leading-3 font-medium truncate ${labelTone} ${!showError && !showWarning ? 'group-focus-within:text-emerald-600 dark:group-focus-within:text-emerald-400' : ''}`}>
                                 {field.label}
                                 {field.is_required && <span className="text-rose-500" title="Required Field">*</span>}
                               </span>
-                              {isSystemLocked && isEditing && (
-                                <span className="text-[9px] bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1 py-0.5 rounded font-mono shrink-0">
-                                  LOCKED
-                                </span>
-                              )}
                               {showWarning && (
                                 <span className="cursor-help text-xs shrink-0" title={validationResult.message}>⚠️</span>
                               )}
                             </div>
-                            <div className="min-h-7 flex items-center">
+                            <div className={`${spansBoth ? 'min-h-5 items-start' : 'h-5 items-center'} flex`}>
                               {isEditing ? (
                                 field.type === 'AGENT_PICKER' || field.key === 'agent_id' || field.key === 'primary_agent' ? (
                                   <select
@@ -311,7 +312,7 @@ export function TransactionOverview({
                                       )?.id || formVal || ''
                                     }
                                     onChange={(e) => handleOverviewInputChange(field.key, e.target.value)}
-                                    className={`${filledControl} cursor-pointer`}
+                                    className={`${filledControl} overview-field-select cursor-pointer`}
                                   >
                                     <option value="">Select primary agent</option>
                                     {uniqueKnownAgents.map((ag) => (
@@ -325,7 +326,7 @@ export function TransactionOverview({
                                     disabled={isInputDisabled}
                                     value={formVal}
                                     onChange={(e) => handleOverviewInputChange(field.key, e.target.value)}
-                                    className={`${filledControl} cursor-pointer ${showWarning ? 'text-amber-600 dark:text-amber-400 font-semibold' : ''}`}
+                                    className={`${filledControl} overview-field-select cursor-pointer ${showWarning ? 'text-amber-600 dark:text-amber-400 font-semibold' : ''}`}
                                   >
                                     <option value="">Select an option</option>
                                     {dynamicOptions.map((opt) => (
@@ -342,7 +343,7 @@ export function TransactionOverview({
                                         : ''
                                     }
                                     onChange={(e) => handleOverviewInputChange(field.key, e.target.value)}
-                                    className={`${filledControl} dark:[color-scheme:dark]`}
+                                    className={`${filledControl} overview-date dark:[color-scheme:dark]`}
                                   />
                                 ) : field.type === 'CURRENCY' || field.type === 'NUMBER' || field.type === 'PERCENT' ? (
                                   <DecimalInput
@@ -365,13 +366,11 @@ export function TransactionOverview({
                                 )
                               ) : (
                                 <span
-                                  className={`text-sm ${spansBoth ? '' : 'truncate'} ${
+                                  className={`text-xs leading-4 ${spansBoth ? 'whitespace-normal' : 'truncate'} ${
                                     showWarning
                                       ? 'text-amber-600 dark:text-amber-400 font-semibold'
                                       : fieldData.text === '—'
                                       ? 'text-slate-400 dark:text-slate-500'
-                                      : field.type === 'SELECT' || field.key === 'transaction_status' || field.key === 'agent_id' || field.type === 'AGENT_PICKER'
-                                      ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
                                       : 'text-slate-900 dark:text-white font-medium'
                                   }`}
                                 >
@@ -379,6 +378,38 @@ export function TransactionOverview({
                                 </span>
                               )}
                             </div>
+                            {isSystemLocked && isEditing && (
+                              <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1 py-0.5 rounded font-mono">
+                                LOCKED
+                              </span>
+                            )}
+                            {isEditing && isDropdown && (
+                              <svg
+                                viewBox="0 0 10 6"
+                                aria-hidden
+                                className="pointer-events-none absolute right-2.5 top-1/2 h-1.5 w-2.5 -translate-y-1/2 text-slate-600 dark:text-slate-300"
+                              >
+                                <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            )}
+                            {isEditing && field.type === 'DATE' && !isInputDisabled && (
+                              <button
+                                type="button"
+                                aria-label={`Choose ${field.label}`}
+                                onClick={(event) => {
+                                  const input = event.currentTarget.parentElement?.querySelector('input[type="date"]');
+                                  if (!(input instanceof HTMLInputElement)) return;
+                                  input.focus();
+                                  if (typeof input.showPicker === 'function') input.showPicker();
+                                }}
+                                className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 cursor-pointer text-slate-600 dark:text-slate-300"
+                              >
+                                <svg viewBox="0 0 16 16" aria-hidden className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                                  <rect x="2.25" y="3.25" width="11.5" height="10.5" rx="1.25" />
+                                  <path d="M2.25 6.75h11.5M5.25 2v2.5M10.75 2v2.5" />
+                                </svg>
+                              </button>
+                            )}
                           </div>
                           {assistiveMessage && (
                             <p className={`mt-1 text-[11px] font-medium ${showWarning && !showError ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
@@ -391,7 +422,8 @@ export function TransactionOverview({
                   </div>
                 </div>
               );
-            })
+            })}
+            </div>
           )}
         </div>
       )}

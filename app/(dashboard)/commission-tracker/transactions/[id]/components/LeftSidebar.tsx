@@ -1,7 +1,5 @@
 import React from 'react';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { formatPercent } from '../types';
-import { CommissionTemplatePanel } from './CommissionTemplatePanel';
 import { SectionIcon } from './SectionIcon';
 
 interface LeftSidebarProps {
@@ -10,15 +8,6 @@ interface LeftSidebarProps {
   overviewFieldsCount: number;
   agentsCount: number;
   entitiesCount: number;
-  salesPrice: number;
-  gciPerc: number;
-  gciAmount: number;
-  feeField?: { label: string; amount: number } | null;
-  totalCommission: number;
-  clientId: string;
-  transactionId: string;
-  deal: Record<string, unknown> | null;
-  templateAgents: { id: string; name: string; isTeamLead?: boolean }[];
   collapsed: boolean;
   onToggleCollapsed: () => void;
 }
@@ -29,21 +18,9 @@ export function LeftSidebar({
   overviewFieldsCount,
   agentsCount,
   entitiesCount,
-  salesPrice,
-  gciPerc,
-  gciAmount,
-  feeField,
-  totalCommission,
-  clientId,
-  transactionId,
-  deal,
-  templateAgents,
   collapsed,
   onToggleCollapsed,
 }: LeftSidebarProps) {
-  const formatCurrency = (val: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
-
   const steps = [
     { id: 'overview' as const, label: '1. Transaction Overview', count: `${overviewFieldsCount} Fields` },
     { id: 'commission' as const, label: '2. Commission Waterfall', count: `${agentsCount} Agents` },
@@ -121,38 +98,6 @@ export function LeftSidebar({
           </button>
         ))}
       </div>
-
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xl space-y-2 text-xs transition-colors">
-        <span className="font-bold text-slate-800 dark:text-slate-300 block border-b border-slate-200 dark:border-slate-700 pb-2">
-          Deal Quick Metrics
-        </span>
-        <div className="space-y-1.5 pt-1">
-          <div className="flex justify-between text-slate-500 dark:text-slate-400">
-            <span>Sales Price:</span>
-            <span className="text-slate-900 dark:text-white font-semibold">{formatCurrency(salesPrice)}</span>
-          </div>
-          <div className="flex justify-between text-slate-500 dark:text-slate-400">
-            <span>GCI %:</span>
-            <span className="text-slate-900 dark:text-white font-semibold">{formatPercent(gciPerc)}</span>
-          </div>
-          <div className="flex justify-between text-slate-500 dark:text-slate-400">
-            <span>GCI Amount:</span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{formatCurrency(gciAmount)}</span>
-          </div>
-          {feeField && (
-            <div className="flex justify-between text-slate-500 dark:text-slate-400">
-              <span>{feeField.label}:</span>
-              <span className="text-slate-900 dark:text-white font-semibold">{formatCurrency(feeField.amount)}</span>
-            </div>
-          )}
-          <div className="flex justify-between text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700/60 pt-1.5">
-            <span className="font-bold text-slate-700 dark:text-slate-300">Total Commission:</span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-bold">{formatCurrency(totalCommission)}</span>
-          </div>
-        </div>
-      </div>
-
-      <CommissionTemplatePanel clientId={clientId} transactionId={transactionId} deal={deal} agents={templateAgents} />
       </div>
     </aside>
   );

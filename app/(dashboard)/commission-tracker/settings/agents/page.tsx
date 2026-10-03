@@ -58,6 +58,47 @@ interface AgentRecord {
   [key: string]: any;
 }
 
+const underlineShell =
+  'group/field relative underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600';
+const underlineLabel =
+  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
+const underlineControl =
+  'w-full border-0 bg-transparent p-0 h-5 text-xs leading-4 font-medium text-slate-900 focus:outline-none focus:ring-0 disabled:cursor-not-allowed dark:text-white';
+
+function FieldChevron() {
+  return (
+    <svg
+      viewBox="0 0 10 6"
+      aria-hidden
+      className="pointer-events-none absolute right-2.5 top-1/2 h-1.5 w-2.5 -translate-y-1/2 text-slate-600 dark:text-slate-300"
+    >
+      <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function FieldCalendar({ label }: { label: string }) {
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-label={`Choose ${label}`}
+      onClick={(event) => {
+        const input = event.currentTarget.parentElement?.querySelector('input[type="date"]');
+        if (!(input instanceof HTMLInputElement)) return;
+        input.focus();
+        if (typeof input.showPicker === 'function') input.showPicker();
+      }}
+      className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 cursor-pointer text-slate-600 dark:text-slate-300"
+    >
+      <svg viewBox="0 0 16 16" aria-hidden className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2.25" y="3.25" width="11.5" height="10.5" rx="1.25" />
+        <path d="M2.25 6.75h11.5M5.25 2v2.5M10.75 2v2.5" />
+      </svg>
+    </button>
+  );
+}
+
 const DEFAULT_AGENT_FIELDS: FieldConfig[] = [
   { id: 'CFG_AG_ID', client_id: 'DEMO', target_table: 'agents', field_key: 'id', storage_type: 'CORE_COLUMN', section_name: 'Identity & Status', section_sort_order: 1, sort_order: 1, field_label: 'Agent ID', field_type: 'TEXT', is_required: true, is_system: true, is_enabled: true, max_length: 50 },
   { id: 'CFG_AG_NAME', client_id: 'DEMO', target_table: 'agents', field_key: 'agent_name', storage_type: 'CORE_COLUMN', section_name: 'Identity & Status', section_sort_order: 1, sort_order: 2, field_label: 'Agent Name', field_type: 'TEXT', is_required: true, is_system: true, is_enabled: true, max_length: 100 },
@@ -283,7 +324,6 @@ export default function AgentsSettingsPage() {
   const handleOpenAdd = () => {
     setEditingAgent(null);
     const initialData: Partial<AgentRecord> = {
-      id: `[DEMO] AG000${Math.floor(100 + Math.random() * 900)}`,
       agent_status: 'Active',
       is_team_lead: false,
       broker_cap_limit: 8000,
@@ -312,12 +352,15 @@ export default function AgentsSettingsPage() {
     setIsSubmitting(true);
     const isEditing = Boolean(editingAgent);
     const targetAgent: AgentRecord = {
-      id: formData.id || `[DEMO] AG000${Math.floor(100 + Math.random() * 900)}`,
       agent_name: formData.agent_name || '',
       agent_email: formData.agent_email || '',
       agent_status: formData.agent_status || 'Active',
       ...formData,
     };
+    if (!isEditing) {
+      delete targetAgent.id;
+      delete targetAgent.agent_id;
+    }
 
     try {
       const res = await fetch('/api/agents', {
@@ -715,18 +758,21 @@ export default function AgentsSettingsPage() {
 
                         // System Primary ID Field
                         if (cfg.field_key === 'id' || cfg.field_key === 'agent_id') {
+                          const idValue = String(val || editingAgent?.id || '');
                           return (
-                            <div key={cfg.field_key}>
-                              <label className="block text-slate-500 dark:text-slate-400 font-bold mb-1">
+                            <div key={cfg.field_key} className={underlineShell}>
+                              <label className={underlineLabel}>
                                 {cfg.field_label} (System Key)
                               </label>
-                              <input
-                                type="text"
-                                disabled
-                                tabIndex={-1}
-                                value={String(val || editingAgent?.id || 'Auto-generated')}
-                                className="w-full bg-slate-200 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-500 font-mono text-xs cursor-not-allowed"
-                              />
+                              <div className="flex h-5 items-center">
+                                <input
+                                  type="text"
+                                  disabled
+                                  tabIndex={-1}
+                                  value={idValue || 'Auto-generated'}
+                                  className={`${underlineControl} ${idValue ? '' : '!text-slate-400 dark:!text-slate-500'}`}
+                                />
+                              </div>
                             </div>
                           );
                         }
@@ -754,23 +800,27 @@ export default function AgentsSettingsPage() {
                         // Select Dropdown
                         if (cfg.field_type === 'SELECT') {
                           return (
-                            <div key={cfg.field_key}>
-                              <label className="block text-slate-500 dark:text-slate-400 font-bold mb-1">
-                                {cfg.field_label} {cfg.is_required && '*'}
+                            <div key={cfg.field_key} className={underlineShell}>
+                              <label className={underlineLabel}>
+                                {cfg.field_label}
+                                {cfg.is_required && <span className="text-rose-500"> *</span>}
                               </label>
-                              <select
-                                required={cfg.is_required}
-                                disabled={isSubmitting}
-                                value={String(val)}
-                                onChange={(e) => setFormData({ ...formData, [cfg.field_key]: e.target.value })}
-                                className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-medium focus:outline-none focus:border-emerald-500 disabled:opacity-50"
-                              >
-                                {(cfg.dropdown_options || []).map((opt) => (
-                                  <option key={opt} value={opt}>
-                                    {opt}
-                                  </option>
-                                ))}
-                              </select>
+                              <div className="flex h-5 items-center">
+                                <select
+                                  required={cfg.is_required}
+                                  disabled={isSubmitting}
+                                  value={String(val)}
+                                  onChange={(e) => setFormData({ ...formData, [cfg.field_key]: e.target.value })}
+                                  className={`${underlineControl} overview-field-select cursor-pointer`}
+                                >
+                                  {Array.from(new Set(cfg.dropdown_options || [])).map((opt) => (
+                                    <option key={opt} value={opt}>
+                                      {opt}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <FieldChevron />
                             </div>
                           );
                         }
@@ -778,26 +828,29 @@ export default function AgentsSettingsPage() {
                         // Number / Currency / Percent Input
                         if (cfg.field_type === 'NUMBER' || cfg.field_type === 'CURRENCY' || cfg.field_type === 'PERCENT') {
                           return (
-                            <div key={cfg.field_key}>
-                              <label className="block text-slate-500 dark:text-slate-400 font-bold mb-1">
-                                {cfg.field_label} ({cfg.field_type === 'CURRENCY' ? '$' : cfg.field_type === 'PERCENT' ? '%' : '#'}) {cfg.is_required && '*'}
+                            <div key={cfg.field_key} className={underlineShell}>
+                              <label className={underlineLabel}>
+                                {cfg.field_label} ({cfg.field_type === 'CURRENCY' ? '$' : cfg.field_type === 'PERCENT' ? '%' : '#'})
+                                {cfg.is_required && <span className="text-rose-500"> *</span>}
                               </label>
-                              <input
-                                type="number"
-                                step="any"
-                                required={cfg.is_required}
-                                disabled={isSubmitting}
-                                min={cfg.min_value}
-                                max={cfg.max_value}
-                                value={val !== undefined ? val : ''}
-                                onChange={(e) =>
-                                  setFormData({
-                                    ...formData,
-                                    [cfg.field_key]: e.target.value !== '' ? Number(e.target.value) : undefined,
-                                  })
-                                }
-                                className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-mono focus:outline-none focus:border-emerald-500 disabled:opacity-50"
-                              />
+                              <div className="flex h-5 items-center">
+                                <input
+                                  type="number"
+                                  step="any"
+                                  required={cfg.is_required}
+                                  disabled={isSubmitting}
+                                  min={cfg.min_value}
+                                  max={cfg.max_value}
+                                  value={val !== undefined ? val : ''}
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      [cfg.field_key]: e.target.value !== '' ? Number(e.target.value) : undefined,
+                                    })
+                                  }
+                                  className={underlineControl}
+                                />
+                              </div>
                             </div>
                           );
                         }
@@ -805,39 +858,45 @@ export default function AgentsSettingsPage() {
                         // Date Input
                         if (cfg.field_type === 'DATE') {
                           return (
-                            <div key={cfg.field_key}>
-                              <label className="block text-slate-500 dark:text-slate-400 font-bold mb-1">
-                                {cfg.field_label} {cfg.is_required && '*'}
+                            <div key={cfg.field_key} className={underlineShell}>
+                              <label className={underlineLabel}>
+                                {cfg.field_label}
+                                {cfg.is_required && <span className="text-rose-500"> *</span>}
                               </label>
-                              <input
-                                type="date"
-                                required={cfg.is_required}
-                                disabled={isSubmitting}
-                                min={cfg.min_date}
-                                value={String(val)}
-                                onChange={(e) => setFormData({ ...formData, [cfg.field_key]: e.target.value })}
-                                className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-mono focus:outline-none focus:border-emerald-500 disabled:opacity-50"
-                              />
+                              <div className="flex h-5 items-center">
+                                <input
+                                  type="date"
+                                  required={cfg.is_required}
+                                  disabled={isSubmitting}
+                                  min={cfg.min_date}
+                                  value={String(val)}
+                                  onChange={(e) => setFormData({ ...formData, [cfg.field_key]: e.target.value })}
+                                  className={`${underlineControl} overview-date dark:[color-scheme:dark]`}
+                                />
+                              </div>
+                              {!isSubmitting && <FieldCalendar label={cfg.field_label} />}
                             </div>
                           );
                         }
 
-                        // Standard Text Input (With auto-focus ref attached to Agent Name)
                         return (
-                          <div key={cfg.field_key}>
-                            <label className="block text-slate-500 dark:text-slate-400 font-bold mb-1">
-                              {cfg.field_label} {cfg.is_required && '*'}
+                          <div key={cfg.field_key} className={underlineShell}>
+                            <label className={underlineLabel}>
+                              {cfg.field_label}
+                              {cfg.is_required && <span className="text-rose-500"> *</span>}
                             </label>
-                            <input
-                              ref={isAgentName ? agentNameInputRef : undefined}
-                              type="text"
-                              required={cfg.is_required}
-                              disabled={isSubmitting}
-                              maxLength={cfg.max_length}
-                              value={String(val)}
-                              onChange={(e) => setFormData({ ...formData, [cfg.field_key]: e.target.value })}
-                              className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-medium focus:outline-none focus:border-emerald-500 disabled:opacity-50"
-                            />
+                            <div className="flex h-5 items-center">
+                              <input
+                                ref={isAgentName ? agentNameInputRef : undefined}
+                                type="text"
+                                required={cfg.is_required}
+                                disabled={isSubmitting}
+                                maxLength={cfg.max_length}
+                                value={String(val)}
+                                onChange={(e) => setFormData({ ...formData, [cfg.field_key]: e.target.value })}
+                                className={underlineControl}
+                              />
+                            </div>
                           </div>
                         );
                       })}

@@ -83,9 +83,15 @@ export async function GET(
     const lookups = lookupsRes.data || [];
 
     const getDropdownOptions = (fieldKey: string) => {
+      const seen = new Set<string>();
       const matched = lookups
         .filter((lk: any) => lk.category.toUpperCase() === fieldKey.toUpperCase())
-        .map((lk: any) => lk.option_label);
+        .map((lk: any) => lk.option_label)
+        .filter((label: string) => {
+          if (seen.has(label)) return false;
+          seen.add(label);
+          return true;
+        });
       return matched.length > 0 ? matched : undefined;
     };
 

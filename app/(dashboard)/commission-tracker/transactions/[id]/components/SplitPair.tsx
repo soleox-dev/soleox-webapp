@@ -16,6 +16,7 @@ interface SplitPairProps {
   compact?: boolean;
   beforePercent?: React.ReactNode;
   invalid?: boolean;
+  locked?: boolean;
 }
 
 function formatCurrency(value: number) {
@@ -39,12 +40,16 @@ export function SplitPair({
   compact = false,
   beforePercent,
   invalid = false,
+  locked = false,
 }: SplitPairProps) {
   const amountBased = type === 'AMOUNT';
   const percentBox = compact ? 'w-[6.25rem]' : 'w-[6.75rem]';
   const dollarBox = compact ? 'w-[6.5rem]' : 'w-[7.25rem]';
   const dollarPrefix = deduction ? '-$' : '$';
   const boxChrome = 'h-7 border-t-0 border-x-0 border-b rounded-t-md px-2 text-xs text-right font-semibold focus:outline-none transition-colors duration-150 shrink-0';
+  const quietInput = 'h-7 border-0 bg-transparent text-xs text-right font-semibold focus:outline-none shrink-0';
+  const quietField = 'underline-field rounded-t-md border-b border-b-slate-300 transition-colors dark:border-b-slate-600 focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)]';
+  const invalidField = 'rounded-t-md border-b border-b-rose-400 bg-rose-50 transition-colors dark:border-b-rose-500 dark:bg-rose-950/40 focus-within:border-b-rose-600 focus-within:shadow-[0_1px_0_rgb(225_29_72/0.45),0_6px_12px_-6px_rgb(225_29_72/0.8)]';
   const shownPercent = amountBased || !percentPoints
     ? Number(percentPoints || 0)
     : (percentPoints > 1 ? percentPoints : percentPoints * 100);
@@ -96,6 +101,32 @@ export function SplitPair({
     };
   }, [amountBased, dollarAmount]);
 
+  if (locked) {
+    const lockedBox = 'bg-slate-200 text-slate-600 border-b-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-b-slate-600';
+    const [amountInteger, amountFraction] = (dollarAmount || 0).toFixed(2).split('.');
+    const amountText = `${amountInteger.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${amountFraction}`;
+    return (
+      <div className={`flex items-center gap-1.5 ${compact ? 'w-full justify-end' : ''}`} aria-readonly="true">
+        <span className={`${percentBox} relative inline-flex shrink-0 items-center`}>
+          <span className={`flex w-full items-center justify-end pr-6 ${boxChrome} ${lockedBox}`}>
+            {shownPercent.toFixed(2)}
+          </span>
+          <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 flex w-6 items-center justify-center text-xs font-semibold text-slate-500 dark:text-slate-400">
+            %
+          </span>
+        </span>
+        <span className={`${dollarBox} relative inline-flex shrink-0`}>
+          <span className={`flex w-full items-center justify-end ${boxChrome} ${lockedBox} ${deduction ? 'pl-7' : 'pl-5'}`}>
+            {amountText}
+          </span>
+          <span aria-hidden className="pointer-events-none absolute inset-y-0 left-1.5 flex items-center text-xs font-semibold text-slate-500 dark:text-slate-400">
+            {dollarPrefix}
+          </span>
+        </span>
+      </div>
+    );
+  }
+
   if (!isEditing) {
     return (
       <div className={`flex items-center justify-end ${compact ? 'w-full gap-1.5' : 'gap-3'}`}>
@@ -121,7 +152,7 @@ export function SplitPair({
       {beforePercent}
       <span
         title={amountBased ? 'Click to enter a percentage' : 'Percent'}
-        className={`group/percent relative inline-flex transition-all duration-150 ${amountBased ? 'w-8 shrink-0' : compact ? (beforePercent ? 'min-w-0 flex-1' : 'w-full') : percentBox}`}
+        className={`group/percent relative inline-flex transition-all duration-150 ${invalid && !amountBased ? invalidField : quietField} ${amountBased ? 'w-8 shrink-0' : compact ? (beforePercent ? 'min-w-0 flex-1' : 'w-full') : percentBox}`}
       >
         <DecimalInput
           key={type}
@@ -146,18 +177,18 @@ export function SplitPair({
           onMouseUp={keepCalculatedSelection}
           onClick={keepCalculatedSelection}
           placeholder={amountBased ? '' : '0.00'}
-          className={`w-full ${boxChrome} ${
+          className={`w-full ${quietInput} ${
             amountBased
-              ? 'px-0 cursor-pointer text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 border-b-slate-300 dark:border-b-slate-600 hover:text-blue-600 hover:bg-blue-50 hover:border-b-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-950/40 dark:hover:border-b-blue-500'
+              ? 'px-0 cursor-pointer text-slate-400 dark:text-slate-500'
               : suffixHover
-                ? 'pr-6 text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 border-b-slate-300 dark:border-b-slate-600'
-                : 'pr-6'
+                ? 'px-2 pr-6 text-slate-400 dark:text-slate-500'
+                : 'px-2 pr-6'
           }`}
         />
         {amountBased ? (
           <span
             aria-hidden
-            className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs font-semibold text-slate-400 dark:text-slate-500 group-hover/percent:text-blue-600 dark:group-hover/percent:text-blue-300"
+            className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs font-semibold text-slate-400 dark:text-slate-500"
           >
             %
           </span>
@@ -183,7 +214,7 @@ export function SplitPair({
         )}
       </span>
       </span>
-      <span title="Amount" className="relative inline-flex shrink-0">
+      <span title="Amount" className={`relative inline-flex shrink-0 ${invalid && amountBased ? invalidField : quietField}`}>
         <DecimalInput
           ref={dollarRef}
           value={dollarAmount || 0}
@@ -197,7 +228,7 @@ export function SplitPair({
           onMouseUp={keepDollarSelection}
           onClick={keepDollarSelection}
           placeholder="0.00"
-          className={`${dollarBox} ${boxChrome} ${deduction ? 'pl-7' : 'pl-5'}`}
+          className={`${dollarBox} ${quietInput} ${deduction ? 'pl-7 pr-2' : 'pl-5 pr-2'}`}
         />
         <span
           aria-hidden

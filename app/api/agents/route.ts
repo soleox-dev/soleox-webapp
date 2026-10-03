@@ -147,7 +147,7 @@ export async function POST(request: Request) {
     }
 
     const existingId = agent.id || agent.agent_id ? String(agent.id || agent.agent_id) : null;
-    const isUpdate = Boolean(existingId);
+    const isUpdate = body.action === 'CREATE' ? false : Boolean(existingId);
     const clientId = String(agent.client_id || 'DEMO');
     const user = session.user.email || agent.updated_by || agent.created_by || 'system_admin';
 

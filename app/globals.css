@@ -3,6 +3,32 @@
 /* Enable class-based dark mode for Tailwind v4 */
 @variant dark (&:where(.dark, .dark *));
 
+/* Inter everywhere, with the system UI font behind it if the file has not loaded yet. */
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Underline fields. A faint fill at rest; the full grey on hover or focus.
+   Full grey is slate-100 / slate-900. */
+.underline-field {
+  background-color: color-mix(in srgb, #f1f5f9 28%, transparent);
+  transition: background-color 150ms ease;
+}
+
+.underline-field:hover,
+.underline-field:focus-within {
+  background-color: #f1f5f9;
+}
+
+html.dark .underline-field {
+  background-color: color-mix(in srgb, #0f172a 18%, transparent);
+}
+
+html.dark .underline-field:hover,
+html.dark .underline-field:focus-within {
+  background-color: #0f172a;
+}
+
 /* Set explicit document canvas defaults & smooth theme transitions */
 @layer base {
   html, body {
@@ -46,6 +72,17 @@ input.dropdown-chevron {
 html.dark select:not([multiple]):not([size]),
 html.dark input.dropdown-chevron {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23cbd5e1' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+html select.overview-field-select:not([multiple]):not([size]),
+html.dark select.overview-field-select:not([multiple]):not([size]) {
+  background-image: none;
+  padding-inline-end: 1.25rem;
+}
+
+input.overview-date::-webkit-calendar-picker-indicator {
+  display: none;
+  -webkit-appearance: none;
 }
 
 select.parameter-locked:not([multiple]):not([size]) {

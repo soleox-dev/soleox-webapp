@@ -910,29 +910,6 @@ export default function Dashboard() {
   const agentDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => agents.some((a) => a.name === e)) as [string, number][];
   const entityDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => !agents.some((a) => a.name === e)) as [string, number][];
 
-  // Identify fee / admin fee field from transaction schema if present
-  const feeFieldSetting = useMemo(() => {
-    return overviewFields.find(
-      (f) =>
-        f.key === 'transaction_fee' ||
-        f.key === 'admin_fee' ||
-        f.key.toLowerCase().includes('fee') ||
-        (f.label && (f.label.toLowerCase().includes('transaction fee') || f.label.toLowerCase().includes('admin fee')))
-    );
-  }, [overviewFields]);
-
-  const feeField = useMemo(() => {
-    if (!feeFieldSetting) return null;
-    const rawVal = overviewForm.isEditingOverview
-      ? overviewForm.overviewFormValues[feeFieldSetting.key]
-      : selectedDeal?.[feeFieldSetting.key];
-    const amount = Number(rawVal) || 0;
-    return {
-      label: feeFieldSetting.label || 'Transaction Fee',
-      amount,
-    };
-  }, [feeFieldSetting, overviewForm.isEditingOverview, overviewForm.overviewFormValues, selectedDeal]);
-
   // Filter available agents for picker modal so already added agents are excluded
   const availableAgentsToPick = useMemo(() => {
     const assignedNames = new Set(agents.map((a) => (a?.name || '').trim().toLowerCase()));
@@ -1090,15 +1067,6 @@ export default function Dashboard() {
           overviewFieldsCount={overviewFields.length}
           agentsCount={agents.length}
           entitiesCount={agentDisbursements.length + entityDisbursements.length}
-          salesPrice={overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.sales_price) || salesPrice) : salesPrice}
-          gciPerc={overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.gci_perc) || gciPerc) : gciPerc}
-          gciAmount={overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.gci_amount) || dealResult.grossCommission) : dealResult.grossCommission}
-          feeField={feeField}
-          totalCommission={dealResult.totalCommission || dealResult.grossCommission}
-          clientId={selectedDeal?.client_id || 'DEMO'}
-          transactionId={selectedDeal?.id || dealId || ''}
-          deal={selectedDeal}
-          templateAgents={knownAgents.map((agent) => ({ id: agent.id, name: agent.name, isTeamLead: agent.isTeamLead }))}
           collapsed={sidebarCollapsed}
           onToggleCollapsed={toggleSidebar}
         />
@@ -1332,6 +1300,10 @@ export default function Dashboard() {
             knownAgents={knownAgents}
             preventMinus={(e) => { if (e.key === '-') e.preventDefault(); }}
             formatNumberWithCommas={(v) => String(v)}
+            clientId={selectedDeal?.client_id || 'DEMO'}
+            transactionId={selectedDeal?.id || dealId || ''}
+            deal={selectedDeal}
+            templateAgents={knownAgents.map((agent) => ({ id: agent.id, name: agent.name, isTeamLead: agent.isTeamLead }))}
           />
 
           <FinalDisbursements

@@ -27,6 +27,25 @@ interface DialogState {
 
 const ENTITY_TYPES = ['REFERRAL', 'FRANCHISE', 'BROKERAGE', 'CLIENT', 'TEAM', 'VENDOR', 'EQUITY', 'OTHER'];
 
+const underlineShell =
+  'group/field relative underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600';
+const underlineLabel =
+  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
+const underlineControl =
+  'w-full border-0 bg-transparent p-0 h-5 text-xs leading-4 font-medium text-slate-900 focus:outline-none focus:ring-0 disabled:cursor-not-allowed dark:text-white';
+
+function FieldChevron() {
+  return (
+    <svg
+      viewBox="0 0 10 6"
+      aria-hidden
+      className="pointer-events-none absolute right-2.5 top-1/2 h-1.5 w-2.5 -translate-y-1/2 text-slate-600 dark:text-slate-300"
+    >
+      <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export default function CommissionEntitiesPage() {
   const [entities, setEntities] = useState<CommissionEntity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -540,86 +559,103 @@ export default function CommissionEntitiesPage() {
             </div>
 
             <form onSubmit={handleSave} className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-500 dark:text-slate-400 font-bold mb-1">Entity ID</label>
-                <input
-                  type="text"
-                  disabled
-                  tabIndex={-1}
-                  value={String(formData.id || editingEntity?.id || 'Auto-generated')}
-                  className="w-full bg-slate-200 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-500 font-mono cursor-not-allowed"
-                />
+              <div className={underlineShell}>
+                <label className={underlineLabel}>Entity ID</label>
+                <div className="flex h-5 items-center">
+                  <input
+                    type="text"
+                    disabled
+                    tabIndex={-1}
+                    value={String(formData.id || editingEntity?.id || 'Auto-generated')}
+                    className={`${underlineControl} ${formData.id || editingEntity?.id ? '' : '!text-slate-400 dark:!text-slate-500'}`}
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-slate-500 dark:text-slate-400 font-bold mb-1">Entity Name *</label>
-                <input
-                  ref={entityNameInputRef}
-                  type="text"
-                  required
-                  tabIndex={1}
-                  disabled={isSubmitting}
-                  value={String(formData.entity_name || '')}
-                  onChange={(e) => setFormData({ ...formData, entity_name: e.target.value })}
-                  className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-medium focus:outline-none focus:border-emerald-500 disabled:opacity-50"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-500 dark:text-slate-400 font-bold mb-1">Entity Type *</label>
-                  <select
+              <div className={underlineShell}>
+                <label className={underlineLabel}>
+                  Entity Name <span className="text-rose-500">*</span>
+                </label>
+                <div className="flex h-5 items-center">
+                  <input
+                    ref={entityNameInputRef}
+                    type="text"
                     required
-                    tabIndex={2}
+                    tabIndex={1}
                     disabled={isSubmitting}
-                    value={String(formData.entity_type || 'BROKERAGE')}
-                    onChange={(e) => setFormData({ ...formData, entity_type: e.target.value })}
-                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-medium focus:outline-none focus:border-emerald-500 disabled:opacity-50"
-                  >
-                    {ENTITY_TYPES.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-500 dark:text-slate-400 font-bold mb-1">Tax ID / EIN</label>
-                  <input
-                    type="text"
-                    tabIndex={3}
-                    disabled={isSubmitting}
-                    value={String(formData.tax_id || '')}
-                    onChange={(e) => setFormData({ ...formData, tax_id: e.target.value })}
-                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-mono focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+                    value={String(formData.entity_name || '')}
+                    onChange={(e) => setFormData({ ...formData, entity_name: e.target.value })}
+                    className={underlineControl}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-500 dark:text-slate-400 font-bold mb-1">Contact Name</label>
-                  <input
-                    type="text"
-                    tabIndex={4}
-                    disabled={isSubmitting}
-                    value={String(formData.contact_name || '')}
-                    onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
-                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-medium focus:outline-none focus:border-emerald-500 disabled:opacity-50"
-                  />
+                <div className={underlineShell}>
+                  <label className={underlineLabel}>
+                    Entity Type <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="flex h-5 items-center">
+                    <select
+                      required
+                      tabIndex={2}
+                      disabled={isSubmitting}
+                      value={String(formData.entity_type || 'BROKERAGE')}
+                      onChange={(e) => setFormData({ ...formData, entity_type: e.target.value })}
+                      className={`${underlineControl} overview-field-select cursor-pointer`}
+                    >
+                      {ENTITY_TYPES.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <FieldChevron />
                 </div>
 
-                <div>
-                  <label className="block text-slate-500 dark:text-slate-400 font-bold mb-1">Contact Email</label>
-                  <input
-                    type="email"
-                    tabIndex={5}
-                    disabled={isSubmitting}
-                    value={String(formData.contact_email || '')}
-                    onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
-                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-medium focus:outline-none focus:border-emerald-500 disabled:opacity-50"
-                  />
+                <div className={underlineShell}>
+                  <label className={underlineLabel}>Tax ID / EIN</label>
+                  <div className="flex h-5 items-center">
+                    <input
+                      type="text"
+                      tabIndex={3}
+                      disabled={isSubmitting}
+                      value={String(formData.tax_id || '')}
+                      onChange={(e) => setFormData({ ...formData, tax_id: e.target.value })}
+                      className={underlineControl}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className={underlineShell}>
+                  <label className={underlineLabel}>Contact Name</label>
+                  <div className="flex h-5 items-center">
+                    <input
+                      type="text"
+                      tabIndex={4}
+                      disabled={isSubmitting}
+                      value={String(formData.contact_name || '')}
+                      onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                      className={underlineControl}
+                    />
+                  </div>
+                </div>
+
+                <div className={underlineShell}>
+                  <label className={underlineLabel}>Contact Email</label>
+                  <div className="flex h-5 items-center">
+                    <input
+                      type="email"
+                      tabIndex={5}
+                      disabled={isSubmitting}
+                      value={String(formData.contact_email || '')}
+                      onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
+                      className={underlineControl}
+                    />
+                  </div>
                 </div>
               </div>
 

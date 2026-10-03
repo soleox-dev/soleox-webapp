@@ -93,14 +93,14 @@ export const DecimalInput = React.forwardRef<HTMLInputElement, DecimalInputProps
 
   const colorStyles = invalid
     ? filled
-      ? 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border-b-rose-400 dark:border-b-rose-500 focus:border-b-rose-600 focus:shadow-[0_1px_0_rgb(225_29_72/0.45),0_6px_12px_-6px_rgb(225_29_72/0.8)] placeholder-rose-300 dark:placeholder-rose-500'
+      ? 'text-rose-600 dark:text-rose-400 placeholder-rose-300 dark:placeholder-rose-500'
       : 'text-rose-600 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-950/30 border-rose-300 dark:border-rose-700/80 focus:border-rose-500 focus:ring-1 focus:ring-rose-500/30 placeholder-rose-300 dark:placeholder-rose-500'
     : !colorCode
     ? ''
     : filled
       ? isPercent
-        ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border-b-blue-400 dark:border-b-blue-500 focus:border-b-blue-600 focus:shadow-[0_1px_0_rgb(37_99_235/0.45),0_6px_12px_-6px_rgb(37_99_235/0.8)] placeholder-slate-400 dark:placeholder-slate-500'
-        : 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/35 border-b-emerald-400 dark:border-b-emerald-500 focus:border-b-emerald-600 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] placeholder-slate-400 dark:placeholder-slate-500'
+        ? 'text-blue-600 dark:text-blue-400 placeholder-slate-400 dark:placeholder-slate-500'
+        : 'text-emerald-600 dark:text-emerald-400 placeholder-slate-400 dark:placeholder-slate-500'
       : isPercent
         ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/30 border-blue-300 dark:border-blue-700/80 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 placeholder-slate-400 dark:placeholder-slate-500'
         : 'text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700/80 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 placeholder-slate-400 dark:placeholder-slate-500';

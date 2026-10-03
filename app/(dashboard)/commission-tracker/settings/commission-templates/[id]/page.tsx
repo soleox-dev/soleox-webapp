@@ -63,6 +63,25 @@ const PAYEE_TYPES = ['AGENT', 'ENTITY', 'BROKERAGE'];
 const inputClass =
   'w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500';
 
+const underlineShell =
+  'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600';
+const underlineLabel =
+  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
+const underlineControl =
+  'w-full border-0 bg-transparent p-0 h-5 text-xs leading-4 font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 dark:text-white dark:placeholder:text-slate-500';
+
+function FieldChevron() {
+  return (
+    <svg
+      viewBox="0 0 10 6"
+      aria-hidden
+      className="pointer-events-none absolute right-2.5 top-1/2 h-1.5 w-2.5 -translate-y-1/2 text-slate-600 dark:text-slate-300"
+    >
+      <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 const rowActionClass =
   'inline-flex h-7 w-7 items-center justify-center rounded transition cursor-pointer';
 
@@ -146,7 +165,7 @@ export default function CommissionTemplateDetailPage() {
   const [confirmDelete, setConfirmDelete] = useState<null | { kind: 'template' | 'parameter' | 'logic'; id?: string; label: string }>(null);
   const [sectionMenuOpen, setSectionMenuOpen] = useState(false);
   const [sectionMenuBox, setSectionMenuBox] = useState({ top: 0, left: 0, width: 0 });
-  const sectionInputRef = useRef<HTMLInputElement>(null);
+  const sectionFieldRef = useRef<HTMLDivElement>(null);
   const [newDropdownOption, setNewDropdownOption] = useState('');
   const [renamingOption, setRenamingOption] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
@@ -506,7 +525,7 @@ export default function CommissionTemplateDetailPage() {
   const sectionOptions = [...new Set(parameters.map((parameter) => parameter.section?.trim()).filter((section): section is string => Boolean(section)))];
 
   const openSectionMenu = () => {
-    const rect = sectionInputRef.current?.getBoundingClientRect();
+    const rect = sectionFieldRef.current?.getBoundingClientRect();
     if (!rect || sectionOptions.length === 0) {
       setSectionMenuOpen(false);
       return;
@@ -763,35 +782,44 @@ export default function CommissionTemplateDetailPage() {
 
       {parameterForm && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-center items-center p-4">
-          <form onSubmit={saveParameter} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-2xl rounded-xl p-6 shadow-2xl space-y-3 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">{editingParameterId ? 'Edit parameter' : 'Add parameter'}</h3>
-            {formError && <p className="text-xs text-rose-600 dark:text-rose-400">{formError}</p>}
-            <label className="block text-[11px] font-bold text-slate-500">Name
-              <input required value={parameterForm.parameter_name} onChange={(event) => setParameterForm({ ...parameterForm, parameter_name: event.target.value })} className={`${inputClass} mt-1`} />
+          <form onSubmit={saveParameter} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="shrink-0 px-6 pt-6 pb-3">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">{editingParameterId ? 'Edit parameter' : 'Add parameter'}</h3>
+              {formError && <p className="mt-3 text-xs text-rose-600 dark:text-rose-400">{formError}</p>}
+            </div>
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 pb-4">
+            <label className={underlineShell}>
+              <span className={underlineLabel}>Name</span>
+              <input required value={parameterForm.parameter_name} onChange={(event) => setParameterForm({ ...parameterForm, parameter_name: event.target.value })} className={underlineControl} />
             </label>
-            <label className="block text-[11px] font-bold text-slate-500">Section
+            <div ref={sectionFieldRef} className={underlineShell}>
+              <label className={underlineLabel}>Section</label>
               <input
-                ref={sectionInputRef}
                 value={parameterForm.section}
                 onChange={(event) => setParameterForm({ ...parameterForm, section: event.target.value })}
                 onFocus={() => openSectionMenu()}
                 onClick={() => openSectionMenu()}
                 onBlur={() => setSectionMenuOpen(false)}
                 placeholder="Example: Off the top"
-                className={`${inputClass} dropdown-chevron mt-1`}
+                className={`${underlineControl} pr-4`}
               />
-            </label>
-            <label className="block text-[11px] font-bold text-slate-500">Key
+              <FieldChevron />
+            </div>
+            <label className={underlineShell}>
+              <span className={underlineLabel}>Key</span>
               <input
                 readOnly
+                tabIndex={-1}
                 value={(parameters.find((parameter) => parameter.id === editingParameterId)?.parameter_key) || parameterKeyFromName(parameterForm.parameter_name)}
-                className={`${inputClass} mt-1 font-mono text-sky-700 dark:text-sky-300`}
+                className={`${underlineControl} cursor-default font-mono !text-sky-700 dark:!text-sky-300`}
               />
             </label>
-            <label className="block text-[11px] font-bold text-slate-500">Type
-              <select value={parameterForm.data_type} onChange={(event) => setParameterForm({ ...parameterForm, data_type: event.target.value as ParameterType })} className={`${inputClass} mt-1`}>
+            <label className={underlineShell}>
+              <span className={underlineLabel}>Type</span>
+              <select value={parameterForm.data_type} onChange={(event) => setParameterForm({ ...parameterForm, data_type: event.target.value as ParameterType })} className={`${underlineControl} overview-field-select cursor-pointer`}>
                 {PARAMETER_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
               </select>
+              <FieldChevron />
             </label>
             {parameterForm.data_type === 'SELECT' && (
               <div className="space-y-3 bg-slate-50 dark:bg-slate-900/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
@@ -812,7 +840,9 @@ export default function CommissionTemplateDetailPage() {
                     </button>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex items-end gap-2">
+                  <label className={`${underlineShell} min-w-0 flex-1`}>
+                    <span className={underlineLabel}>Option</span>
                   <input
                     type="text"
                     value={newDropdownOption}
@@ -831,9 +861,10 @@ export default function CommissionTemplateDetailPage() {
                       setParameterForm({ ...parameterForm, dropdown_options: withDropdownOption(parameterForm.dropdown_options, newDropdownOption) });
                       setNewDropdownOption('');
                     }}
-                    placeholder="Add option, paste copied Sheet column, or use 'Option A ::: Option B'..."
-                    className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white"
+                    placeholder="Paste a column, or use Option A ::: Option B"
+                    className={underlineControl}
                   />
+                  </label>
                   <button
                     type="button"
                     onClick={() => {
@@ -929,11 +960,13 @@ export default function CommissionTemplateDetailPage() {
                 fieldGroups={fieldGroups}
               />
             </div>
-            <label className="block text-[11px] font-bold text-slate-500">Validation
-              <input value={parameterForm.validation_rule} onChange={(event) => setParameterForm({ ...parameterForm, validation_rule: event.target.value })} className={`${inputClass} mt-1`} placeholder="Example: 0–100%" />
+            <label className={underlineShell}>
+              <span className={underlineLabel}>Validation</span>
+              <input value={parameterForm.validation_rule} onChange={(event) => setParameterForm({ ...parameterForm, validation_rule: event.target.value })} className={underlineControl} placeholder="Example: 0–100%" />
             </label>
-            <label className="block text-[11px] font-bold text-slate-500">Notes
-              <input value={parameterForm.notes} onChange={(event) => setParameterForm({ ...parameterForm, notes: event.target.value })} className={`${inputClass} mt-1`} />
+            <label className={underlineShell}>
+              <span className={underlineLabel}>Notes</span>
+              <input value={parameterForm.notes} onChange={(event) => setParameterForm({ ...parameterForm, notes: event.target.value })} className={underlineControl} />
             </label>
             <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
               <input type="checkbox" checked={parameterForm.is_required} onChange={(event) => setParameterForm({ ...parameterForm, is_required: event.target.checked })} />
@@ -943,7 +976,8 @@ export default function CommissionTemplateDetailPage() {
               <input type="checkbox" checked={parameterForm.is_user_editable} onChange={(event) => setParameterForm({ ...parameterForm, is_user_editable: event.target.checked })} />
               User can change this value on the transaction
             </label>
-            <div className="flex justify-end gap-2 pt-2">
+            </div>
+            <div className="flex shrink-0 justify-end gap-2 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
               <button type="button" onClick={() => { setParameterForm(null); setEditingParameterId(null); setFormError(null); }} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer">Cancel</button>
               <button type="submit" disabled={isSaving} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 text-slate-950 cursor-pointer disabled:opacity-50">{isSaving ? 'Saving...' : 'Save parameter'}</button>
             </div>

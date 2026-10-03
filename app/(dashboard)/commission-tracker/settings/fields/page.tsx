@@ -105,6 +105,47 @@ const MANDATORY_SYSTEM_KEYS = new Set([
   'gci_amount',
 ]);
 
+const underlineShell =
+  'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600';
+const underlineLabel =
+  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
+const underlineControl =
+  'w-full border-0 bg-transparent p-0 h-5 text-xs leading-4 font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 disabled:cursor-not-allowed dark:text-white dark:placeholder:text-slate-500';
+
+function FieldChevron() {
+  return (
+    <svg
+      viewBox="0 0 10 6"
+      aria-hidden
+      className="pointer-events-none absolute right-2.5 top-1/2 h-1.5 w-2.5 -translate-y-1/2 text-slate-600 dark:text-slate-300"
+    >
+      <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function FieldCalendar({ label }: { label: string }) {
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-label={`Choose ${label}`}
+      onClick={(event) => {
+        const input = event.currentTarget.parentElement?.querySelector('input[type="date"]');
+        if (!(input instanceof HTMLInputElement)) return;
+        input.focus();
+        if (typeof input.showPicker === 'function') input.showPicker();
+      }}
+      className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 cursor-pointer text-slate-600 dark:text-slate-300"
+    >
+      <svg viewBox="0 0 16 16" aria-hidden className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2.25" y="3.25" width="11.5" height="10.5" rx="1.25" />
+        <path d="M2.25 6.75h11.5M5.25 2v2.5M10.75 2v2.5" />
+      </svg>
+    </button>
+  );
+}
+
 export default function FieldCustomizationsPage() {
   const [activeTab, setActiveTab] = useState<'transactions' | 'agents'>('transactions');
   const [isCatalogLoading, setIsCatalogLoading] = useState(false);
@@ -1353,14 +1394,14 @@ export default function FieldCustomizationsPage() {
 
             <form onSubmit={handleSaveField} className="space-y-4 text-xs">
               {!editingField && selectionMode === 'EXISTING' && (
-                <div>
-                  <label className="block text-slate-500 font-bold mb-1">
-                    Select Existing Database Column *
-                  </label>
+                <label className={underlineShell}>
+                  <span className={underlineLabel}>
+                    Select Existing Database Column <span className="text-rose-500">*</span>
+                  </span>
                   <select
                     value={selectedCatalogKey}
                     onChange={(e) => handleCatalogSelectChange(e.target.value)}
-                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-medium"
+                    className={`${underlineControl} overview-field-select cursor-pointer`}
                   >
                     {availableCatalogOptions.map((item) => (
                       <option key={item.field_key} value={item.field_key}>
@@ -1368,13 +1409,15 @@ export default function FieldCustomizationsPage() {
                       </option>
                     ))}
                   </select>
-                </div>
+                  <FieldChevron />
+                </label>
               )}
 
-              {/* Field Label & Section Name */}
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-500 font-bold mb-1">Field Label *</label>
+                <label className={underlineShell}>
+                  <span className={underlineLabel}>
+                    Field Label <span className="text-rose-500">*</span>
+                  </span>
                   <input
                     ref={fieldLabelInputRef}
                     type="text"
@@ -1383,12 +1426,14 @@ export default function FieldCustomizationsPage() {
                     value={formData.field_label || ''}
                     onChange={(e) => setFormData({ ...formData, field_label: e.target.value })}
                     placeholder="e.g. Escrow Officer Name"
-                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white"
+                    className={underlineControl}
                   />
-                </div>
+                </label>
 
-                <div>
-                  <label className="block text-slate-500 font-bold mb-1">Section Group *</label>
+                <label className={underlineShell}>
+                  <span className={underlineLabel}>
+                    Section Group <span className="text-rose-500">*</span>
+                  </span>
                   <input
                     type="text"
                     required
@@ -1396,15 +1441,16 @@ export default function FieldCustomizationsPage() {
                     value={formData.section_name || ''}
                     onChange={(e) => setFormData({ ...formData, section_name: e.target.value })}
                     placeholder="e.g. Key Dates, Financials"
-                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white"
+                    className={underlineControl}
                   />
-                </div>
+                </label>
               </div>
 
-              {/* Control Type & Field Key */}
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-500 font-bold mb-1">Control Type *</label>
+                <label className={underlineShell}>
+                  <span className={underlineLabel}>
+                    Control Type <span className="text-rose-500">*</span>
+                  </span>
                   <select
                     tabIndex={3}
                     disabled={isSystemMandatoryField}
@@ -1417,7 +1463,7 @@ export default function FieldCustomizationsPage() {
                         setFormData((prev) => ({ ...prev, calculation_formula: '' }));
                       }
                     }}
-                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`${underlineControl} overview-field-select cursor-pointer`}
                   >
                     <option value="TEXT">Text Input</option>
                     <option value="CURRENCY">Currency ($)</option>
@@ -1428,20 +1474,21 @@ export default function FieldCustomizationsPage() {
                     <option value="AGENT_PICKER">Agent Picker</option>
                     <option value="BOOLEAN">Boolean Toggle</option>
                   </select>
-                </div>
+                  <FieldChevron />
+                </label>
 
-                <div>
-                  <label className="block text-slate-500 font-bold mb-1">Database Field Key</label>
+                <label className={underlineShell}>
+                  <span className={underlineLabel}>Database Field Key</span>
                   <input
                     type="text"
                     tabIndex={-1}
                     disabled={formData.storage_type === 'CORE_COLUMN'}
                     value={formData.field_key || ''}
                     onChange={(e) => setFormData({ ...formData, field_key: e.target.value })}
-                    placeholder="Auto-generated..."
-                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-mono disabled:opacity-50"
+                    placeholder="Auto-generated"
+                    className={`${underlineControl} font-mono`}
                   />
-                </div>
+                </label>
               </div>
 
               {/* VISUAL CONDITIONAL VISIBILITY RULE BUILDER */}
@@ -1497,13 +1544,13 @@ export default function FieldCustomizationsPage() {
                           )}
 
                           <div className="p-2.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 space-y-2">
-                            <div className="grid grid-cols-12 gap-2 items-center">
-                              <div className="col-span-5">
-                                <label className="text-[10px] font-bold text-slate-400 block mb-0.5">If Field</label>
+                            <div className="grid grid-cols-12 gap-2 items-end">
+                              <label className={`${underlineShell} col-span-5`}>
+                                <span className={underlineLabel}>If Field</span>
                                 <select
                                   value={cond.field_key}
                                   onChange={(e) => handleUpdateCondition(cond.id, { field_key: e.target.value })}
-                                  className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded p-1 text-slate-900 dark:text-white font-medium"
+                                  className={`${underlineControl} overview-field-select cursor-pointer`}
                                 >
                                   {orderedCurrentFields
                                     .filter((f) => f.field_key !== formData.field_key)
@@ -1513,14 +1560,15 @@ export default function FieldCustomizationsPage() {
                                       </option>
                                     ))}
                                 </select>
-                              </div>
+                                <FieldChevron />
+                              </label>
 
-                              <div className="col-span-4">
-                                <label className="text-[10px] font-bold text-slate-400 block mb-0.5">Condition</label>
+                              <label className={`${underlineShell} col-span-4`}>
+                                <span className={underlineLabel}>Condition</span>
                                 <select
                                   value={cond.operator}
                                   onChange={(e) => handleUpdateCondition(cond.id, { operator: e.target.value as SingleOperator })}
-                                  className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded p-1 text-slate-900 dark:text-white"
+                                  className={`${underlineControl} overview-field-select cursor-pointer`}
                                 >
                                   <option value="EQUALS">Equals (=)</option>
                                   <option value="NOT_EQUALS">Not Equals (≠)</option>
@@ -1528,9 +1576,10 @@ export default function FieldCustomizationsPage() {
                                   <option value="NOT_EMPTY">Is Not Empty</option>
                                   <option value="IS_EMPTY">Is Empty</option>
                                 </select>
-                              </div>
+                                <FieldChevron />
+                              </label>
 
-                              <div className="col-span-3 text-right pt-3">
+                              <div className="col-span-3 text-right">
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveCondition(cond.id)}
@@ -1574,16 +1623,16 @@ export default function FieldCustomizationsPage() {
                                     </div>
                                   </div>
                                 ) : (
-                                  <div>
-                                    <label className="text-[10px] font-bold text-slate-400 block mb-0.5">Value to Compare:</label>
+                                  <label className={underlineShell}>
+                                    <span className={underlineLabel}>Value to Compare</span>
                                     <input
                                       type="text"
                                       value={String(cond.value || '')}
                                       onChange={(e) => handleUpdateCondition(cond.id, { value: e.target.value })}
-                                      placeholder="e.g. Seller or Pending..."
-                                      className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded p-1 text-slate-900 dark:text-white font-medium"
+                                      placeholder="e.g. Seller or Pending"
+                                      className={underlineControl}
                                     />
-                                  </div>
+                                  </label>
                                 )}
                               </div>
                             )}
@@ -1611,81 +1660,84 @@ export default function FieldCustomizationsPage() {
 
                 {(formData.field_type === 'CURRENCY' || formData.field_type === 'NUMBER' || formData.field_type === 'PERCENT') && (
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-slate-500 font-bold mb-1">Minimum Value</label>
+                    <label className={underlineShell}>
+                      <span className={underlineLabel}>Minimum Value</span>
                       <input
                         type="number"
                         value={formData.min_value ?? ''}
                         onChange={(e) => setFormData({ ...formData, min_value: e.target.value !== '' ? Number(e.target.value) : undefined })}
-                        placeholder="e.g. 0 ($ or %)"
-                        className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 font-mono text-slate-900 dark:text-white font-medium"
+                        placeholder="e.g. 0"
+                        className={underlineControl}
                       />
-                    </div>
-                    <div>
-                      <label className="block text-slate-500 font-bold mb-1">Maximum Value</label>
+                    </label>
+                    <label className={underlineShell}>
+                      <span className={underlineLabel}>Maximum Value</span>
                       <input
                         type="number"
                         value={formData.max_value ?? ''}
                         onChange={(e) => setFormData({ ...formData, max_value: e.target.value !== '' ? Number(e.target.value) : undefined })}
-                        placeholder="e.g. 100 (%)"
-                        className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 font-mono text-slate-900 dark:text-white font-medium"
+                        placeholder="e.g. 100"
+                        className={underlineControl}
                       />
-                    </div>
+                    </label>
                   </div>
                 )}
 
                 {formData.field_type === 'DATE' && (
-                  <div>
-                    <label className="block text-slate-500 font-bold mb-1">Earliest Allowed Date</label>
+                  <label className={underlineShell}>
+                    <span className={underlineLabel}>Earliest Allowed Date</span>
                     <input
                       type="date"
                       value={formData.min_date || ''}
                       onChange={(e) => setFormData({ ...formData, min_date: e.target.value })}
-                      className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 font-mono text-slate-900 dark:text-white font-medium"
+                      className={`${underlineControl} overview-date dark:[color-scheme:dark]`}
                     />
-                  </div>
+                    <FieldCalendar label="Earliest Allowed Date" />
+                  </label>
                 )}
 
                 {formData.field_type === 'TEXT' && (
                   <div className="space-y-3">
-                    <div>
-                      <label className="block text-slate-500 font-bold mb-1">Max Character Length</label>
+                    <label className={underlineShell}>
+                      <span className={underlineLabel}>Max Character Length</span>
                       <input
                         type="number"
                         value={formData.max_length ?? 100}
                         onChange={(e) => setFormData({ ...formData, max_length: Number(e.target.value) })}
                         placeholder="e.g. 100"
-                        className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 font-mono text-slate-900 dark:text-white font-medium"
+                        className={underlineControl}
                       />
-                    </div>
+                    </label>
 
                     <div className="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700 space-y-2">
-                      <div className="flex justify-between items-center">
-                        <label className="block text-slate-700 dark:text-slate-300 font-bold">
-                          🔣 RegEx Custom Pattern Validation
-                        </label>
+                      <label className="block text-slate-700 dark:text-slate-300 font-bold">
+                        🔣 RegEx Custom Pattern Validation
+                      </label>
+                      <label className={underlineShell}>
+                        <span className={underlineLabel}>Mode</span>
                         <select
                           value={formData.regex_mode || 'MATCHES'}
                           onChange={(e) => setFormData({ ...formData, regex_mode: e.target.value as RegexMode })}
-                          className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 text-[10px] font-bold text-slate-800 dark:text-slate-200"
+                          className={`${underlineControl} overview-field-select cursor-pointer`}
                         >
                           <option value="MATCHES">RegEx Matches Pattern</option>
                           <option value="EQUALS">RegEx Strictly Equals</option>
                         </select>
-                      </div>
-
-                      <div>
+                        <FieldChevron />
+                      </label>
+                      <label className={underlineShell}>
+                        <span className={underlineLabel}>Pattern</span>
                         <input
                           type="text"
                           value={formData.regex_pattern || ''}
                           onChange={(e) => setFormData({ ...formData, regex_pattern: e.target.value })}
-                          placeholder="e.g. ^\d{3}-\d{2}-\d{4}$ or ^[A-Z]{3}-\d{4}$"
-                          className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 font-mono text-slate-900 dark:text-white text-xs"
+                          placeholder="e.g. ^\d{3}-\d{2}-\d{4}$"
+                          className={`${underlineControl} font-mono`}
                         />
-                        <p className="text-[10px] text-slate-400 mt-1">
-                          Enforces input formatting on forms. Non-matching values will highlight red with validation errors.
-                        </p>
-                      </div>
+                      </label>
+                      <p className="text-[10px] text-slate-400">
+                        Enforces input formatting on forms. Non-matching values will highlight red with validation errors.
+                      </p>
                     </div>
                   </div>
                 )}
@@ -1708,7 +1760,9 @@ export default function FieldCustomizationsPage() {
                       )}
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex items-end gap-2">
+                      <label className={`${underlineShell} min-w-0 flex-1`}>
+                        <span className={underlineLabel}>Option</span>
                       <input
                         type="text"
                         value={newDropdownOption}
@@ -1720,9 +1774,10 @@ export default function FieldCustomizationsPage() {
                             handleAddDropdownOption();
                           }
                         }}
-                        placeholder="Add option, paste copied Sheet column, or use 'Option A ::: Option B'..."
-                        className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white"
+                        placeholder="Paste a column, or use Option A ::: Option B"
+                        className={underlineControl}
                       />
+                      </label>
                       <button
                         type="button"
                         onClick={handleAddDropdownOption}
@@ -1800,16 +1855,18 @@ export default function FieldCustomizationsPage() {
 
                   {hasFormula && (
                     <div className="space-y-1 bg-purple-500/5 p-3 rounded-lg border border-purple-500/20">
-                      <label className="block text-slate-500 font-bold mb-1">
-                        Formula Expression *
-                      </label>
+                      <label className={underlineShell}>
+                        <span className={underlineLabel}>
+                          Formula Expression <span className="text-rose-500">*</span>
+                        </span>
                       <input
                         type="text"
                         value={formData.calculation_formula || ''}
                         onChange={(e) => setFormData({ ...formData, calculation_formula: e.target.value })}
-                        placeholder="e.g. gci_amount + (transaction_side === 'Buyer' ? transaction_fee : 0)"
-                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 font-mono text-xs text-slate-900 dark:text-white"
+                        placeholder="e.g. gci_amount + transaction_fee"
+                        className={`${underlineControl} font-mono`}
                       />
+                      </label>
                       <p className="text-[10px] text-slate-400 mt-1">
                         Use database field keys with math operators (`+`, `-`, `*`, `/`) or JS ternaries (`cond ? valA : valB`).
                       </p>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { evaluateFormula, formulaValueToInput, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { normalizeAgentName } from '@/lib/id';
@@ -67,14 +67,58 @@ function displayValue(dataType: string | null | undefined, raw: string): string 
 
 type ParameterControlType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
 
-const parameterControlClass =
-  'w-56 shrink-0 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 group-focus-within/field:bg-transparent dark:group-focus-within/field:bg-transparent';
+const valueControl =
+  'w-full bg-transparent border-0 p-0 h-5 text-xs leading-4 focus:outline-none focus:ring-0';
 
-const lockedParameterClass =
-  'parameter-locked w-56 shrink-0 border border-transparent bg-transparent rounded-lg px-2 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300 cursor-default focus:outline-none';
+function controlClass(locked: boolean, select = false): string {
+  if (select) return `${valueControl} overview-field-select cursor-pointer font-medium text-slate-900 dark:text-white`;
+  if (locked) return `parameter-locked ${valueControl} cursor-default font-semibold text-sky-700 dark:text-sky-300`;
+  return `${valueControl} font-medium text-slate-900 dark:text-white`;
+}
 
-function controlClass(locked: boolean): string {
-  return locked ? lockedParameterClass : parameterControlClass;
+function LabeledParameter({
+  id,
+  label,
+  locked,
+  showChevron,
+  mirror,
+  children,
+}: {
+  id: string;
+  label: string;
+  locked: boolean;
+  showChevron: boolean;
+  mirror?: string;
+  children: React.ReactNode;
+}) {
+  const labelTone = 'text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
+  const shellBorder = locked
+    ? 'border-b-slate-300 dark:border-b-slate-600'
+    : 'border-b-slate-300 dark:border-b-slate-600 focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)]';
+
+  return (
+    <div className={`group/field relative underline-field rounded-t-md pl-2.5 pr-2.5 pt-1 pb-0.5 border-b transition-colors ${shellBorder}`}>
+      <label htmlFor={id} className={`block truncate text-[10px] leading-3 font-medium ${labelTone}`}>
+        {label}
+      </label>
+      <div className="flex h-5 items-center">
+        {children ?? (
+          <span className={`truncate text-xs leading-4 font-semibold ${locked ? 'text-sky-700 dark:text-sky-300' : 'text-slate-900 dark:text-white'}`}>
+            {mirror}
+          </span>
+        )}
+      </div>
+      {showChevron && (
+        <svg
+          viewBox="0 0 10 6"
+          aria-hidden
+          className="pointer-events-none absolute right-2.5 top-1/2 h-1.5 w-2.5 -translate-y-1/2 text-slate-600 dark:text-slate-300"
+        >
+          <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
+    </div>
+  );
 }
 
 function canonicalParameterType(value?: string | null): ParameterControlType {
@@ -166,7 +210,7 @@ function NumericParameterInput({
         }
         if (raw === '' || /^-?\d*\.?\d*$/.test(raw)) setDraft(raw);
       }}
-      className={controlClass(readOnly)}
+      className={`${controlClass(readOnly)} text-left`}
     />
   );
 }
@@ -185,26 +229,28 @@ function ParameterControl({
   const control = canonicalParameterType(parameter.data_type);
   const locked = parameter.is_user_editable === false;
   const id = `template-parameter-${parameter.id}`;
+  const isSelect = control === 'SELECT' || control === 'AGENT_PICKER' || control === 'BOOLEAN';
+  let field: React.ReactNode = null;
 
-  if (control === 'SELECT') {
+  if (locked && isSelect) {
+    field = null;
+  } else if (control === 'SELECT') {
     const options = parameter.dropdown_options || [];
     const selectOptions = value && !options.includes(value) ? [value, ...options] : options;
-    return (
-      <select id={id} value={value} disabled={locked} onChange={(event) => onChange(event.target.value)} className={controlClass(locked)}>
+    field = (
+      <select id={id} value={value} disabled={locked} onChange={(event) => onChange(event.target.value)} className={controlClass(locked, true)}>
         <option value=""></option>
         {selectOptions.map((option) => <option key={option} value={option}>{option}</option>)}
       </select>
     );
-  }
-
-  if (control === 'AGENT_PICKER') {
+  } else if (control === 'AGENT_PICKER') {
     const matched = agents.find((agent) => (
       agent.id === value ||
       agent.name === value ||
       normalizeAgentName(agent.name).toLowerCase() === normalizeAgentName(value).toLowerCase()
     ));
     const choices = matched || !value ? agents : [{ id: value, name: value }, ...agents];
-    return (
+    field = (
       <select
         id={id}
         value={matched?.id || (value ? value : '')}
@@ -213,7 +259,7 @@ function ParameterControl({
           const agent = choices.find((item) => item.id === event.target.value);
           onChange(agent?.name || '');
         }}
-        className={controlClass(locked)}
+        className={controlClass(false, true)}
       >
         <option value=""></option>
         {choices.map((agent) => (
@@ -223,32 +269,32 @@ function ParameterControl({
         ))}
       </select>
     );
-  }
-
-  if (control === 'BOOLEAN') {
+  } else if (control === 'BOOLEAN') {
     const yesNo = value === 'Yes' || value === 'No' ? value : '';
-    return (
-      <select id={id} value={yesNo} disabled={locked} onChange={(event) => onChange(event.target.value)} className={controlClass(locked)}>
+    field = (
+      <select id={id} value={yesNo} disabled={locked} onChange={(event) => onChange(event.target.value)} className={controlClass(locked, true)}>
         <option value=""></option>
         <option value="Yes">Yes</option>
         <option value="No">No</option>
       </select>
     );
-  }
-
-  if (control === 'DATE') {
+  } else if (control === 'DATE') {
     const date = /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : '';
-    return (
-      <input id={id} type="date" value={date} disabled={locked} onChange={(event) => onChange(event.target.value)} className={controlClass(locked)} />
+    field = (
+      <input id={id} type="date" value={date} disabled={locked} onChange={(event) => onChange(event.target.value)} className={`${controlClass(locked)} dark:[color-scheme:dark]`} />
+    );
+  } else if (control === 'CURRENCY' || control === 'PERCENT' || control === 'NUMBER') {
+    field = <NumericParameterInput id={id} kind={control} value={value} readOnly={locked} onChange={onChange} />;
+  } else {
+    field = (
+      <input id={id} value={value} readOnly={locked} onChange={(event) => onChange(event.target.value)} className={controlClass(locked)} />
     );
   }
 
-  if (control === 'CURRENCY' || control === 'PERCENT' || control === 'NUMBER') {
-    return <NumericParameterInput id={id} kind={control} value={value} readOnly={locked} onChange={onChange} />;
-  }
-
   return (
-    <input id={id} value={value} readOnly={locked} onChange={(event) => onChange(event.target.value)} className={controlClass(locked)} />
+    <LabeledParameter id={id} label={parameter.parameter_name} locked={locked} showChevron={isSelect && !locked} mirror={isSelect ? value : undefined}>
+      {field}
+    </LabeledParameter>
   );
 }
 
@@ -362,11 +408,13 @@ export function CommissionTemplatePanel({
   transactionId,
   deal,
   agents,
+  embedded = false,
 }: {
   clientId: string;
   transactionId: string;
   deal: Record<string, unknown> | null;
   agents: AgentOption[];
+  embedded?: boolean;
 }) {
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [committedTemplateId, setCommittedTemplateId] = useState('');
@@ -376,6 +424,10 @@ export function CommissionTemplatePanel({
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [isLoadingParameters, setIsLoadingParameters] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
+  const templateFieldRef = useRef<HTMLDivElement>(null);
+  const templateMenuRef = useRef<HTMLUListElement>(null);
+  const [templateMenuBox, setTemplateMenuBox] = useState({ top: 0, left: 0, width: 0 });
 
   useEffect(() => {
     let cancelled = false;
@@ -485,39 +537,104 @@ export function CommissionTemplatePanel({
     setDraftTemplateId('');
   };
 
+  useEffect(() => {
+    if (!templateMenuOpen) return;
+    const closeMenu = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (templateFieldRef.current?.contains(target) || templateMenuRef.current?.contains(target)) return;
+      setTemplateMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setTemplateMenuOpen(false);
+    };
+    document.addEventListener('mousedown', closeMenu);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeMenu);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [templateMenuOpen]);
+
+  useLayoutEffect(() => {
+    if (!templateMenuOpen) return;
+    const place = () => {
+      const anchor = templateFieldRef.current?.getBoundingClientRect();
+      if (!anchor) return;
+      setTemplateMenuBox({ top: anchor.bottom + 4, left: anchor.left, width: anchor.width });
+    };
+    place();
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [templateMenuOpen]);
+
+  const shownTemplateId = popupOpen ? draftTemplateId : committedTemplateId;
+  const shownTemplateName = templates.find((template) => template.id === shownTemplateId)?.template_name
+    || (templates.length === 0 && !isLoadingTemplates ? 'No templates' : '');
+
   const selectedTemplate = templates.find((template) => template.id === draftTemplateId);
   const showGroupNav = groups.length > 1;
   const visibleGroups = activeGroup ? groups.filter((group) => group.name === activeGroup) : groups;
 
   return (
-    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xl space-y-3 text-xs transition-colors">
-      <span className="font-bold text-slate-800 dark:text-slate-300 block border-b border-slate-200 dark:border-slate-700 pb-2">
-        Commission Template
-      </span>
-      <label className="block text-[11px] font-bold text-slate-500">
-        Template
-        <select
-          value={popupOpen ? draftTemplateId : committedTemplateId}
-          onChange={(event) => {
-            const nextId = event.target.value;
-            if (!nextId) return;
-            setDraftTemplateId(nextId);
-            setPopupOpen(true);
-          }}
+    <div className={embedded ? 'w-56 shrink-0 text-xs sm:w-64' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xl space-y-3 text-xs transition-colors'}>
+      {!embedded && (
+        <span className="font-bold text-slate-800 dark:text-slate-300 block border-b border-slate-200 dark:border-slate-700 pb-2">
+          Commission Template
+        </span>
+      )}
+      <div ref={templateFieldRef} className="relative">
+        <button
+          type="button"
           disabled={isLoadingTemplates || templates.length === 0}
-          className="mt-1 w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+          aria-haspopup="listbox"
+          aria-expanded={templateMenuOpen}
+          onClick={() => setTemplateMenuOpen((open) => !open)}
+          className="group underline-field relative block w-full rounded-t-md pl-2.5 pr-8 pt-1 pb-0.5 border-b border-b-slate-300 dark:border-b-slate-600 text-left transition-colors cursor-pointer focus:outline-none focus-visible:border-b-emerald-500 focus-visible:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <option value="">{templates.length === 0 && !isLoadingTemplates ? 'No templates' : ''}</option>
-          {templates.map((template) => (
-            <option key={template.id} value={template.id}>{template.template_name}</option>
-          ))}
-        </select>
-      </label>
+          <span className="block text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-visible:text-emerald-600 dark:group-focus-visible:text-emerald-400">
+            Template
+          </span>
+          <span className="block h-5 truncate text-xs leading-4 font-medium text-slate-900 dark:text-white">
+            {shownTemplateName}
+          </span>
+          <svg
+            viewBox="0 0 10 6"
+            aria-hidden
+            className="pointer-events-none absolute right-2.5 top-1/2 h-1.5 w-2.5 -translate-y-1/2 text-slate-600 dark:text-slate-300"
+          >
+            <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        {templateMenuOpen && createPortal(
+          <ul ref={templateMenuRef} role="listbox" aria-label="Template" style={{ top: templateMenuBox.top, left: templateMenuBox.left, width: templateMenuBox.width }} className="fixed z-50 max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-xs shadow-lg dark:border-slate-600 dark:bg-slate-800">
+            {templates.map((template) => (
+              <li key={template.id} role="option" aria-selected={template.id === shownTemplateId}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraftTemplateId(template.id);
+                    setPopupOpen(true);
+                    setTemplateMenuOpen(false);
+                  }}
+                  className={`block w-full cursor-pointer px-2.5 py-1.5 text-left font-medium text-slate-900 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700 ${template.id === shownTemplateId ? 'bg-slate-100 dark:bg-slate-700' : ''}`}
+                >
+                  {template.template_name}
+                </button>
+              </li>
+            ))}
+          </ul>,
+          document.body,
+        )}
+      </div>
       {loadError && !popupOpen && <p className="text-[11px] text-rose-600 dark:text-rose-400">{loadError}</p>}
 
       {popupOpen && createPortal(
         <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4">
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-2xl rounded-xl p-5 shadow-2xl flex flex-col max-h-[calc(100vh-2rem)]">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-[1800px] rounded-xl p-5 shadow-2xl flex flex-col max-h-[calc(100vh-2rem)]">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">{selectedTemplate?.template_name || 'Commission template'}</h3>
             {loadError && <p className="text-xs text-rose-600 dark:text-rose-400 mt-3">{loadError}</p>}
             {showGroupNav && (
@@ -544,18 +661,18 @@ export function CommissionTemplatePanel({
                 ))}
               </div>
             )}
-            <div className="mt-3 overflow-y-auto min-h-0 flex-1">
+            <div className="@container/params mt-3 overflow-y-auto min-h-0 flex-1">
               {isLoadingParameters ? (
                 <p className="text-xs text-slate-500">Loading parameters...</p>
               ) : rows.length === 0 ? (
                 <p className="text-xs text-slate-500">This template has no parameters.</p>
               ) : (
-                <div className="space-y-3">
+                <div className={visibleGroups.length > 1 ? '@min-[1280px]/params:columns-5 @min-[1280px]/params:gap-x-4' : ''}>
                   {visibleGroups.map((group) => {
                     const isUnsectioned = group.name === 'No Section';
                     const isCollapsed = collapsedSections[group.name] === true;
                     return (
-                    <div key={group.name} className={`rounded-lg border bg-slate-100 dark:bg-slate-900/80 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-slate-200 dark:border-slate-700'}`}>
+                    <div key={group.name} className={`mb-3 break-inside-avoid rounded-lg border bg-white dark:bg-slate-800 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-slate-200 dark:border-slate-700'}`}>
                       <div className={`px-3 py-2 flex items-center gap-2 ${isCollapsed ? '' : 'border-b border-slate-200 dark:border-slate-700'}`}>
                         <button
                           type="button"
@@ -575,19 +692,15 @@ export function CommissionTemplatePanel({
                         </span>
                       </div>
                       {!isCollapsed && (
-                        <div className="px-3 py-2 space-y-1">
+                        <div className="space-y-2 px-3 py-2">
                           {group.rows.map(({ parameter }) => (
-                            <div key={parameter.id} className="group/field flex items-center justify-between gap-4 rounded transition-colors focus-within:bg-emerald-50 dark:focus-within:bg-emerald-500/10">
-                              <label htmlFor={`template-parameter-${parameter.id}`} className={`text-xs font-bold transition-colors ${parameter.is_user_editable === false ? 'text-sky-700 dark:text-sky-300 group-focus-within/field:text-sky-600 dark:group-focus-within/field:text-sky-200' : 'text-slate-700 dark:text-slate-200 group-focus-within/field:text-emerald-700 dark:group-focus-within/field:text-emerald-300'}`}>
-                                {parameter.parameter_name}
-                              </label>
-                              <ParameterControl
-                                parameter={parameter}
-                                value={values[parameter.id] ?? ''}
-                                agents={uniqueAgents}
-                                onChange={(next) => setValues((current) => ({ ...current, [parameter.id]: next }))}
-                              />
-                            </div>
+                            <ParameterControl
+                              key={parameter.id}
+                              parameter={parameter}
+                              value={values[parameter.id] ?? ''}
+                              agents={uniqueAgents}
+                              onChange={(next) => setValues((current) => ({ ...current, [parameter.id]: next }))}
+                            />
                           ))}
                         </div>
                       )}

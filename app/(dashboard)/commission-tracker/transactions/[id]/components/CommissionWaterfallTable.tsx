@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AgentConfig, DynamicRule, CommissionEntityOption, KnownAgentInfo } from '../types';
+import { HoverNote } from './HoverNote';
 import { SplitPair } from './SplitPair';
 
 type SplitType = 'PERCENT' | 'AMOUNT';
@@ -31,6 +32,7 @@ interface CommissionWaterfallTableProps {
   onReorderPostSplit2Entities?: (entityOrder: string[]) => void;
   onAddLevel1Cell: (agentName: string, entity: string) => void;
   onAddLevel2Cell: (agentName: string, entity: string) => void;
+  layoutToggle?: React.ReactNode;
 }
 
 function entityOrder(rulesByAgent: Record<string, DynamicRule[]>, names: string[]): string[] {
@@ -142,6 +144,7 @@ export function CommissionWaterfallTable({
   onReorderPostSplit2Entities,
   onAddLevel1Cell,
   onAddLevel2Cell,
+  layoutToggle,
 }: CommissionWaterfallTableProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -168,10 +171,11 @@ export function CommissionWaterfallTable({
 
   const labelCell = 'sticky left-0 z-10 bg-white dark:bg-slate-900 px-3 py-2 text-left align-middle border-b border-slate-200 dark:border-slate-700';
   const agentCell = 'px-2 py-2 text-center align-middle border-b border-slate-200 dark:border-slate-700 min-w-[14.5rem]';
-  const sectionLabel = 'sticky left-0 z-10 px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider whitespace-nowrap border-b border-slate-200 dark:border-slate-700';
+  const sectionLabel = 'sticky left-0 z-10 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap border-b border-slate-200 dark:border-slate-700';
+  const levelPill = 'inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-bold uppercase tracking-normal';
+  const level1Pill = `${levelPill} border-yellow-600/40 bg-yellow-400/25 text-yellow-900 dark:border-yellow-300/50 dark:bg-yellow-400/15 dark:text-yellow-200`;
+  const level2Pill = `${levelPill} border-slate-400/60 bg-slate-300/50 text-slate-600 dark:border-slate-300/45 dark:bg-slate-400/20 dark:text-slate-200`;
   const trashButton = 'shrink-0 text-rose-500 hover:text-rose-600 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition';
-  const addRowButton = 'normal-case tracking-normal text-[10px] bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded font-bold cursor-pointer whitespace-nowrap';
-  const addRowButtonL2 = 'normal-case tracking-normal text-[10px] bg-violet-500/15 hover:bg-violet-500/25 text-violet-700 dark:text-violet-300 border border-violet-500/30 px-2 py-0.5 rounded font-bold cursor-pointer whitespace-nowrap';
 
   const confirmDraftRow = (
     entity: string,
@@ -216,10 +220,29 @@ export function CommissionWaterfallTable({
     );
   };
 
-  const emptyCell = (agentName: string, entity: string, onAdd: (agentName: string, entity: string) => void, tone: string) => (
+  const plusButton = (label: string, onClick: () => void, tone: 'emerald' | 'violet') => (
+    <HoverNote label={label}>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 dark:text-slate-500 transition cursor-pointer ${
+          tone === 'violet'
+            ? 'hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-950/40 dark:hover:text-violet-300'
+            : 'hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400'
+        }`}
+      >
+        <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
+          <path d="M8 3.25v9.5M3.25 8h9.5" />
+        </svg>
+      </button>
+    </HoverNote>
+  );
+
+  const emptyCell = (agentName: string, entity: string, onAdd: (agentName: string, entity: string) => void, tone: 'emerald' | 'violet') => (
     isEditing ? (
       <span className="ml-auto flex w-[6.5rem] justify-end pr-2">
-        <button type="button" onClick={() => onAdd(agentName, entity)} className={`text-[10px] font-bold cursor-pointer ${tone}`}>+ Add</button>
+        {plusButton(`Add ${entity} for ${agentName}`, () => onAdd(agentName, entity), tone)}
       </span>
     ) : (
       <span className="ml-auto block w-[6.5rem] pr-2 text-right text-slate-300">—</span>
@@ -350,12 +373,13 @@ export function CommissionWaterfallTable({
     dollarAmount: number,
     onToggle: () => void,
     onValue: (val: number) => void,
-    options?: { deduction?: boolean; editable?: boolean; beforePercent?: React.ReactNode; invalid?: boolean },
+    options?: { deduction?: boolean; editable?: boolean; locked?: boolean; beforePercent?: React.ReactNode; invalid?: boolean },
   ) => (
     <div className="flex w-full justify-end">
       <SplitPair
         compact
         isEditing={options?.editable ?? isEditing}
+        locked={options?.locked}
         type={type}
         percentPoints={percentPoints}
         dollarAmount={dollarAmount}
@@ -381,20 +405,16 @@ export function CommissionWaterfallTable({
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
             3. Agent Splits
+            <span className="mx-1.5 text-sm font-semibold normal-case tracking-normal text-emerald-600 dark:text-emerald-400">&</span>
+            4. Post-split Deductions
           </span>
-          {isEditing && (
-            <button
-              type="button"
-              onClick={onOpenAddAgentModal}
-              className="text-[10px] bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded font-bold cursor-pointer"
-            >
-              + Add Agent
-            </button>
-          )}
         </div>
-        <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-          Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
-        </span>
+        <div className="flex items-center gap-3">
+          {layoutToggle}
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+            Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
+          </span>
+        </div>
       </div>
       {(dealResult.agentSplitItems || []).some((item: { overAllocated?: boolean }) => item.overAllocated) && (
         <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
@@ -403,13 +423,21 @@ export function CommissionWaterfallTable({
       )}
 
       {agents.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">No agents assigned yet.</p>
+        <p className="flex items-center gap-2 text-xs text-slate-400 italic">
+          No agents assigned yet.
+          {isEditing && plusButton('Add New Agent Split', onOpenAddAgentModal, 'emerald')}
+        </p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full border-separate border-spacing-0 text-xs">
             <tbody>
               <tr>
-                <td className={`${sectionLabel} bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200`}>Agent Splits</td>
+                <td className={`${sectionLabel} bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200`}>
+                  <div className="flex items-center gap-2">
+                    <span>Agent Splits</span>
+                    {isEditing && plusButton('Add New Agent Split', onOpenAddAgentModal, 'emerald')}
+                  </div>
+                </td>
                 {agents.map((agent, index) => (
                   <td key={agent.id} className={`${agentCell} bg-slate-50 dark:bg-slate-800/80`}>
                     <div className="ml-auto flex w-max max-w-full flex-col items-end gap-1 pr-2">
@@ -447,7 +475,7 @@ export function CommissionWaterfallTable({
                 ))}
               </tr>
               <tr>
-                <td className={`${labelCell} font-semibold text-slate-500 dark:text-slate-400`}>Split</td>
+                <td className={`${labelCell} font-semibold text-slate-500 dark:text-slate-400`} />
                 {agents.map((agent, index) => {
                   const computed = (dealResult.agentSplitItems || []).find((item: { agentId?: string; agentName?: string; percent?: number; amount?: number; overAllocated?: boolean }) => item.agentId === agent.id || item.agentName === agent.name);
                   const dollar = index > 0 && agent.splitType === 'AMOUNT'
@@ -462,7 +490,7 @@ export function CommissionWaterfallTable({
                         dollar,
                         () => onToggleAgentSplitType(agent.id),
                         (val) => onSplitValueChange(agent.id, val),
-                        { editable: isEditing && index > 0, invalid: Boolean(computed?.overAllocated) },
+                        { editable: isEditing && index > 0, locked: isEditing && index === 0, invalid: Boolean(computed?.overAllocated) },
                       )}
                     </td>
                   );
@@ -472,19 +500,16 @@ export function CommissionWaterfallTable({
               <tr>
                 <td className={`${sectionLabel} bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200`}>
                   <div className="flex items-center gap-2 whitespace-nowrap">
-                    <span className="whitespace-nowrap">Level 1 Post-splits</span>
-                    {isEditing && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAddingLevel1Row((open) => !open);
-                          setNewLevel1Entity('');
-                        }}
-                        className={addRowButton}
-                      >
-                        + Add L1 Post-split
-                      </button>
-                    )}
+                    <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                      <HoverNote label="Percent deductions are calculated from Agent Split">
+                        <span className={level1Pill}>Level 1</span>
+                      </HoverNote>
+                      Post-splits
+                    </span>
+                    {isEditing && plusButton('Add New Level 1 Post-split', () => {
+                      setAddingLevel1Row((open) => !open);
+                      setNewLevel1Entity('');
+                    }, 'emerald')}
                   </div>
                 </td>
                 {agents.map((agent) => (
@@ -512,7 +537,7 @@ export function CommissionWaterfallTable({
                             onAddLevel1Cell(agentName, rowEntity);
                             onReorderPostSplitEntities?.(level1Order.includes(rowEntity) ? level1Order : [...level1Order, rowEntity]);
                             setDraftLevel1((prev) => prev.filter((item) => item !== rowEntity));
-                          }, 'text-emerald-700 dark:text-emerald-400')}
+                          }, 'emerald')}
                         </td>
                       );
                     }
@@ -571,25 +596,22 @@ export function CommissionWaterfallTable({
               </tr>
 
               <tr>
-                <td className={`${sectionLabel} bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400`}>
+                <td className={`${sectionLabel} bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200`}>
                   <div className="flex items-center gap-2 whitespace-nowrap">
-                    <span className="whitespace-nowrap">Level 2 Post-splits</span>
-                    {isEditing && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAddingLevel2Row((open) => !open);
-                          setNewLevel2Entity('');
-                        }}
-                        className={addRowButtonL2}
-                      >
-                        + Add L2 Post-split
-                      </button>
-                    )}
+                    <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                      <HoverNote label="Percent deductions are calculated from Net after Level 1 Post-splits.">
+                        <span className={level2Pill}>Level 2</span>
+                      </HoverNote>
+                      Post-splits
+                    </span>
+                    {isEditing && plusButton('Add New Level 2 Post-split', () => {
+                      setAddingLevel2Row((open) => !open);
+                      setNewLevel2Entity('');
+                    }, 'emerald')}
                   </div>
                 </td>
                 {agents.map((agent) => (
-                  <td key={agent.id} className={`${agentCell} bg-violet-50 dark:bg-violet-950/30`} />
+                  <td key={agent.id} className={`${agentCell} bg-slate-50 dark:bg-slate-800/80`} />
                 ))}
               </tr>
               {level2Order.map((entity, index) => (
@@ -613,7 +635,7 @@ export function CommissionWaterfallTable({
                             onAddLevel2Cell(agentName, rowEntity);
                             onReorderPostSplit2Entities?.(level2Order.includes(rowEntity) ? level2Order : [...level2Order, rowEntity]);
                             setDraftLevel2((prev) => prev.filter((item) => item !== rowEntity));
-                          }, 'text-violet-700 dark:text-violet-300')}
+                          }, 'emerald')}
                         </td>
                       );
                     }
@@ -657,19 +679,19 @@ export function CommissionWaterfallTable({
                       level2Order,
                       () => confirmDraftRow(newLevel2Entity, level2Order, draftLevel2, setDraftLevel2, setLevel2Order, () => { setAddingLevel2Row(false); setNewLevel2Entity(''); }),
                       () => { setAddingLevel2Row(false); setNewLevel2Entity(''); },
-                      'violet',
+                      'emerald',
                     )}
                   </td>
                   {agents.map((agent) => <td key={agent.id} className={agentCell} />)}
                 </tr>
               )}
               <tr>
-                <td className={`${labelCell} font-bold text-violet-700 dark:text-violet-400`}>Net After Level 2 Post-Splits</td>
+                <td className={`${labelCell} font-bold text-slate-700 dark:text-slate-200`}>Net Payout to Agents</td>
                 {agents.map((agent) => {
                   const computed = (dealResult.agentSplitItems || []).find((item: { agentId?: string; agentName?: string; amount?: number }) => item.agentId === agent.id || item.agentName === agent.name);
                   const netAfterL1 = dealResult.agentNetAfterLevel1?.[agent.name] ?? computed?.amount ?? 0;
                   const payout = dealResult.netPayouts?.[agent.name] ?? netAfterL1;
-                  return <td key={agent.id} className={`${agentCell} font-bold text-violet-700 dark:text-violet-400`}><span className="ml-auto block w-[6.5rem] pr-2 text-right">{formatCurrency(payout)}</span></td>;
+                  return <td key={agent.id} className={`${agentCell} font-bold text-slate-900 dark:text-white`}><span className="ml-auto block w-[6.5rem] pr-2 text-right">{formatCurrency(payout)}</span></td>;
                 })}
               </tr>
             </tbody>

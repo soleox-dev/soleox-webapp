@@ -12,8 +12,12 @@ interface CommissionTemplate {
   is_active?: boolean | null;
 }
 
-const inputClass =
-  'w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500';
+const underlineShell =
+  'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600';
+const underlineLabel =
+  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
+const underlineControl =
+  'w-full border-0 bg-transparent p-0 text-xs leading-4 font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 dark:text-white dark:placeholder:text-slate-500';
 
 export default function CommissionTemplatesPage() {
   const router = useRouter();
@@ -139,24 +143,24 @@ export default function CommissionTemplatesPage() {
             className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-lg rounded-xl p-6 shadow-2xl space-y-4"
           >
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">New Commission Template</h3>
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Template name</label>
+            <label className={underlineShell}>
+              <span className={underlineLabel}>Template name</span>
               <input
                 required
                 value={templateName}
                 onChange={(event) => setTemplateName(event.target.value)}
-                className={inputClass}
+                className={`${underlineControl} h-5`}
               />
-            </div>
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">Description</label>
+            </label>
+            <label className={underlineShell}>
+              <span className={underlineLabel}>Description</span>
               <textarea
                 rows={3}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                className={inputClass}
+                className={`${underlineControl} min-h-16 resize-none py-1`}
               />
-            </div>
+            </label>
             <div className="flex justify-end gap-2">
               <button
                 type="button"

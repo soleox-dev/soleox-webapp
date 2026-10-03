@@ -1,10 +1,13 @@
 // app/commission-tracker/transactions/[id]/components/CommissionWaterfall.tsx
 import React, { useEffect, useState } from 'react';
+import { LayoutGrid, Table2 } from 'lucide-react';
 import { AgentConfig, DynamicRule, CommissionEntityOption, KnownAgentInfo } from '../types';
 import { CommissionWaterfallTable } from './CommissionWaterfallTable';
+import { HoverNote } from './HoverNote';
 import { SplitPair } from './SplitPair';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { SectionIcon } from './SectionIcon';
+import { CommissionTemplatePanel } from './CommissionTemplatePanel';
 
 interface CommissionWaterfallProps {
   isCollapsed: boolean;
@@ -59,6 +62,10 @@ interface CommissionWaterfallProps {
   knownAgents?: KnownAgentInfo[];
   preventMinus: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   formatNumberWithCommas: (val: number | string) => string;
+  clientId: string;
+  transactionId: string;
+  deal: Record<string, unknown> | null;
+  templateAgents: { id: string; name: string; isTeamLead?: boolean }[];
 }
 
 export function CommissionWaterfall({
@@ -113,6 +120,10 @@ export function CommissionWaterfall({
   knownEntities = [],
   knownAgents = [],
   preventMinus,
+  clientId,
+  transactionId,
+  deal,
+  templateAgents,
 }: CommissionWaterfallProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -133,6 +144,29 @@ export function CommissionWaterfall({
     setAgentLayout(next);
     window.localStorage.setItem('soleox-waterfall-agent-layout', next);
   };
+
+  const agentLayoutToggle = (
+    <div role="group" aria-label="Agent splits layout" className="inline-flex shrink-0 rounded-lg border border-slate-200 dark:border-slate-700 p-0.5">
+      <button
+        type="button"
+        onClick={() => chooseAgentLayout('table')}
+        title="Table"
+        aria-label="Table"
+        className={`inline-flex h-7 w-7 items-center justify-center rounded-md cursor-pointer ${agentLayout === 'table' ? 'bg-emerald-500 text-slate-950' : 'text-slate-500 dark:text-slate-400'}`}
+      >
+        <Table2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+      </button>
+      <button
+        type="button"
+        onClick={() => chooseAgentLayout('cards')}
+        title="Cards"
+        aria-label="Cards"
+        className={`inline-flex h-7 w-7 items-center justify-center rounded-md cursor-pointer ${agentLayout === 'cards' ? 'bg-emerald-500 text-slate-950' : 'text-slate-500 dark:text-slate-400'}`}
+      >
+        <LayoutGrid className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+      </button>
+    </div>
+  );
 
   // 1. Off-the-Top Inline Form State
   const [isAddingOffTop, setIsAddingOffTop] = useState(false);
@@ -383,31 +417,32 @@ export function CommissionWaterfall({
 
   return (
     <section id="commission" className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-8 transition-colors">
-      {/* Top Header with Total Commission label */}
+      {/* Top Header */}
       <div className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           <SectionIcon name="commission" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">2. Commission Waterfall</h2>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg">
-            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-              Total Commission:
-            </span>
-            <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-              {formatCurrency(baselineTotalCommission)}
-            </span>
-          </div>
-
+          <CommissionTemplatePanel
+            embedded
+            clientId={clientId}
+            transactionId={transactionId}
+            deal={deal}
+            agents={templateAgents}
+          />
           {!isEditing ? (
-            <button
-              type="button"
-              onClick={onStartEdit}
-              className="text-xs bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer"
-            >
-              <EditPencil /> Edit Commission Waterfall
-            </button>
+            <HoverNote label="Edit Commission Waterfall">
+              <button
+                type="button"
+                onClick={onStartEdit}
+                aria-label="Edit Commission Waterfall"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 cursor-pointer"
+              >
+                <EditPencil className="h-5 w-5" />
+              </button>
+            </HoverNote>
           ) : (
             <div className="flex items-center gap-2">
               <button
@@ -452,12 +487,23 @@ export function CommissionWaterfall({
                   <button
                     type="button"
                     onClick={handleStartAddOffTop}
-                    className="text-[10px] bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded font-bold cursor-pointer transition flex items-center gap-1"
-                    title="Add Off-The-Top deduction"
+                    title="Add New Off-the-top Deduction"
+                    aria-label="Add New Off-the-top Deduction"
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
                   >
-                    <span>+ Add</span>
+                    <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
+                      <path d="M8 3.25v9.5M3.25 8h9.5" />
+                    </svg>
                   </button>
                 )}
+              </div>
+              <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg">
+                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                  Total Commission:
+                </span>
+                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                  {formatCurrency(baselineTotalCommission)}
+                </span>
               </div>
             </div>
 
@@ -609,10 +655,13 @@ export function CommissionWaterfall({
                   <button
                     type="button"
                     onClick={handleStartAddPreSplit}
-                    className="text-[10px] bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded font-bold cursor-pointer transition flex items-center gap-1"
-                    title="Add Pre-Split deduction"
+                    title="Add New Pre-split Deduction"
+                    aria-label="Add New Pre-split Deduction"
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
                   >
-                    <span>+ Add</span>
+                    <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
+                      <path d="M8 3.25v9.5M3.25 8h9.5" />
+                    </svg>
                   </button>
                 )}
               </div>
@@ -758,27 +807,9 @@ export function CommissionWaterfall({
             </div>
           </div>
 
-          <div className="flex justify-end">
-            <div role="group" aria-label="Agent splits layout" className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 text-[10px] font-bold">
-              <button
-                type="button"
-                onClick={() => chooseAgentLayout('table')}
-                className={`px-2.5 py-1 rounded-md cursor-pointer ${agentLayout === 'table' ? 'bg-emerald-500 text-slate-950' : 'text-slate-500 dark:text-slate-400'}`}
-              >
-                Table
-              </button>
-              <button
-                type="button"
-                onClick={() => chooseAgentLayout('cards')}
-                className={`px-2.5 py-1 rounded-md cursor-pointer ${agentLayout === 'cards' ? 'bg-emerald-500 text-slate-950' : 'text-slate-500 dark:text-slate-400'}`}
-              >
-                Cards
-              </button>
-            </div>
-          </div>
-
           {agentLayout === 'table' ? (
             <CommissionWaterfallTable
+              layoutToggle={agentLayoutToggle}
               isEditing={isEditing}
               agents={agents}
               dealResult={dealResult}
@@ -813,22 +844,28 @@ export function CommissionWaterfall({
             <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                  3. Agent Splits Breakdown
+                  3. Agent Splits
                 </span>
                 {isEditing && (
                   <button
                     type="button"
                     onClick={onOpenAddAgentModal}
-                    className="text-[10px] bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded font-bold cursor-pointer transition flex items-center gap-1"
-                    title="Add Agent Split"
+                    title="Add New Agent Split"
+                    aria-label="Add New Agent Split"
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
                   >
-                    <span>+ Add Agent</span>
+                    <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
+                      <path d="M8 3.25v9.5M3.25 8h9.5" />
+                    </svg>
                   </button>
                 )}
               </div>
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
-              </span>
+              <div className="flex items-center gap-3">
+                {agentLayoutToggle}
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
+                </span>
+              </div>
             </div>
             {agentSplitsExceedPool && (
               <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
@@ -838,9 +875,7 @@ export function CommissionWaterfall({
 
             {agents.length === 0 ? (
               <p className="text-xs text-slate-400 italic py-1">
-                {isEditing
-                  ? <>No agents assigned yet. Click &ldquo;+ Add Agent&rdquo; to assign a split.</>
-                  : 'No agents assigned yet.'}
+                No agents assigned yet.
               </p>
             ) : (
               <div className="space-y-3">
@@ -895,14 +930,16 @@ export function CommissionWaterfall({
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-4">
-                            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                              {((computedSplitItem?.percent || 0) * 100).toFixed(2)}% Split
-                            </span>
-                            <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                              {formatCurrency(computedSplitItem?.amount || 0)}
-                            </span>
-                          </div>
+                          <SplitPair
+                            isEditing={false}
+                            locked={isEditing}
+                            type="PERCENT"
+                            percentPoints={(computedSplitItem?.percent || 0) * 100}
+                            dollarAmount={computedSplitItem?.amount || 0}
+                            onPercentChange={() => {}}
+                            onAmountChange={() => {}}
+                            preventMinus={preventMinus}
+                          />
                         </div>
                       </div>
                     );
@@ -986,12 +1023,12 @@ export function CommissionWaterfall({
             )}
           </div>
 
-          {/* Step 4: Post-Split Deductions Per Agent (Level 1 & Level 2 / Stock) */}
+          {/* Step 4: Post-Split Deductions (Level 1 & Level 2 / Stock) */}
           <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-4 shadow-sm">
             <div className="border-b border-slate-200 dark:border-slate-700 pb-3">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                  4. Post-Split Deductions Per Agent
+                  4. Post-Split Deductions
                 </span>
                 <span className="relative inline-flex group/psinfo">
                   <button
@@ -1069,30 +1106,32 @@ export function CommissionWaterfall({
                           (Agent Split: <strong className="text-slate-800 dark:text-slate-200">{formatCurrency(agentGrossSplit)}</strong>)
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Final Net Payout:</span>
-                        <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded">
-                          {formatCurrency(finalAgentPayout)}
-                        </span>
-                      </div>
                     </div>
 
                     {/* LEVEL 1: Level 1 Post-splits */}
                     <div className="bg-white dark:bg-slate-900/90 rounded-lg p-3 border border-slate-200 dark:border-slate-700 space-y-2">
                       <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-                            Level 1 Post-splits
+                          <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                            <HoverNote label="Percent deductions are calculated from Agent Split">
+                              <span className="inline-flex items-center whitespace-nowrap rounded-full border border-yellow-600/40 bg-yellow-400/25 px-2 py-0.5 tracking-normal text-yellow-900 dark:border-yellow-300/50 dark:bg-yellow-400/15 dark:text-yellow-200">
+                                Level 1
+                              </span>
+                            </HoverNote>
+                            Post-splits
                           </span>
-                          <span className="text-[10px] text-slate-400">Calculated on Agent Split</span>
                         </div>
                         {isEditing && (
                           <button
                             type="button"
                             onClick={() => isAddingL1 ? setAddingPostSplitForAgent(null) : handleStartAddPostSplit1(agentName)}
-                            className="text-[10px] bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded font-bold cursor-pointer transition"
+                            title="Add New Level 1 Post-split"
+                            aria-label="Add New Level 1 Post-split"
+                            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
                           >
-                            {isAddingL1 ? 'Cancel' : '+ Add L1 Post-split'}
+                            <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
+                              <path d="M8 3.25v9.5M3.25 8h9.5" />
+                            </svg>
                           </button>
                         )}
                       </div>
@@ -1238,7 +1277,7 @@ export function CommissionWaterfall({
                       {/* Level 1 Subtotal */}
                       <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-800 pt-2 text-xs">
                         <span className="font-semibold text-slate-600 dark:text-slate-400">
-                          Net After Level 1 Post-Splits:
+                          Net After Level 1 Post-Splits
                         </span>
                         <span className="font-bold text-slate-900 dark:text-white">
                           {formatCurrency(netAfterL1)}
@@ -1247,21 +1286,29 @@ export function CommissionWaterfall({
                     </div>
 
                     {/* LEVEL 2: Level 2 Post-splits */}
-                    <div className="bg-white dark:bg-slate-900/90 rounded-lg p-3 border border-violet-500/30 space-y-2">
+                    <div className="bg-white dark:bg-slate-900/90 rounded-lg p-3 border border-slate-200 dark:border-slate-700 space-y-2">
                       <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-violet-700 dark:text-violet-400 uppercase tracking-wide">
-                            Level 2 Post-splits
+                          <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                            <HoverNote label="Percent deductions are calculated from Net after Level 1 Post-splits.">
+                              <span className="inline-flex items-center whitespace-nowrap rounded-full border border-slate-400/60 bg-slate-300/50 px-2 py-0.5 tracking-normal text-slate-600 dark:border-slate-300/45 dark:bg-slate-400/20 dark:text-slate-200">
+                                Level 2
+                              </span>
+                            </HoverNote>
+                            Post-splits
                           </span>
-                          <span className="text-[10px] text-slate-400">Calculated from Net after Level 1 ({formatCurrency(netAfterL1)})</span>
                         </div>
                         {isEditing && (
                           <button
                             type="button"
                             onClick={() => isAddingL2 ? setAddingPostSplit2ForAgent(null) : handleStartAddPostSplit2(agentName)}
-                            className="text-[10px] bg-violet-500/15 hover:bg-violet-500/25 text-violet-700 dark:text-violet-400 border border-violet-500/30 px-2 py-0.5 rounded font-bold cursor-pointer transition"
+                            title="Add New Level 2 Post-split"
+                            aria-label="Add New Level 2 Post-split"
+                            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
                           >
-                            {isAddingL2 ? 'Cancel' : '+ Add L2 Post-split'}
+                            <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
+                              <path d="M8 3.25v9.5M3.25 8h9.5" />
+                            </svg>
                           </button>
                         )}
                       </div>
@@ -1410,11 +1457,11 @@ export function CommissionWaterfall({
                       </div>
 
                       {/* Level 2 Subtotal */}
-                      <div className="flex justify-between items-center border-t border-violet-200 dark:border-violet-800/60 pt-2 text-xs">
-                        <span className="font-semibold text-violet-700 dark:text-violet-400">
-                          Net After Level 2 Post-Splits:
+                      <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-800 pt-2 text-xs">
+                        <span className="font-semibold text-slate-600 dark:text-slate-400">
+                          Net Payout to {agentName}
                         </span>
-                        <span className="font-bold text-violet-700 dark:text-violet-400">
+                        <span className="font-bold text-slate-900 dark:text-white">
                           {formatCurrency(finalAgentPayout)}
                         </span>
                       </div>
