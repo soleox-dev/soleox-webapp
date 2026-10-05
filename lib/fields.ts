@@ -142,7 +142,6 @@ export const HIDDEN_CONTAINER_KEYS = new Set([
   'client_id',
   'archived',
   'custom_attributes',
-  'commission_attributes',
   'address_details',
   'co_broker',
   'settlement_vendors',

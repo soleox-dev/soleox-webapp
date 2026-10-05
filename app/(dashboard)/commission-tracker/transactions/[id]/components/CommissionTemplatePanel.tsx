@@ -5,7 +5,8 @@ import { createPortal } from 'react-dom';
 import { RotateCcw, Zap } from 'lucide-react';
 import { evaluateFormula, formulaValueToInput, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { normalizeAgentName } from '@/lib/id';
-import { applyTemplateLogic, type AppliedTemplateRules, type TemplateLogicStep } from './applyTemplateLogic';
+import { applyTemplateLogic, formulaDataNeeds, loadCommissionLedger, loadFormulaLookups, templateFormulaSources, type AppliedCalculation, type AppliedTemplateRules, type TemplateLogicStep } from './applyTemplateLogic';
+import type { FormulaLedgerRow, FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
 
@@ -30,11 +31,46 @@ interface AgentOption {
   id: string;
   name: string;
   isTeamLead?: boolean;
+  clientId?: string;
+  fields?: Record<string, string>;
 }
 
 interface ParameterDefault {
   parameter: TemplateParameter;
   raw: string;
+}
+
+function calculationField(row: AppliedCalculation): { kind: 'text' | 'currency' | 'percent' | 'date'; value: string; error: boolean } {
+  if (row.error) return { kind: 'text', value: row.error, error: true };
+  const value = row.value;
+  if (!value || value.type === 'blank') return { kind: 'text', value: '', error: false };
+  if (value.type === 'error') return { kind: 'text', value: 'Could not calculate', error: true };
+  if (value.type === 'boolean') return { kind: 'text', value: value.value ? 'Yes' : 'No', error: false };
+  if (value.type === 'percent') return { kind: 'percent', value: String(value.value * 100), error: false };
+  if (value.type === 'text') {
+    if (/^\d{4}-\d{2}-\d{2}/.test(value.value)) return { kind: 'date', value: value.value.slice(0, 10), error: false };
+    return { kind: 'text', value: value.value, error: false };
+  }
+  return { kind: 'currency', value: String(value.value), error: false };
+}
+
+function CalculationField({ row }: { row: AppliedCalculation }) {
+  const field = calculationField(row);
+  const id = `template-calculation-${row.id}`;
+  const tone = field.error ? 'text-rose-600 dark:text-rose-400' : '';
+  let control: React.ReactNode = null;
+  if (field.kind === 'date') {
+    control = <NativeDateInput id={id} value={field.value} disabled className={`${controlClass(true)} dark:[color-scheme:dark]`} />;
+  } else if (field.kind === 'currency' || field.kind === 'percent') {
+    control = <NumericParameterInput id={id} kind={field.kind === 'currency' ? 'CURRENCY' : 'PERCENT'} value={field.value} readOnly onChange={() => undefined} />;
+  } else {
+    control = <input id={id} value={field.value} readOnly className={`${controlClass(true)} ${tone}`} />;
+  }
+  return (
+    <LabeledParameter id={id} label={row.name} locked changed={false} showChevron={false}>
+      {control}
+    </LabeledParameter>
+  );
 }
 
 function readDealValue(deal: Record<string, unknown> | null, key: string): unknown {
@@ -356,6 +392,7 @@ function defaultFromFormula(
   deal: Record<string, unknown> | null,
   agents: AgentOption[],
   resolved: Record<string, string>,
+  lookups?: FormulaLookups,
 ): { display: string; pending: boolean; raw: string } {
   const body = formula.trim().replace(/^=/, '').trim();
   if (!body || body === '""') return { display: 'Blank', pending: false, raw: '' };
@@ -424,7 +461,7 @@ function defaultFromFormula(
     return { type: 'text', value: String(field) };
   };
 
-  const evaluated = evaluateFormula(body, valueFromDeal, agents);
+  const evaluated = evaluateFormula(body, valueFromDeal, agents, [], lookups);
   if (!evaluated || evaluated.type === 'error') return { display: 'Not calculated yet', pending: true, raw: '' };
   const raw = formulaValueToInput(evaluated, dataType);
   return { display: raw || 'Blank', pending: false, raw };
@@ -434,11 +471,12 @@ function resolveDefaults(
   parameters: TemplateParameter[],
   deal: Record<string, unknown> | null,
   agents: AgentOption[],
+  lookups?: FormulaLookups,
 ): ParameterDefault[] {
   const ordered = [...parameters].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   const resolved: Record<string, string> = {};
   return ordered.map((parameter) => {
-    const result = defaultFromFormula(parameter.autofill_formula || '', parameter.data_type, deal, agents, resolved);
+    const result = defaultFromFormula(parameter.autofill_formula || '', parameter.data_type, deal, agents, resolved, lookups);
     if (!result.pending) resolved[parameter.parameter_key.toLowerCase()] = result.raw;
     return { parameter, raw: result.pending ? '' : result.raw };
   });
@@ -470,6 +508,13 @@ function groupedParameterRows(rows: ParameterDefault[]): { name: string; rows: P
   return groups.sort((a, b) => Number(a.name === 'No Section') - Number(b.name === 'No Section'));
 }
 
+export interface TemplateSubmissionDraft {
+  id?: string | null;
+  template_id: string;
+  submitted_parameters: Record<string, string>;
+  status: 'SUBMITTED';
+}
+
 export function CommissionTemplatePanel({
   clientId,
   transactionId,
@@ -479,6 +524,7 @@ export function CommissionTemplatePanel({
   entities = [],
   totalCommission = 0,
   onApplied,
+  submissionRevision = 0,
   embedded = false,
 }: {
   clientId: string;
@@ -488,7 +534,9 @@ export function CommissionTemplatePanel({
   dealAgents?: AgentOption[];
   entities?: { id: string; name: string }[];
   totalCommission?: number;
-  onApplied?: (applied: AppliedTemplateRules) => void;
+  onApplied?: (applied: AppliedTemplateRules, submission: TemplateSubmissionDraft) => void;
+  /** Bumped when an unsaved template submission is discarded, so the panel reloads the stored one. */
+  submissionRevision?: number;
   embedded?: boolean;
 }) {
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
@@ -500,6 +548,12 @@ export function CommissionTemplatePanel({
   const [draftTemplateId, setDraftTemplateId] = useState('');
   const [popupOpen, setPopupOpen] = useState(false);
   const [parameters, setParameters] = useState<TemplateParameter[]>([]);
+  const [logicSteps, setLogicSteps] = useState<TemplateLogicStep[]>([]);
+  const [ledger, setLedger] = useState<FormulaLedgerRow[] | null>(null);
+  const [lookups, setLookups] = useState<FormulaLookups | null>(null);
+  const [ledgerError, setLedgerError] = useState('');
+  const [parametersOpen, setParametersOpen] = useState(true);
+  const [logicOpen, setLogicOpen] = useState(true);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [isLoadingParameters, setIsLoadingParameters] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -562,22 +616,66 @@ export function CommissionTemplatePanel({
     return () => {
       cancelled = true;
     };
-  }, [clientId, transactionId]);
+  }, [clientId, transactionId, submissionRevision]);
 
   useEffect(() => {
     if (!popupOpen || !draftTemplateId) {
       setParameters([]);
+      setLogicSteps([]);
+      setLedger(null);
+      setLookups(null);
+      setLedgerError('');
       return;
     }
     let cancelled = false;
     const loadParameters = async () => {
       setIsLoadingParameters(true);
       setLoadError('');
+      setLedger(null);
+      setLookups(null);
+      setLedgerError('');
       try {
-        const response = await fetch(`/api/commission-template-parameters?template_id=${encodeURIComponent(draftTemplateId)}`);
-        const data = await response.json();
-        if (!response.ok || !data.success) throw new Error(data.error || 'Failed to load parameters.');
-        if (!cancelled) setParameters(data.parameters || []);
+        const [parametersResponse, logicResponse] = await Promise.all([
+          fetch(`/api/commission-template-parameters?template_id=${encodeURIComponent(draftTemplateId)}`),
+          fetch(`/api/commission-template-logic?template_id=${encodeURIComponent(draftTemplateId)}`),
+        ]);
+        const data = await parametersResponse.json();
+        const logicData = await logicResponse.json();
+        if (!parametersResponse.ok || !data.success) throw new Error(data.error || 'Failed to load parameters.');
+        if (!logicResponse.ok || !logicData.success) throw new Error(logicData.error || 'Failed to load template logic.');
+        const steps = (logicData.logic_steps || []) as TemplateLogicStep[];
+        const parameterRows = (data.parameters || []) as TemplateParameter[];
+        if (cancelled) return;
+        setParameters(parameterRows);
+        setLogicSteps(steps);
+        setIsLoadingParameters(false);
+
+        const needs = formulaDataNeeds(templateFormulaSources(steps, parameterRows));
+        const showCalculations = steps.some((step) => step.show_in_popup);
+        await Promise.all([
+          (async () => {
+            try {
+              const nextLookups = needs.lookupTables.length === 0
+                ? { clientId, tables: {} }
+                : await loadFormulaLookups(clientId, needs.lookupTables);
+              if (!cancelled) setLookups(nextLookups);
+            } catch (err) {
+              if (!cancelled) setLedgerError(err instanceof Error ? err.message : 'Failed to calculate template results.');
+            }
+          })(),
+          (async () => {
+            if (!showCalculations || !needs.needsLedger) {
+              if (!cancelled) setLedger([]);
+              return;
+            }
+            try {
+              const nextLedger = await loadCommissionLedger(clientId, entities);
+              if (!cancelled) setLedger(nextLedger);
+            } catch (err) {
+              if (!cancelled) setLedgerError(err instanceof Error ? err.message : 'Failed to calculate template results.');
+            }
+          })(),
+        ]);
       } catch (err) {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load parameters.');
       } finally {
@@ -588,9 +686,9 @@ export function CommissionTemplatePanel({
     return () => {
       cancelled = true;
     };
-  }, [popupOpen, draftTemplateId]);
+  }, [popupOpen, draftTemplateId, clientId, entities]);
 
-  const rows = useMemo(() => resolveDefaults(parameters, deal, agents), [parameters, deal, agents]);
+  const rows = useMemo(() => resolveDefaults(parameters, deal, agents, lookups ?? { clientId, tables: {} }), [parameters, deal, agents, lookups, clientId]);
   const groups = useMemo(() => groupedParameterRows(rows), [rows]);
   const uniqueAgents = useMemo(() => {
     const seen = new Set<string>();
@@ -606,6 +704,7 @@ export function CommissionTemplatePanel({
   const [values, setValues] = useState<Record<string, string>>({});
   const [activeGroup, setActiveGroup] = useState('');
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const [collapsedLogicSections, setCollapsedLogicSections] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const useSubmission = draftTemplateId === submittedTemplateId;
@@ -620,10 +719,48 @@ export function CommissionTemplatePanel({
   useEffect(() => {
     setActiveGroup('');
     setCollapsedSections({});
+    setCollapsedLogicSections({});
+    setParametersOpen(true);
+    setLogicOpen(true);
   }, [draftTemplateId]);
+
+  const shownCalculations = useMemo(() => {
+    if (!logicSteps.some((step) => step.show_in_popup) || !ledger || !lookups) return [];
+    const parameterValues: Record<string, string> = {};
+    for (const parameter of parameters) {
+      parameterValues[parameter.parameter_key] = values[parameter.id] ?? '';
+    }
+    return applyTemplateLogic({
+      steps: logicSteps,
+      parameters: parameterValues,
+      deal,
+      entities,
+      rosterAgents: agents,
+      dealAgents,
+      totalCommission,
+      ledger,
+      lookups,
+      continueOnError: true,
+    }).calculations || [];
+  }, [logicSteps, ledger, lookups, parameters, values, deal, entities, agents, dealAgents, totalCommission]);
+
+  const logicGroups = useMemo(() => {
+    const groups: { name: string; rows: AppliedCalculation[] }[] = [];
+    for (const row of shownCalculations) {
+      const name = row.section.trim() || 'No Section';
+      const existing = groups.find((group) => group.name === name);
+      if (existing) existing.rows.push(row);
+      else groups.push({ name, rows: [row] });
+    }
+    return groups.sort((a, b) => Number(a.name === 'No Section') - Number(b.name === 'No Section'));
+  }, [shownCalculations]);
 
   const toggleSection = (name: string) => {
     setCollapsedSections((current) => ({ ...current, [name]: !current[name] }));
+  };
+
+  const toggleLogicSection = (name: string) => {
+    setCollapsedLogicSections((current) => ({ ...current, [name]: !current[name] }));
   };
 
   const closePopup = () => {
@@ -644,39 +781,33 @@ export function CommissionTemplatePanel({
       const logicResponse = await fetch(`/api/commission-template-logic?template_id=${encodeURIComponent(draftTemplateId)}`);
       const logicData = await logicResponse.json();
       if (!logicResponse.ok || !logicData.success) throw new Error(logicData.error || 'Failed to load template logic.');
-
+      const steps = (logicData.logic_steps || []) as TemplateLogicStep[];
+      const needs = formulaDataNeeds(templateFormulaSources(steps, parameters));
+      const [submitLedger, lookupsForSubmit] = await Promise.all([
+        needs.needsLedger ? (ledger ?? loadCommissionLedger(clientId, entities)) : Promise.resolve([]),
+        lookups ?? loadFormulaLookups(clientId, needs.lookupTables),
+      ]);
       const applied = applyTemplateLogic({
-        steps: (logicData.logic_steps || []) as TemplateLogicStep[],
+        steps,
         parameters: parameterValues,
         deal,
         entities,
         rosterAgents: agents,
         dealAgents,
         totalCommission,
+        ledger: submitLedger,
+        lookups: lookupsForSubmit,
       });
 
-      const response = await fetch('/api/commission-template-submissions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          submission: {
-            ...(submissionId ? { id: submissionId } : {}),
-            client_id: clientId,
-            transaction_id: transactionId,
-            template_id: draftTemplateId,
-            submitted_parameters: parameterValues,
-            status: 'SUBMITTED',
-          },
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok || !data.success) throw new Error(data.error || 'Failed to submit the template.');
-
-      setSubmissionId(data.submission?.id || submissionId);
       setCommittedTemplateId(draftTemplateId);
       setSubmittedTemplateId(draftTemplateId);
       setSubmittedParameters(parameterValues);
-      onApplied?.(applied);
+      onApplied?.(applied, {
+        id: submissionId,
+        template_id: draftTemplateId,
+        submitted_parameters: parameterValues,
+        status: 'SUBMITTED',
+      });
       setPopupOpen(false);
       setDraftTemplateId('');
     } catch (err) {
@@ -802,7 +933,7 @@ export function CommissionTemplatePanel({
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-[1800px] rounded-xl p-5 shadow-2xl flex flex-col max-h-[calc(100vh-2rem)]">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">{selectedTemplate?.template_name || 'Commission template'}</h3>
             {loadError && <p className="text-xs text-rose-600 dark:text-rose-400 mt-3">{loadError}</p>}
-            {showGroupNav && (
+            {showGroupNav && parametersOpen && (
               <div className="flex flex-wrap gap-1.5 mt-3">
                 <button
                   type="button"
@@ -826,11 +957,21 @@ export function CommissionTemplatePanel({
                 ))}
               </div>
             )}
-            <div className="@container/params mt-3 overflow-y-auto min-h-0 flex-1">
-              {isLoadingParameters ? (
-                <p className="text-xs text-slate-500">Loading parameters...</p>
+            <div className="@container/params mt-3 overflow-y-auto min-h-0 flex-1 space-y-3">
+              <section className="rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setParametersOpen((open) => !open)}
+                  aria-expanded={parametersOpen}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left cursor-pointer"
+                >
+                  <span className="w-3 shrink-0 text-center text-sm font-bold leading-none text-emerald-600 dark:text-emerald-400">{parametersOpen ? '−' : '+'}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Parameters</span>
+                </button>
+              {parametersOpen && (isLoadingParameters ? (
+                <p className="px-3 pb-3 text-xs text-slate-500">Loading parameters...</p>
               ) : rows.length === 0 ? (
-                <p className="text-xs text-slate-500">This template has no parameters.</p>
+                <p className="px-3 pb-3 text-xs text-slate-500">This template has no parameters.</p>
               ) : (
                 <div className={visibleGroups.length > 1 ? '@min-[1280px]/params:columns-5 @min-[1280px]/params:gap-x-4' : ''}>
                   {visibleGroups.map((group) => {
@@ -876,6 +1017,63 @@ export function CommissionTemplatePanel({
                     );
                   })}
                 </div>
+              ))}
+              </section>
+              {(ledgerError || logicSteps.some((step) => step.show_in_popup)) && (
+                <section className="rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setLogicOpen((open) => !open)}
+                    aria-expanded={logicOpen}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left cursor-pointer"
+                  >
+                    <span className="w-3 shrink-0 text-center text-sm font-bold leading-none text-emerald-600 dark:text-emerald-400">{logicOpen ? '−' : '+'}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Logic</span>
+                  </button>
+                  {logicOpen && (
+                    <div className="border-t border-slate-200 px-3 py-2 dark:border-slate-700">
+                      {ledgerError ? (
+                        <p className="text-xs text-rose-600 dark:text-rose-400">{ledgerError}</p>
+                      ) : !ledger || !lookups ? (
+                        <p className="text-xs text-slate-500">Calculating...</p>
+                      ) : (
+                        <div className={logicGroups.length > 1 ? '@min-[1280px]/params:columns-5 @min-[1280px]/params:gap-x-4' : ''}>
+                          {logicGroups.map((group) => {
+                            const isUnsectioned = group.name === 'No Section';
+                            const isCollapsed = collapsedLogicSections[group.name] === true;
+                            return (
+                              <div key={group.name} className={`mb-3 break-inside-avoid rounded-lg border bg-white dark:bg-slate-800 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-slate-200 dark:border-slate-700'}`}>
+                                <div className={`px-3 py-2 flex items-center gap-2 ${isCollapsed ? '' : 'border-b border-slate-200 dark:border-slate-700'}`}>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleLogicSection(group.name)}
+                                    title={isCollapsed ? 'Expand Section' : 'Collapse Section'}
+                                    className="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
+                                  >
+                                    <span className={`w-3 shrink-0 text-center text-sm font-bold leading-none ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                      {isCollapsed ? '+' : '−'}
+                                    </span>
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                      {group.name}
+                                    </span>
+                                  </button>
+                                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold">
+                                    {group.rows.length} {group.rows.length === 1 ? 'Result' : 'Results'}
+                                  </span>
+                                </div>
+                                {!isCollapsed && (
+                                  <div className="space-y-2 px-3 py-2">
+                                    {group.rows.map((row) => <CalculationField key={row.id} row={row} />)}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </section>
               )}
             </div>
             <div className="flex items-center justify-between gap-2 pt-3">

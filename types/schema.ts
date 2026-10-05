@@ -76,15 +76,13 @@ export interface TransactionCommissionItem {
   transaction_id: string;
   submission_id?: string;
   step_number: number;
-  rule_name: string;
-  section: WaterfallSection;
+  section: WaterfallSection | string;
+  split_type?: string | null;
+  split_value?: number | null;
   payee_type: PayeeType;
   payee_entity_id?: string;
   agent_id?: string;
-  calculated_amount: number;
   final_amount: number;
-  is_manual_override: boolean;
-  override_reason?: string;
   archived: boolean;
   created_at: string;
   created_by?: string;

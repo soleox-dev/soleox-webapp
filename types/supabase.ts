@@ -24,7 +24,6 @@ export type Database = {
           agent_status: string | null
           archived: boolean | null
           client_id: string | null
-          commission_attributes: Json | null
           created_at: string | null
           created_by: string | null
           custom_attributes: Json | null
@@ -45,7 +44,6 @@ export type Database = {
           agent_status?: string | null
           archived?: boolean | null
           client_id?: string | null
-          commission_attributes?: Json | null
           created_at?: string | null
           created_by?: string | null
           custom_attributes?: Json | null
@@ -66,7 +64,6 @@ export type Database = {
           agent_status?: string | null
           archived?: boolean | null
           client_id?: string | null
-          commission_attributes?: Json | null
           created_at?: string | null
           created_by?: string | null
           custom_attributes?: Json | null
@@ -406,9 +403,12 @@ export type Database = {
           id: string
           payee_entity_id: string | null
           payee_formula: string | null
+          popup_section: string | null
           rule_key: string | null
           rule_name: string
           section: string | null
+          show_in_popup: boolean | null
+          split_type: string | null
           step_number: number
           template_id: string
           updated_at: string | null
@@ -427,9 +427,12 @@ export type Database = {
           id?: string
           payee_entity_id?: string | null
           payee_formula?: string | null
+          popup_section?: string | null
           rule_key?: string | null
           rule_name: string
           section?: string | null
+          show_in_popup?: boolean | null
+          split_type?: string | null
           step_number: number
           template_id: string
           updated_at?: string | null
@@ -448,9 +451,12 @@ export type Database = {
           id?: string
           payee_entity_id?: string | null
           payee_formula?: string | null
+          popup_section?: string | null
           rule_key?: string | null
           rule_name?: string
           section?: string | null
+          show_in_popup?: boolean | null
+          split_type?: string | null
           step_number?: number
           template_id?: string
           updated_at?: string | null
@@ -729,20 +735,14 @@ export type Database = {
         Row: {
           agent_id: string | null
           archived: boolean | null
-          calculated_amount: number | null
           client_id: string | null
           created_at: string | null
           created_by: string | null
           custom_attributes: Json | null
           final_amount: number | null
           id: string
-          is_manual_override: boolean | null
-          is_primary: boolean | null
-          note: string | null
-          override_reason: string | null
           payee_entity_id: string | null
           payee_type: string | null
-          rule_name: string
           section: string | null
           split_type: string | null
           split_value: number | null
@@ -755,20 +755,14 @@ export type Database = {
         Insert: {
           agent_id?: string | null
           archived?: boolean | null
-          calculated_amount?: number | null
           client_id?: string | null
           created_at?: string | null
           created_by?: string | null
           custom_attributes?: Json | null
           final_amount?: number | null
           id?: string
-          is_manual_override?: boolean | null
-          is_primary?: boolean | null
-          note?: string | null
-          override_reason?: string | null
           payee_entity_id?: string | null
           payee_type?: string | null
-          rule_name: string
           section?: string | null
           split_type?: string | null
           split_value?: number | null
@@ -781,20 +775,14 @@ export type Database = {
         Update: {
           agent_id?: string | null
           archived?: boolean | null
-          calculated_amount?: number | null
           client_id?: string | null
           created_at?: string | null
           created_by?: string | null
           custom_attributes?: Json | null
           final_amount?: number | null
           id?: string
-          is_manual_override?: boolean | null
-          is_primary?: boolean | null
-          note?: string | null
-          override_reason?: string | null
           payee_entity_id?: string | null
           payee_type?: string | null
-          rule_name?: string
           section?: string | null
           split_type?: string | null
           split_value?: number | null

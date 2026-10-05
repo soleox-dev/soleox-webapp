@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { LayoutGrid, Table2 } from 'lucide-react';
 import { AgentConfig, DynamicRule, CommissionEntityOption, KnownAgentInfo } from '../types';
 import { CommissionWaterfallTable } from './CommissionWaterfallTable';
+import { isPrimaryAgent } from '../commissionItemState';
 import { HoverNote } from './HoverNote';
 import { SplitPair } from './SplitPair';
 import { EditPencil } from '@/components/ui/edit-pencil';
@@ -10,7 +11,7 @@ import { SectionIcon } from './SectionIcon';
 import { CancelEditPrompt } from './CancelEditPrompt';
 import { useEditOnDoublePress } from './useEditOnDoublePress';
 import { useSectionEditKeys } from './useSectionEditKeys';
-import { CommissionTemplatePanel } from './CommissionTemplatePanel';
+import { CommissionTemplatePanel, type TemplateSubmissionDraft } from './CommissionTemplatePanel';
 import type { AppliedTemplateRules } from './applyTemplateLogic';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 
@@ -71,8 +72,10 @@ interface CommissionWaterfallProps {
   clientId: string;
   transactionId: string;
   deal: Record<string, unknown> | null;
-  templateAgents: { id: string; name: string; isTeamLead?: boolean }[];
-  onApplyTemplate?: (applied: AppliedTemplateRules) => void;
+  templateAgents: { id: string; name: string; isTeamLead?: boolean; clientId?: string; fields?: Record<string, string> }[];
+  primaryAgentId?: string | null;
+  onApplyTemplate?: (applied: AppliedTemplateRules, submission: TemplateSubmissionDraft) => void;
+  submissionRevision?: number;
 }
 
 export function CommissionWaterfall({
@@ -132,7 +135,9 @@ export function CommissionWaterfall({
   transactionId,
   deal,
   templateAgents,
+  primaryAgentId,
   onApplyTemplate,
+  submissionRevision = 0,
 }: CommissionWaterfallProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -454,6 +459,7 @@ export function CommissionWaterfall({
             entities={knownEntities}
             totalCommission={baselineTotalCommission}
             onApplied={onApplyTemplate}
+            submissionRevision={submissionRevision}
           />
           {agentLayoutToggle}
           {!isEditing ? (
@@ -839,6 +845,7 @@ export function CommissionWaterfall({
             <CommissionWaterfallTable
               isEditing={isEditing}
               agents={agents}
+              primaryAgentId={primaryAgentId}
               dealResult={dealResult}
               knownEntities={knownEntities}
               knownAgents={knownAgents}
@@ -908,8 +915,9 @@ export function CommissionWaterfall({
               <div className="space-y-3">
                 {agents.map((agent, index) => {
                   const computedSplitItem = (dealResult.agentSplitItems || []).find((s: any) => s.agentId === agent.id);
+                  const agentIsPrimary = primaryAgentId ? isPrimaryAgent(agent, primaryAgentId) : index === 0;
 
-                  if (index === 0) {
+                  if (agentIsPrimary) {
                     // Primary Agent Card (non-editable in Waterfall, tied to Transaction Overview)
                     return (
                       <div
@@ -961,7 +969,7 @@ export function CommissionWaterfall({
                             isEditing={false}
                             locked={isEditing}
                             matchColumns
-                            type="PERCENT"
+                            type={agent.splitType}
                             percentPoints={(computedSplitItem?.percent || 0) * 100}
                             dollarAmount={computedSplitItem?.amount || 0}
                             onPercentChange={() => {}}
@@ -973,19 +981,15 @@ export function CommissionWaterfall({
                     );
                   }
 
-                  // Secondary Agent Card
-                  const secondaryIdx = index - 1;
-                  const secondaryTotal = agents.length - 1;
-
                   return (
                     <div
                       key={agent.id}
-                      {...getDragRowProps(secondaryIdx, 'agentSplit', (fromI, toI) => onReorderAgents?.(fromI + 1, toI + 1))}
+                      {...getDragRowProps(index, 'agentSplit', onReorderAgents)}
                       className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 space-y-2.5 relative"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                          {renderReorderControls(secondaryIdx, secondaryTotal, (fromI, toI) => onReorderAgents?.(fromI + 1, toI + 1), 'agentSplit')}
+                          {renderReorderControls(index, agents.length, onReorderAgents, 'agentSplit')}
                           {isEditing && (
                             <button
                               type="button"

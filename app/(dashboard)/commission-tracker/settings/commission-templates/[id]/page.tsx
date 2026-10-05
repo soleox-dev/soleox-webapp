@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { FormulaEditor, FormulaExplain, FormulaPreview, type FormulaName } from '../FormulaEditor';
-import { LogicStepForm, canonicalLogicSection, logicSectionShowsAgent, logicSectionShowsEntity, logicContextNames, ruleKeyFromName, type LogicStepDraft } from './LogicStepForm';
+import { LogicStepForm, canonicalLogicSection, logicSectionShowsAgent, logicSectionShowsEntity, logicContextNames, ledgerFormulaNames, ruleKeyFromName, type LogicStepDraft } from './LogicStepForm';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { ReorderControls } from '@/components/ui/reorder-controls';
 import { normalizeFormula, validateFormula } from '../formula-validator';
@@ -51,6 +51,9 @@ interface LogicStep {
   apply_condition?: string | null;
   custom_baseline?: string | null;
   calculation_formula?: string | null;
+  split_type?: string | null;
+  show_in_popup?: boolean | null;
+  popup_section?: string | null;
 }
 
 interface CommissionEntity {
@@ -150,6 +153,9 @@ const emptyLogic: LogicStepDraft = {
   payee_formula: '',
   custom_baseline: '',
   calculation_formula: '',
+  split_type: 'AMOUNT',
+  show_in_popup: false,
+  popup_section: '',
 };
 
 export default function CommissionTemplateDetailPage() {
@@ -167,6 +173,11 @@ export default function CommissionTemplateDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
   const [dropTarget, setDropTarget] = useState<null | { parameterId: string; placement: 'before' | 'after' } | { sectionName: string }>(null);
+  const [logicDropTarget, setLogicDropTarget] = useState<null | { stepId: string; placement: 'before' | 'after' }>(null);
+  const [parametersCollapsed, setParametersCollapsed] = useState(false);
+  const [logicCollapsed, setLogicCollapsed] = useState(false);
+  const [parameterSearch, setParameterSearch] = useState('');
+  const [logicSearch, setLogicSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [parameterForm, setParameterForm] = useState<typeof emptyParameter | null>(null);
@@ -421,16 +432,89 @@ export default function CommissionTemplateDetailPage() {
     await commitParameterLayout(flat.map((item, index) => ({ ...item, sort_order: index + 1 })));
   };
 
+  const persistLogicStep = async (step: LogicStep) => {
+    const response = await fetch('/api/commission-template-logic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        logic: {
+          id: step.id,
+          template_id: templateId,
+          client_id: 'DEMO',
+          step_number: step.step_number,
+          rule_name: step.rule_name,
+          rule_key: step.rule_key || null,
+          section: step.section || null,
+          apply_condition: step.apply_condition || null,
+          agent_key: step.agent_key || null,
+          payee_entity_id: step.payee_entity_id || null,
+          payee_formula: step.payee_formula || null,
+          custom_baseline: step.custom_baseline || null,
+          calculation_formula: step.calculation_formula || null,
+          split_type: step.split_type || null,
+          show_in_popup: Boolean(step.show_in_popup),
+          popup_section: step.popup_section || null,
+        },
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data.error || 'Failed to save the rule order.');
+  };
+
+  const commitLogicOrder = async (updated: LogicStep[]) => {
+    const previous = new Map(logicSteps.map((step) => [step.id, step.step_number]));
+    const changed = updated.filter((step) => previous.get(step.id) !== step.step_number);
+    setLogicSteps(updated);
+    if (changed.length === 0) return;
+    setIsReordering(true);
+    setError(null);
+    try {
+      await Promise.all(changed.map((step) => persistLogicStep(step)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save the rule order.');
+      await loadTemplate();
+    } finally {
+      setIsReordering(false);
+    }
+  };
+
+  const moveLogic = async (stepId: string, direction: 'UP' | 'DOWN') => {
+    if (isReordering) return;
+    const ordered = [...logicSteps].sort((a, b) => a.step_number - b.step_number);
+    const index = ordered.findIndex((step) => step.id === stepId);
+    const targetIndex = direction === 'UP' ? index - 1 : index + 1;
+    if (index < 0 || targetIndex < 0 || targetIndex >= ordered.length) return;
+    const next = [...ordered];
+    const [moved] = next.splice(index, 1);
+    next.splice(targetIndex, 0, moved);
+    await commitLogicOrder(next.map((step, itemIndex) => ({ ...step, step_number: itemIndex + 1 })));
+  };
+
+  const dropLogic = async (sourceId: string, target: { stepId: string; placement: 'before' | 'after' }) => {
+    if (isReordering || target.stepId === sourceId) return;
+    const ordered = [...logicSteps].sort((a, b) => a.step_number - b.step_number);
+    const sourceIndex = ordered.findIndex((step) => step.id === sourceId);
+    if (sourceIndex < 0) return;
+    const next = [...ordered];
+    const [moved] = next.splice(sourceIndex, 1);
+    const targetIndex = next.findIndex((step) => step.id === target.stepId);
+    if (targetIndex < 0 || !moved) return;
+    next.splice(target.placement === 'before' ? targetIndex : targetIndex + 1, 0, moved);
+    setLogicDropTarget(null);
+    await commitLogicOrder(next.map((step, itemIndex) => ({ ...step, step_number: itemIndex + 1 })));
+  };
+
   const saveLogic = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!logicForm || !templateId || isSaving) return;
     const otherRuleKeys = logicSteps
       .filter((step) => step.id !== editingLogicId && step.rule_key?.trim())
       .map((step) => step.rule_key!.trim());
-    const allowedNames = [...formulaNames.map((item) => item.name), ...logicContextNames.map((item) => item.name), ...otherRuleKeys];
-    const entityFormula = logicSectionShowsEntity(logicForm.section) && logicForm.entity_mode === 'formula';
+    const allowedNames = [...formulaNames.map((item) => item.name), ...logicContextNames.map((item) => item.name), ...ledgerFormulaNames.map((item) => item.name), ...otherRuleKeys];
+    const selectedSection = canonicalLogicSection(logicForm.section);
+    const entityFormula = logicSectionShowsEntity(selectedSection) && logicForm.entity_mode === 'formula';
     const formulas = [
-      ['Condition', logicForm.apply_condition],
+      ...(selectedSection === 'Calculation' ? [] : [['Condition', logicForm.apply_condition] as const]),
       ['Custom baseline', logicForm.custom_baseline],
       ['Formula', logicForm.calculation_formula],
       ...(entityFormula ? [['Entity', logicForm.payee_formula] as const] : []),
@@ -452,6 +536,7 @@ export default function CommissionTemplateDetailPage() {
       setFormError('Choose a section.');
       return;
     }
+    const postsSplit = section !== 'Calculation';
     const ruleKey = logicForm.rule_key.trim().toLowerCase();
     if (!/^[a-z_][a-z0-9_]*$/.test(ruleKey)) {
       setFormError('The key needs to start with a letter and use only letters, numbers, and underscores.');
@@ -463,15 +548,15 @@ export default function CommissionTemplateDetailPage() {
       setFormError('That key is already used by a field, parameter, or another rule.');
       return;
     }
-    if (logicSectionShowsAgent(section) && !logicForm.agent_key.trim()) {
+    if (section && logicSectionShowsAgent(section) && !logicForm.agent_key.trim()) {
       setFormError('Choose the agent for this rule.');
       return;
     }
-    if (logicSectionShowsEntity(section) && logicForm.entity_mode === 'fixed' && !logicForm.payee_entity_id) {
+    if (section && logicSectionShowsEntity(section) && logicForm.entity_mode === 'fixed' && !logicForm.payee_entity_id) {
       setFormError('Choose the entity for this rule.');
       return;
     }
-    if (logicSectionShowsEntity(section) && logicForm.entity_mode === 'formula' && !logicForm.payee_formula.trim()) {
+    if (section && logicSectionShowsEntity(section) && logicForm.entity_mode === 'formula' && !logicForm.payee_formula.trim()) {
       setFormError('Enter the entity formula.');
       return;
     }
@@ -490,15 +575,18 @@ export default function CommissionTemplateDetailPage() {
             step_number: existing?.step_number ?? logicSteps.length + 1,
             rule_name: logicForm.rule_name.trim(),
             rule_key: ruleKey,
-            section,
-            apply_condition: normalizeFormula(logicForm.apply_condition).text.trim() || null,
-            agent_key: logicSectionShowsAgent(section) ? logicForm.agent_key.trim() || null : null,
-            payee_entity_id: logicSectionShowsEntity(section) && logicForm.entity_mode === 'fixed' ? logicForm.payee_entity_id || null : null,
-            payee_formula: logicSectionShowsEntity(section) && logicForm.entity_mode === 'formula'
+            section: section || null,
+            apply_condition: postsSplit ? normalizeFormula(logicForm.apply_condition).text.trim() || null : null,
+            agent_key: postsSplit && logicSectionShowsAgent(section) ? logicForm.agent_key.trim() || null : null,
+            payee_entity_id: postsSplit && logicSectionShowsEntity(section) && logicForm.entity_mode === 'fixed' ? logicForm.payee_entity_id || null : null,
+            payee_formula: postsSplit && logicSectionShowsEntity(section) && logicForm.entity_mode === 'formula'
               ? normalizeFormula(logicForm.payee_formula).text.trim() || null
               : null,
             custom_baseline: normalizeFormula(logicForm.custom_baseline).text.trim() || null,
             calculation_formula: normalizeFormula(logicForm.calculation_formula).text.trim() || null,
+            split_type: postsSplit ? (logicForm.split_type === 'PERCENT' ? 'PERCENT' : 'AMOUNT') : null,
+            show_in_popup: !postsSplit && logicForm.show_in_popup,
+            popup_section: !postsSplit && logicForm.show_in_popup ? logicForm.popup_section.trim() || null : null,
           },
         }),
       });
@@ -590,6 +678,9 @@ export default function CommissionTemplateDetailPage() {
       payee_formula: entityFormula,
       custom_baseline: step.custom_baseline || '',
       calculation_formula: step.calculation_formula || '',
+      split_type: String(step.split_type || '').trim().toUpperCase() === 'PERCENT' ? 'PERCENT' : 'AMOUNT',
+      show_in_popup: Boolean(step.show_in_popup),
+      popup_section: step.popup_section || '',
     });
   };
 
@@ -643,6 +734,53 @@ export default function CommissionTemplateDetailPage() {
 
   const entityName = (id?: string | null) => entities.find((entity) => entity.id === id)?.entity_name || '—';
 
+  const filteredParameters = useMemo(() => {
+    const query = parameterSearch.trim().toLowerCase();
+    if (!query) return parameters;
+    return parameters.filter((param) => {
+      const typeStr = typeLabel(param.data_type).toLowerCase();
+      const rawType = (param.data_type || '').toLowerCase();
+      return (
+        param.parameter_name.toLowerCase().includes(query) ||
+        param.parameter_key.toLowerCase().includes(query) ||
+        (param.section || '').toLowerCase().includes(query) ||
+        typeStr.includes(query) ||
+        rawType.includes(query) ||
+        (param.notes || '').toLowerCase().includes(query) ||
+        (param.autofill_formula || '').toLowerCase().includes(query) ||
+        (param.validation_rule || '').toLowerCase().includes(query)
+      );
+    });
+  }, [parameters, parameterSearch]);
+
+  const filteredLogicSteps = useMemo(() => {
+    const query = logicSearch.trim().toLowerCase();
+    if (!query) return logicSteps;
+    return logicSteps.filter((step) => {
+      const section = (canonicalLogicSection(step.section || '') || step.section || '').toLowerCase();
+      const entity = entityName(step.payee_entity_id).toLowerCase();
+      const splitType = String(step.split_type || '').toLowerCase();
+      const stepNum = String(step.step_number);
+      const isPopup = step.show_in_popup ? 'shown when applying' : '';
+      return (
+        step.rule_name.toLowerCase().includes(query) ||
+        (step.rule_key || '').toLowerCase().includes(query) ||
+        section.includes(query) ||
+        (step.agent_key || '').toLowerCase().includes(query) ||
+        entity.includes(query) ||
+        (step.payee_formula || '').toLowerCase().includes(query) ||
+        (step.apply_condition || '').toLowerCase().includes(query) ||
+        (step.custom_baseline || '').toLowerCase().includes(query) ||
+        (step.calculation_formula || '').toLowerCase().includes(query) ||
+        splitType.includes(query) ||
+        stepNum === query ||
+        `#${stepNum}` === query ||
+        (step.popup_section || '').toLowerCase().includes(query) ||
+        isPopup.includes(query)
+      );
+    });
+  }, [logicSteps, logicSearch, entities]);
+
   const parameterFields: FormulaName[] = parameters
     .filter((parameter) => parameter.id !== editingParameterId)
     .map((parameter) => ({
@@ -656,7 +794,12 @@ export default function CommissionTemplateDetailPage() {
     ...agentFields,
     ...parameterFields,
   ];
-  const logicFormulaNames: FormulaName[] = [...formulaNames, ...logicContextNames];
+  const logicFormulaNames: FormulaName[] = [
+    ...formulaNames,
+    ...logicContextNames,
+    ...ledgerFormulaNames,
+    ...logicSteps.filter((step) => step.rule_key?.trim()).map((step) => ({ name: step.rule_key!.trim(), label: step.rule_name, kind: 'field' as const })),
+  ];
 
   const fieldGroups = [
     { id: 'transactions', title: 'Transactions', fields: transactionFields },
@@ -722,27 +865,82 @@ export default function CommissionTemplateDetailPage() {
       {!isLoading && template && (
         <>
           <section className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">Parameters</h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  Values the user fills in when this template is applied to a transaction.
-                </p>
-              </div>
+            <div className={`px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${parametersCollapsed ? '' : 'border-b border-slate-200 dark:border-slate-700'}`}>
               <button
                 type="button"
-                onClick={() => {
-                  setFormError(null);
-                  setEditingParameterId(null);
-                  setParameterForm({ ...emptyParameter });
-                }}
-                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer"
+                onClick={() => setParametersCollapsed((collapsed) => !collapsed)}
+                className="flex min-w-0 flex-1 items-start gap-2 text-left cursor-pointer"
+                aria-expanded={!parametersCollapsed}
               >
-                Add parameter
+                <span className="mt-0.5 w-3 shrink-0 text-center text-sm font-bold leading-none text-emerald-600 dark:text-emerald-400">
+                  {parametersCollapsed ? '+' : '−'}
+                </span>
+                <span>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                    Parameters
+                    {parameterSearch.trim() && (
+                      <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 normal-case ml-1.5">
+                        ({filteredParameters.length} of {parameters.length})
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Values the user fills in when this template is applied to a transaction.
+                  </p>
+                </span>
               </button>
+              <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0">
+                <div className="relative w-full sm:w-64">
+                  <input
+                    type="text"
+                    value={parameterSearch}
+                    onChange={(event) => {
+                      setParameterSearch(event.target.value);
+                      if (parametersCollapsed && event.target.value.trim()) {
+                        setParametersCollapsed(false);
+                      }
+                    }}
+                    placeholder="Search parameters..."
+                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg pl-3 pr-7 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-medium"
+                  />
+                  {parameterSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setParameterSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                      title="Clear search"
+                      aria-label="Clear search"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormError(null);
+                    setEditingParameterId(null);
+                    setParameterForm({ ...emptyParameter });
+                  }}
+                  className="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer whitespace-nowrap"
+                >
+                  Add parameter
+                </button>
+              </div>
             </div>
-            {parameters.length === 0 ? (
+            {parametersCollapsed ? null : parameters.length === 0 ? (
               <p className="px-5 py-6 text-xs text-slate-500 dark:text-slate-400">No parameters yet.</p>
+            ) : filteredParameters.length === 0 ? (
+              <div className="px-5 py-8 text-center text-xs text-slate-500 dark:text-slate-400">
+                No parameters matching &ldquo;{parameterSearch}&rdquo;.
+                <button
+                  type="button"
+                  onClick={() => setParameterSearch('')}
+                  className="ml-2 font-semibold text-emerald-600 hover:underline dark:text-emerald-400 cursor-pointer"
+                >
+                  Clear search
+                </button>
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700">
@@ -759,16 +957,18 @@ export default function CommissionTemplateDetailPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {parameterGroups(parameters).map((group) => {
+                    {parameterGroups(filteredParameters).map((group) => {
                       const isUnsectioned = group.name === 'No Section';
                       return (
                       <React.Fragment key={group.name}>
                         <tr
                           onDragOver={(event) => {
+                            if (parameterSearch.trim()) return;
                             event.preventDefault();
                             setDropTarget({ sectionName: group.name });
                           }}
                           onDrop={(event) => {
+                            if (parameterSearch.trim()) return;
                             event.preventDefault();
                             const sourceId = event.dataTransfer.getData('text/plain');
                             setDropTarget(null);
@@ -792,12 +992,14 @@ export default function CommissionTemplateDetailPage() {
                         key={parameter.id}
                         className={`align-top ${dropTarget && 'parameterId' in dropTarget && dropTarget.parameterId === parameter.id ? (dropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
                         onDragOver={(event) => {
+                          if (parameterSearch.trim()) return;
                           event.preventDefault();
                           const bounds = event.currentTarget.getBoundingClientRect();
                           const placement = event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
                           setDropTarget({ parameterId: parameter.id, placement });
                         }}
                         onDrop={(event) => {
+                          if (parameterSearch.trim()) return;
                           event.preventDefault();
                           const sourceId = event.dataTransfer.getData('text/plain');
                           const bounds = event.currentTarget.getBoundingClientRect();
@@ -829,14 +1031,15 @@ export default function CommissionTemplateDetailPage() {
                         <td className="sticky right-0 z-10 bg-white dark:bg-slate-800 px-4 py-3 whitespace-nowrap text-right border-l border-slate-200 dark:border-slate-700 shadow-[-10px_0_12px_-12px_rgba(15,23,42,0.7)]">
                           <div className="inline-flex items-center justify-end gap-1">
                             <span
-                              draggable={!isReordering}
+                              draggable={!isReordering && !parameterSearch.trim()}
                               onDragStart={(event) => {
+                                if (parameterSearch.trim()) return;
                                 event.dataTransfer.setData('text/plain', parameter.id);
                                 event.dataTransfer.effectAllowed = 'move';
                               }}
                               onDragEnd={() => setDropTarget(null)}
-                              className="cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm px-0.5 select-none"
-                              title="Drag to reorder or move to a section"
+                              className={`${parameterSearch.trim() ? 'opacity-30 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'} text-sm px-0.5 select-none`}
+                              title={parameterSearch.trim() ? 'Clear search to reorder' : 'Drag to reorder or move to a section'}
                             >
                               ⠿
                             </span>
@@ -845,8 +1048,8 @@ export default function CommissionTemplateDetailPage() {
                               orientation="vertical"
                               onMoveUp={() => void moveParameter(parameter.id, 'UP')}
                               onMoveDown={() => void moveParameter(parameter.id, 'DOWN')}
-                              isFirst={itemIndex === 0 || isReordering}
-                              isLast={itemIndex === group.items.length - 1 || isReordering}
+                              isFirst={itemIndex === 0 || isReordering || Boolean(parameterSearch.trim())}
+                              isLast={itemIndex === group.items.length - 1 || isReordering || Boolean(parameterSearch.trim())}
                             />
                             <button type="button" onClick={() => openEditParameter(parameter)} className={`${rowActionClass} text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700`} title="Edit" aria-label="Edit">
                               <EditPencil className="h-[18px] w-[18px]" />
@@ -866,27 +1069,82 @@ export default function CommissionTemplateDetailPage() {
           </section>
 
           <section className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">Logic</h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  Each rule decides when it applies, who gets paid, and how the amount is calculated.
-                </p>
-              </div>
+            <div className={`px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${logicCollapsed ? '' : 'border-b border-slate-200 dark:border-slate-700'}`}>
               <button
                 type="button"
-                onClick={() => {
-                  setFormError(null);
-                  setEditingLogicId(null);
-                  setLogicForm({ ...emptyLogic });
-                }}
-                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer"
+                onClick={() => setLogicCollapsed((collapsed) => !collapsed)}
+                className="flex min-w-0 flex-1 items-start gap-2 text-left cursor-pointer"
+                aria-expanded={!logicCollapsed}
               >
-                Add step
+                <span className="mt-0.5 w-3 shrink-0 text-center text-sm font-bold leading-none text-emerald-600 dark:text-emerald-400">
+                  {logicCollapsed ? '+' : '−'}
+                </span>
+                <span>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                    Logic
+                    {logicSearch.trim() && (
+                      <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 normal-case ml-1.5">
+                        ({filteredLogicSteps.length} of {logicSteps.length})
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Each rule decides when it applies, who gets paid, and how the amount is calculated.
+                  </p>
+                </span>
               </button>
+              <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0">
+                <div className="relative w-full sm:w-64">
+                  <input
+                    type="text"
+                    value={logicSearch}
+                    onChange={(event) => {
+                      setLogicSearch(event.target.value);
+                      if (logicCollapsed && event.target.value.trim()) {
+                        setLogicCollapsed(false);
+                      }
+                    }}
+                    placeholder="Search rules..."
+                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg pl-3 pr-7 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-medium"
+                  />
+                  {logicSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setLogicSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                      title="Clear search"
+                      aria-label="Clear search"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormError(null);
+                    setEditingLogicId(null);
+                    setLogicForm({ ...emptyLogic });
+                  }}
+                  className="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer whitespace-nowrap"
+                >
+                  Add step
+                </button>
+              </div>
             </div>
-            {logicSteps.length === 0 ? (
+            {logicCollapsed ? null : logicSteps.length === 0 ? (
               <p className="px-5 py-6 text-xs text-slate-500 dark:text-slate-400">No calculation steps yet.</p>
+            ) : filteredLogicSteps.length === 0 ? (
+              <div className="px-5 py-8 text-center text-xs text-slate-500 dark:text-slate-400">
+                No rules matching &ldquo;{logicSearch}&rdquo;.
+                <button
+                  type="button"
+                  onClick={() => setLogicSearch('')}
+                  className="ml-2 font-semibold text-emerald-600 hover:underline dark:text-emerald-400 cursor-pointer"
+                >
+                  Clear search
+                </button>
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700">
@@ -900,26 +1158,47 @@ export default function CommissionTemplateDetailPage() {
                       <th className="px-4 py-3">Entity</th>
                       <th className="px-4 py-3">Custom baseline</th>
                       <th className="px-4 py-3">Formula</th>
+                      <th className="px-4 py-3">Split type</th>
                       <th className="sticky right-0 z-20 bg-slate-50 dark:bg-slate-900 px-4 py-3 border-l border-slate-200 dark:border-slate-700 shadow-[-10px_0_12px_-12px_rgba(15,23,42,0.7)]"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {logicSteps.map((step) => (
-                      <tr key={step.id} className="align-top">
+                    {[...filteredLogicSteps].sort((a, b) => a.step_number - b.step_number).map((step, stepIndex, orderedSteps) => (
+                      <tr
+                        key={step.id}
+                        className={`align-top ${logicDropTarget?.stepId === step.id ? (logicDropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
+                        onDragOver={(event) => {
+                          if (logicSearch.trim()) return;
+                          event.preventDefault();
+                          const bounds = event.currentTarget.getBoundingClientRect();
+                          const placement = event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
+                          setLogicDropTarget({ stepId: step.id, placement });
+                        }}
+                        onDrop={(event) => {
+                          if (logicSearch.trim()) return;
+                          event.preventDefault();
+                          const sourceId = event.dataTransfer.getData('text/plain');
+                          const bounds = event.currentTarget.getBoundingClientRect();
+                          const placement = event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
+                          setLogicDropTarget(null);
+                          if (sourceId) void dropLogic(sourceId, { stepId: step.id, placement });
+                        }}
+                      >
                         <td className="px-4 py-3 font-mono text-slate-500">{step.step_number}</td>
                         <td className="px-4 py-3">
                           <div className="font-bold text-slate-900 dark:text-white">{step.rule_name}</div>
                           {step.rule_key?.trim() && <div className="mt-0.5 font-mono text-[11px] text-sky-700 dark:text-sky-300">{step.rule_key}</div>}
+                          {step.show_in_popup && <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Shown when applying{step.popup_section?.trim() ? ` · ${step.popup_section.trim()}` : ''}</div>}
                         </td>
                         <td className="px-4 py-3 min-w-[12rem] text-slate-600 dark:text-slate-300">
-                          {step.apply_condition?.trim() ? (
+                          {canonicalLogicSection(step.section || '') === 'Calculation' ? '—' : step.apply_condition?.trim() ? (
                             <div className="flex items-start gap-2">
                               <FormulaExplain value={step.apply_condition} names={logicFormulaNames} />
                               <FormulaPreview value={step.apply_condition} names={logicFormulaNames} />
                             </div>
                           ) : 'Always'}
                         </td>
-                        <td className="px-4 py-3">{canonicalLogicSection(step.section || '') || step.section?.trim() || 'No Section'}</td>
+                        <td className="px-4 py-3">{canonicalLogicSection(step.section || '') || step.section?.trim() || '—'}</td>
                         <td className="px-4 py-3 font-mono text-sky-700 dark:text-sky-300">
                           {logicSectionShowsAgent(canonicalLogicSection(step.section || '')) ? (step.agent_key?.trim() || '—') : '—'}
                         </td>
@@ -949,8 +1228,32 @@ export default function CommissionTemplateDetailPage() {
                             <FormulaPreview value={step.calculation_formula || ''} names={logicFormulaNames} />
                           </div>
                         </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-slate-600 dark:text-slate-300">
+                          {String(step.split_type || '').trim().toUpperCase() === 'PERCENT' ? 'Percent' : String(step.split_type || '').trim().toUpperCase() === 'AMOUNT' ? 'Amount' : '—'}
+                        </td>
                         <td className="sticky right-0 z-10 bg-white dark:bg-slate-800 px-4 py-3 whitespace-nowrap text-right border-l border-slate-200 dark:border-slate-700 shadow-[-10px_0_12px_-12px_rgba(15,23,42,0.7)]">
-                          <div className="inline-flex items-center justify-end">
+                          <div className="inline-flex items-center justify-end gap-1">
+                            <span
+                              draggable={!isReordering && !logicSearch.trim()}
+                              onDragStart={(event) => {
+                                if (logicSearch.trim()) return;
+                                event.dataTransfer.setData('text/plain', step.id);
+                                event.dataTransfer.effectAllowed = 'move';
+                              }}
+                              onDragEnd={() => setLogicDropTarget(null)}
+                              className={`${logicSearch.trim() ? 'opacity-30 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'} text-sm px-0.5 select-none`}
+                              title={logicSearch.trim() ? 'Clear search to reorder' : 'Drag to reorder'}
+                            >
+                              ⠿
+                            </span>
+                            <ReorderControls
+                              size="sm"
+                              orientation="vertical"
+                              onMoveUp={() => void moveLogic(step.id, 'UP')}
+                              onMoveDown={() => void moveLogic(step.id, 'DOWN')}
+                              isFirst={stepIndex === 0 || isReordering || Boolean(logicSearch.trim())}
+                              isLast={stepIndex === orderedSteps.length - 1 || isReordering || Boolean(logicSearch.trim())}
+                            />
                             <button type="button" onClick={() => openEditLogic(step)} className={`${rowActionClass} text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700`} title="Edit" aria-label="Edit">
                               <EditPencil className="h-[18px] w-[18px]" />
                             </button>
@@ -1217,6 +1520,7 @@ export default function CommissionTemplateDetailPage() {
           ruleFields={logicSteps
             .filter((step) => step.id !== editingLogicId && step.rule_key?.trim())
             .map((step) => ({ name: step.rule_key!.trim(), label: step.rule_name, kind: 'field' as const }))}
+          popupSections={[...new Set(logicSteps.map((step) => step.popup_section?.trim()).filter((section): section is string => Boolean(section)))]}
           onChange={setLogicForm}
           onCancel={() => { setLogicForm(null); setEditingLogicId(null); setFormError(null); }}
           onSubmit={(event) => void saveLogic(event)}

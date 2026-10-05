@@ -18,16 +18,12 @@ const NATIVE_AGENT_COLUMNS = new Set([
   'is_team_lead',
   'agent_onboard_date',
   'agent_offboard_date',
-  'commission_attributes',
   'custom_attributes',
   'archived',
   'created_at',
   'created_by',
   'updated_at',
   'updated_by',
-  'broker_cap_limit',
-  'broker_cap_paid_ytd',
-  'anniversary_date',
 ]);
 
 // GET: Fetch active agents
@@ -55,24 +51,18 @@ export async function GET(request: Request) {
     // Flatten custom and commission attributes onto the returned objects
     const formattedAgents = (data || []).map((row: any) => {
       let customAttrs = {};
-      let commAttrs = {};
 
       try {
         if (row.custom_attributes) {
-          customAttrs = typeof row.custom_attributes === 'string' 
-            ? JSON.parse(row.custom_attributes) 
+          customAttrs = typeof row.custom_attributes === 'string'
+            ? JSON.parse(row.custom_attributes)
             : row.custom_attributes;
-        }
-        if (row.commission_attributes) {
-          commAttrs = typeof row.commission_attributes === 'string' 
-            ? JSON.parse(row.commission_attributes) 
-            : row.commission_attributes;
         }
       } catch (e) {
         console.warn('JSON parse error on agent row:', e);
       }
 
-      return { ...row, ...customAttrs, ...commAttrs };
+      return { ...row, ...customAttrs };
     });
 
     // Deduplicate agents by normalized agent_name (keeps the most recent / non-archived record)
@@ -153,14 +143,9 @@ export async function POST(request: Request) {
 
     // 2. Separate custom non-native attributes
     const customAttributes: Record<string, any> = {};
-    const commissionAttributes: Record<string, any> = {
-      broker_cap_limit: Number(agent.broker_cap_limit || 8000),
-      broker_cap_paid_ytd: Number(agent.broker_cap_paid_ytd || 0),
-      anniversary_date: agent.anniversary_date || null,
-    };
 
     Object.keys(agent).forEach((key) => {
-      if (!NATIVE_AGENT_COLUMNS.has(key)) {
+      if (!NATIVE_AGENT_COLUMNS.has(key) && key !== 'commission_attributes') {
         customAttributes[key] = agent[key];
       }
     });
@@ -181,7 +166,6 @@ export async function POST(request: Request) {
       is_team_lead: Boolean(agent.is_team_lead),
       agent_onboard_date: sanitizeDate(agent.agent_onboard_date),
       agent_offboard_date: sanitizeDate(agent.agent_offboard_date),
-      commission_attributes: commissionAttributes,
       custom_attributes: customAttributes,
       archived: Boolean(agent.archived),
       created_by: agent.created_by || user,
@@ -221,7 +205,6 @@ export async function POST(request: Request) {
       agent: {
         ...returnedRow,
         ...customAttributes,
-        ...commissionAttributes,
       },
     });
   } catch (error: any) {

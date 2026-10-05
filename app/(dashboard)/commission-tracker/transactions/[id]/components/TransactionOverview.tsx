@@ -3,9 +3,9 @@ import {
   FieldSetting,
   formatPercentageClean,
   formatPercent,
-  VisibilityCondition,
   KnownAgentInfo,
   readTransactionField,
+  isOverviewFieldVisible,
 } from '../types';
 
 import {
@@ -108,45 +108,7 @@ export function TransactionOverview({
   };
 
   const isFieldVisible = (field: FieldSetting, rawDbVal: any): boolean => {
-    const cleanStr = String(rawDbVal || '').trim();
-    const hasData =
-      rawDbVal !== undefined &&
-      rawDbVal !== null &&
-      cleanStr !== '' &&
-      cleanStr !== '—';
-
-    const config = field.visibility_rules;
-    const conditions = config?.conditions || [];
-
-    if (!conditions || conditions.length === 0) return true;
-
-    const groupOperator = config?.operator || 'OR';
-
-    const evaluateCondition = (cond: VisibilityCondition): boolean => {
-      const controllingVal = getControllingFieldValue(cond.field_key);
-      if (controllingVal === undefined || controllingVal === null || String(controllingVal).trim() === '') {
-        return false;
-      }
-      const strControllingVal = String(controllingVal).trim().toLowerCase();
-      const targetArray = Array.isArray(cond.value)
-        ? cond.value.map((v) => String(v || '').trim().toLowerCase())
-        : [String(cond.value || '').trim().toLowerCase()];
-
-      const op = String(cond.operator || '').toUpperCase();
-      if (op === 'IN' || op === 'IS_IN_LIST' || op === 'EQUALS') {
-        return targetArray.includes(strControllingVal);
-      }
-      if (op === 'NOT_EQUALS' || op === 'NOT_IN') {
-        return !targetArray.includes(strControllingVal);
-      }
-      return true;
-    };
-
-    const rulesSatisfied = groupOperator === 'AND'
-      ? conditions.every(evaluateCondition)
-      : conditions.some(evaluateCondition);
-
-    return rulesSatisfied || hasData;
+    return isOverviewFieldVisible(field, rawDbVal, getControllingFieldValue);
   };
 
   const getFieldValue = (fieldKey: string, fieldType: string): { text: string } => {

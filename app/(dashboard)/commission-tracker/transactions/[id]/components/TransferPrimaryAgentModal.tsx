@@ -5,7 +5,8 @@ interface TransferPrimaryAgentModalProps {
   isOpen: boolean;
   formerAgentName: string;
   newAgentName: string;
-  primarySplitPercent?: number;
+  primarySplitType?: 'PERCENT' | 'AMOUNT';
+  primarySplitValue?: number;
   level1RulesCount: number;
   level2RulesCount: number;
   onConfirm: () => void;
@@ -16,7 +17,8 @@ export function TransferPrimaryAgentModal({
   isOpen,
   formerAgentName,
   newAgentName,
-  primarySplitPercent = 100,
+  primarySplitType = 'PERCENT',
+  primarySplitValue = 0,
   level1RulesCount,
   level2RulesCount,
   onConfirm,
@@ -71,7 +73,9 @@ export function TransferPrimaryAgentModal({
             <div className="flex justify-between items-center">
               <span>Primary Agent Split:</span>
               <span className="font-semibold text-slate-900 dark:text-white">
-                {(primarySplitPercent ?? 0).toFixed(2)}%
+                {primarySplitType === 'AMOUNT'
+                  ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(primarySplitValue || 0)
+                  : `${(primarySplitValue ?? 0).toFixed(2)}%`}
               </span>
             </div>
             <div className="flex justify-between items-center">

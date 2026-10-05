@@ -69,7 +69,14 @@ export async function POST(request: Request) {
       apply_condition: logic.apply_condition ? String(logic.apply_condition) : null,
       custom_baseline: logic.custom_baseline ? String(logic.custom_baseline) : null,
       calculation_formula: logic.calculation_formula ? String(logic.calculation_formula) : null,
+      split_type: (() => {
+        const splitType = String(logic.split_type || '').trim().toUpperCase();
+        if (splitType === 'PERCENT' || splitType === 'AMOUNT') return splitType;
+        return null;
+      })(),
       cap_condition_key: logic.cap_condition_key ? String(logic.cap_condition_key) : null,
+      show_in_popup: Boolean(logic.show_in_popup),
+      popup_section: logic.popup_section ? String(logic.popup_section).trim() || null : null,
       archived: Boolean(logic.archived),
       created_by: logic.created_by || user,
       updated_at: new Date().toISOString(),
@@ -96,7 +103,17 @@ export async function POST(request: Request) {
         .select();
     }
 
-    const { data, error } = await query;
+    let { data, error } = await query;
+    for (const column of ['popup_section', 'show_in_popup']) {
+      if (!error || !String(error.message || '').includes(column)) continue;
+      delete rowPayload[column];
+      const retry = isUpdate
+        ? supabase.from('commission_template_logic').upsert(rowPayload, { onConflict: 'id' }).select()
+        : supabase.from('commission_template_logic').insert(rowPayload).select();
+      const retried = await retry;
+      data = retried.data;
+      error = retried.error;
+    }
     if (error) throw error;
 
     const returnedRow = data ? data[0] : rowPayload;

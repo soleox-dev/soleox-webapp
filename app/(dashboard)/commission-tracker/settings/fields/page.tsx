@@ -7,6 +7,7 @@ import { ReorderControls } from '@/components/ui/reorder-controls';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
 import { EditPencil } from '@/components/ui/edit-pencil';
+import { Folder, List, User } from 'lucide-react';
 import { DB_TRANSACTION_COLUMNS, DB_AGENT_COLUMNS } from '@/lib/fields';
 
 type FieldType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
@@ -82,7 +83,6 @@ const HIDDEN_SYSTEM_KEYS = new Set([
   'client_id',
   'archived',
   'custom_attributes',
-  'commission_attributes',
   'address_details',
   'co_broker',
   'settlement_vendors',
@@ -150,7 +150,6 @@ function FieldCalendar({ label }: { label: string }) {
 
 export default function FieldCustomizationsPage() {
   const [activeTab, setActiveTab] = useState<'transactions' | 'agents'>('transactions');
-  const [isCatalogLoading, setIsCatalogLoading] = useState(false);
   const [isSavingField, setIsSavingField] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
@@ -238,7 +237,6 @@ export default function FieldCustomizationsPage() {
   };
 
   const fetchLiveCatalog = async () => {
-    setIsCatalogLoading(true);
     setCatalogError(null);
     try {
       const headers = await getAuthHeaders();
@@ -319,8 +317,6 @@ export default function FieldCustomizationsPage() {
       setCatalogError(err.message);
       if (activeTab === 'transactions') setTxFields([]);
       else setAgentFields([]);
-    } finally {
-      setIsCatalogLoading(false);
     }
   };
 
@@ -431,11 +427,6 @@ export default function FieldCustomizationsPage() {
     }
     return a.sort_order - b.sort_order;
   });
-
-  const handleResetDefaults = () => {
-    fetchLiveCatalog();
-    showToast('Refreshed schema directly from database.', 'info');
-  };
 
   const persistFieldsList = async (fieldsToPersist: FieldConfig[]) => {
     try {
@@ -1099,44 +1090,30 @@ export default function FieldCustomizationsPage() {
         <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
           <button
             onClick={() => setActiveTab('transactions')}
-            className={`px-4 py-2 rounded-md text-xs font-bold transition ${
+            className={`px-4 py-2 rounded-md text-xs font-bold transition inline-flex items-center gap-1.5 ${
               activeTab === 'transactions'
                 ? 'bg-emerald-500/10 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
-            📋 Transactions Schema
+            <List className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+            Transactions Schema
           </button>
 
           <button
             onClick={() => setActiveTab('agents')}
-            className={`px-4 py-2 rounded-md text-xs font-bold transition ${
+            className={`px-4 py-2 rounded-md text-xs font-bold transition inline-flex items-center gap-1.5 ${
               activeTab === 'agents'
                 ? 'bg-emerald-500/10 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
-            👤 Agents Schema
+            <User className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+            Agents Schema
           </button>
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={fetchLiveCatalog}
-            disabled={isCatalogLoading || isSavingField}
-            className="px-3 py-2 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1 disabled:opacity-50"
-          >
-            <span>{isCatalogLoading ? ' Syncing...' : '⚡ Sync DB Schema'}</span>
-          </button>
-          
-          <button
-            onClick={handleResetDefaults}
-            disabled={isSavingField}
-            className="px-3 py-2 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-bold text-xs rounded-lg transition cursor-pointer disabled:opacity-50"
-          >
-            ↺ Refresh Catalog
-          </button>
-
           <button
             onClick={handleOpenAdd}
             disabled={isSavingField}
@@ -1180,8 +1157,9 @@ export default function FieldCustomizationsPage() {
               <div key={secName} className="p-4 space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
-                      📁 Section:
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+                      <Folder className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+                      Section:
                     </span>
                     <span className="bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/20 text-xs font-bold text-slate-900 dark:text-white">
                       {secName}
@@ -1298,10 +1276,13 @@ export default function FieldCustomizationsPage() {
                           </div>
 
                           <button
+                            type="button"
                             onClick={() => handleOpenEdit(f)}
-                            className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 rounded text-[10px] font-bold transition cursor-pointer"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
+                            title="Configure"
+                            aria-label={`Configure ${f.field_label}`}
                           >
-                            Configure
+                            <EditPencil className="h-[18px] w-[18px]" />
                           </button>
 
                           <button

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AgentConfig, DynamicRule, CommissionEntityOption, KnownAgentInfo } from '../types';
+import { isPrimaryAgent } from '../commissionItemState';
 import { HoverNote } from './HoverNote';
 import { SplitPair } from './SplitPair';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
@@ -9,6 +10,7 @@ type SplitType = 'PERCENT' | 'AMOUNT';
 interface CommissionWaterfallTableProps {
   isEditing: boolean;
   agents: AgentConfig[];
+  primaryAgentId?: string | null;
   dealResult: any;
   knownEntities: CommissionEntityOption[];
   knownAgents: KnownAgentInfo[];
@@ -121,6 +123,7 @@ function useStableEntityOrder(rulesByAgent: Record<string, DynamicRule[]>, names
 export function CommissionWaterfallTable({
   isEditing,
   agents,
+  primaryAgentId,
   dealResult,
   knownEntities,
   knownAgents,
@@ -446,11 +449,13 @@ export function CommissionWaterfallTable({
                     {isEditing && plusButton('Add New Agent Split', onOpenAddAgentModal, 'emerald')}
                   </div>
                 </td>
-                {agents.map((agent, index) => (
+                {agents.map((agent, index) => {
+                  const agentIsPrimary = primaryAgentId ? isPrimaryAgent(agent, primaryAgentId) : index === 0;
+                  return (
                   <td key={agent.id} className={`${agentCell} bg-slate-50 dark:bg-slate-800/80`}>
                     <div className="ml-auto flex w-max max-w-full flex-col items-end gap-1 pr-2">
                       <div className="flex h-5 items-center justify-end gap-1">
-                        {index === 0 && (
+                        {agentIsPrimary && (
                           <span className="text-[9px] bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-bold uppercase">Primary</span>
                         )}
                         {agent.isTeamLead && (
@@ -458,10 +463,10 @@ export function CommissionWaterfallTable({
                         )}
                       </div>
                       <div className="flex h-5 items-center justify-end gap-1">
-                        {isEditing && index > 0 && (
+                        {isEditing && !agentIsPrimary && (
                           <button type="button" onClick={() => onRemoveAgent(agent.name)} className="text-xs text-rose-500 hover:text-rose-600 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition" title={`Remove ${agent.name}`} aria-label={`Remove ${agent.name}`}>🗑️</button>
                         )}
-                        {isEditing && index > 0 && knownAgents.length > 0 ? (
+                        {isEditing && !agentIsPrimary && knownAgents.length > 0 ? (
                           <ClearableSelect
                             value={agent.name}
                             onChange={(event) => onSwitchAgent?.(agent.id, event.target.value)}
@@ -480,25 +485,27 @@ export function CommissionWaterfallTable({
                       </div>
                     </div>
                   </td>
-                ))}
+                  );
+                })}
               </tr>
               <tr>
                 <td className={`${labelCell} font-semibold text-slate-500 dark:text-slate-400`} />
                 {agents.map((agent, index) => {
+                  const agentIsPrimary = primaryAgentId ? isPrimaryAgent(agent, primaryAgentId) : index === 0;
                   const computed = (dealResult.agentSplitItems || []).find((item: { agentId?: string; agentName?: string; percent?: number; amount?: number; overAllocated?: boolean }) => item.agentId === agent.id || item.agentName === agent.name);
-                  const dollar = index > 0 && agent.splitType === 'AMOUNT'
+                  const dollar = !agentIsPrimary && agent.splitType === 'AMOUNT'
                     ? agent.splitVal
                     : (computed?.amount || 0);
                   const percentPoints = agent.splitType === 'PERCENT' ? agent.splitVal : ((computed?.percent || 0) * 100);
                   return (
                     <td key={agent.id} className={agentCell}>
                       {splitPair(
-                        index === 0 ? 'PERCENT' : agent.splitType,
-                        index === 0 ? ((computed?.percent || 0) * 100) : percentPoints,
+                        agent.splitType,
+                        agentIsPrimary && agent.splitType === 'PERCENT' ? ((computed?.percent || 0) * 100) : percentPoints,
                         dollar,
                         () => onToggleAgentSplitType(agent.id),
                         (val) => onSplitValueChange(agent.id, val),
-                        { editable: isEditing && index > 0, locked: isEditing && index === 0, invalid: Boolean(computed?.overAllocated) },
+                        { editable: isEditing && !agentIsPrimary, locked: isEditing && agentIsPrimary, invalid: Boolean(computed?.overAllocated) },
                       )}
                     </td>
                   );

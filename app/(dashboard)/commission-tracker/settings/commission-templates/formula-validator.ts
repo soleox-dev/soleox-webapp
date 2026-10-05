@@ -1,8 +1,11 @@
-const FUNCTION_ARITY: Record<string, { min: number; max: number; even?: boolean }> = {
+const FUNCTION_ARITY: Record<string, { min: number; max: number; even?: boolean; pairsAfterFirst?: boolean }> = {
   IF: { min: 3, max: 3 },
   AND: { min: 1, max: 20 },
   OR: { min: 1, max: 20 },
   COUNTIFS: { min: 2, max: 40, even: true },
+  SUMIFS: { min: 3, max: 41, pairsAfterFirst: true },
+  MIN: { min: 1, max: 20 },
+  MAX: { min: 1, max: 20 },
   ISNUMBER: { min: 1, max: 1 },
   NUMBERVALUE: { min: 1, max: 1 },
   SEARCH: { min: 2, max: 3 },
@@ -153,11 +156,11 @@ function isKnownName(name: string, known: Set<string>): boolean {
   if (lower === 'true' || lower === 'false' || lower === 'agents.id') return true;
   if (known.has(lower)) return true;
   const dot = lower.indexOf('.');
-  if (dot === -1) return false;
-  const prefix = lower.slice(0, dot);
+  if (dot <= 0 || dot !== lower.lastIndexOf('.')) return false;
+  const table = lower.slice(0, dot);
   const field = lower.slice(dot + 1);
-  if (prefix !== 'transactions' && prefix !== 'agents') return false;
-  return known.has(field) || known.has(lower);
+  if (!/^[a-z_][a-z0-9_]*$/.test(table) || !/^[a-z_][a-z0-9_]*$/.test(field)) return false;
+  return true;
 }
 
 export function validateFormula(source: string, knownNames: string[]): string | null {
@@ -255,9 +258,10 @@ export function validateFormula(source: string, knownNames: string[]): string | 
         if (count < rule.min || count > rule.max) {
           fail(rule.min === rule.max
             ? `${upper} needs ${rule.min} value${rule.min === 1 ? '' : 's'}.`
-            : `${upper} needs at least ${rule.min} values.`);
+            : `${upper} needs at least ${rule.min} value${rule.min === 1 ? '' : 's'}.`);
         }
-        if (rule.even && count % 2 !== 0) fail('COUNTIFS needs pairs of a field and a criteria.');
+        if (rule.even && count % 2 !== 0) fail(`${upper} needs pairs of a field and a criteria.`);
+        if (rule.pairsAfterFirst && (count - 1) % 2 !== 0) fail(`${upper} needs a sum field, then pairs of a field and a criteria.`);
         return;
       }
       if (FUNCTION_ARITY[upper]) fail(`${upper} needs parentheses.`);

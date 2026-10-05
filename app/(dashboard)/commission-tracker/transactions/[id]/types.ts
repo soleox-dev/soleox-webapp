@@ -49,10 +49,8 @@ export interface KnownAgentInfo {
   name: string;
   email?: string;
   isTeamLead: boolean;
-  brokerCapLimit: number;
-  brokerCapPaidYTD: number;
-  riskCapLimit: number;
-  riskPaidYTD: number;
+  clientId?: string;
+  fields?: Record<string, string>;
 }
 
 export interface CommissionEntityOption {
@@ -80,6 +78,49 @@ export interface DynamicRule {
   note?: string;
   type: 'PERCENT' | 'AMOUNT';
   value: number;
+}
+
+/** A required field counts only while its visibility rules leave it on the form. */
+export function isOverviewFieldVisible(
+  field: { visibility_rules?: VisibilityRulesConfig },
+  rawValue: unknown,
+  readControlling: (fieldKey: string) => unknown,
+): boolean {
+  const cleanStr = String(rawValue ?? '').trim();
+  const hasData =
+    rawValue !== undefined &&
+    rawValue !== null &&
+    cleanStr !== '' &&
+    cleanStr !== '—';
+
+  const conditions = field.visibility_rules?.conditions || [];
+  if (conditions.length === 0) return true;
+
+  const groupOperator = field.visibility_rules?.operator || 'OR';
+  const evaluateCondition = (cond: VisibilityCondition): boolean => {
+    const controllingVal = readControlling(cond.field_key);
+    if (controllingVal === undefined || controllingVal === null || String(controllingVal).trim() === '') {
+      return false;
+    }
+    const strControllingVal = String(controllingVal).trim().toLowerCase();
+    const targetArray = Array.isArray(cond.value)
+      ? cond.value.map((value) => String(value || '').trim().toLowerCase())
+      : [String(cond.value || '').trim().toLowerCase()];
+    const op = String(cond.operator || '').toUpperCase();
+    if (op === 'IN' || op === 'IS_IN_LIST' || op === 'EQUALS') {
+      return targetArray.includes(strControllingVal);
+    }
+    if (op === 'NOT_EQUALS' || op === 'NOT_IN') {
+      return !targetArray.includes(strControllingVal);
+    }
+    return true;
+  };
+
+  const rulesSatisfied = groupOperator === 'AND'
+    ? conditions.every(evaluateCondition)
+    : conditions.some(evaluateCondition);
+
+  return rulesSatisfied || hasData;
 }
 
 export interface FieldSetting {

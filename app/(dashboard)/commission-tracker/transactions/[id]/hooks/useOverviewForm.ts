@@ -1,6 +1,6 @@
 // app/commission-tracker/transactions/[id]/hooks/useOverviewForm.ts
 import { useState, useMemo } from 'react';
-import { FieldSetting, roundCurrency, evaluateFormula, readTransactionField } from '../types';
+import { FieldSetting, roundCurrency, evaluateFormula, readTransactionField, isOverviewFieldVisible } from '../types';
 
 interface UseOverviewFormProps {
   overviewFields: FieldSetting[];
@@ -253,9 +253,17 @@ export function useOverviewForm({
 
     const missing: string[] = [];
 
+    const readControlling = (fieldKey: string) => {
+      if (overviewFormValues[fieldKey] !== undefined && overviewFormValues[fieldKey] !== null && overviewFormValues[fieldKey] !== '') {
+        return overviewFormValues[fieldKey];
+      }
+      return readTransactionField(selectedDeal, fieldKey);
+    };
+
     overviewFields.forEach((field) => {
       const rawDbVal = readTransactionField(selectedDeal, field.key);
       const val = overviewFormValues[field.key] ?? rawDbVal;
+      if (!isOverviewFieldVisible(field, val, readControlling)) return;
 
       const validation = validateFieldValue(field, val);
       if (field.is_required && validation.isRequiredMissing) {

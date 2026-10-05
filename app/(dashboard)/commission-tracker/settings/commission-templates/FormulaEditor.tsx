@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { validateFormula, readExcelString, normalizeFormula } from './formula-validator';
 import { explainFormula } from './formula-explainer';
 
-export const FORMULA_FUNCTIONS = ['IF', 'AND', 'OR', 'COUNTIFS', 'ISNUMBER', 'NUMBERVALUE', 'SEARCH', 'TEXTAFTER', 'TEXTBEFORE', 'TRIM', 'SUBSTITUTE', 'XLOOKUP'] as const;
+export const FORMULA_FUNCTIONS = ['IF', 'AND', 'OR', 'COUNTIFS', 'SUMIFS', 'MIN', 'MAX', 'ISNUMBER', 'NUMBERVALUE', 'SEARCH', 'TEXTAFTER', 'TEXTBEFORE', 'TRIM', 'SUBSTITUTE', 'XLOOKUP'] as const;
 
 export interface FormulaName {
   name: string;

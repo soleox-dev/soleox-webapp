@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { normalizeAgentName } from '@/lib/id';
 import { formatPercent } from '@/lib/fields';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { Search } from 'lucide-react';
 
 interface SchemaField {
   id?: string;
@@ -684,7 +685,7 @@ export default function TransactionsListPage() {
                   : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
               }`}
             >
-              <span>🔍</span>
+              <Search className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
               <span>{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
             </button>
 

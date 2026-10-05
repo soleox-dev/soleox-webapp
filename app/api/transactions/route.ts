@@ -54,7 +54,13 @@ export async function POST(request: Request) {
 
     // 4. Insert/Upsert transaction and run commission engine
     const userEmail = session.user.email;
-    const result = await createTransaction(validatedData, body.template_id, userEmail, supabase);
+    const result = await createTransaction(
+      validatedData,
+      body.template_id,
+      userEmail,
+      supabase,
+      body.template_submission,
+    );
 
     return NextResponse.json({ success: true, ...result });
   } catch (error: any) {

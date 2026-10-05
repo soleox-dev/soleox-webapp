@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { EditPencil } from '@/components/ui/edit-pencil';
 
 export interface CommissionEntity {
   id: string;
@@ -515,11 +516,14 @@ export default function CommissionEntitiesPage() {
                       <td className="p-3.5 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
+                            type="button"
                             disabled={isActionLoading}
                             onClick={() => handleOpenEdit(ent)}
-                            className="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 px-2.5 py-1 rounded font-bold transition cursor-pointer disabled:opacity-50"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer disabled:opacity-50"
+                            title="Edit"
+                            aria-label={`Edit ${ent.entity_name}`}
                           >
-                            Edit
+                            <EditPencil className="h-[18px] w-[18px]" />
                           </button>
 
                           <button

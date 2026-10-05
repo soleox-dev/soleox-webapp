@@ -17,6 +17,7 @@ interface UseTransactionWaterfallProps {
   postSplitRulesByAgent: Record<string, DynamicRule[]>;
   postSplit2RulesByAgent?: Record<string, DynamicRule[]>;
   agents: AgentConfig[];
+  primaryAgentId?: string | null;
   overviewFields: FieldSetting[];
   selectedDeal: any;
   overviewFormValues: Record<string, any>;
@@ -31,6 +32,7 @@ export function useTransactionWaterfall({
   postSplitRulesByAgent,
   postSplit2RulesByAgent = {},
   agents,
+  primaryAgentId,
   overviewFields,
   selectedDeal,
   overviewFormValues,
@@ -88,15 +90,19 @@ export function useTransactionWaterfall({
     const totalPreSplit = preSplitCalculated.reduce((sum, r) => sum + r.amount, 0);
     const netToSplit = roundCurrency(Math.max(0, netOffTopComm - totalPreSplit));
 
-    // 3. Agent Splits (from Net Commission after Pre-Splits).
-    // Secondary splits are allocated left to right. A split that asks for more
-    // than the commission still left is kept on screen and flagged, but only the
-    // remainder is paid so the primary balance cannot go negative.
+    // 3. Agent splits stay in list order. The primary agent — the transaction's
+    // agent, or the step 1 agent split when the deal has no agent — receives
+    // whatever commission remains after the other agent splits.
+    const primaryKey = String(primaryAgentId || '').trim().toLowerCase();
+    const matchedPrimary = primaryKey
+      ? agents.findIndex((agent) => agent.id.toLowerCase() === primaryKey || agent.name.toLowerCase() === primaryKey)
+      : -1;
+    const balanceIndex = matchedPrimary >= 0 ? matchedPrimary : 0;
     let remainingSplitDollars = netToSplit;
-    const splitCalculated: any[] = [];
+    const splitCalculated: any[] = new Array(agents.length);
 
     agents.forEach((ag, idx) => {
-      if (idx === 0) return;
+      if (idx === balanceIndex) return;
 
       let requested = 0;
       let requestedRate = 0;
@@ -115,7 +121,7 @@ export function useTransactionWaterfall({
       const dollarAmt = roundCurrency(Math.min(requested, room));
       remainingSplitDollars = roundCurrency(room - dollarAmt);
 
-      splitCalculated.push({
+      splitCalculated[idx] = {
         agentId: ag.id,
         agentName: ag.name,
         splitType: ag.splitType,
@@ -124,27 +130,29 @@ export function useTransactionWaterfall({
         amount: dollarAmt,
         overAllocated,
         isPrimary: false,
-      });
+      };
     });
 
-    const primaryDollarAmt = roundCurrency(Math.max(0, remainingSplitDollars));
-    const allSecondaryArePercent = agents.slice(1).every((a) => a.splitType === 'PERCENT');
-    const splitsExceedPool = splitCalculated.some((s) => s.overAllocated);
-    const totalSecondaryPercent = splitCalculated.reduce((sum, s) => sum + (s.splitType === 'PERCENT' ? s.percent : 0), 0);
-    const primaryEffectivePerc = !splitsExceedPool && allSecondaryArePercent && agents.length > 1
-      ? Math.max(0, roundPercentRate(1 - totalSecondaryPercent))
-      : (netToSplit > 0 ? roundPercentRate(primaryDollarAmt / netToSplit) : 0);
-
     if (agents.length > 0) {
-      splitCalculated.unshift({
-        agentId: agents[0].id,
-        agentName: agents[0].name,
-        splitType: agents[0].splitType || 'PERCENT',
-        splitVal: primaryEffectivePerc,
-        percent: primaryEffectivePerc,
-        amount: primaryDollarAmt,
+      const balanceAgent = agents[balanceIndex];
+      const balanceDollars = roundCurrency(Math.max(0, remainingSplitDollars));
+      const explicitSplits = splitCalculated.filter(Boolean);
+      const allExplicitArePercent = explicitSplits.every((split) => split.splitType === 'PERCENT');
+      const splitsExceedPool = explicitSplits.some((split) => split.overAllocated);
+      const explicitPercent = explicitSplits.reduce((sum, split) => sum + (split.splitType === 'PERCENT' ? split.percent : 0), 0);
+      const balancePercent = !splitsExceedPool && allExplicitArePercent && explicitSplits.length > 0
+        ? Math.max(0, roundPercentRate(1 - explicitPercent))
+        : (netToSplit > 0 ? roundPercentRate(balanceDollars / netToSplit) : 0);
+
+      splitCalculated[balanceIndex] = {
+        agentId: balanceAgent.id,
+        agentName: balanceAgent.name,
+        splitType: balanceAgent.splitType || 'PERCENT',
+        splitVal: balancePercent,
+        percent: balancePercent,
+        amount: balanceDollars,
         isPrimary: true,
-      });
+      };
     }
 
     const postSplitCalculated: any[] = [];
@@ -249,5 +257,5 @@ export function useTransactionWaterfall({
       agentNetAfterLevel1,
       netPayouts,
     };
-  }, [salesPrice, gciPerc, offTheTopRules, preSplitRules, postSplitRulesByAgent, postSplit2RulesByAgent, agents, overviewFields, selectedDeal, overviewFormValues, clientType]);
+  }, [salesPrice, gciPerc, offTheTopRules, preSplitRules, postSplitRulesByAgent, postSplit2RulesByAgent, agents, primaryAgentId, overviewFields, selectedDeal, overviewFormValues, clientType]);
 }

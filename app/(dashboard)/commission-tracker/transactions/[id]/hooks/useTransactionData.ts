@@ -1,6 +1,45 @@
 // app/commission-tracker/transactions/[id]/hooks/useTransactionData.ts
 import { useState, useEffect } from 'react';
 import { FieldSetting, SchemaField, CORE_REQUIRED_FIELDS, VisibilityRulesConfig, KnownAgentInfo, CommissionEntityOption } from '../types';
+import { StoredCommissionItem } from '../commissionItemState';
+
+const AGENT_DIRECTORY_KEYS = new Set([
+  'id',
+  'agent_id',
+  'client_id',
+  'user_id',
+  'tms_id',
+  'agent_name',
+  'name',
+  'full_name',
+  'agent_email',
+  'email',
+  'agent_phone',
+  'phone',
+  'group_id',
+  'agent_status',
+  'is_team_lead',
+  'isTeamLead',
+  'agent_onboard_date',
+  'agent_offboard_date',
+  'custom_attributes',
+  'commission_attributes',
+  'archived',
+  'created_at',
+  'created_by',
+  'updated_at',
+  'updated_by',
+]);
+
+function agentFormulaFields(agent: Record<string, unknown>): Record<string, string> {
+  const fields: Record<string, string> = {};
+  for (const [key, value] of Object.entries(agent)) {
+    if (AGENT_DIRECTORY_KEYS.has(key) || value === null || value === undefined || value === '') continue;
+    if (typeof value === 'object') continue;
+    fields[key] = String(value);
+  }
+  return fields;
+}
 
 export function useTransactionData(routeId: string, isNewTransaction: boolean) {
   const [savedDeals, setSavedDeals] = useState<any[]>([]);
@@ -9,6 +48,8 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
   const [knownEntities, setKnownEntities] = useState<CommissionEntityOption[]>([]);
   const [isLoadingDeals, setIsLoadingDeals] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [commissionItems, setCommissionItems] = useState<StoredCommissionItem[]>([]);
+  const [commissionItemsDealId, setCommissionItemsDealId] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadSchema() {
@@ -91,10 +132,8 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
                 name: ag.agent_name || ag.name || ag.full_name || 'Unnamed Agent',
                 email: ag.agent_email || ag.email,
                 isTeamLead: Boolean(ag.is_team_lead || ag.isTeamLead),
-                brokerCapLimit: Number(ag.broker_cap_limit ?? ag.brokerCapLimit ?? 8000),
-                brokerCapPaidYTD: Number(ag.broker_cap_paid_ytd ?? ag.brokerCapPaidYTD ?? 0),
-                riskCapLimit: Number(ag.risk_cap_limit ?? ag.riskCapLimit ?? 750),
-                riskPaidYTD: Number(ag.risk_paid_ytd ?? ag.riskPaidYTD ?? 0),
+                clientId: ag.client_id ? String(ag.client_id) : undefined,
+                fields: agentFormulaFields(ag),
               }))
             );
           }
@@ -121,11 +160,41 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
     loadDealsAndAgents();
   }, []);
 
+  useEffect(() => {
+    if (isNewTransaction || !routeId) {
+      setCommissionItems([]);
+      setCommissionItemsDealId(isNewTransaction ? 'new' : null);
+      return;
+    }
+
+    let cancelled = false;
+    setCommissionItemsDealId(null);
+
+    async function loadCommissionItems() {
+      try {
+        const res = await fetch(`/api/transactions/${encodeURIComponent(routeId)}/items`);
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        setCommissionItems(res.ok && data.success !== false ? (data.items || []) : []);
+      } catch (err) {
+        console.error('Error fetching commission items:', err);
+        if (!cancelled) setCommissionItems([]);
+      } finally {
+        if (!cancelled) setCommissionItemsDealId(routeId);
+      }
+    }
+
+    loadCommissionItems();
+    return () => {
+      cancelled = true;
+    };
+  }, [routeId, isNewTransaction]);
+
   const saveTransaction = async (
     payload: any,
     resolvedClientId: string,
     showToast: (msg: string, type: 'success' | 'error') => void,
-    onSuccess?: (savedTxn: any) => void
+    onSuccess?: (savedTxn: any, commissionItems?: StoredCommissionItem[]) => void
   ) => {
     if (isSaving) return;
     try {
@@ -139,7 +208,7 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
       const responseData = await res.json().catch(() => ({}));
       if (res.ok && responseData.success !== false) {
         showToast(`Transaction ${payload.id} saved successfully!`, 'success');
-        if (onSuccess && responseData.transaction) onSuccess(responseData.transaction);
+        if (onSuccess && responseData.transaction) onSuccess(responseData.transaction, responseData.commissionItems);
       } else {
         showToast(`Failed to save: ${responseData.error || responseData.message}`, 'error');
       }
@@ -156,6 +225,10 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
     overviewFields,
     knownAgents,
     knownEntities,
+    commissionItems,
+    setCommissionItems,
+    commissionItemsDealId,
+    setCommissionItemsDealId,
     isLoadingDeals,
     isSaving,
     saveTransaction,

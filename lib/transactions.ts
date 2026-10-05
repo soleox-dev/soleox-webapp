@@ -84,14 +84,67 @@ export async function getTransactions(clientId: string, client?: SupabaseClient)
   });
 }
 
-/**
- * Create or Update a transaction record and trigger the waterfall engine calculation.
- */
+export interface PendingTemplateSubmission {
+  id?: string | null;
+  template_id?: string | null;
+  submitted_parameters?: unknown;
+  status?: string | null;
+}
+
+/** Writes a template submission after the transaction itself has been saved. */
+async function storeTemplateSubmission(
+  sb: SupabaseClient,
+  clientId: string,
+  transactionId: string,
+  submission: PendingTemplateSubmission,
+  userId: string,
+) {
+  const templateId = String(submission.template_id || '').trim();
+  if (!templateId) return;
+
+  let existingId = submission.id ? String(submission.id) : '';
+  if (!existingId) {
+    const { data: existing, error: existingError } = await sb
+      .from('commission_template_submissions')
+      .select('id')
+      .eq('client_id', clientId)
+      .eq('transaction_id', transactionId)
+      .or('archived.is.null,archived.eq.false')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existingError) throw new Error(`Could not save the commission template: ${existingError.message}`);
+    existingId = existing?.id ? String(existing.id) : '';
+  }
+
+  const row = {
+    ...(existingId ? { id: existingId } : {}),
+    client_id: clientId,
+    transaction_id: transactionId,
+    template_id: templateId,
+    submitted_parameters: submission.submitted_parameters && typeof submission.submitted_parameters === 'object'
+      ? submission.submitted_parameters
+      : {},
+    status: String(submission.status || 'SUBMITTED'),
+    archived: false,
+    updated_at: new Date().toISOString(),
+    updated_by: userId,
+    ...(existingId ? {} : { created_by: userId }),
+  };
+
+  const { error } = existingId
+    ? await sb.from('commission_template_submissions').upsert(row, { onConflict: 'id' })
+    : await sb.from('commission_template_submissions').insert(row);
+  if (error) throw new Error(`Could not save the commission template: ${error.message}`);
+}
+
+/** Create or update a transaction, then store a pending template submission if the save succeeded. */
 export async function createTransaction(
   input: CreateTransactionInput & { id?: string; [key: string]: any },
   templateId?: string,
   userId: string = 'SYSTEM',
-  client?: SupabaseClient
+  client?: SupabaseClient,
+  templateSubmission?: PendingTemplateSubmission | null,
 ): Promise<{ transactionId: string; success: boolean; transaction?: any }> {
   const sb = client || (await getAuthenticatedSupabase());
   const isExistingRecord = Boolean(input.id && input.id.trim() !== '');
@@ -179,50 +232,68 @@ export async function createTransaction(
 
   const finalRecord = data || rowPayload;
   const finalTransactionId = finalRecord.id;
+  let savedCommissionItems: any[] | undefined;
 
-  // Persist commission breakdown items if provided by client or calculation
-  if (Array.isArray(input.commission_items) && input.commission_items.length > 0) {
-    try {
-      // Remove any existing commission breakdown items for this transaction
-      await sb
-        .from('transaction_commission_items')
-        .delete()
-        .eq('transaction_id', finalTransactionId)
-        .eq('client_id', input.client_id);
-
+  // Commission lines are the source of truth. Replace the deal's rows when the
+  // client sends a list, including an empty list. Insert first so a failed write
+  // leaves the previous lines in place.
+  if (Array.isArray(input.commission_items)) {
+    if (input.commission_items.length > 0) {
       const rowsToInsert = input.commission_items.map((item: any, idx: number) => ({
         client_id: input.client_id,
         transaction_id: finalTransactionId,
         submission_id: item.submission_id || `SUB_${finalTransactionId}`,
         step_number: item.step_number || idx + 1,
-        rule_name: item.rule_name || item.name || 'Commission Item',
         section: item.section || 'POST_SPLIT',
         split_type: item.split_type || item.type || null,
         split_value: item.split_value !== undefined && item.split_value !== null ? Number(item.split_value) : null,
-        note: item.note || null,
         payee_type: item.payee_type || (item.agent_id || item.agentName ? 'AGENT' : 'ENTITY'),
         payee_entity_id: item.payee_entity_id || null,
         agent_id: item.agent_id || null,
-        is_primary: Boolean(item.is_primary),
-        calculated_amount: item.calculated_amount !== undefined ? roundCurrency(Number(item.calculated_amount)) : roundCurrency(Number(item.amount || 0)),
-        final_amount: item.final_amount !== undefined ? roundCurrency(Number(item.final_amount)) : roundCurrency(Number(item.amount || 0)),
-        is_manual_override: Boolean(item.is_manual_override),
-        override_reason: item.override_reason || null,
+        final_amount: item.final_amount !== undefined
+          ? roundCurrency(Number(item.final_amount))
+          : roundCurrency(Number(item.calculated_amount ?? item.amount ?? 0)),
         custom_attributes: item.custom_attributes || {},
         created_by: userId,
         updated_at: new Date().toISOString(),
         updated_by: userId,
       }));
 
-      const { error: insErr } = await sb
+      const { data: inserted, error: insErr } = await sb
         .from('transaction_commission_items')
-        .insert(rowsToInsert);
+        .insert(rowsToInsert)
+        .select();
 
       if (insErr) {
-        console.warn('Warning: Could not persist transaction_commission_items:', insErr.message);
+        throw new Error(`Could not save commission lines: ${insErr.message}`);
       }
-    } catch (err) {
-      console.warn('Warning: Error saving commission items:', err);
+      savedCommissionItems = inserted || [];
+      if (savedCommissionItems.length === 0) {
+        throw new Error('Could not save commission lines: the new lines were not returned.');
+      }
+
+      const keepIds = savedCommissionItems.map((row) => row.id).filter(Boolean);
+      const { error: delErr } = await sb
+        .from('transaction_commission_items')
+        .delete()
+        .eq('transaction_id', finalTransactionId)
+        .eq('client_id', input.client_id)
+        .not('id', 'in', `(${keepIds.map((id: string) => `"${String(id).replace(/"/g, '')}"`).join(',')})`);
+
+      if (delErr) {
+        throw new Error(`Could not save commission lines: ${delErr.message}`);
+      }
+    } else {
+      const { error: delErr } = await sb
+        .from('transaction_commission_items')
+        .delete()
+        .eq('transaction_id', finalTransactionId)
+        .eq('client_id', input.client_id);
+
+      if (delErr) {
+        throw new Error(`Could not save commission lines: ${delErr.message}`);
+      }
+      savedCommissionItems = [];
     }
   } else if (templateId) {
     const submissionId = `SUB_${finalTransactionId}`;
@@ -271,5 +342,14 @@ export async function createTransaction(
     }
   }
 
-  return { transactionId: finalTransactionId, success: true, transaction: presentTransaction(finalRecord) };
+  if (templateSubmission?.template_id) {
+    await storeTemplateSubmission(sb, input.client_id, finalTransactionId, templateSubmission, userId);
+  }
+
+  return {
+    transactionId: finalTransactionId,
+    success: true,
+    transaction: presentTransaction(finalRecord),
+    ...(savedCommissionItems !== undefined ? { commissionItems: savedCommissionItems } : {}),
+  };
 }

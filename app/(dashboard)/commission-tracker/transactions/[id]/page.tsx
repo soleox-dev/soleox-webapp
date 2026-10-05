@@ -25,6 +25,8 @@ import { RevertPrimaryAgentModal } from './components/RevertPrimaryAgentModal';
 import { UnsavedChangesModal } from './components/UnsavedChangesModal';
 import { generatePrefixedId } from '@/lib/id';
 import type { AppliedTemplateRules } from './components/applyTemplateLogic';
+import type { TemplateSubmissionDraft } from './components/CommissionTemplatePanel';
+import { isPrimaryAgent, resolvePrimaryAgentId, waterfallFromCommissionItems } from './commissionItemState';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -45,7 +47,20 @@ export default function Dashboard() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const { savedDeals, setSavedDeals, overviewFields, knownAgents, knownEntities, isLoadingDeals, isSaving, saveTransaction } = useTransactionData(routeId, isNewTransaction);
+  const {
+    savedDeals,
+    setSavedDeals,
+    overviewFields,
+    knownAgents,
+    knownEntities,
+    commissionItems,
+    setCommissionItems,
+    commissionItemsDealId,
+    setCommissionItemsDealId,
+    isLoadingDeals,
+    isSaving,
+    saveTransaction,
+  } = useTransactionData(routeId, isNewTransaction);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'commission' | 'disbursements'>('overview');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ overview: false, commission: false, disbursements: false });
@@ -242,6 +257,9 @@ export default function Dashboard() {
     postSplit2RulesByAgent: Record<string, DynamicRule[]>;
   } | null>(null);
   const [hasUnsavedLocalChanges, setHasUnsavedLocalChanges] = useState(false);
+  const [pendingTemplateSubmission, setPendingTemplateSubmission] = useState<TemplateSubmissionDraft | null>(null);
+  const [templateSubmissionRevision, setTemplateSubmissionRevision] = useState(0);
+  const pendingTemplateSubmissionRef = useRef<TemplateSubmissionDraft | null>(null);
   const [isUnsavedModalOpen, setIsUnsavedModalOpen] = useState(false);
   const pendingNavigationRef = useRef<(() => void) | null>(null);
 
@@ -297,42 +315,51 @@ export default function Dashboard() {
     setHasUnsavedLocalChanges(true);
   };
 
-  const handleApplyTemplateRules = (applied: AppliedTemplateRules) => {
+  const handleApplyTemplateRules = (applied: AppliedTemplateRules, submission?: TemplateSubmissionDraft) => {
     const nextOff = applied.offTheTopRules ?? [];
     const nextPre = applied.preSplitRules ?? [];
     const nextPost = applied.postSplitRulesByAgent ?? {};
     const nextPost2 = applied.postSplit2RulesByAgent ?? {};
     const templateSplits = applied.agentSplits ?? [];
     const namesMatch = (left: string, right: string) => left.trim().toLowerCase() === right.trim().toLowerCase();
+    const orderedSplits = templateSplits;
     const primary = agents[0]?.name?.trim() ? agents[0] : null;
-    const agentNames = [
-      ...templateSplits.map((split) => split.name),
-      ...Object.keys(nextPost),
-      ...Object.keys(nextPost2),
-    ].filter((name, index, all) => (
-      name.trim() &&
-      all.findIndex((item) => namesMatch(item, name)) === index &&
-      !(primary && namesMatch(primary.name, name))
-    ));
+    const seen = new Set<string>();
+    const agentNames = (orderedSplits.length > 0
+      ? [...orderedSplits.map((split) => split.name), ...Object.keys(nextPost), ...Object.keys(nextPost2)]
+      : [
+          ...(primary ? [primary.name] : []),
+          ...Object.keys(nextPost),
+          ...Object.keys(nextPost2),
+        ]
+    ).filter((name) => {
+      const key = name.trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 
     const templateAgents: AgentConfig[] = agentNames.map((name) => {
       const known = knownAgents.find((agent) => namesMatch(agent.name, name));
       const previous = agents.find((agent) => namesMatch(agent.name, name));
-      const split = templateSplits.find((item) => namesMatch(item.name, name));
+      const split = orderedSplits.find((item) => namesMatch(item.name, name));
+      const keptPrimary = orderedSplits.length === 0 && primary && namesMatch(primary.name, name) ? primary : null;
       return {
         id: known?.id || previous?.id || `AGT_${name.trim()}`,
         name: known?.name || previous?.name || name.trim(),
         isTeamLead: known?.isTeamLead ?? previous?.isTeamLead ?? false,
-        splitType: split?.splitType ?? 'PERCENT',
-        splitVal: split?.splitVal ?? 0,
-        brokerCapLimit: known?.brokerCapLimit ?? previous?.brokerCapLimit ?? 0,
-        brokerCapPaidYTD: known?.brokerCapPaidYTD ?? previous?.brokerCapPaidYTD ?? 0,
-        riskCapLimit: known?.riskCapLimit ?? previous?.riskCapLimit ?? 0,
-        riskPaidYTD: known?.riskPaidYTD ?? previous?.riskPaidYTD ?? 0,
+        splitType: split?.splitType ?? keptPrimary?.splitType ?? 'PERCENT',
+        splitVal: split?.splitVal ?? keptPrimary?.splitVal ?? 0,
+        brokerCapLimit: 0,
+        brokerCapPaidYTD: 0,
+        riskCapLimit: 0,
+        riskPaidYTD: 0,
       };
     });
-    // The primary agent stays, with their existing split. Every other agent split is replaced by the template.
-    const nextAgents = primary ? [primary, ...templateAgents] : templateAgents;
+    const primaryIndex = templateAgents.findIndex((agent) => isPrimaryAgent(agent, primaryAgentId));
+    const nextAgents = primaryIndex > 0
+      ? [templateAgents[primaryIndex], ...templateAgents.filter((_, index) => index !== primaryIndex)]
+      : templateAgents;
 
     const changed =
       JSON.stringify(nextOff) !== JSON.stringify(offTheTopRules) ||
@@ -349,7 +376,13 @@ export default function Dashboard() {
     setWaterfallEditSnapshot(null);
     setIsEditingWaterfall(false);
     setIsAddAgentModalOpen(false);
-    if (changed) setHasUnsavedLocalChanges(true);
+    if (submission) {
+      pendingTemplateSubmissionRef.current = submission;
+      setPendingTemplateSubmission(submission);
+      setHasUnsavedLocalChanges(true);
+    } else if (changed) {
+      setHasUnsavedLocalChanges(true);
+    }
   };
 
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
@@ -358,6 +391,8 @@ export default function Dashboard() {
     formerAgent: string;
     newAgent: KnownAgentInfo;
     proceedApply: () => void;
+    splitType: 'PERCENT' | 'AMOUNT';
+    splitVal: number;
   } | null>(null);
 
   const handleRequestOverviewApply = (proceedWithApply: () => void, currentFormValues?: Record<string, any>) => {
@@ -367,7 +402,7 @@ export default function Dashboard() {
     };
 
     // 1. Identify former primary agent
-    const formerAgentName = agents[0]?.name || primaryAgent || '';
+    const formerAgentName = agents.find((agent) => isPrimaryAgent(agent, primaryAgentId))?.name || primaryAgent || '';
 
     // 2. Identify new primary agent from form values
     const formVals = currentFormValues || overviewForm.overviewFormValues;
@@ -386,16 +421,22 @@ export default function Dashboard() {
         id: `AGT_${newAgentName}`,
         name: newAgentName,
         isTeamLead: false,
-        brokerCapLimit: 8000,
-        brokerCapPaidYTD: 0,
-        riskCapLimit: 750,
-        riskPaidYTD: 0,
       };
 
+      const formerAgent = agents.find((agent) => agent.name.trim().toLowerCase() === formerAgentName.trim().toLowerCase());
+      const formerSplit = (dealResult.agentSplitItems || []).find((item: { agentId?: string; agentName?: string; amount?: number }) =>
+        item.agentId === formerAgent?.id || item.agentName === formerAgentName
+      );
+      const splitType = formerAgent?.splitType === 'AMOUNT' ? 'AMOUNT' : 'PERCENT';
+      const splitVal = splitType === 'AMOUNT'
+        ? roundCurrency(Number(formerSplit?.amount ?? formerAgent?.splitVal ?? 0))
+        : Number(formerAgent?.splitVal ?? 0);
       setTransferInfo({
         formerAgent: formerAgentName,
         newAgent: resolvedNewAgentInfo,
         proceedApply: proceedAndMarkDirty,
+        splitType,
+        splitVal,
       });
       setIsTransferModalOpen(true);
     } else {
@@ -405,10 +446,6 @@ export default function Dashboard() {
           id: `AGT_${newAgentName}`,
           name: newAgentName,
           isTeamLead: false,
-          brokerCapLimit: 8000,
-          brokerCapPaidYTD: 0,
-          riskCapLimit: 750,
-          riskPaidYTD: 0,
         };
         setAgents([
           {
@@ -417,10 +454,10 @@ export default function Dashboard() {
             isTeamLead: resolvedNewAgentInfo.isTeamLead,
             splitType: 'PERCENT',
             splitVal: 1.0,
-            brokerCapLimit: resolvedNewAgentInfo.brokerCapLimit,
-            brokerCapPaidYTD: resolvedNewAgentInfo.brokerCapPaidYTD,
-            riskCapLimit: resolvedNewAgentInfo.riskCapLimit,
-            riskPaidYTD: resolvedNewAgentInfo.riskPaidYTD,
+            brokerCapLimit: 0,
+            brokerCapPaidYTD: 0,
+            riskCapLimit: 0,
+            riskPaidYTD: 0,
           },
         ]);
         setPrimaryAgent(resolvedNewAgentInfo.name);
@@ -455,41 +492,29 @@ export default function Dashboard() {
 
   const handleConfirmTransfer = () => {
     if (!transferInfo) return;
-    const { formerAgent, newAgent, proceedApply } = transferInfo;
+    const { formerAgent, newAgent, proceedApply, splitType, splitVal } = transferInfo;
 
-    // 1. Update primary agent in agents[0] (or create if empty)
+    // Replace the former primary wherever they sit. The form's agent is already the new
+    // person, so the lookup has to use the name captured when the dialog opened.
+    // An amount split moves across as that same dollar amount.
     setAgents((prev) => {
-      if (prev.length === 0) {
-        return [
-          {
-            id: newAgent.id,
-            name: newAgent.name,
-            isTeamLead: newAgent.isTeamLead,
-            splitType: 'PERCENT',
-            splitVal: 1.0,
-            brokerCapLimit: newAgent.brokerCapLimit,
-            brokerCapPaidYTD: newAgent.brokerCapPaidYTD,
-            riskCapLimit: newAgent.riskCapLimit,
-            riskPaidYTD: newAgent.riskPaidYTD,
-          },
-        ];
-      }
-
-      const primary = prev[0];
-      const updatedPrimary: AgentConfig = {
-        ...primary,
+      const replacement: AgentConfig = {
         id: newAgent.id,
         name: newAgent.name,
         isTeamLead: newAgent.isTeamLead,
-        brokerCapLimit: newAgent.brokerCapLimit,
-        brokerCapPaidYTD: newAgent.brokerCapPaidYTD,
-        riskCapLimit: newAgent.riskCapLimit,
-        riskPaidYTD: newAgent.riskPaidYTD,
+        splitType,
+        splitVal,
+        brokerCapLimit: 0,
+        brokerCapPaidYTD: 0,
+        riskCapLimit: 0,
+        riskPaidYTD: 0,
       };
-
-      // Filter out if newAgent was listed as a secondary agent
-      const remainingSecondary = prev.slice(1).filter((a) => a.name.toLowerCase() !== newAgent.name.toLowerCase());
-      return [updatedPrimary, ...remainingSecondary];
+      const formerKey = formerAgent.trim().toLowerCase();
+      const primaryIndex = prev.findIndex((agent) => agent.name.trim().toLowerCase() === formerKey);
+      if (prev.length === 0 || primaryIndex < 0) return [replacement];
+      return prev
+        .map((agent, index) => index === primaryIndex ? { ...replacement, brokerCapLimit: agent.brokerCapLimit, brokerCapPaidYTD: agent.brokerCapPaidYTD, riskCapLimit: agent.riskCapLimit, riskPaidYTD: agent.riskPaidYTD } : agent)
+        .filter((agent, index) => index === primaryIndex || agent.name.toLowerCase() !== newAgent.name.toLowerCase());
     });
 
     // 2. Transfer Level 1 post-splits from formerAgent to newAgent
@@ -541,6 +566,12 @@ export default function Dashboard() {
     setIsRevertModalOpen(false);
   };
 
+  const primaryAgentId = resolvePrimaryAgentId(
+    overviewForm.overviewFormValues?.agent_id || selectedDeal?.agent_id || primaryAgent,
+    commissionItems,
+    knownAgents,
+  );
+
   const dealResult = useTransactionWaterfall({
     salesPrice: overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.sales_price) || salesPrice) : salesPrice,
     gciPerc: overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.gci_perc) || gciPerc) : gciPerc,
@@ -549,6 +580,7 @@ export default function Dashboard() {
     postSplitRulesByAgent,
     postSplit2RulesByAgent,
     agents,
+    primaryAgentId,
     overviewFields,
     selectedDeal,
     overviewFormValues: overviewForm.overviewFormValues,
@@ -580,9 +612,14 @@ export default function Dashboard() {
       setPostSplit2RulesByAgent({});
       setIsEditingWaterfall(false);
       setWaterfallEditSnapshot(null);
+      if (pendingTemplateSubmissionRef.current) {
+        pendingTemplateSubmissionRef.current = null;
+        setPendingTemplateSubmission(null);
+        setTemplateSubmissionRevision((current) => current + 1);
+      }
       setHasUnsavedLocalChanges(false);
       setSearchQuery(`[NEW] ${freshId} — Draft Transaction`);
-    } else if (routeId && savedDeals.length > 0) {
+    } else if (routeId && savedDeals.length > 0 && commissionItemsDealId === routeId) {
       const matched = savedDeals.find((d) => d.id === routeId);
 
       if (!matched) {
@@ -597,6 +634,11 @@ export default function Dashboard() {
       setDealId(matched.id);
       setIsEditingWaterfall(false);
       setWaterfallEditSnapshot(null);
+      if (pendingTemplateSubmissionRef.current) {
+        pendingTemplateSubmissionRef.current = null;
+        setPendingTemplateSubmission(null);
+        setTemplateSubmissionRevision((current) => current + 1);
+      }
       setHasUnsavedLocalChanges(false);
       
       setPropertyAddress(matched.property_address || '');
@@ -615,62 +657,23 @@ export default function Dashboard() {
 
       setSalesPrice(matched.sales_price ? Math.abs(Number(matched.sales_price)) : 0);
       setGciPerc(matched.gci_perc ? (Math.abs(Number(matched.gci_perc)) > 1 ? Number(matched.gci_perc) / 100 : Number(matched.gci_perc)) : 0);
-      
-      // Load agents and rules from deal custom_attributes or fallbacks
-      const dealCustomAttrs = matched.custom_attributes || {};
-      const dealAgents = dealCustomAttrs.agents || matched.agents;
-      if (Array.isArray(dealAgents) && dealAgents.length > 0) {
-        setAgents(dealAgents);
-      } else if (rawAgent) {
-        setAgents([
-          {
-            id: foundAgent?.id || `A_${Date.now()}`,
-            name: agentDisplayName,
-            isTeamLead: foundAgent?.isTeamLead || false,
-            splitType: 'PERCENT',
-            splitVal: 1.0,
-            brokerCapLimit: foundAgent?.brokerCapLimit || 8000,
-            brokerCapPaidYTD: foundAgent?.brokerCapPaidYTD || 0,
-            riskCapLimit: foundAgent?.riskCapLimit || 750,
-            riskPaidYTD: foundAgent?.riskPaidYTD || 0,
-          },
-        ]);
-      } else {
-        setAgents([]);
-      }
 
-      const dealOffTop = dealCustomAttrs.offTheTopRules || matched.offTheTopRules;
-      if (Array.isArray(dealOffTop)) {
-        setOffTheTopRules(dealOffTop);
-      } else {
-        setOffTheTopRules([]);
-      }
-
-      const dealPreSplits = dealCustomAttrs.preSplitRules || matched.preSplitRules;
-      if (Array.isArray(dealPreSplits)) {
-        setPreSplitRules(dealPreSplits);
-      } else {
-        setPreSplitRules([]);
-      }
-
-      const dealPostSplits = dealCustomAttrs.postSplitRulesByAgent || matched.postSplitRulesByAgent;
-      if (dealPostSplits && typeof dealPostSplits === 'object') {
-        setPostSplitRulesByAgent(dealPostSplits);
-      } else {
-        setPostSplitRulesByAgent({});
-      }
-
-      const dealPostSplits2 = dealCustomAttrs.postSplit2RulesByAgent || matched.postSplit2RulesByAgent;
-      if (dealPostSplits2 && typeof dealPostSplits2 === 'object') {
-        setPostSplit2RulesByAgent(dealPostSplits2);
-      } else {
-        setPostSplit2RulesByAgent({});
-      }
+      const waterfall = waterfallFromCommissionItems(
+        commissionItems,
+        knownAgents,
+        knownEntities,
+        foundAgent?.id || matched.agent_id || null,
+      );
+      setAgents(waterfall.agents);
+      setOffTheTopRules(waterfall.offTheTopRules);
+      setPreSplitRules(waterfall.preSplitRules);
+      setPostSplitRulesByAgent(waterfall.postSplitRulesByAgent);
+      setPostSplit2RulesByAgent(waterfall.postSplit2RulesByAgent);
 
       const clientLabel = matched.client_id ? `[${matched.client_id}] ` : '';
       setSearchQuery(`${clientLabel}${matched.id} — ${matched.property_address || ''}`);
     }
-  }, [routeId, isNewTransaction, savedDeals, knownAgents]);
+  }, [routeId, isNewTransaction, savedDeals, knownAgents, knownEntities, commissionItems, commissionItemsDealId]);
 
   const KNOWN_DB_COLUMNS = new Set([
     'id', 'client_id', 'tms_id', 'transaction_status', 'finance_status',
@@ -729,9 +732,8 @@ export default function Dashboard() {
               a.name.toLowerCase() === String(primaryAgent || '').toLowerCase() ||
               a.id === primaryAgent
           ) ||
-          (agents[0]?.id && knownAgents.find((a) => a.id === agents[0].id)) ||
           null;
-        return resolved?.id || formAgent || agents[0]?.id || selectedDeal?.agent_id || null;
+        return resolved?.id || formAgent || selectedDeal?.agent_id || primaryAgentId || null;
       })(),
       isa: form.isa ? (Array.isArray(form.isa) ? form.isa : [form.isa]) : (selectedDeal?.isa ?? null),
       transaction_coordinator: form.transaction_coordinator ? (Array.isArray(form.transaction_coordinator) ? form.transaction_coordinator : [form.transaction_coordinator]) : (selectedDeal?.transaction_coordinator ?? null),
@@ -744,11 +746,6 @@ export default function Dashboard() {
 
     const customAttrs: Record<string, any> = {
       ...(selectedDeal?.custom_attributes || {}),
-      agents,
-      offTheTopRules,
-      preSplitRules,
-      postSplitRulesByAgent,
-      postSplit2RulesByAgent,
     };
 
     // 🔍 LOG 2: Check payload sent to API
@@ -784,8 +781,6 @@ export default function Dashboard() {
           payee_type: 'ENTITY',
           payee_entity_id: matchedEntity?.id || null,
           agent_id: null,
-          is_primary: false,
-          calculated_amount: item.amount,
           final_amount: item.amount,
         };
       }),
@@ -807,14 +802,11 @@ export default function Dashboard() {
           payee_type: 'ENTITY',
           payee_entity_id: matchedEntity?.id || null,
           agent_id: null,
-          is_primary: false,
-          calculated_amount: item.amount,
           final_amount: item.amount,
         };
       }),
       ...dealResult.agentSplitItems.map((item: any, idx: number) => {
         const matchedAgent = knownAgents.find((a) => a.id === item.agentId || a.name === item.agentName);
-        const isPrimary = idx === 0 || item.isPrimary;
         const splitType = item.splitType || 'PERCENT';
         let cleanSplitVal: number | null = null;
 
@@ -832,7 +824,7 @@ export default function Dashboard() {
         }
 
         return {
-          step_number: 20 + idx + 1,
+          step_number: idx + 1,
           rule_name: `${item.agentName} Split`,
           section: 'AGENT_SPLIT',
           split_type: splitType,
@@ -841,8 +833,6 @@ export default function Dashboard() {
           payee_type: 'AGENT',
           payee_entity_id: null,
           agent_id: matchedAgent?.id || item.agentId || null,
-          is_primary: isPrimary,
-          calculated_amount: item.amount,
           final_amount: item.amount,
         };
       }),
@@ -865,8 +855,6 @@ export default function Dashboard() {
           payee_type: item.entity === 'Broker' || item.entity === 'Brokerage' ? 'BROKERAGE' : 'ENTITY',
           payee_entity_id: matchedEntity?.id || null,
           agent_id: matchedAgent?.id || item.agentId || null,
-          is_primary: false,
-          calculated_amount: item.amount,
           final_amount: item.amount,
         };
       }),
@@ -889,8 +877,6 @@ export default function Dashboard() {
           payee_type: 'ENTITY',
           payee_entity_id: matchedEntity?.id || null,
           agent_id: matchedAgent?.id || item.agentId || null,
-          is_primary: false,
-          calculated_amount: item.amount,
           final_amount: item.amount,
         };
       }),
@@ -899,7 +885,7 @@ export default function Dashboard() {
     // Build Final Disbursements & Payment Authorizations
     const currentAgentDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => agents.some((a) => a.name === e)) as [string, number][];
     const currentEntityDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => !agents.some((a) => a.name === e)) as [string, number][];
-    const primaryAgentName = agents[0]?.name || (typeof primaryAgent === 'string' ? primaryAgent : '') || 'Primary Agent';
+    const primaryAgentName = agents.find((agent) => isPrimaryAgent(agent, primaryAgentId))?.name || (typeof primaryAgent === 'string' ? primaryAgent : '') || 'Primary Agent';
 
     const paymentItems = [
       ...currentAgentDisbursements.map(([agentName, amount]) => {
@@ -932,14 +918,16 @@ export default function Dashboard() {
       }),
     ];
 
+    const templateSubmission = pendingTemplateSubmissionRef.current;
     const payload = {
       ...coreDbFields,
       commission_items: commissionItems,
       payments: paymentItems,
       custom_attributes: customAttrs,
+      ...(templateSubmission ? { template_submission: templateSubmission } : {}),
     };
 
-    saveTransaction(payload, activeClientId, showToast, (savedTxn) => {
+    saveTransaction(payload, activeClientId, showToast, (savedTxn, savedItems) => {
       // 🔍 LOG 3: Check what the backend returned
       console.log('--- SAVE STEP 3: API RESPONSE ---', {
         returned_list_date: savedTxn?.list_date,
@@ -949,7 +937,13 @@ export default function Dashboard() {
 
       if (!savedTxn) return;
 
+      if (Array.isArray(savedItems)) {
+        setCommissionItems(savedItems);
+        setCommissionItemsDealId(savedTxn.id);
+      }
+
       setHasUnsavedLocalChanges(false);
+      discardPendingTemplateSubmission();
       setSelectedDeal(savedTxn);
       setSavedDeals((current) => {
         const exists = current.some((deal) => deal.id === savedTxn.id);
@@ -978,6 +972,13 @@ export default function Dashboard() {
     );
   }, [knownAgents, agents]);
 
+  const discardPendingTemplateSubmission = () => {
+    if (!pendingTemplateSubmissionRef.current) return;
+    pendingTemplateSubmissionRef.current = null;
+    setPendingTemplateSubmission(null);
+    setTemplateSubmissionRevision((current) => current + 1);
+  };
+
   const handleDiscardChanges = () => {
     overviewForm.setIsEditingOverview(false);
     setIsEditingWaterfall(false);
@@ -986,6 +987,7 @@ export default function Dashboard() {
     setIsUnsavedModalOpen(false);
     pendingNavigationRef.current = null;
     setHasUnsavedLocalChanges(false);
+    discardPendingTemplateSubmission();
 
     if (isNewTransaction) {
       setSalesPrice(0);
@@ -1031,36 +1033,17 @@ export default function Dashboard() {
     setGciPerc(saved.gci_perc ? (Math.abs(Number(saved.gci_perc)) > 1 ? Number(saved.gci_perc) / 100 : Number(saved.gci_perc)) : 0);
     setGciType(saved.gci_type || 'PERCENTAGE');
 
-    const dealCustomAttrs = saved.custom_attributes || {};
-    const dealAgents = dealCustomAttrs.agents || saved.agents;
-    if (Array.isArray(dealAgents) && dealAgents.length > 0) {
-      setAgents(dealAgents.map((agent: AgentConfig) => ({ ...agent })));
-    } else if (rawAgent) {
-      setAgents([
-        {
-          id: foundAgent?.id || `A_${Date.now()}`,
-          name: agentDisplayName,
-          isTeamLead: foundAgent?.isTeamLead || false,
-          splitType: 'PERCENT',
-          splitVal: 1.0,
-          brokerCapLimit: foundAgent?.brokerCapLimit || 8000,
-          brokerCapPaidYTD: foundAgent?.brokerCapPaidYTD || 0,
-          riskCapLimit: foundAgent?.riskCapLimit || 750,
-          riskPaidYTD: foundAgent?.riskPaidYTD || 0,
-        },
-      ]);
-    } else {
-      setAgents([]);
-    }
-
-    const dealOffTop = dealCustomAttrs.offTheTopRules || saved.offTheTopRules;
-    setOffTheTopRules(Array.isArray(dealOffTop) ? cloneWaterfallRules(dealOffTop) : []);
-    const dealPreSplits = dealCustomAttrs.preSplitRules || saved.preSplitRules;
-    setPreSplitRules(Array.isArray(dealPreSplits) ? cloneWaterfallRules(dealPreSplits) : []);
-    const dealPostSplits = dealCustomAttrs.postSplitRulesByAgent || saved.postSplitRulesByAgent;
-    setPostSplitRulesByAgent(dealPostSplits && typeof dealPostSplits === 'object' ? cloneWaterfallRulesByAgent(dealPostSplits) : {});
-    const dealPostSplits2 = dealCustomAttrs.postSplit2RulesByAgent || saved.postSplit2RulesByAgent;
-    setPostSplit2RulesByAgent(dealPostSplits2 && typeof dealPostSplits2 === 'object' ? cloneWaterfallRulesByAgent(dealPostSplits2) : {});
+    const waterfall = waterfallFromCommissionItems(
+      commissionItems,
+      knownAgents,
+      knownEntities,
+      foundAgent?.id || saved.agent_id || null,
+    );
+    setAgents(waterfall.agents);
+    setOffTheTopRules(waterfall.offTheTopRules);
+    setPreSplitRules(waterfall.preSplitRules);
+    setPostSplitRulesByAgent(waterfall.postSplitRulesByAgent);
+    setPostSplit2RulesByAgent(waterfall.postSplit2RulesByAgent);
   };
 
   const requestNavigation = (navigate: () => void) => {
@@ -1081,6 +1064,7 @@ export default function Dashboard() {
     const navigate = pendingNavigationRef.current;
     pendingNavigationRef.current = null;
     setHasUnsavedLocalChanges(false);
+    discardPendingTemplateSubmission();
     setIsEditingWaterfall(false);
     setWaterfallEditSnapshot(null);
     overviewForm.setIsEditingOverview(false);
@@ -1285,10 +1269,10 @@ export default function Dashboard() {
                   id: newAgentInfo.id || `A_${Date.now()}`,
                   name: newAgentInfo.name,
                   isTeamLead: newAgentInfo.isTeamLead,
-                  brokerCapLimit: newAgentInfo.brokerCapLimit,
-                  brokerCapPaidYTD: newAgentInfo.brokerCapPaidYTD,
-                  riskCapLimit: newAgentInfo.riskCapLimit,
-                  riskPaidYTD: newAgentInfo.riskPaidYTD,
+                  brokerCapLimit: 0,
+                  brokerCapPaidYTD: 0,
+                  riskCapLimit: 0,
+                  riskPaidYTD: 0,
                 };
 
                 if (targetIndex === 0) {
@@ -1451,8 +1435,10 @@ export default function Dashboard() {
             clientId={selectedDeal?.client_id || 'DEMO'}
             transactionId={selectedDeal?.id || dealId || ''}
             deal={selectedDeal}
-            templateAgents={knownAgents.map((agent) => ({ id: agent.id, name: agent.name, isTeamLead: agent.isTeamLead }))}
+            templateAgents={knownAgents.map((agent) => ({ id: agent.id, name: agent.name, isTeamLead: agent.isTeamLead, clientId: agent.clientId, fields: agent.fields }))}
+            primaryAgentId={primaryAgentId}
             onApplyTemplate={handleApplyTemplateRules}
+            submissionRevision={templateSubmissionRevision}
           />
 
           <FinalDisbursements
@@ -1478,10 +1464,11 @@ export default function Dashboard() {
         isOpen={isTransferModalOpen}
         formerAgentName={transferInfo?.formerAgent || ''}
         newAgentName={transferInfo?.newAgent.name || ''}
-        primarySplitPercent={
-          agents[0]?.splitType === 'PERCENT'
-            ? agents[0].splitVal * 100
-            : (dealResult.agentSplitItems?.[0]?.percent || 1) * 100
+        primarySplitType={transferInfo?.splitType || 'PERCENT'}
+        primarySplitValue={
+          transferInfo?.splitType === 'AMOUNT'
+            ? (transferInfo.splitVal || 0)
+            : ((transferInfo?.splitVal || 0) > 1 ? (transferInfo?.splitVal || 0) : (transferInfo?.splitVal || 0) * 100)
         }
         level1RulesCount={(transferInfo && postSplitRulesByAgent[transferInfo.formerAgent]?.length) || 0}
         level2RulesCount={(transferInfo && postSplit2RulesByAgent[transferInfo.formerAgent]?.length) || 0}
@@ -1522,10 +1509,10 @@ export default function Dashboard() {
             isTeamLead: selected.isTeamLead,
             splitType: isFirstAgent ? 'PERCENT' : splitType,
             splitVal: isFirstAgent ? 100 : splitVal,
-            brokerCapLimit: selected.brokerCapLimit,
-            brokerCapPaidYTD: selected.brokerCapPaidYTD,
-            riskCapLimit: selected.riskCapLimit,
-            riskPaidYTD: selected.riskPaidYTD,
+            brokerCapLimit: 0,
+            brokerCapPaidYTD: 0,
+            riskCapLimit: 0,
+            riskPaidYTD: 0,
           };
 
           setAgents((prev) => {

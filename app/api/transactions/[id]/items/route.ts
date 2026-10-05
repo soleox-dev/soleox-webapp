@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { TransactionCommissionItem } from '@/types/schema';
 
 // GET: Fetch non-archived commission breakdown items for a specific transaction
 export async function GET(
@@ -22,15 +21,13 @@ export async function GET(
         transaction_id,
         submission_id,
         step_number,
-        rule_name,
         section,
+        split_type,
+        split_value,
         payee_type,
         payee_entity_id,
         agent_id,
-        calculated_amount,
-        final_amount,
-        is_manual_override,
-        override_reason
+        final_amount
       `)
       .eq('transaction_id', transactionId)
       .eq('client_id', clientId)
@@ -40,10 +37,12 @@ export async function GET(
     if (error) throw error;
 
     // Cast numeric fields explicitly to match your TransactionCommissionItem interface
-    const items: TransactionCommissionItem[] = (data || []).map((row: any) => ({
+    const items = (data || []).map((row: any) => ({
       ...row,
       step_number: Number(row.step_number || 0),
-      calculated_amount: Number(row.calculated_amount || 0),
+      split_value: row.split_value === null || row.split_value === undefined || row.split_value === ''
+        ? null
+        : Number(row.split_value),
       final_amount: Number(row.final_amount || 0),
     }));
 
@@ -73,10 +72,9 @@ export async function POST(
     const body = await request.json();
     const item = body.item || body;
 
-    // 1. Validation: Rule Name is required. ID is optional for new records.
-    if (!item || !item.rule_name) {
+    if (!item || item.step_number === undefined) {
       return NextResponse.json(
-        { error: 'Rule Name is required' },
+        { error: 'Step number is required' },
         { status: 400 }
       );
     }
@@ -91,15 +89,15 @@ export async function POST(
       transaction_id: String(transactionId),
       submission_id: item.submission_id ? String(item.submission_id) : null,
       step_number: item.step_number !== undefined ? Number(item.step_number) : 1,
-      rule_name: String(item.rule_name),
       section: item.section ? String(item.section) : null,
+      split_type: item.split_type ? String(item.split_type) : null,
+      split_value: item.split_value !== undefined && item.split_value !== null && item.split_value !== '' ? Number(item.split_value) : null,
       payee_type: String(item.payee_type || 'AGENT'),
       payee_entity_id: item.payee_entity_id ? String(item.payee_entity_id) : null,
       agent_id: item.agent_id ? String(item.agent_id) : null,
-      calculated_amount: item.calculated_amount !== undefined && item.calculated_amount !== '' ? Number(item.calculated_amount) : 0,
-      final_amount: item.final_amount !== undefined && item.final_amount !== '' ? Number(item.final_amount) : 0,
-      is_manual_override: Boolean(item.is_manual_override),
-      override_reason: item.override_reason ? String(item.override_reason) : null,
+      final_amount: item.final_amount !== undefined && item.final_amount !== ''
+        ? Number(item.final_amount)
+        : (item.calculated_amount !== undefined && item.calculated_amount !== '' ? Number(item.calculated_amount) : 0),
       archived: Boolean(item.archived),
       created_by: item.created_by || user,
       updated_at: new Date().toISOString(),

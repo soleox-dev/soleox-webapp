@@ -44,7 +44,7 @@ interface FieldConfig {
 }
 
 interface AgentRecord {
-  id: string;
+  id?: string;
   agent_name: string;
   agent_email: string;
   agent_status: string;
@@ -53,9 +53,6 @@ interface AgentRecord {
   office_location?: string;
   license_type?: string;
   is_team_lead?: boolean;
-  broker_cap_limit?: number;
-  broker_cap_paid_ytd?: number;
-  anniversary_date?: string;
   has_transactions?: boolean;
   [key: string]: any;
 }
@@ -285,12 +282,6 @@ export default function AgentsSettingsPage() {
         bVal = b.group_id || b.group || '';
       }
 
-      if (aVal === undefined && a.commission_attributes?.[sortField] !== undefined) {
-        aVal = a.commission_attributes[sortField];
-      }
-      if (bVal === undefined && b.commission_attributes?.[sortField] !== undefined) {
-        bVal = b.commission_attributes[sortField];
-      }
       if (aVal === undefined && a.custom_attributes?.[sortField] !== undefined) {
         aVal = a.custom_attributes[sortField];
       }
@@ -328,9 +319,6 @@ export default function AgentsSettingsPage() {
     const initialData: Partial<AgentRecord> = {
       agent_status: 'Active',
       is_team_lead: false,
-      broker_cap_limit: 8000,
-      broker_cap_paid_ytd: 0,
-      anniversary_date: '2026-01-01',
     };
     activeConfigs.forEach((cfg) => {
       if (cfg.dropdown_options && cfg.dropdown_options.length > 0) {

@@ -8,22 +8,19 @@ import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useSoleoxTheme } from '@/app/providers';
 import { SoleoxLogo } from '@/components/ui/logo';
-import { ClipboardList, House, Settings } from 'lucide-react';
+import { House, List, Monitor, Moon, Settings, Sun, type LucideIcon } from 'lucide-react';
+import type { ThemePreference } from '@/app/providers';
 
 export default function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const { theme, toggleTheme } = useSoleoxTheme();
+  const { theme, setTheme } = useSoleoxTheme();
 
-  const themeButtonLabel =
-    theme === 'light' ? 'Theme: Light (click for Dark)' :
-    theme === 'dark' ? 'Theme: Dark (click for System)' :
-    'Theme: System (click for Light)';
-
-  const themeButtonIcon =
-    theme === 'light' ? '☀️' :
-    theme === 'dark' ? '🌙' :
-    '💻';
+  const themeOptions: { id: ThemePreference; label: string; icon: LucideIcon }[] = [
+    { id: 'light', label: 'Light', icon: Sun },
+    { id: 'dark', label: 'Dark', icon: Moon },
+    { id: 'system', label: 'System', icon: Monitor },
+  ];
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -113,7 +110,7 @@ export default function Navbar() {
                     : 'bg-slate-100 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <ClipboardList className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Transactions
+                <List className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Transactions
               </Link>
 
               <Link
@@ -133,17 +130,6 @@ export default function Navbar() {
           {!isMainMenu && (
             <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 my-auto" />
           )}
-
-          {/* Theme Toggle Button: Light → Dark → System */}
-          <button
-            onClick={toggleTheme}
-            aria-label={themeButtonLabel}
-            title={themeButtonLabel}
-            suppressHydrationWarning
-            className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-amber-500 dark:text-amber-300 flex items-center justify-center transition cursor-pointer"
-          >
-            <span suppressHydrationWarning>{themeButtonIcon}</span>
-          </button>
 
           {/* User Badge & Sign Out Dropdown */}
           <div className="relative" ref={dropdownRef}>
@@ -165,6 +151,30 @@ export default function Navbar() {
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
                     {session?.user?.email || 'user@soleox.com'}
                   </p>
+                </div>
+
+                <div className="py-1 border-b border-slate-100 dark:border-slate-800">
+                  <p className="px-4 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Theme</p>
+                  {themeOptions.map((option) => {
+                    const Icon = option.icon;
+                    const selected = theme === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setTheme(option.id)}
+                        aria-pressed={selected}
+                        className={`w-full text-left px-4 py-2 text-xs font-semibold flex items-center gap-2 transition cursor-pointer ${
+                          selected
+                            ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-500/10'
+                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+                        {option.label}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Sign Out Trigger */}

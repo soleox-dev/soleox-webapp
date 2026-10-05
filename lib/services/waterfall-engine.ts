@@ -94,14 +94,11 @@ export function calculateWaterfall(
       transaction_id: transaction.id,
       submission_id: submissionId,
       step_number: step.step_number,
-      rule_name: step.rule_name,
       section: step.section,
       payee_type: payeeType,
       payee_entity_id: payeeEntityId,
       agent_id: agentId,
-      calculated_amount: calculatedAmount,
-      final_amount: calculatedAmount, // Initially matches calculated amount until manual override
-      is_manual_override: false,
+      final_amount: calculatedAmount,
       archived: false,
     });
   }

@@ -1,3 +1,4 @@
+import { FORMULA_LOOKUP_TABLES } from '@/lib/formula-lookup-tables';
 import { readExcelString } from './formula-validator';
 
 export type FormulaValue =
@@ -306,6 +307,40 @@ function columnRef(expr: Expr): { table: string; field: string } | null {
   return { table, field };
 }
 
+const LOOKUP_TABLES = new Set<string>(FORMULA_LOOKUP_TABLES);
+
+function visitFormula(expr: Expr, visit: (node: Expr) => void) {
+  visit(expr);
+  if (expr.kind === 'call') expr.args.forEach((arg) => visitFormula(arg, visit));
+  else if (expr.kind === 'unary') visitFormula(expr.expr, visit);
+  else if (expr.kind === 'binary') {
+    visitFormula(expr.left, visit);
+    visitFormula(expr.right, visit);
+  }
+}
+
+/** Tables an XLOOKUP reads, and whether any formula sums the commission ledger. */
+export function formulaDataNeeds(sources: string[]): { lookupTables: string[]; needsLedger: boolean } {
+  const tables = new Set<string>();
+  let needsLedger = false;
+  for (const source of sources) {
+    const body = source.trim().replace(/^=/, '').trim();
+    if (!body) continue;
+    const expr = parseFormula(body);
+    if (!expr) return { lookupTables: [...FORMULA_LOOKUP_TABLES], needsLedger: true };
+    visitFormula(expr, (node) => {
+      if (node.kind !== 'call') return;
+      if (node.name === 'SUMIFS' || node.name === 'COUNTIFS') needsLedger = true;
+      if (node.name !== 'XLOOKUP') return;
+      for (const arg of [node.args[1], node.args[2]]) {
+        const ref = arg ? columnRef(arg) : null;
+        if (ref && LOOKUP_TABLES.has(ref.table)) tables.add(ref.table);
+      }
+    });
+  }
+  return { lookupTables: [...tables].sort(), needsLedger };
+}
+
 function valuesEqual(left: FormulaValue, right: FormulaValue): boolean {
   if (left.type === 'error' || right.type === 'error') return false;
   if (left.type === 'boolean' || right.type === 'boolean') {
@@ -328,13 +363,131 @@ export interface FormulaAgent {
   id: string;
   name: string;
   isTeamLead?: boolean;
+  clientId?: string;
+  fields?: Record<string, string>;
 }
 
-function agentField(agent: FormulaAgent, field: string): FormulaValue {
-  if (field === 'id') return agent.id ? { type: 'text', value: agent.id } : { type: 'blank' };
-  if (field === 'agent_name' || field === 'name') return agent.name ? { type: 'text', value: agent.name } : { type: 'blank' };
-  if (field === 'is_team_lead') return { type: 'boolean', value: Boolean(agent.isTeamLead) };
-  return { type: 'error' };
+export interface FormulaLedgerRow {
+  fields: Record<string, string>;
+}
+
+export type FormulaLookupCell = string | number | boolean;
+
+export interface FormulaLookupRow {
+  clientId: string;
+  fields: Record<string, FormulaLookupCell>;
+}
+
+export interface FormulaLookups {
+  clientId: string;
+  tables: Record<string, FormulaLookupRow[]>;
+}
+
+function calendarDay(value: string): string | null {
+  const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : null;
+}
+
+function criteriaMatches(cell: string, criteria: FormulaValue): boolean {
+  const text = asText(criteria);
+  if (text === null) return false;
+  const operator = text.match(/^(<=|>=|<>|<|>|=)\s*([\s\S]*)$/);
+  if (operator) {
+    const raw = operator[2];
+    const cellNumber = Number(cell.replace(/[$,]/g, ''));
+    const rawNumber = Number(raw.replace(/[$,]/g, ''));
+    const bothNumeric = cell.trim() !== '' && raw.trim() !== '' && Number.isFinite(cellNumber) && Number.isFinite(rawNumber) && !/[^\d.,$-]/.test(cell) && !/[^\d.,$%-]/.test(raw);
+    const cellDay = calendarDay(cell);
+    const rawDay = calendarDay(raw);
+    const left: FormulaValue = bothNumeric
+      ? { type: 'number', value: cellNumber }
+      : { type: 'text', value: cellDay && rawDay ? cellDay : cell };
+    const right: FormulaValue = bothNumeric
+      ? { type: 'number', value: rawNumber }
+      : raw === ''
+        ? { type: 'blank' }
+        : { type: 'text', value: cellDay && rawDay ? rawDay : raw };
+    const result = compare(left, operator[1], right);
+    return result.type === 'boolean' && result.value;
+  }
+  if (criteria.type === 'number' || criteria.type === 'percent') {
+    const amount = Number(cell.replace(/[$,]/g, ''));
+    return Number.isFinite(amount) && amount === criteria.value;
+  }
+  return valuesEqual(cell === '' ? { type: 'blank' } : { type: 'text', value: cell }, criteria);
+}
+
+function sumIfs(rawArgs: Expr[], visit: (expr: Expr) => FormulaValue, ledger: FormulaLedgerRow[]): FormulaValue {
+  if (rawArgs.length < 3 || (rawArgs.length - 1) % 2 !== 0) return { type: 'error' };
+  const sumColumn = columnRef(rawArgs[0]);
+  if (!sumColumn) return { type: 'error' };
+  const sumKey = `${sumColumn.table}.${sumColumn.field}`;
+  const filters: { key: string; criteria: FormulaValue }[] = [];
+  for (let index = 1; index < rawArgs.length; index += 2) {
+    const range = columnRef(rawArgs[index]);
+    if (!range) return { type: 'error' };
+    const criteria = visit(rawArgs[index + 1]);
+    if (criteria.type === 'error') return { type: 'error' };
+    filters.push({ key: `${range.table}.${range.field}`, criteria });
+  }
+  if (ledger.length > 0 && ledger.every((row) => row.fields[sumKey] === undefined)) return { type: 'error' };
+  let total = 0;
+  for (const row of ledger) {
+    if (!filters.every((filter) => criteriaMatches(row.fields[filter.key] ?? '', filter.criteria))) continue;
+    const amount = Number(String(row.fields[sumKey] ?? '').replace(/[$,]/g, ''));
+    if (Number.isFinite(amount)) total += amount;
+  }
+  return { type: 'number', value: total };
+}
+
+function lookupCell(cell: FormulaLookupCell | undefined): FormulaValue {
+  if (cell === undefined || cell === '') return { type: 'blank' };
+  if (typeof cell === 'boolean') return { type: 'boolean', value: cell };
+  if (typeof cell === 'number') return { type: 'number', value: cell };
+  return { type: 'text', value: cell };
+}
+
+function agentsAsLookup(agents: FormulaAgent[], clientId: string): FormulaLookupRow[] {
+  const rows: FormulaLookupRow[] = [];
+  for (const agent of agents) {
+    if (!clientId || agent.clientId !== clientId) continue;
+    const fields: Record<string, FormulaLookupCell> = { ...(agent.fields || {}) };
+    if (agent.id) fields.id = agent.id;
+    if (agent.name) {
+      fields.agent_name = agent.name;
+      fields.name = agent.name;
+    }
+    fields.is_team_lead = Boolean(agent.isTeamLead);
+    fields.client_id = agent.clientId;
+    rows.push({ clientId: agent.clientId, fields });
+  }
+  return rows;
+}
+
+function lookupRows(table: string, agents: FormulaAgent[], lookups?: FormulaLookups): FormulaLookupRow[] {
+  const clientId = lookups?.clientId?.trim() || '';
+  if (!clientId) return [];
+  const provided = lookups?.tables?.[table];
+  const rows = provided ?? (table === 'agents' ? agentsAsLookup(agents, clientId) : []);
+  return rows.filter((row) => row.clientId === clientId);
+}
+
+function namedAgentMatch(row: FormulaLookupRow, lookup: FormulaValue): boolean {
+  return lookup.type === 'text'
+    && typeof row.fields.agent_name === 'string'
+    && row.fields.agent_name.toLowerCase() === lookup.value.toLowerCase();
+}
+
+function chooseNamedAgent(
+  keyColumn: { table: string; field: string },
+  lookup: FormulaValue,
+  rows: FormulaLookupRow[],
+): FormulaLookupRow | undefined {
+  if (keyColumn.table !== 'agents' || keyColumn.field !== 'id' || lookup.type !== 'text') return undefined;
+  const named = rows.filter((row) => namedAgentMatch(row, lookup));
+  const active = named.filter((row) => row.fields.archived !== true);
+  const pool = active.length > 0 ? active : named;
+  return [...pool].sort((a, b) => String(b.fields.created_at || '').localeCompare(String(a.fields.created_at || '')))[0];
 }
 
 function callFunction(
@@ -343,6 +496,8 @@ function callFunction(
   rawArgs: Expr[],
   evalExpr: (expr: Expr) => FormulaValue,
   agents: FormulaAgent[],
+  ledger: FormulaLedgerRow[],
+  lookups?: FormulaLookups,
 ): FormulaValue {
   if (name === 'IF') {
     if (rawArgs.length !== 3) return { type: 'error' };
@@ -359,6 +514,16 @@ function callFunction(
       if (truth) sawTrue = true;
     }
     return { type: 'boolean', value: name === 'AND' ? true : sawTrue };
+  }
+  if (name === 'MIN' || name === 'MAX') {
+    if (args.length === 0) return { type: 'error' };
+    const amounts: number[] = [];
+    for (const arg of args) {
+      const amount = asNumber(arg);
+      if (amount === null) return { type: 'error' };
+      amounts.push(amount);
+    }
+    return { type: 'number', value: name === 'MIN' ? Math.min(...amounts) : Math.max(...amounts) };
   }
   if (name === 'ISNUMBER') {
     const value = args[0];
@@ -407,20 +572,26 @@ function callFunction(
     const keyColumn = rawArgs[1] ? columnRef(rawArgs[1]) : null;
     const returnColumn = rawArgs[2] ? columnRef(rawArgs[2]) : null;
     const lookup = args[0];
-    if (!lookup || !keyColumn || !returnColumn || keyColumn.table !== 'agents' || returnColumn.table !== 'agents') {
+    if (!lookup || !keyColumn || !returnColumn || keyColumn.table !== returnColumn.table) {
       return { type: 'error' };
     }
-    const match = agents.find((agent) => {
-      if (valuesEqual(lookup, agentField(agent, keyColumn.field))) return true;
-      return keyColumn.field === 'id' && lookup.type === 'text' && agent.name.toLowerCase() === lookup.value.toLowerCase();
-    });
-    if (!match) return { type: 'error' };
-    return agentField(match, returnColumn.field);
+    const rows = lookupRows(keyColumn.table, agents, lookups);
+    const exact = rows.find((row) => valuesEqual(lookup, lookupCell(row.fields[keyColumn.field])));
+    const match = exact ?? chooseNamedAgent(keyColumn, lookup, rows);
+    if (!match || !Object.prototype.hasOwnProperty.call(match.fields, returnColumn.field)) return { type: 'error' };
+    return lookupCell(match.fields[returnColumn.field]);
   }
+  if (name === 'SUMIFS') return sumIfs(rawArgs, evalExpr, ledger);
   return { type: 'error' };
 }
 
-function evaluateExpr(expr: Expr, resolveName: (name: string) => FormulaValue, agents: FormulaAgent[]): FormulaValue {
+function evaluateExpr(
+  expr: Expr,
+  resolveName: (name: string) => FormulaValue,
+  agents: FormulaAgent[],
+  ledger: FormulaLedgerRow[],
+  lookups?: FormulaLookups,
+): FormulaValue {
   const visit = (node: Expr): FormulaValue => {
     if (node.kind === 'number') return { type: 'number', value: node.value };
     if (node.kind === 'percent') return { type: 'percent', value: node.value };
@@ -454,9 +625,9 @@ function evaluateExpr(expr: Expr, resolveName: (name: string) => FormulaValue, a
       const value = node.op === '+' ? left + right : node.op === '-' ? left - right : node.op === '*' ? left * right : left / right;
       return { type: 'number', value };
     }
-    if (node.name === 'IF') return callFunction(node.name, [], node.args, visit, agents);
+    if (node.name === 'IF' || node.name === 'SUMIFS') return callFunction(node.name, [], node.args, visit, agents, ledger, lookups);
     const args = node.args.map((arg) => visit(arg));
-    return callFunction(node.name, args, node.args, visit, agents);
+    return callFunction(node.name, args, node.args, visit, agents, ledger, lookups);
   };
   return visit(expr);
 }
@@ -465,12 +636,14 @@ export function evaluateFormula(
   source: string,
   resolveName: (name: string) => FormulaValue,
   agents: FormulaAgent[] = [],
+  ledger: FormulaLedgerRow[] = [],
+  lookups?: FormulaLookups,
 ): FormulaValue | null {
   const body = source.trim().replace(/^=/, '').trim();
   if (!body) return { type: 'blank' };
   const expr = parseFormula(body);
   if (!expr) return null;
-  return evaluateExpr(expr, resolveName, agents);
+  return evaluateExpr(expr, resolveName, agents, ledger, lookups);
 }
 
 export function formulaValueToInput(value: FormulaValue, dataType?: string | null): string {

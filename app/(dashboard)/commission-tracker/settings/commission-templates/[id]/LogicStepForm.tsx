@@ -15,6 +15,9 @@ export interface LogicStepDraft {
   payee_formula: string;
   custom_baseline: string;
   calculation_formula: string;
+  split_type: 'PERCENT' | 'AMOUNT';
+  show_in_popup: boolean;
+  popup_section: string;
 }
 
 interface LogicStepFormProps {
@@ -26,6 +29,7 @@ interface LogicStepFormProps {
   formulaNames: FormulaName[];
   fieldGroups: { id: string; title: string; fields: FormulaName[] }[];
   ruleFields: FormulaName[];
+  popupSections?: string[];
   onChange: (draft: LogicStepDraft) => void;
   onCancel: () => void;
   onSubmit: (event: React.FormEvent) => void;
@@ -37,6 +41,7 @@ export const LOGIC_SECTIONS = [
   'Agent Splits',
   'Level 1 Post-splits',
   'Level 2 Post-splits',
+  'Calculation',
 ] as const;
 
 export function canonicalLogicSection(value: string): string {
@@ -46,15 +51,20 @@ export function canonicalLogicSection(value: string): string {
   if (key === 'agentsplit' || key === 'agentsplits') return 'Agent Splits';
   if (key === 'postsplit' || key === 'postsplits' || key === 'level1' || key === 'level1postsplit' || key === 'level1postsplits') return 'Level 1 Post-splits';
   if (key === 'postsplit2' || key === 'level2' || key === 'level2postsplit' || key === 'level2postsplits') return 'Level 2 Post-splits';
+  if (key === 'calculation' || key === 'nosection') return 'Calculation';
   return LOGIC_SECTIONS.includes(value as (typeof LOGIC_SECTIONS)[number]) ? value : '';
 }
 
+export function logicSectionPostsSplit(section: string): boolean {
+  return Boolean(section) && section !== 'Calculation';
+}
+
 export function logicSectionShowsAgent(section: string): boolean {
-  return section !== 'Off-the-top' && section !== 'Pre-splits';
+  return logicSectionPostsSplit(section) && section !== 'Off-the-top' && section !== 'Pre-splits';
 }
 
 export function logicSectionShowsEntity(section: string): boolean {
-  return section !== 'Agent Splits';
+  return logicSectionPostsSplit(section) && section !== 'Agent Splits';
 }
 
 export function ruleKeyFromName(name: string): string {
@@ -71,8 +81,22 @@ const underlineControl =
 const fieldColumn = 'w-full max-w-[39rem]';
 
 export const logicContextNames: FormulaName[] = [
-  { name: 'baseline', label: 'Baseline', kind: 'field' },
+  { name: 'baseline_after_off_the_top', label: 'Balance after off-the-top', kind: 'field' },
+  { name: 'baseline_after_pre_splits', label: 'Balance after pre-splits', kind: 'field' },
+  { name: 'baseline_after_agent_splits', label: "Agent's split", kind: 'field' },
+  { name: 'baseline_after_l1_post_splits', label: "Agent's net after Level 1 post-splits", kind: 'field' },
+  { name: 'baseline', label: 'Section baseline', kind: 'field' },
   { name: 'prior_amounts', label: 'Earlier amounts in this section', kind: 'field' },
+];
+
+export const ledgerFormulaNames: FormulaName[] = [
+  { name: 'transaction_commission_items.final_amount', label: 'Commission line amount', kind: 'field' },
+  { name: 'transaction_commission_items.agent_id', label: 'Commission line agent', kind: 'field' },
+  { name: 'transaction_commission_items.payee_entity_id', label: 'Commission line entity id', kind: 'field' },
+  { name: 'commission_entities.entity_name', label: 'Commission entity name', kind: 'field' },
+  { name: 'commission_entities.id', label: 'Commission entity id', kind: 'field' },
+  { name: 'transactions.closing_date', label: 'Other deal closing date', kind: 'field' },
+  { name: 'transactions.transaction_status', label: 'Other deal status', kind: 'field' },
 ];
 
 function FieldChevron() {
@@ -96,18 +120,21 @@ export function LogicStepForm({
   formulaNames,
   fieldGroups,
   ruleFields,
+  popupSections = [],
   onChange,
   onCancel,
   onSubmit,
 }: LogicStepFormProps) {
   const [showFieldCards, setShowFieldCards] = useState(false);
-  const showAgent = Boolean(draft.section) && logicSectionShowsAgent(draft.section);
-  const showEntity = Boolean(draft.section) && logicSectionShowsEntity(draft.section);
-  const priorAmounts = logicContextNames.filter((name) => name.name === 'prior_amounts');
+  const [showCustomBaseline, setShowCustomBaseline] = useState(Boolean(draft.custom_baseline.trim()));
+  const section = canonicalLogicSection(draft.section);
+  const postsSplit = logicSectionPostsSplit(section);
+  const showAgent = logicSectionShowsAgent(section);
+  const showEntity = logicSectionShowsEntity(section);
   const sharedGroups = [
     ...fieldGroups,
     { id: 'rules', title: 'Logic rules', fields: ruleFields },
-    { id: 'rule', title: 'This rule', fields: priorAmounts },
+    { id: 'rule', title: 'This rule', fields: logicContextNames },
   ];
   const transactionChoices = fieldGroups.find((group) => group.id === 'transactions')?.fields || [];
   const parameterChoices = fieldGroups.find((group) => group.id === 'parameters')?.fields || [];
@@ -117,10 +144,11 @@ export function LogicStepForm({
     { id: 'rules', title: 'Logic rules', fields: ruleFields },
   ].filter((group) => group.fields.length > 0);
   const knownAgentKeys = new Set(agentChoices.flatMap((group) => group.fields.map((field) => field.name)));
-  const amountNames = [...formulaNames, ...ruleFields, ...logicContextNames];
+  const amountNames = [...formulaNames, ...ruleFields, ...logicContextNames, ...ledgerFormulaNames];
   const amountGroups = [
     ...fieldGroups,
     { id: 'rules', title: 'Logic rules', fields: ruleFields },
+    { id: 'ledger', title: 'Other deals', fields: ledgerFormulaNames },
     { id: 'rule', title: 'This rule', fields: logicContextNames },
   ];
 
@@ -171,23 +199,7 @@ export function LogicStepForm({
                 className={`${underlineControl} font-mono !text-sky-700 dark:!text-sky-300`}
               />
             </label>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">Other rules read this key to use the amount this rule calculates.</p>
-          </div>
-
-          <div className="space-y-1">
-            <div className={`${fieldColumn} space-y-1`}>
-              <p className={underlineLabel}>Condition</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">Leave blank to always apply this rule. Otherwise write the formula that must be true.</p>
-            </div>
-            <FormulaEditor
-              value={draft.apply_condition}
-              onChange={(apply_condition) => onChange({ ...draft, apply_condition })}
-              names={[...formulaNames, ...ruleFields, ...priorAmounts]}
-              fieldGroups={sharedGroups}
-              fieldsAside
-              fieldsOpen={showFieldCards}
-              showFieldsToggle={false}
-            />
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">Other rules read this key to use the result this rule calculates.</p>
           </div>
 
           <label className={`${underlineShell} ${fieldColumn}`}>
@@ -201,6 +213,60 @@ export function LogicStepForm({
             </ClearableSelect>
             <FieldChevron />
           </label>
+          <p className={`${fieldColumn} text-[11px] text-slate-500 dark:text-slate-400`}>Choose Calculation when this rule only stores a value for another rule. It does not post a commission split.</p>
+          {!postsSplit && (
+            <>
+              <label className={`${fieldColumn} flex items-start gap-2 text-xs font-bold text-slate-700 dark:text-slate-300`}>
+                <input
+                  type="checkbox"
+                  checked={draft.show_in_popup}
+                  onChange={(event) => onChange({
+                    ...draft,
+                    show_in_popup: event.target.checked,
+                    popup_section: event.target.checked ? draft.popup_section : '',
+                  })}
+                  className="mt-0.5"
+                />
+                <span>
+                  Show this result when the template is applied
+                  <span className="mt-1 block text-[11px] font-medium text-slate-500 dark:text-slate-400">The value appears in the template popup so the user can see how later rules were calculated.</span>
+                </span>
+              </label>
+              {draft.show_in_popup && (
+                <label className={`${underlineShell} ${fieldColumn}`}>
+                  <span className={underlineLabel}>Popup section</span>
+                  <input
+                    value={draft.popup_section}
+                    onChange={(event) => onChange({ ...draft, popup_section: event.target.value })}
+                    list="logic-popup-sections"
+                    placeholder="Example: Broker cap"
+                    className={underlineControl}
+                  />
+                  <datalist id="logic-popup-sections">
+                    {popupSections.map((name) => <option key={name} value={name} />)}
+                  </datalist>
+                </label>
+              )}
+            </>
+          )}
+
+          {postsSplit && (
+            <div className="space-y-1">
+              <div className={`${fieldColumn} space-y-1`}>
+                <p className={underlineLabel}>Condition</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Leave blank to always apply this rule. Otherwise write the formula that must be true.</p>
+              </div>
+              <FormulaEditor
+                value={draft.apply_condition}
+                onChange={(apply_condition) => onChange({ ...draft, apply_condition })}
+                names={[...formulaNames, ...ruleFields, ...logicContextNames]}
+                fieldGroups={sharedGroups}
+                fieldsAside
+                fieldsOpen={showFieldCards}
+                showFieldsToggle={false}
+              />
+            </div>
+          )}
 
           {showAgent && (
             <div className={`${fieldColumn} space-y-1`}>
@@ -255,7 +321,7 @@ export function LogicStepForm({
                   <FormulaEditor
                     value={draft.payee_formula}
                     onChange={(payee_formula) => onChange({ ...draft, payee_formula })}
-                    names={[...formulaNames, ...ruleFields, ...priorAmounts]}
+                    names={[...formulaNames, ...ruleFields, ...logicContextNames]}
                     fieldGroups={sharedGroups}
                     fieldsAside
                     fieldsOpen={showFieldCards}
@@ -279,25 +345,42 @@ export function LogicStepForm({
           )}
 
           <div className="space-y-1">
-            <div className={`${fieldColumn} space-y-1`}>
-              <p className={underlineLabel}>Custom baseline</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">Optional formula for the amount this rule starts from. Leave blank to use the commission remaining in the section. The amount formula can refer to baseline.</p>
-            </div>
-            <FormulaEditor
-              value={draft.custom_baseline}
-              onChange={(custom_baseline) => onChange({ ...draft, custom_baseline })}
-              names={[...formulaNames, ...ruleFields, ...priorAmounts]}
-              fieldGroups={sharedGroups}
-              fieldsAside
-              fieldsOpen={showFieldCards}
-              showFieldsToggle={false}
-            />
+            <label className={`${fieldColumn} flex items-start gap-2 text-xs font-bold text-slate-700 dark:text-slate-300`}>
+              <input
+                type="checkbox"
+                checked={showCustomBaseline}
+                onChange={(event) => {
+                  const open = event.target.checked;
+                  setShowCustomBaseline(open);
+                  if (!open) onChange({ ...draft, custom_baseline: '' });
+                }}
+                className="mt-0.5"
+              />
+              <span>
+                Custom baseline
+                <span className="mt-1 block text-[11px] font-medium text-slate-500 dark:text-slate-400">Optional. Leave this off and use a named baseline in the formula.</span>
+              </span>
+            </label>
+            {showCustomBaseline && (
+              <>
+                <p className={`${fieldColumn} text-[11px] text-slate-500 dark:text-slate-400`}>Formula for the amount this rule starts from. The amount formula can refer to that result as baseline.</p>
+                <FormulaEditor
+                  value={draft.custom_baseline}
+                  onChange={(custom_baseline) => onChange({ ...draft, custom_baseline })}
+                  names={[...formulaNames, ...ruleFields, ...logicContextNames]}
+                  fieldGroups={sharedGroups}
+                  fieldsAside
+                  fieldsOpen={showFieldCards}
+                  showFieldsToggle={false}
+                />
+              </>
+            )}
           </div>
 
           <div className="space-y-1">
             <div className={`${fieldColumn} space-y-1`}>
               <p className={underlineLabel}>Formula</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">How the amount is calculated. baseline is the custom baseline when one is set, otherwise the commission remaining in the section.</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">How the amount is calculated. Use baseline_after_off_the_top, baseline_after_pre_splits, baseline_after_agent_splits, or baseline_after_l1_post_splits. baseline is the section default, or the custom baseline when one is set.</p>
             </div>
             <FormulaEditor
               value={draft.calculation_formula}
@@ -309,6 +392,24 @@ export function LogicStepForm({
               showFieldsToggle={false}
             />
           </div>
+
+          {postsSplit && (
+            <>
+              <label className={`${underlineShell} ${fieldColumn}`}>
+                <span className={underlineLabel}>Split type</span>
+                <ClearableSelect
+                  value={draft.split_type}
+                  onChange={(event) => onChange({ ...draft, split_type: event.target.value === 'PERCENT' ? 'PERCENT' : 'AMOUNT' })}
+                  className={`${underlineControl} overview-field-select cursor-pointer`}
+                >
+                  <option value="AMOUNT">Amount</option>
+                  <option value="PERCENT">Percent</option>
+                </ClearableSelect>
+                <FieldChevron />
+              </label>
+              <p className={`${fieldColumn} text-[11px] text-slate-500 dark:text-slate-400`}>Percent converts the formula result into a share of this section&apos;s pool. Amount keeps it in dollars.</p>
+            </>
+          )}
         </div>
         <div className="shrink-0 flex justify-end gap-2 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
           <button type="button" onClick={onCancel} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer">Cancel</button>
