@@ -1073,6 +1073,17 @@ export default function Dashboard() {
     );
   }, [knownAgents, agents]);
 
+  const templateAgentRoster = useMemo(
+    () => knownAgents.map((agent) => ({
+      id: agent.id,
+      name: agent.name,
+      isTeamLead: agent.isTeamLead,
+      clientId: agent.clientId,
+      fields: agent.fields,
+    })),
+    [knownAgents],
+  );
+
   const handleResetWaterfall = () => {
     const named = String(primaryAgent || '').trim();
     const known = knownAgents.find((agent) =>
@@ -1612,7 +1623,7 @@ export default function Dashboard() {
             clientId={selectedDeal?.client_id || 'DEMO'}
             transactionId={selectedDeal?.id || dealId || ''}
             deal={selectedDeal}
-            templateAgents={knownAgents.map((agent) => ({ id: agent.id, name: agent.name, isTeamLead: agent.isTeamLead, clientId: agent.clientId, fields: agent.fields }))}
+            templateAgents={templateAgentRoster}
             primaryAgentId={primaryAgentId}
             onApplyTemplate={handleApplyTemplateRules}
             onSubmissionDeleted={handleTemplateSubmissionDeleted}

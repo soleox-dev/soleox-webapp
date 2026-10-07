@@ -184,6 +184,12 @@ export function applyTemplateLogic({
   const post2Sums: Record<string, number> = {};
 
   const ruleResults: Record<string, FormulaValue> = {};
+  const suppressedKeys = new Set<string>();
+  let touchedSuppressed = false;
+  const suppress = (ruleKey: string | null | undefined) => {
+    const key = ruleKey?.trim().toLowerCase();
+    if (key) suppressedKeys.add(key);
+  };
   const parties = [...dealAgents, ...rosterAgents];
   const context = {
     baseline: 0,
@@ -203,7 +209,11 @@ export function applyTemplateLogic({
     if (key === 'prior_amounts') return { type: 'number', value: context.prior };
     if (key === 'total_commission') return { type: 'number', value: totalCommission };
     const ruleHit = Object.keys(ruleResults).find((ruleKey) => ruleKey.toLowerCase() === key);
-    if (ruleHit) return ruleResults[ruleHit];
+    if (ruleHit) {
+      const stored = ruleResults[ruleHit];
+      if (stored.type === 'error' && suppressedKeys.has(ruleHit.toLowerCase())) touchedSuppressed = true;
+      return stored;
+    }
     if (Object.prototype.hasOwnProperty.call(parameters, key) || parameters[key] !== undefined) {
       const match = Object.keys(parameters).find((parameterKey) => parameterKey.toLowerCase() === key);
       if (match !== undefined) {
@@ -247,24 +257,27 @@ export function applyTemplateLogic({
 
   const calculations: AppliedCalculation[] = [];
   let previousShown: { step: TemplateLogicStep; error?: string } | null = null;
+  const isCalculationStep = (step: TemplateLogicStep) => {
+    const sectionKey = (step.section || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    return sectionKey === 'calculation' || sectionKey === 'nosection';
+  };
+  const shownInPopup = (step: TemplateLogicStep) => {
+    if (!step.show_in_popup) return false;
+    const showWhen = (step.show_when_formula || '').trim();
+    if (!showWhen) return true;
+    try {
+      const result = evaluateFormula(showWhen, resolve, rosterAgents, ledger, lookups);
+      if (result?.type === 'boolean') return result.value;
+      if (result?.type === 'number' || result?.type === 'percent') return result.value !== 0;
+      return false;
+    } catch {
+      return false;
+    }
+  };
   const flushShown = () => {
     const pending = previousShown;
     previousShown = null;
-    if (!pending?.step.show_in_popup) return;
-    const showWhen = (pending.step.show_when_formula || '').trim();
-    if (showWhen) {
-      try {
-        const result = evaluateFormula(showWhen, resolve, rosterAgents, ledger, lookups);
-        const visible = result?.type === 'boolean'
-          ? result.value
-          : result?.type === 'number' || result?.type === 'percent'
-            ? result.value !== 0
-            : false;
-        if (!visible) return;
-      } catch {
-        return;
-      }
-    }
+    if (!pending || !shownInPopup(pending.step)) return;
     const key = pending.step.rule_key?.trim();
     const stored = key ? ruleResults[key] : undefined;
     calculations.push({
@@ -446,11 +459,19 @@ export function applyTemplateLogic({
   for (const step of ordered) {
     flushShown();
     previousShown = { step };
+    touchedSuppressed = false;
     try {
       runStep(step);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not calculate.';
       previousShown = { step, error: message };
+      const failedFromHidden = touchedSuppressed;
+      const shown = shownInPopup(step);
+      if ((isCalculationStep(step) && !shown) || (failedFromHidden && !shown)) {
+        rememberValue(step.rule_key, { type: 'error' });
+        suppress(step.rule_key);
+        continue;
+      }
       if (!continueOnError) throw error;
     }
   }

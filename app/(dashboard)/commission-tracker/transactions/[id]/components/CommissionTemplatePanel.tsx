@@ -1393,7 +1393,10 @@ export function CommissionTemplatePanel({
       {loadError && !popupOpen && <p className="text-[11px] text-rose-600 dark:text-rose-400">{loadError}</p>}
 
       {popupOpen && createPortal(
-        <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4">
+        <div
+          className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4"
+          onClick={(event) => event.stopPropagation()}
+        >
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-[1800px] rounded-xl p-5 shadow-2xl flex flex-col max-h-[calc(100vh-2rem)]">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">{selectedTemplate?.template_name || 'Commission template'}</h3>
             {loadError && <p className="text-xs text-rose-600 dark:text-rose-400 mt-3">{loadError}</p>}
