@@ -2,12 +2,40 @@
 
 'use client';
 
-import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { normalizeAgentName } from '@/lib/id';
-import { formatPercent } from '@/lib/fields';
+import { formatPercent, isHiddenRecordId } from '@/lib/fields';
+import { formatPercentRate, formatTablePercent } from '@/lib/percent';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
-import { Search } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Loader2, Rows3, Search, Zap } from 'lucide-react';
+import { TrashIcon } from '@/components/ui/trash-icon';
+import {
+  compareBySortRules,
+  dealMatchesDefaultView,
+  templateBoltTone,
+  transactionQualifiesForTemplate,
+  type TemplateBoltTone,
+  type TransactionDefaultView,
+  type TransactionSortRule,
+} from '@/lib/transaction-default-view';
+import { payoutSignature, replayedPaymentSignature, savedPayouts } from '@/lib/template-payment-drift';
+import { formulaDataNeeds, loadCommissionLedger, loadFormulaLookups, templateFormulaSources, type TemplateLogicStep } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/applyTemplateLogic';
+import type { StoredCommissionItem } from '@/app/(dashboard)/commission-tracker/transactions/[id]/commissionItemState';
+import type { CommissionEntityOption, FieldSetting, KnownAgentInfo } from '@/app/(dashboard)/commission-tracker/transactions/[id]/types';
+import { transactionDealLabel } from '@/lib/transaction-label';
+import {
+  DEMO_TRANSACTION_SCORECARDS,
+  SCORECARD_COLOR_STYLES,
+  colorForStatus,
+  qualifyingDeals,
+  scorecardMetricValue,
+  statusNamedByFormula,
+  type TransactionScorecard,
+} from '@/lib/transaction-scorecards';
 
 interface SchemaField {
   id?: string;
@@ -17,7 +45,29 @@ interface SchemaField {
   section_name?: string;
   is_enabled?: boolean;
   dropdown_options?: string[];
+  calculation_formula?: string;
 }
+
+interface SubmittedTemplate {
+  templateId: string;
+  parameters: Record<string, string>;
+}
+
+type BoltTone = TemplateBoltTone;
+
+const BOLT_FILTERS: { tone: BoltTone; label: string; iconClass: string; activeClass: string }[] = [
+  { tone: 'submitted', label: 'Submitted', iconClass: 'text-emerald-500', activeClass: 'bg-emerald-500/20 border-emerald-500/40' },
+  { tone: 'ready', label: 'Ready to submit', iconClass: 'text-amber-400', activeClass: 'bg-amber-500/20 border-amber-500/40' },
+  { tone: 'ineligible', label: 'No longer eligible', iconClass: 'text-rose-500', activeClass: 'bg-rose-500/20 border-rose-500/40' },
+  { tone: 'drift', label: 'Payments would change', iconClass: 'text-violet-400', activeClass: 'bg-violet-500/20 border-violet-500/40' },
+];
+
+const AGENT_FORMULA_SKIP = new Set([
+  'id', 'agent_id', 'client_id', 'user_id', 'tms_id', 'agent_name', 'name', 'full_name',
+  'agent_email', 'email', 'agent_phone', 'phone', 'group_id', 'agent_status', 'is_team_lead',
+  'isTeamLead', 'agent_onboard_date', 'agent_offboard_date', 'custom_attributes',
+  'commission_attributes', 'archived', 'created_at', 'created_by', 'updated_at', 'updated_by',
+]);
 
 interface StatusLookup {
   optionValue: string;
@@ -35,67 +85,56 @@ function dealMatchesStatus(deal: Record<string, any>, lookup: StatusLookup) {
 }
 
 const ALL_TAB = 'ALL';
+const DEFAULT_TAB = 'DEFAULT';
 
-type ScorecardTone = 'active' | 'pending' | 'closed' | 'cancelled';
+const SCORECARD_FILTER_PREFIX = 'card:';
 
-const SCORECARD_TAB_STYLES: Record<ScorecardTone, { idle: string; active: string; countIdle: string; countActive: string; card: string }> = {
-  active: {
-    idle: 'text-blue-700 dark:text-blue-300 border border-transparent hover:bg-blue-500/10',
-    active: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/40',
-    countIdle: 'text-blue-600/70 dark:text-blue-300/70',
-    countActive: 'text-blue-700 dark:text-blue-200',
-    card: 'ring-2 ring-blue-500/70',
-  },
-  pending: {
-    idle: 'text-amber-700 dark:text-amber-300 border border-transparent hover:bg-amber-500/10',
-    active: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/40',
-    countIdle: 'text-amber-600/70 dark:text-amber-300/70',
-    countActive: 'text-amber-700 dark:text-amber-200',
-    card: 'ring-2 ring-amber-500/70',
-  },
-  closed: {
-    idle: 'text-emerald-700 dark:text-emerald-300 border border-transparent hover:bg-emerald-500/10',
-    active: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40',
-    countIdle: 'text-emerald-600/70 dark:text-emerald-300/70',
-    countActive: 'text-emerald-700 dark:text-emerald-200',
-    card: 'ring-2 ring-emerald-500/70',
-  },
-  cancelled: {
-    idle: 'text-rose-700 dark:text-rose-300 border border-transparent hover:bg-rose-500/10',
-    active: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/40',
-    countIdle: 'text-rose-600/70 dark:text-rose-300/70',
-    countActive: 'text-rose-700 dark:text-rose-200',
-    card: 'ring-2 ring-rose-500/70',
-  },
-};
-
-function scorecardTone(lookup: StatusLookup): ScorecardTone | null {
-  const keys = [normalizeStatus(lookup.optionLabel), normalizeStatus(lookup.optionValue)];
-  if (keys.includes('active')) return 'active';
-  if (keys.includes('pending')) return 'pending';
-  if (keys.includes('closed')) return 'closed';
-  if (keys.includes('cancelled') || keys.includes('canceled')) return 'cancelled';
-  return null;
-}
-
-function formatCurrency(val: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
-}
-
-function formatCompactCurrency(val: number) {
+function formatTableCurrency(val: number) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-    notation: 'compact',
-    maximumFractionDigits: 1,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(val);
 }
+
+function isNumericColumn(field: { field_type: string; field_key: string }) {
+  return field.field_type === 'CURRENCY' || field.field_type === 'PERCENT' || field.field_key === 'gci_perc';
+}
+
+function isDateColumn(field: { field_type: string }) {
+  return field.field_type === 'DATE';
+}
+
+function scorecardCurrency(value: number, fractionDigits: number, compact: boolean) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    notation: compact ? 'compact' : 'standard',
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(value);
+}
+
+/** Most precise label first. Compact notation is only used once even whole dollars overflow. */
+const SCORECARD_CURRENCY_OPTIONS: { fractionDigits: number; compact: boolean }[] = [
+  { fractionDigits: 2, compact: false },
+  { fractionDigits: 1, compact: false },
+  { fractionDigits: 0, compact: false },
+  { fractionDigits: 2, compact: true },
+  { fractionDigits: 1, compact: true },
+  { fractionDigits: 0, compact: true },
+];
 
 function FitVolume({ value, className }: { value: number; className: string }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const probeRef = useRef<HTMLSpanElement>(null);
-  const [compact, setCompact] = useState(false);
-  const full = formatCurrency(value);
+  const options = useMemo(
+    () => SCORECARD_CURRENCY_OPTIONS.map((option) => scorecardCurrency(value, option.fractionDigits, option.compact)),
+    [value],
+  );
+  const precise = options[0];
+  const [label, setLabel] = useState(precise);
 
   useLayoutEffect(() => {
     const box = boxRef.current;
@@ -103,17 +142,32 @@ function FitVolume({ value, className }: { value: number; className: string }) {
     if (!box || !probe) return;
 
     const measure = () => {
-      setCompact(probe.scrollWidth > box.clientWidth + 0.5);
+      const width = box.clientWidth;
+      if (width <= 0) return;
+      let chosen = options[options.length - 1];
+      for (const option of options) {
+        probe.textContent = option;
+        if (probe.scrollWidth <= width + 0.5) {
+          chosen = option;
+          break;
+        }
+      }
+      setLabel((current) => (current === chosen ? current : chosen));
     };
 
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(box);
-    const fontsReady = document.fonts?.ready;
-    fontsReady?.then(measure);
+    let active = true;
+    document.fonts?.ready.then(() => {
+      if (active) measure();
+    });
 
-    return () => observer.disconnect();
-  }, [full]);
+    return () => {
+      active = false;
+      observer.disconnect();
+    };
+  }, [options]);
 
   return (
     <div ref={boxRef} className="relative min-w-0">
@@ -122,26 +176,41 @@ function FitVolume({ value, className }: { value: number; className: string }) {
         className={`pointer-events-none invisible absolute left-0 top-0 whitespace-nowrap ${className}`}
         aria-hidden
       >
-        {full}
+        {precise}
       </span>
-      <p className={`${className} whitespace-nowrap text-right`} title={full}>
-        {compact ? formatCompactCurrency(value) : full}
+      <p className={`${className} whitespace-nowrap text-right`} title={precise}>
+        {label}
       </p>
     </div>
   );
 }
 
 export default function TransactionsListPage() {
+  const router = useRouter();
   const [schemaFields, setSchemaFields] = useState<SchemaField[]>([]);
   const [deals, setDeals] = useState<Record<string, any>[]>([]);
   const [agentsList, setAgentsList] = useState<{ id: string; agent_name?: string; name?: string; [key: string]: any }[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [showFilters, setShowFilters] = useState<boolean>(false);
+  const [compactRows, setCompactRows] = useState(false);
 
   // Search & Global Tabs
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>(ALL_TAB);
+  const [statusFilter, setStatusFilter] = useState<string>(DEFAULT_TAB);
+  const [boltTone, setBoltTone] = useState<BoltTone | null>(null);
+  const [boltMenuOpen, setBoltMenuOpen] = useState(false);
+  const boltMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const boltMenuPanelRef = useRef<HTMLDivElement>(null);
+  const [boltMenuBox, setBoltMenuBox] = useState({ top: 0, left: 0 });
   const [statusLookups, setStatusLookups] = useState<StatusLookup[]>([]);
+  const [defaultView, setDefaultView] = useState<TransactionDefaultView>({ filterFormula: '', sortRules: [] });
+  const [scorecards, setScorecards] = useState<TransactionScorecard[]>(DEMO_TRANSACTION_SCORECARDS);
+  const [defaultSortRules, setDefaultSortRules] = useState<TransactionSortRule[] | null>(null);
+  const [commissionTemplates, setCommissionTemplates] = useState<{ id: string; template_name: string; eligibility_formula?: string | null; is_active?: boolean | null }[]>([]);
+  const [submittedTemplates, setSubmittedTemplates] = useState<Map<string, SubmittedTemplate[]>>(new Map());
+  const [overviewFields, setOverviewFields] = useState<FieldSetting[]>([]);
+  const [paymentDriftIds, setPaymentDriftIds] = useState<Set<string>>(new Set());
+  const [paymentDriftReady, setPaymentDriftReady] = useState(false);
   
   // Sorting
   const [sortField, setSortField] = useState<string>('closing_date');
@@ -149,6 +218,21 @@ export default function TransactionsListPage() {
 
   // Dynamic Column Filter Map { [field_key]: search_value }
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; label: string; clientId: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  useLayoutEffect(() => {
+    setCompactRows(window.localStorage.getItem('soleox-transactions-row-density') === 'compact');
+  }, []);
+
+  const toggleCompactRows = () => {
+    setCompactRows((current) => {
+      const next = !current;
+      window.localStorage.setItem('soleox-transactions-row-density', next ? 'compact' : 'comfortable');
+      return next;
+    });
+  };
 
   // 1. Fetch Schema Fields & Transactions Data in Parallel
   useEffect(() => {
@@ -166,11 +250,15 @@ export default function TransactionsListPage() {
           }
         };
 
-        const [schemaRes, dealsRes, agentsRes, statusRes] = await Promise.all([
+        const [schemaRes, dealsRes, agentsRes, statusRes, viewRes, scoreRes, templateRes, submissionRes] = await Promise.all([
           fetch('/api/schema/transactions', fetchOptions),
           fetch('/api/transactions', fetchOptions),
           fetch('/api/agents?include_archived=true', fetchOptions),
           fetch('/api/client-lookup-values?category=TRANSACTION_STATUS', fetchOptions),
+          fetch('/api/transaction-default-view', fetchOptions),
+          fetch('/api/transaction-scorecards', fetchOptions),
+          fetch('/api/commission-templates', fetchOptions),
+          fetch(`/api/commission-template-submissions?client_id=${encodeURIComponent(activeClientId)}`, fetchOptions),
         ]);
 
         // Process Schema Catalog
@@ -180,14 +268,23 @@ export default function TransactionsListPage() {
           
           const uniqueFieldsMap = new Map<string, SchemaField>();
           rawCatalog.forEach((field) => {
-            if (field.is_enabled !== false && !uniqueFieldsMap.has(field.field_key)) {
+            if (field.is_enabled !== false && !isHiddenRecordId('transactions', field.field_key) && !uniqueFieldsMap.has(field.field_key)) {
               uniqueFieldsMap.set(field.field_key, field);
             }
           });
 
           setSchemaFields(Array.from(uniqueFieldsMap.values()));
+          setOverviewFields(rawCatalog.map((field, index) => ({
+            id: field.id || `schema_${index}`,
+            label: field.field_label || field.field_key,
+            key: field.field_key,
+            type: field.field_type || 'TEXT',
+            section: field.section_name || 'General',
+            calculation_formula: field.calculation_formula?.trim() || undefined,
+          })));
         } else {
           setSchemaFields([]); // Clean empty state on failure
+          setOverviewFields([]);
         }
 
         // Process Agents for resolving agent_id -> agent_name
@@ -226,6 +323,56 @@ export default function TransactionsListPage() {
           setStatusLookups(lookups);
         } else {
           setStatusLookups([]);
+        }
+
+        if (viewRes.ok) {
+          const viewData = await viewRes.json();
+          const view: TransactionDefaultView = {
+            filterFormula: String(viewData.filterFormula || ''),
+            sortRules: Array.isArray(viewData.sortRules) ? viewData.sortRules : [],
+          };
+          setDefaultView(view);
+          setDefaultSortRules(view.sortRules.length > 0 ? view.sortRules : null);
+          if (view.sortRules[0]) {
+            setSortField(view.sortRules[0].fieldKey);
+            setSortOrder(view.sortRules[0].direction);
+          }
+        }
+
+        if (scoreRes.ok) {
+          const scoreData = await scoreRes.json();
+          if (Array.isArray(scoreData.scorecards)) setScorecards(scoreData.scorecards);
+        }
+
+        if (templateRes.ok) {
+          const templateData = await templateRes.json();
+          setCommissionTemplates(Array.isArray(templateData.templates) ? templateData.templates : []);
+        } else {
+          setCommissionTemplates([]);
+        }
+
+        if (submissionRes.ok) {
+          const submissionData = await submissionRes.json();
+          const byTransaction = new Map<string, SubmittedTemplate[]>();
+          for (const row of Array.isArray(submissionData.submissions) ? submissionData.submissions : []) {
+            const transactionId = String(row.transaction_id || '').trim();
+            const templateId = String(row.template_id || '').trim();
+            if (!transactionId || !templateId) continue;
+            const current = byTransaction.get(transactionId) || [];
+            if (current.some((item) => item.templateId === templateId)) continue;
+            const parameters: Record<string, string> = {};
+            const rawParameters = row.submitted_parameters;
+            if (rawParameters && typeof rawParameters === 'object' && !Array.isArray(rawParameters)) {
+              for (const [key, value] of Object.entries(rawParameters as Record<string, unknown>)) {
+                parameters[key] = value === undefined || value === null ? '' : String(value);
+              }
+            }
+            current.push({ templateId, parameters });
+            byTransaction.set(transactionId, current);
+          }
+          setSubmittedTemplates(byTransaction);
+        } else {
+          setSubmittedTemplates(new Map());
         }
       } catch (err) {
         console.error('Data initialization failed:', err);
@@ -286,7 +433,42 @@ export default function TransactionsListPage() {
     return groups;
   }, [schemaFields]);
 
+  const requestDelete = (deal: Record<string, any>, dealId: string) => {
+    setDeleteError(null);
+    setPendingDelete({
+      id: dealId,
+      label: transactionDealLabel(deal) || dealId,
+      clientId: String(deal.client_id || 'DEMO'),
+    });
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete || isDeleting) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(
+        `/api/transactions?id=${encodeURIComponent(pendingDelete.id)}&client_id=${encodeURIComponent(pendingDelete.clientId)}`,
+        {
+          method: 'DELETE',
+          headers: { 'x-client-id': pendingDelete.clientId },
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        throw new Error(data.error || 'Failed to delete the transaction.');
+      }
+      setDeals((current) => current.filter((deal) => String(deal.id) !== pendingDelete.id));
+      setPendingDelete(null);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete the transaction.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleSort = (fieldKey: string) => {
+    setDefaultSortRules(null);
     if (sortField === fieldKey) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
@@ -299,13 +481,173 @@ export default function TransactionsListPage() {
     setColFilters((prev) => ({ ...prev, [fieldKey]: value }));
   };
 
+  const fieldTypes = useMemo(
+    () => Object.fromEntries(schemaFields.map((field) => [field.field_key, field.field_type])),
+    [schemaFields],
+  );
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (deals.length === 0 || submittedTemplates.size === 0) {
+      setPaymentDriftIds(new Set());
+      setPaymentDriftReady(true);
+      return;
+    }
+
+    const candidates = deals.filter((deal) => {
+      const submitted = submittedTemplates.get(String(deal.id || '')) || [];
+      if (submitted.length === 0) return false;
+      return submitted.every((row) => {
+        const template = commissionTemplates.find((item) => item.id === row.templateId);
+        return Boolean(template) && transactionQualifiesForTemplate(deal, template?.eligibility_formula || '', fieldTypes);
+      });
+    });
+    if (candidates.length === 0) {
+      setPaymentDriftIds(new Set());
+      setPaymentDriftReady(true);
+      return;
+    }
+
+    setPaymentDriftReady(false);
+
+    let cancelled = false;
+    const clientId = 'DEMO';
+    const fetchOptions = { headers: { 'x-client-id': clientId } };
+
+    const checkDrift = async () => {
+      const templateIds = [...new Set(candidates.flatMap((deal) => (submittedTemplates.get(String(deal.id || '')) || []).map((row) => row.templateId)))];
+      const bundles = await Promise.all(templateIds.map(async (templateId) => {
+        const [logicResponse, parameterResponse] = await Promise.all([
+          fetch(`/api/commission-template-logic?template_id=${encodeURIComponent(templateId)}`, fetchOptions),
+          fetch(`/api/commission-template-parameters?template_id=${encodeURIComponent(templateId)}`, fetchOptions),
+        ]);
+        const logicData = await logicResponse.json();
+        const parameterData = await parameterResponse.json();
+        if (!logicResponse.ok || logicData.success === false) throw new Error(logicData.error || 'Failed to load rules.');
+        if (!parameterResponse.ok || parameterData.success === false) throw new Error(parameterData.error || 'Failed to load parameters.');
+        const steps = (logicData.logic_steps || []) as TemplateLogicStep[];
+        const parameterTypes = Object.fromEntries(
+          (Array.isArray(parameterData.parameters) ? parameterData.parameters : []).map((parameter: { parameter_key?: string; data_type?: string | null }) => [
+            String(parameter.parameter_key || ''),
+            parameter.data_type || '',
+          ]),
+        );
+        return { templateId, steps, parameterTypes };
+      }));
+      if (cancelled) return;
+
+      const bundleById = new Map(bundles.map((bundle) => [bundle.templateId, bundle]));
+      const needs = formulaDataNeeds(bundles.flatMap((bundle) => templateFormulaSources(bundle.steps, [])));
+      const entitiesResponse = await fetch('/api/commission-entities', fetchOptions);
+      const entitiesData = await entitiesResponse.json();
+      if (!entitiesResponse.ok || entitiesData.success === false) throw new Error(entitiesData.error || 'Failed to load entities.');
+      const entities: CommissionEntityOption[] = (Array.isArray(entitiesData.entities) ? entitiesData.entities : []).map((entity: { id?: string; entity_name?: string; name?: string; entity_type?: string }) => ({
+        id: String(entity.id || ''),
+        name: entity.entity_name || entity.name || 'Unnamed Entity',
+        type: entity.entity_type,
+      }));
+      const agents: KnownAgentInfo[] = agentsList.map((agent) => ({
+        id: String(agent.id || ''),
+        name: normalizeAgentName(agent.agent_name || agent.name || ''),
+        isTeamLead: Boolean(agent.is_team_lead || agent.isTeamLead),
+        clientId: agent.client_id ? String(agent.client_id) : undefined,
+        fields: Object.fromEntries(
+          Object.entries(agent).flatMap(([key, value]) => {
+            if (AGENT_FORMULA_SKIP.has(key) || value === null || value === undefined || value === '' || typeof value === 'object') return [];
+            return [[key, String(value)]];
+          }),
+        ),
+      })).filter((agent) => agent.id && agent.name);
+
+      const [ledger, lookups, itemGroups] = await Promise.all([
+        needs.needsLedger ? loadCommissionLedger(clientId, entities) : Promise.resolve([]),
+        needs.lookupTables.length > 0 ? loadFormulaLookups(clientId, needs.lookupTables) : Promise.resolve({ clientId, tables: {} }),
+        Promise.all(candidates.map(async (deal) => {
+          const transactionId = String(deal.id || '');
+          const response = await fetch(`/api/transaction-commission-items?client_id=${encodeURIComponent(clientId)}&transaction_id=${encodeURIComponent(transactionId)}`, fetchOptions);
+          const data = await response.json();
+          if (!response.ok || data.success === false) throw new Error(data.error || 'Failed to load commission lines.');
+          return { transactionId, items: (Array.isArray(data.items) ? data.items : []) as StoredCommissionItem[] };
+        })),
+      ]);
+      if (cancelled) return;
+
+      const drifted = new Set<string>();
+      for (const deal of candidates) {
+        const transactionId = String(deal.id || '');
+        const items = itemGroups.find((group) => group.transactionId === transactionId)?.items || [];
+        const saved = payoutSignature(savedPayouts(items, agents, entities));
+        const submitted = submittedTemplates.get(transactionId) || [];
+        let changed = false;
+        for (const row of submitted) {
+          const bundle = bundleById.get(row.templateId);
+          if (!bundle) continue;
+          try {
+            const replayed = replayedPaymentSignature({
+              deal,
+              steps: bundle.steps,
+              parameters: row.parameters,
+              parameterTypes: bundle.parameterTypes,
+              items,
+              agents,
+              entities,
+              overviewFields,
+              ledger,
+              lookups,
+            });
+            if (replayed !== saved) changed = true;
+          } catch {
+            // A replay that cannot be calculated stays green.
+          }
+        }
+        if (changed) drifted.add(transactionId);
+      }
+      if (!cancelled) {
+        setPaymentDriftIds(drifted);
+        setPaymentDriftReady(true);
+      }
+    };
+
+    void checkDrift().catch((error) => {
+      console.error('template payment check failed', error);
+      if (!cancelled) {
+        setPaymentDriftIds(new Set());
+        setPaymentDriftReady(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoading, deals, submittedTemplates, commissionTemplates, fieldTypes, agentsList, overviewFields]);
+
+  const templateBolt = useCallback((deal: Record<string, any>): { tone: BoltTone; label: string } | null => {
+    const dealId = String(deal.id || '');
+    const submittedIds = (submittedTemplates.get(dealId) || []).map((item) => item.templateId);
+    const bolt = templateBoltTone(deal, commissionTemplates, submittedIds, fieldTypes, paymentDriftIds.has(dealId));
+    if (bolt?.tone === 'submitted' && !paymentDriftReady) return null;
+    return bolt;
+  }, [submittedTemplates, commissionTemplates, fieldTypes, paymentDriftIds, paymentDriftReady]);
+
+  const templateBoltChecking = useCallback((deal: Record<string, any>): boolean => {
+    if (paymentDriftReady) return false;
+    const dealId = String(deal.id || '');
+    const submittedIds = (submittedTemplates.get(dealId) || []).map((item) => item.templateId);
+    return templateBoltTone(deal, commissionTemplates, submittedIds, fieldTypes, false)?.tone === 'submitted';
+  }, [submittedTemplates, commissionTemplates, fieldTypes, paymentDriftReady]);
+
   // 2. Process Filters & Sorting
-  const processedDeals = useMemo(() => {
+  const viewedDeals = useMemo(() => {
     return deals
       .filter((deal) => {
-        // Quick Tab Status Filter
-        const statusVal = normalizeStatus(String(deal.transaction_status || deal.status || ''));
-        if (statusFilter !== ALL_TAB) {
+        if (statusFilter === DEFAULT_TAB && defaultView.filterFormula.trim()) {
+          if (!dealMatchesDefaultView(deal, defaultView.filterFormula, fieldTypes)) return false;
+        }
+
+        if (statusFilter.startsWith(SCORECARD_FILTER_PREFIX)) {
+          const card = scorecards.find((item) => `${SCORECARD_FILTER_PREFIX}${item.id}` === statusFilter);
+          if (card && !dealMatchesDefaultView(deal, card.filterFormula, fieldTypes)) return false;
+        } else if (statusFilter !== ALL_TAB && statusFilter !== DEFAULT_TAB) {
+          const statusVal = normalizeStatus(String(deal.transaction_status || deal.status || ''));
           const selected = statusLookups.find((lookup) => lookup.optionLabel === statusFilter);
           const selectedValues = [
             selected ? normalizeStatus(selected.optionValue) : '',
@@ -340,7 +682,7 @@ export default function TransactionsListPage() {
             const cellVal = String(deal[key] ?? '').toLowerCase();
             const target = filterVal.toLowerCase();
             if (isPercent) {
-              const pctVal = formatPercent(deal[key]).toLowerCase();
+              const pctVal = `${formatPercent(deal[key])} ${formatTablePercent(deal[key])}`.toLowerCase();
               if (!cellVal.includes(target) && !pctVal.includes(target)) {
                 return false;
               }
@@ -351,8 +693,68 @@ export default function TransactionsListPage() {
         }
 
         return true;
-      })
-      .sort((a, b) => {
+      });
+  }, [deals, searchQuery, statusFilter, statusLookups, colFilters, schemaFields, defaultView, fieldTypes, scorecards]);
+
+  const boltCounts = useMemo(() => {
+    const counts: Record<BoltTone, number> = { submitted: 0, ready: 0, ineligible: 0, drift: 0 };
+    for (const deal of viewedDeals) {
+      const tone = templateBolt(deal)?.tone;
+      if (tone) counts[tone] += 1;
+    }
+    return counts;
+  }, [viewedDeals, templateBolt]);
+
+  useLayoutEffect(() => {
+    if (!boltMenuOpen) return;
+    const place = () => {
+      const anchor = boltMenuButtonRef.current?.getBoundingClientRect();
+      if (!anchor) return;
+      const width = 256;
+      const left = Math.min(anchor.left, window.innerWidth - width - 8);
+      setBoltMenuBox({ top: anchor.bottom + 4, left: Math.max(8, left) });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [boltMenuOpen]);
+
+  useEffect(() => {
+    if (!boltMenuOpen) return;
+    const close = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (boltMenuButtonRef.current?.contains(target) || boltMenuPanelRef.current?.contains(target)) return;
+      setBoltMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setBoltMenuOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [boltMenuOpen]);
+
+  const processedDeals = useMemo(() => {
+    const rows = boltTone ? viewedDeals.filter((deal) => templateBolt(deal)?.tone === boltTone) : viewedDeals;
+    return [...rows].sort((a, b) => {
+        if (statusFilter === DEFAULT_TAB && defaultSortRules && defaultSortRules.length > 0) {
+          return compareBySortRules(a, b, defaultSortRules, (deal, fieldKey) => {
+            if (fieldKey === 'agent_id' || fieldKey === 'primary_agent') return getAgentName(deal.agent_id, deal);
+            const raw = deal[fieldKey];
+            if (raw === undefined || raw === null || raw === '') return '';
+            if (typeof raw === 'number') return raw;
+            const text = String(raw);
+            return /^\d{4}-\d{2}-\d{2}/.test(text) ? text.slice(0, 10) : text;
+          });
+        }
+
         let aVal = a[sortField];
         let bVal = b[sortField];
 
@@ -371,8 +773,12 @@ export default function TransactionsListPage() {
         return sortOrder === 'asc'
           ? String(aVal).localeCompare(String(bVal))
           : String(bVal).localeCompare(String(aVal));
-      });
-  }, [deals, searchQuery, statusFilter, statusLookups, colFilters, sortField, sortOrder]);
+    });
+  }, [viewedDeals, boltTone, templateBolt, statusFilter, defaultSortRules, sortField, sortOrder]);
+
+  const defaultMatchCount = useMemo(() => {
+    return deals.filter((deal) => dealMatchesDefaultView(deal, defaultView.filterFormula, fieldTypes)).length;
+  }, [deals, defaultView, fieldTypes]);
 
   const statusCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -409,21 +815,36 @@ export default function TransactionsListPage() {
   }, [deals, statusLookups, statusCounts]);
 
   useEffect(() => {
-    if (statusFilter === ALL_TAB) return;
+    if (statusFilter === ALL_TAB || statusFilter === DEFAULT_TAB || statusFilter.startsWith(SCORECARD_FILTER_PREFIX)) return;
     const stillVisible = visibleStatusLookups.some((lookup) => lookup.optionLabel === statusFilter);
     if (!stillVisible) setStatusFilter(ALL_TAB);
   }, [statusFilter, visibleStatusLookups]);
 
-  const scorecardFilters = useMemo(() => {
-    const labelFor = (tone: ScorecardTone) =>
-      statusLookups.find((lookup) => scorecardTone(lookup) === tone)?.optionLabel ?? null;
-    return {
-      active: labelFor('active'),
-      pending: labelFor('pending'),
-      closed: labelFor('closed'),
-      cancelled: labelFor('cancelled'),
-    };
-  }, [statusLookups]);
+  const scorecardRows = useMemo(() => {
+    return scorecards.map((card) => ({
+      card,
+      rows: qualifyingDeals(deals, card, fieldTypes),
+    }));
+  }, [scorecards, deals, fieldTypes]);
+
+  const scorecardFilterKey = (card: TransactionScorecard) => {
+    const named = statusNamedByFormula(card.filterFormula);
+    if (!named) return `${SCORECARD_FILTER_PREFIX}${card.id}`;
+    const lookup = statusLookups.find((item) => {
+      const norm = normalizeStatus(named);
+      return norm === normalizeStatus(item.optionLabel) || norm === normalizeStatus(item.optionValue);
+    });
+    return lookup?.optionLabel || `${SCORECARD_FILTER_PREFIX}${card.id}`;
+  };
+
+  const selectDefaultView = () => {
+    setStatusFilter(DEFAULT_TAB);
+    setDefaultSortRules(defaultView.sortRules.length > 0 ? defaultView.sortRules : null);
+    if (defaultView.sortRules[0]) {
+      setSortField(defaultView.sortRules[0].fieldKey);
+      setSortOrder(defaultView.sortRules[0].direction);
+    }
+  };
 
   const resetAllFilters = () => {
     setSearchQuery('');
@@ -431,36 +852,22 @@ export default function TransactionsListPage() {
     setColFilters({});
   };
 
-  const selectScorecard = (label: string | null) => {
-    if (!label || (statusCounts.get(label) ?? 0) === 0) return;
-    if (statusFilter === label) {
+  const selectScorecard = (card: TransactionScorecard, count: number) => {
+    if (count === 0) return;
+    const key = scorecardFilterKey(card);
+    if (statusFilter === key) {
       resetAllFilters();
       return;
     }
-    setStatusFilter(label);
+    setStatusFilter(key);
   };
 
-  // Summary Metrics by transaction status
-  const metrics = useMemo(() => {
-    const getStatus = (d: Record<string, any>) =>
-      String(d.transaction_status || d.status || '').trim().toLowerCase();
-
-    const activeDeals = deals.filter((d) => getStatus(d) === 'active');
-    const pendingDeals = deals.filter((d) => getStatus(d) === 'pending');
-    const closedDeals = deals.filter((d) => getStatus(d) === 'closed');
-    const cancelledDeals = deals.filter((d) => getStatus(d) === 'cancelled');
-
-    return {
-      activeListings: activeDeals.length,
-      activeListVolume: activeDeals.reduce((acc, d) => acc + (Number(d.list_price) || 0), 0),
-      pendingUnits: pendingDeals.length,
-      pendingVolume: pendingDeals.reduce((acc, d) => acc + (Number(d.sales_price) || 0), 0),
-      closedUnits: closedDeals.length,
-      closedVolume: closedDeals.reduce((acc, d) => acc + (Number(d.sales_price) || 0), 0),
-      cancelledUnits: cancelledDeals.length,
-      cancelledVolume: cancelledDeals.reduce((acc, d) => acc + (Number(d.sales_price) || Number(d.list_price) || 0), 0),
-    };
-  }, [deals]);
+  const formatScorecardMetric = (value: number | null, kind: string, fieldType?: string) => {
+    if (value === null) return '—';
+    if (kind === 'count') return value.toLocaleString('en-US');
+    if (fieldType === 'PERCENT') return formatPercentRate(value);
+    return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value);
+  };
 
   // Helper cell formatter based on schema field definition
   const renderCellContent = (deal: Record<string, any>, field: SchemaField) => {
@@ -471,11 +878,11 @@ export default function TransactionsListPage() {
     }
 
     if (field.field_type === 'CURRENCY') {
-      return <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(Number(rawVal))}</span>;
+      return <span className="font-bold text-slate-900 dark:text-white">{formatTableCurrency(Number(rawVal))}</span>;
     }
 
     if (field.field_type === 'PERCENT' || field.field_key === 'gci_perc') {
-      return <span>{formatPercent(rawVal)}</span>;
+      return <span>{formatTablePercent(rawVal)}</span>;
     }
 
     if (field.field_type === 'DATE') {
@@ -489,19 +896,14 @@ export default function TransactionsListPage() {
 
     if (field.field_key === 'transaction_status' || field.field_key === 'status') {
       const st = String(rawVal);
-      const stLower = st.toLowerCase();
-      let badgeStyle = 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30';
-      if (stLower === 'closed') {
-        badgeStyle = 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30';
-      } else if (stLower === 'cancelled' || stLower === 'expired' || stLower === 'withdrawn') {
-        badgeStyle = 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30';
-      } else if (stLower === 'in escrow' || stLower === 'active' || stLower === 'pending') {
-        badgeStyle = 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30';
-      }
+      const color = colorForStatus(scorecards, st, st);
+      const badgeStyle = color
+        ? SCORECARD_COLOR_STYLES[color].tabActive
+        : 'bg-slate-500/15 text-slate-700 dark:text-slate-200 border border-slate-400/40';
 
       return (
         <span
-          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${badgeStyle}`}
+          className={`inline-flex items-center rounded border text-[10px] font-bold uppercase tracking-wider ${compactRows ? 'h-4 px-1.5 leading-none' : 'px-2 py-0.5'} ${badgeStyle}`}
         >
           {st}
         </span>
@@ -533,92 +935,43 @@ export default function TransactionsListPage() {
         </Link>
       </div>
 
-      {/* Metrics Summary */}
+      {scorecardRows.length > 0 && (
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <button
-          type="button"
-          onClick={() => selectScorecard(scorecardFilters.active)}
-          className={`text-left bg-white dark:bg-slate-800 border border-slate-200 dark:border-y-slate-700 dark:border-r-slate-700 border-l-4 border-l-blue-500 dark:border-l-blue-500 rounded-xl px-5 py-4 shadow-xl transition-colors cursor-pointer hover:bg-blue-50/60 dark:hover:bg-blue-500/5 ${statusFilter === scorecardFilters.active ? SCORECARD_TAB_STYLES.active.card : ''}`}
-        >
-          <p className="text-[11px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider mb-3">Active</p>
-          <div className="grid grid-cols-[35fr_65fr] gap-4">
-            <div className="min-w-0">
-              <p className="text-3xl font-bold text-slate-900 dark:text-white leading-none tracking-tight">{metrics.activeListings}</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Active Listings</p>
-            </div>
-            <div className="min-w-0 text-right">
-              <FitVolume
-                value={metrics.activeListVolume}
-                className="text-3xl font-bold text-blue-600 dark:text-blue-400 leading-none tracking-tight"
-              />
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Active List Volume</p>
-            </div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => selectScorecard(scorecardFilters.pending)}
-          className={`text-left bg-white dark:bg-slate-800 border border-slate-200 dark:border-y-slate-700 dark:border-r-slate-700 border-l-4 border-l-amber-500 dark:border-l-amber-500 rounded-xl px-5 py-4 shadow-xl transition-colors cursor-pointer hover:bg-amber-50/60 dark:hover:bg-amber-500/5 ${statusFilter === scorecardFilters.pending ? SCORECARD_TAB_STYLES.pending.card : ''}`}
-        >
-          <p className="text-[11px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider mb-3">Pending</p>
-          <div className="grid grid-cols-[35fr_65fr] gap-4">
-            <div className="min-w-0">
-              <p className="text-3xl font-bold text-slate-900 dark:text-white leading-none tracking-tight">{metrics.pendingUnits}</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Pending Units</p>
-            </div>
-            <div className="min-w-0 text-right">
-              <FitVolume
-                value={metrics.pendingVolume}
-                className="text-3xl font-bold text-amber-600 dark:text-amber-400 leading-none tracking-tight"
-              />
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Pending Volume</p>
-            </div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => selectScorecard(scorecardFilters.closed)}
-          className={`text-left bg-white dark:bg-slate-800 border border-slate-200 dark:border-y-slate-700 dark:border-r-slate-700 border-l-4 border-l-emerald-500 dark:border-l-emerald-500 rounded-xl px-5 py-4 shadow-xl transition-colors cursor-pointer hover:bg-emerald-50/60 dark:hover:bg-emerald-500/5 ${statusFilter === scorecardFilters.closed ? SCORECARD_TAB_STYLES.closed.card : ''}`}
-        >
-          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider mb-3">Closed</p>
-          <div className="grid grid-cols-[35fr_65fr] gap-4">
-            <div className="min-w-0">
-              <p className="text-3xl font-bold text-slate-900 dark:text-white leading-none tracking-tight">{metrics.closedUnits}</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Closed Units</p>
-            </div>
-            <div className="min-w-0 text-right">
-              <FitVolume
-                value={metrics.closedVolume}
-                className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 leading-none tracking-tight"
-              />
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Closed Volume</p>
-            </div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => selectScorecard(scorecardFilters.cancelled)}
-          className={`text-left bg-white dark:bg-slate-800 border border-slate-200 dark:border-y-slate-700 dark:border-r-slate-700 border-l-4 border-l-rose-500 dark:border-l-rose-500 rounded-xl px-5 py-4 shadow-xl transition-colors cursor-pointer hover:bg-rose-50/60 dark:hover:bg-rose-500/5 ${statusFilter === scorecardFilters.cancelled ? SCORECARD_TAB_STYLES.cancelled.card : ''}`}
-        >
-          <p className="text-[11px] text-rose-600 dark:text-rose-400 font-bold uppercase tracking-wider mb-3">Cancelled</p>
-          <div className="grid grid-cols-[35fr_65fr] gap-4">
-            <div className="min-w-0">
-              <p className="text-3xl font-bold text-slate-900 dark:text-white leading-none tracking-tight">{metrics.cancelledUnits}</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Cancelled Units</p>
-            </div>
-            <div className="min-w-0 text-right">
-              <FitVolume
-                value={metrics.cancelledVolume}
-                className="text-3xl font-bold text-rose-600 dark:text-rose-400 leading-none tracking-tight"
-              />
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Cancelled Volume</p>
-            </div>
-          </div>
-        </button>
+        {scorecardRows.map(({ card, rows }) => {
+          const styles = SCORECARD_COLOR_STYLES[card.color] || SCORECARD_COLOR_STYLES.blue;
+          const selected = statusFilter === scorecardFilterKey(card);
+          return (
+            <button
+              key={card.id}
+              type="button"
+              onClick={() => selectScorecard(card, rows.length)}
+              className={`text-left bg-white dark:bg-slate-800 border border-slate-200 dark:border-y-slate-700 dark:border-r-slate-700 border-l-4 ${styles.border} rounded-xl px-5 py-4 shadow-xl transition-colors cursor-pointer ${styles.hover} ${selected ? styles.ring : ''}`}
+            >
+              <p className={`text-[11px] ${styles.title} font-bold uppercase tracking-wider mb-3`}>{card.name}</p>
+              <div className={card.metrics.length > 1 ? 'grid grid-cols-[35fr_65fr] gap-4' : ''}>
+                {card.metrics.map((metric, index) => {
+                  const value = scorecardMetricValue(rows, metric);
+                  const fieldType = metric.fieldKey ? fieldTypes[metric.fieldKey] : undefined;
+                  const currency = metric.kind !== 'count' && fieldType === 'CURRENCY' && value !== null;
+                  const alignRight = card.metrics.length > 1 && index === 1;
+                  const numberClass = `text-3xl font-bold leading-none tracking-tight ${metric.kind === 'count' ? 'text-slate-900 dark:text-white' : styles.value}`;
+                  return (
+                    <div key={`${card.id}-${index}`} className={`min-w-0 ${alignRight ? 'text-right' : ''}`}>
+                      {currency ? (
+                        <FitVolume value={value} className={numberClass} />
+                      ) : (
+                        <p className={numberClass}>{formatScorecardMetric(value, metric.kind, fieldType)}</p>
+                      )}
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">{metric.name}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </button>
+          );
+        })}
       </div>
+      )}
 
       {/* Ledger Table Container */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden p-5 space-y-4 transition-colors">
@@ -628,23 +981,28 @@ export default function TransactionsListPage() {
           <div className="flex items-center gap-2 min-w-0 flex-1">
             {/* Quick Status Tabs */}
             <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700 overflow-x-auto min-w-0">
-              {[ALL_TAB, ...visibleStatusLookups.map((lookup) => lookup.optionLabel)].map((tab) => {
-                const isAll = tab === ALL_TAB;
-                const selected = statusFilter === tab;
-                const tone = isAll ? null : scorecardTone(visibleStatusLookups.find((lookup) => lookup.optionLabel === tab) || { optionValue: '', optionLabel: tab });
-                const toneStyle = tone ? SCORECARD_TAB_STYLES[tone] : null;
-                const tabClass = isAll
+              {[
+                { key: DEFAULT_TAB, label: 'Default View' },
+                { key: ALL_TAB, label: ALL_TAB },
+                ...visibleStatusLookups.map((lookup) => ({ key: lookup.optionLabel, label: lookup.optionLabel })),
+              ].map((tab) => {
+                const isView = tab.key === ALL_TAB || tab.key === DEFAULT_TAB;
+                const selected = statusFilter === tab.key;
+                const lookup = isView ? null : visibleStatusLookups.find((item) => item.optionLabel === tab.key);
+                const color = lookup ? colorForStatus(scorecards, lookup.optionLabel, lookup.optionValue) : null;
+                const toneStyle = color ? SCORECARD_COLOR_STYLES[color] : null;
+                const tabClass = isView
                   ? selected
                     ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border border-transparent uppercase tracking-wider'
                     : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 uppercase tracking-wider'
                   : toneStyle
                     ? selected
-                      ? toneStyle.active
-                      : toneStyle.idle
+                      ? toneStyle.tabActive
+                      : toneStyle.tabIdle
                     : selected
                       ? 'bg-slate-500/15 text-slate-800 dark:text-slate-200 border border-slate-400/40'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent';
-                const countClass = isAll
+                const countClass = isView
                   ? selected
                     ? 'text-white/80 dark:text-slate-900/70'
                     : 'text-slate-500 dark:text-slate-400'
@@ -655,19 +1013,25 @@ export default function TransactionsListPage() {
                     : selected
                       ? 'text-slate-700 dark:text-slate-200'
                       : 'text-slate-400 dark:text-slate-500';
+                const count = tab.key === DEFAULT_TAB
+                  ? defaultMatchCount
+                  : tab.key === ALL_TAB
+                    ? deals.length
+                    : statusCounts.get(tab.key) ?? 0;
 
                 return (
                   <button
-                    key={tab}
+                    key={tab.key}
                     onClick={() => {
-                      if (tab === ALL_TAB) resetAllFilters();
-                      else setStatusFilter(tab);
+                      if (tab.key === ALL_TAB) resetAllFilters();
+                      else if (tab.key === DEFAULT_TAB) selectDefaultView();
+                      else setStatusFilter(tab.key);
                     }}
-                    className={`inline-flex items-center px-3.5 py-1.5 rounded-md text-xs font-bold transition whitespace-nowrap cursor-pointer ${tabClass} ${isAll ? 'mr-1' : ''}`}
+                    className={`inline-flex items-center px-3.5 py-1.5 rounded-md text-xs font-bold transition whitespace-nowrap cursor-pointer ${tabClass} ${tab.key === ALL_TAB ? 'mr-1' : ''}`}
                   >
-                    {tab}
+                    {tab.label}
                     <span className={`ml-1.5 tabular-nums ${countClass}`}>
-                      {isAll ? deals.length : statusCounts.get(tab) ?? 0}
+                      {count}
                     </span>
                   </button>
                 );
@@ -676,6 +1040,21 @@ export default function TransactionsListPage() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0 w-full md:w-auto justify-end">
+            <button
+              type="button"
+              onClick={toggleCompactRows}
+              aria-pressed={compactRows}
+              title={compactRows ? 'Use comfortable rows' : 'Use compact rows'}
+              className={`px-3 py-2 rounded-lg text-xs font-bold border transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                compactRows
+                  ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
+                  : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Rows3 className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+              <span>Compact</span>
+            </button>
+
             {/* Toggle Filters Button */}
             <button
               onClick={() => setShowFilters(!showFilters)}
@@ -711,37 +1090,53 @@ export default function TransactionsListPage() {
         </div>
 
         {/* Scrollable Table */}
-        <div className="overflow-x-auto max-h-[640px] overflow-y-auto border border-slate-200 dark:border-slate-700/80 rounded-lg scrollbar-thin">
+        <div className={`overflow-x-auto overflow-y-auto border border-slate-200 dark:border-slate-700/80 rounded-lg scrollbar-thin ${compactRows ? 'max-h-[calc(100dvh-11rem)]' : 'max-h-[640px]'}`}>
           <table className="w-full text-left text-xs min-w-[1200px] border-separate border-spacing-0">
             
             {/* Dynamic Table Header */}
             <thead className="sticky top-0 z-20 shadow-md select-none bg-slate-100 dark:bg-slate-900">
               
               {/* Section Group Header Row */}
-              <tr className="bg-slate-200 dark:bg-slate-950 text-[10px] font-bold tracking-widest text-emerald-600 dark:text-emerald-400">
+              <tr className="bg-slate-200 dark:bg-slate-950 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />
                 {sectionHeaderGroups.map((group, idx) => (
                   <th
                     key={`${group.name}_${idx}`}
                     colSpan={group.span}
-                    className="py-1.5 px-4 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800 border-r border-slate-300/60 dark:border-slate-800/80 last:border-r-0"
+                    className="py-1.5 px-4 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800 border-r border-slate-300/60 dark:border-slate-800/80"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                      <span>SECTION: {group.name}</span>
+                      <span>{group.name}</span>
                     </div>
                   </th>
                 ))}
+                <th className="py-1.5 px-4 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />
               </tr>
 
               {/* Field Label Header Row */}
               <tr className="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 uppercase tracking-wider font-semibold">
+                <th className={`${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
+                  <button
+                    ref={boltMenuButtonRef}
+                    type="button"
+                    aria-expanded={boltMenuOpen}
+                    aria-haspopup="menu"
+                    aria-pressed={boltTone !== null}
+                    title={boltTone ? `Filtering: ${BOLT_FILTERS.find((filter) => filter.tone === boltTone)?.label}` : 'Filter by lightning color'}
+                    onClick={() => setBoltMenuOpen((open) => !open)}
+                    className={`inline-flex h-6 w-6 items-center justify-center rounded text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer ${boltTone ? 'bg-slate-200 dark:bg-slate-800' : ''}`}
+                  >
+                    <Zap className="h-3.5 w-3.5" fill={boltTone ? 'currentColor' : 'none'} strokeWidth={1.75} aria-hidden />
+                  </button>
+                </th>
                 {schemaFields.map((field) => (
                   <th
                     key={field.field_key}
                     onClick={() => handleSort(field.field_key)}
-                    className="py-3 px-4 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 cursor-pointer hover:text-slate-900 dark:hover:text-white transition group whitespace-nowrap border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0"
+                    className={`${compactRows ? 'px-3 py-1.5' : 'px-4 py-3'} bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 cursor-pointer hover:text-slate-900 dark:hover:text-white transition group whitespace-nowrap border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0 ${isNumericColumn(field) ? 'text-right' : ''} ${isDateColumn(field) ? 'text-center' : ''}`}
                   >
-                    <div className="flex items-center gap-1">
+                    <div className={`flex items-center gap-1 ${isNumericColumn(field) ? 'justify-end' : ''} ${isDateColumn(field) ? 'justify-center' : ''}`}>
                       <span>{field.field_label}</span>
                       <span className="text-slate-400 dark:text-slate-600 group-hover:opacity-100 transition">
                         {sortField === field.field_key ? (sortOrder === 'asc' ? '↑' : '↓') : '↕'}
@@ -749,11 +1144,15 @@ export default function TransactionsListPage() {
                     </div>
                   </th>
                 ))}
+                <th className={`${compactRows ? 'px-3 py-1.5' : 'px-4 py-3'} bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 whitespace-nowrap text-center`}>
+                  Actions
+                </th>
               </tr>
 
               {/* Dynamic Filter Inputs */}
               {showFilters && (
                 <tr className="bg-slate-200 dark:bg-slate-950">
+                  <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />
                   {schemaFields.map((field) => (
                     <th key={`filter_${field.field_key}`} className="p-2 min-w-[120px] bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800 border-r border-slate-300/40 dark:border-slate-800/40 last:border-r-0">
                       {field.field_key === 'agent_id' || field.field_type === 'AGENT_PICKER' ? (
@@ -795,11 +1194,12 @@ export default function TransactionsListPage() {
                           placeholder={`Filter ${field.field_label}...`}
                           value={colFilters[field.field_key] || ''}
                           onChange={(e) => handleFilterChange(field.field_key, e.target.value)}
-                          className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2 py-1 text-[11px] text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-normal"
+                          className={`w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2 py-1 text-[11px] text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-normal ${field.field_type === 'DATE' ? 'text-center' : ''}`}
                         />
                       )}
                     </th>
                   ))}
+                  <th className="p-2 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />
                 </tr>
               )}
             </thead>
@@ -808,13 +1208,13 @@ export default function TransactionsListPage() {
             <tbody className="text-slate-800 dark:text-slate-200 font-medium bg-white dark:bg-slate-800">
               {isLoading ? (
                 <tr>
-                  <td colSpan={schemaFields.length} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
+                  <td colSpan={schemaFields.length + 2} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
                     Loading synchronized schema & transaction ledger...
                   </td>
                 </tr>
               ) : processedDeals.length === 0 ? (
                 <tr>
-                  <td colSpan={schemaFields.length} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
+                  <td colSpan={schemaFields.length + 2} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
                     No matching transaction records found for active filters.
                   </td>
                 </tr>
@@ -822,13 +1222,55 @@ export default function TransactionsListPage() {
                 processedDeals.map((deal, idx) => {
                   const dealId = deal.id || `TXN_${idx + 1}`;
 
+                  const bolt = templateBolt(deal);
                   return (
                     <tr
                       key={dealId}
+                      onClick={(event) => {
+                        const target = event.target as HTMLElement | null;
+                        if (target?.closest('a, button, input, select, textarea, label')) return;
+                        router.push(`/commission-tracker/transactions/${dealId}`);
+                      }}
                       className="hover:bg-slate-100 dark:hover:bg-slate-700/50 transition cursor-pointer group"
                     >
+                      <td className={`${compactRows ? 'px-2 py-0.5' : 'px-2 py-3'} w-8 border-b border-slate-200 dark:border-slate-700/60 text-center`}>
+                        {bolt ? (
+                          <Link
+                            href={`/commission-tracker/transactions/${dealId}#commission`}
+                            title={bolt.label}
+                            aria-label={bolt.label}
+                            className="inline-flex rounded p-0.5 hover:bg-slate-200 dark:hover:bg-slate-700"
+                            onClick={(event) => {
+                              if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+                              // Client navigation appends this hash onto a URL that already has it.
+                              event.preventDefault();
+                              window.sessionStorage.setItem('soleox-transaction-section', 'commission');
+                              router.push(`/commission-tracker/transactions/${dealId}`);
+                            }}
+                          >
+                            <Zap
+                              className={`${compactRows ? 'h-3.5 w-3.5' : 'h-4 w-4'} ${bolt.tone === 'submitted' ? 'text-emerald-500' : bolt.tone === 'drift' ? 'text-violet-400' : bolt.tone === 'ineligible' ? 'text-rose-500' : 'text-amber-400'}`}
+                              fill="currentColor"
+                              strokeWidth={1.75}
+                            />
+                          </Link>
+                        ) : templateBoltChecking(deal) ? (
+                          <span
+                            className="inline-flex rounded p-0.5"
+                            title="Checking template status"
+                            role="status"
+                            aria-label="Checking template status"
+                          >
+                            <Loader2
+                              className={`${compactRows ? 'h-3.5 w-3.5' : 'h-4 w-4'} animate-spin text-slate-400 dark:text-slate-500`}
+                              strokeWidth={1.75}
+                              aria-hidden
+                            />
+                          </span>
+                        ) : null}
+                      </td>
                       {schemaFields.map((field) => (
-                        <td key={field.field_key} className="py-3 px-4 whitespace-nowrap border-b border-slate-200 dark:border-slate-700/60">
+                        <td key={field.field_key} className={`${compactRows ? 'px-3 py-0.5 leading-4' : 'px-4 py-3'} whitespace-nowrap border-b border-slate-200 dark:border-slate-700/60 ${isNumericColumn(field) ? 'text-right tabular-nums' : ''} ${isDateColumn(field) ? 'text-center tabular-nums' : ''}`}>
                           {field.field_key === 'id' ? (
                             <Link
                               href={`/commission-tracker/transactions/${dealId}`}
@@ -850,6 +1292,17 @@ export default function TransactionsListPage() {
                           )}
                         </td>
                       ))}
+                      <td className={`${compactRows ? 'px-3 py-0.5' : 'px-4 py-3'} whitespace-nowrap border-b border-slate-200 dark:border-slate-700/60 text-center`}>
+                        <button
+                          type="button"
+                          onClick={() => requestDelete(deal, String(deal.id || dealId))}
+                          className={`inline-flex items-center justify-center rounded text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer ${compactRows ? 'h-4 w-4' : 'h-7 w-7'}`}
+                          title="Delete transaction"
+                          aria-label={`Delete ${transactionDealLabel(deal) || String(deal.id || dealId)}`}
+                        >
+                          <TrashIcon className={compactRows ? 'h-3.5 w-3.5' : undefined} />
+                        </button>
+                      </td>
                     </tr>
                   );
                 })
@@ -864,6 +1317,52 @@ export default function TransactionsListPage() {
           <span className="text-[11px] italic">Columns synchronized dynamically with client schema configuration</span>
         </div>
       </div>
+
+      {boltMenuOpen && createPortal(
+        <div
+          ref={boltMenuPanelRef}
+          role="menu"
+          style={{ top: boltMenuBox.top, left: boltMenuBox.left }}
+          className="fixed z-[80] w-64 rounded-lg border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-800"
+        >
+          {BOLT_FILTERS.map((filter) => {
+            const selected = boltTone === filter.tone;
+            return (
+              <button
+                key={filter.tone}
+                type="button"
+                role="menuitemradio"
+                aria-checked={selected}
+                onClick={() => {
+                  setBoltTone(selected ? null : filter.tone);
+                  setBoltMenuOpen(false);
+                }}
+                className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-bold cursor-pointer ${
+                  selected ? filter.activeClass : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700'
+                }`}
+              >
+                <Zap className={`h-3.5 w-3.5 shrink-0 ${filter.iconClass}`} fill="currentColor" strokeWidth={1.75} aria-hidden />
+                <span className="flex-1 text-left">{filter.label}</span>
+                <span className={`tabular-nums ${selected ? 'opacity-80' : 'text-slate-500 dark:text-slate-400'}`}>{boltCounts[filter.tone]}</span>
+              </button>
+            );
+          })}
+        </div>,
+        document.body,
+      )}
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title={`Delete transaction "${pendingDelete.label}"?`}
+          message="This removes the transaction, including its commission and payment records."
+          error={deleteError}
+          isPending={isDeleting}
+          onCancel={() => {
+            if (!isDeleting) setPendingDelete(null);
+          }}
+          onConfirm={() => void confirmDelete()}
+        />
+      )}
     </main>
   );
 }

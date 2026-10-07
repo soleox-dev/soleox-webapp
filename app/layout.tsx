@@ -5,12 +5,13 @@ import { AuthProvider } from '@/components/auth-provider';
 import { Providers } from './providers';
 import Navbar from '@/components/Navbar';
 import { BackToTop } from '@/components/BackToTop';
+import { PageTitle } from '@/components/PageTitle';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Soleox REBT',
-    template: '%s | Soleox REBT',
+    default: 'Soleox REBT > Main Menu',
+    template: 'Soleox REBT > %s',
   },
   description: 'Soleox Real Estate Business Tracker',
   icons: {
@@ -62,6 +63,7 @@ export default function RootLayout({
         <AuthProvider>
           <Providers>
             <Navbar />
+            <PageTitle />
             {children}
             <BackToTop />
           </Providers>

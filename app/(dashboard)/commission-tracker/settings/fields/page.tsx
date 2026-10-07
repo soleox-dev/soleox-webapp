@@ -8,6 +8,8 @@ import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { Folder, List, User } from 'lucide-react';
+import { TrashIcon } from '@/components/ui/trash-icon';
+import { ToastBanner } from '@/components/ui/ToastBanner';
 import { DB_TRANSACTION_COLUMNS, DB_AGENT_COLUMNS } from '@/lib/fields';
 
 type FieldType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
@@ -76,8 +78,6 @@ interface ToastNotification {
   message: string;
   type: 'success' | 'error' | 'info';
 }
-
-const DEFAULT_AGENT_STATUS_OPTIONS = ['Active', 'Released'];
 
 const HIDDEN_SYSTEM_KEYS = new Set([
   'client_id',
@@ -263,9 +263,7 @@ export default function FieldCustomizationsPage() {
               ...col,
               field_label: formatFieldLabel(col.field_key, col.field_label),
               field_type: resolvedFieldType,
-              dropdown_options: isAgentStatus
-                ? (col.dropdown_options && col.dropdown_options.length > 0 ? col.dropdown_options : DEFAULT_AGENT_STATUS_OPTIONS)
-                : col.dropdown_options,
+              dropdown_options: col.dropdown_options,
               is_enabled: isAudit ? false : isSystemMandatory ? true : col.is_enabled,
               is_system: isSystemMandatory ? true : col.is_system,
               calculation_formula: cleanFormula,
@@ -298,9 +296,7 @@ export default function FieldCustomizationsPage() {
             ...col,
             field_label: formatFieldLabel(col.field_key, col.field_label),
             field_type: isAgentStatus ? 'SELECT' : col.field_type,
-            dropdown_options: isAgentStatus
-              ? (col.dropdown_options && col.dropdown_options.length > 0 ? col.dropdown_options : DEFAULT_AGENT_STATUS_OPTIONS)
-              : col.dropdown_options,
+            dropdown_options: col.dropdown_options,
             is_enabled: isAudit ? false : isSystemMandatory ? true : (col.is_enabled !== false),
             is_system: isSystemMandatory ? true : Boolean(col.is_system),
             storage_type: 'CORE_COLUMN' as const,
@@ -520,13 +516,16 @@ export default function FieldCustomizationsPage() {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          clientId: 'DEMO', // Optional since backend resolves via header now
+          clientId: 'DEMO',
           targetTable: activeTab,
-          fields: [updatedField], // Using fields array to match backend API
+          field: updatedField,
         }),
       });
 
-      if (!res.ok) throw new Error('Failed to update toggle setting');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to update toggle setting');
+      }
       showToast(`Updated "${field.field_label}"`, 'success');
     } catch (err: any) {
       showToast(`Failed to update setting: ${err.message}`, 'error');
@@ -561,7 +560,7 @@ export default function FieldCustomizationsPage() {
         is_system: isSystemMandatory || Boolean(firstCat.is_system),
         min_value: firstCat.default_min_value,
         max_length: firstCat.default_max_length,
-        dropdown_options: firstCat.field_key === 'agent_status' ? DEFAULT_AGENT_STATUS_OPTIONS : (firstCat.dropdown_options || []),
+        dropdown_options: firstCat.dropdown_options || [],
         regex_pattern: firstCat.regex_pattern || '',
         regex_mode: firstCat.regex_mode || 'MATCHES',
         visibility_rules: undefined,
@@ -611,7 +610,7 @@ export default function FieldCustomizationsPage() {
         is_system: isSystemMandatory || Boolean(catItem.is_system),
         min_value: catItem.default_min_value,
         max_length: catItem.default_max_length,
-        dropdown_options: catItem.field_key === 'agent_status' ? DEFAULT_AGENT_STATUS_OPTIONS : (catItem.dropdown_options || []),
+        dropdown_options: catItem.dropdown_options || [],
         regex_pattern: catItem.regex_pattern || '',
         regex_mode: catItem.regex_mode || 'MATCHES',
         visibility_rules: catItem.visibility_rules || undefined,
@@ -630,9 +629,7 @@ export default function FieldCustomizationsPage() {
     setFormData({
       ...field,
       field_label: formatFieldLabel(field.field_key, field.field_label),
-      dropdown_options: field.field_key === 'agent_status' && (!field.dropdown_options || field.dropdown_options.length === 0)
-        ? DEFAULT_AGENT_STATUS_OPTIONS
-        : (field.dropdown_options || []),
+      dropdown_options: field.dropdown_options || [],
       regex_pattern: field.regex_pattern || '',
       regex_mode: field.regex_mode || 'MATCHES',
       calculation_formula: cleanFormula,
@@ -1060,30 +1057,7 @@ export default function FieldCustomizationsPage() {
 
   return (
     <div className="space-y-6 relative">
-      {toast && (
-        <div
-          className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border backdrop-blur-md transition-all animate-in fade-in slide-in-from-top-4 duration-300 ${
-            toast.type === 'success'
-              ? 'bg-emerald-900/90 border-emerald-700 text-emerald-100'
-              : toast.type === 'error'
-              ? 'bg-rose-900/90 border-rose-700 text-rose-100'
-              : 'bg-slate-900/90 border-slate-700 text-slate-100'
-          }`}
-        >
-          <span className="text-sm font-bold">
-            {toast.type === 'success' && '✅'}
-            {toast.type === 'error' && '🚨'}
-            {toast.type === 'info' && 'ℹ️'}
-          </span>
-          <span className="text-xs font-semibold">{toast.message}</span>
-          <button
-            onClick={() => setToast(null)}
-            className="text-slate-400 hover:text-white font-bold ml-2 cursor-pointer"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+      {toast && <ToastBanner message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
 
       {/* Top Controller Bar */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-md flex justify-between items-center transition-colors">
@@ -1173,7 +1147,7 @@ export default function FieldCustomizationsPage() {
                     />
                   </div>
 
-                  <span className="text-[10px] text-slate-400 font-mono">{fields.length} Fields</span>
+                  <span className="text-[10px] text-slate-400">{fields.length} Fields</span>
                 </div>
 
                 <div className="space-y-2">
@@ -1293,7 +1267,7 @@ export default function FieldCustomizationsPage() {
                             }`}
                             title={isSystemMandatory ? 'Mandatory system fields cannot be deleted' : 'Delete field configuration'}
                           >
-                            🗑️
+                            <TrashIcon />
                           </button>
                         </div>
                       </div>

@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { getTenantContext } from '@/lib/session';
-import { isFormulaLookupTable } from '@/lib/formula-lookup-tables';
+import { formulaLookupSource } from '@/lib/formula-lookup-tables';
 
 // GET: One page of a client-scoped table for formula XLOOKUP.
 // Rows are limited to the signed-in user's active client. Tables without client_id are rejected.
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const table = searchParams.get('table') || '';
-    if (!isFormulaLookupTable(table)) {
+    const requested = searchParams.get('table') || '';
+    const table = formulaLookupSource(requested);
+    if (!table) {
       return NextResponse.json({ error: 'That table cannot be used in a formula lookup.' }, { status: 400 });
     }
 

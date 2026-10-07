@@ -147,8 +147,7 @@ export function useOverviewForm({
 
       if (cleanGciType.includes('PERCENT')) {
         if (key === 'sales_price' || key === 'gci_perc' || key === 'gci_type') {
-          const rawPerc = Number(next.gci_perc) || 0;
-          const rate = rawPerc > 1 ? rawPerc / 100 : rawPerc;
+          const rate = Number(next.gci_perc) || 0;
           next.gci_perc = rate;
           next.gci_amount = roundCurrency(currentSalesPrice * rate);
         }
@@ -227,8 +226,7 @@ export function useOverviewForm({
     if (overviewFormValues.gci_type !== undefined) setGciType(overviewFormValues.gci_type);
 
     if (overviewFormValues.gci_perc !== undefined) {
-      const p = Number(overviewFormValues.gci_perc) || 0;
-      setGciPerc(p > 1 ? p / 100 : p);
+      setGciPerc(Number(overviewFormValues.gci_perc) || 0);
     }
 
     setSelectedDeal((prevDeal: any) => ({

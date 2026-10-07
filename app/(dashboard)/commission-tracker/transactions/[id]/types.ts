@@ -155,23 +155,20 @@ export const roundCurrency = (num: number): number => {
   return Math.round((num + Number.EPSILON) * 100) / 100;
 };
 
-export function roundPercentRate(rate: number): number {
-  return Number(Number(rate).toFixed(7));
-}
+import { formatPercentPoints } from '@/lib/percent';
 
-export const formatPercent = (val: any, decimals: number = 3): string => {
-  if (val === undefined || val === null || val === '') return '—';
-  const num = Number(val);
-  if (isNaN(num)) return String(val);
-  const target = Math.abs(num) <= 1 && num !== 0 ? num * 100 : num;
-  return `${target.toFixed(decimals)}%`;
-};
+export {
+  fromPercentPoints,
+  toPercentPoints,
+  roundPercentRate,
+  formatPercentPoints,
+  formatPercentRate as formatPercent,
+} from '@/lib/percent';
 
-export const formatPercentageClean = (num: number): string => {
-  if (num === null || num === undefined || isNaN(num)) return '';
-  const target = num > 1 ? num : num * 100;
-  const cleanNum = Number(Math.round(Number(target + 'e8')) + 'e-8');
-  return cleanNum.toString();
+/** Formats percent points the user is typing. 1.5 → "1.5", 80 → "80". */
+export const formatPercentageClean = (points: number): string => {
+  if (points === null || points === undefined || Number.isNaN(points)) return '';
+  return formatPercentPoints(points);
 };
 
 export const evaluateFormula = (formulaStr: string, contextValues: Record<string, any>): number => {

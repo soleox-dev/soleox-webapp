@@ -1,14 +1,16 @@
 import React from 'react';
+import { TrashIcon } from '@/components/ui/trash-icon';
 
 interface HeaderCardProps {
   isNewTransaction: boolean;
   isSaving: boolean;
   onSave: () => void;
   onDiscard?: () => void;
+  onDelete?: () => void;
   hasUnsavedChanges?: boolean;
 }
 
-export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, hasUnsavedChanges = false }: HeaderCardProps) {
+export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDelete, hasUnsavedChanges = false }: HeaderCardProps) {
   return (
     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl flex justify-between items-center transition-colors">
       <div>
@@ -28,6 +30,17 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, hasU
         <p className="text-slate-500 dark:text-slate-400 text-sm">Overview, commission waterfall, and payments</p>
       </div>
       <div className="flex items-center gap-2">
+        {!isNewTransaction && onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={isSaving}
+            className="px-4 py-2 text-xs font-bold rounded-lg border border-rose-300 text-rose-600 transition hover:bg-rose-500/10 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer dark:border-rose-500/40 dark:text-rose-400 inline-flex items-center gap-1.5"
+          >
+            <TrashIcon className="h-3.5 w-3.5" />
+            Delete
+          </button>
+        )}
         {hasUnsavedChanges && (
           <button
             type="button"

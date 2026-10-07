@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search } from 'lucide-react';
+import { transactionDealLabel } from '@/lib/transaction-label';
 
 interface SearchableTransactionPickerProps {
   searchQuery: string;
@@ -95,7 +96,7 @@ export function SearchableTransactionPicker({
                 >
                   <div>
                     <span className="font-bold text-emerald-700 dark:text-emerald-400">[{deal.client_id || 'DEMO'}] {deal.id}</span>
-                    <span className="text-slate-800 dark:text-slate-200 ml-2 font-medium">{deal.property_address}</span>
+                    <span className="text-slate-800 dark:text-slate-200 ml-2 font-medium">{transactionDealLabel(deal) || '—'}</span>
                   </div>
                   <span className="text-slate-500 dark:text-slate-400 font-semibold">
                     ${Number(deal.sales_price || 0).toLocaleString()}

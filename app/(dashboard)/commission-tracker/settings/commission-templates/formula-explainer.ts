@@ -269,6 +269,12 @@ function exprKey(expr: Expr): string {
 
 function sentences(expr: Expr, reading: Reading): string[] {
   if (isCall(expr, 'IF') && expr.args.length === 3) return explainIf(expr, reading);
+  if (isCall(expr, 'IFERROR') && expr.args.length === 2) {
+    return [
+      `The result is ${phrase(expr.args[0], reading)}.`,
+      `If that cannot be calculated, the result is ${phrase(expr.args[1], reading)}.`,
+    ];
+  }
   return [`The result is ${phrase(expr, reading)}.`];
 }
 
@@ -358,12 +364,23 @@ function phraseOnce(expr: Expr, reading: Reading): string {
   }
   if (expr.kind === 'unary') return expr.op === '-' ? `negative ${phrase(expr.arg, reading)}` : phrase(expr.arg, reading);
   if (expr.kind === 'binary') {
+    const currentYear = currentYearPhrase(expr, reading);
+    if (currentYear) return currentYear;
     const starts = startsWithPhrase(expr, reading);
     if (starts) return starts;
     return `${phrase(expr.left, reading)} ${operatorWord(expr.op)} ${phrase(expr.right, reading)}`;
   }
   if (expr.kind === 'call') return callPhrase(expr, reading);
   return '';
+}
+
+function currentYearPhrase(expr: Extract<Expr, { kind: 'binary' }>, reading: Reading): string | null {
+  if (expr.op !== '=') return null;
+  if (!isCall(expr.left, 'YEAR') || expr.left.args.length !== 1) return null;
+  if (!isCall(expr.right, 'YEAR') || expr.right.args.length !== 1) return null;
+  const today = expr.right.args[0];
+  if (!isCall(today, 'TODAY') || today.args.length !== 0) return null;
+  return `${phrase(expr.left.args[0], reading)} is in the current calendar year`;
 }
 
 function startsWithPhrase(expr: Extract<Expr, { kind: 'binary' }>, reading: Reading): string | null {
@@ -391,6 +408,15 @@ function callPhrase(expr: Extract<Expr, { kind: 'call' }>, reading: Reading): st
     return `the text in ${phrase(segment.source, reading)} after ${phrase(segment.needle, reading)}, up to the next ${phrase(segment.delimiter, reading)}`;
   }
   const args = expr.args;
+  if (expr.name === 'NOT' && args.length === 1) {
+    if (isCall(args[0], 'ISNULL') && args[0].args.length === 1) return `${phrase(args[0].args[0], reading)} is not blank`;
+    return `not ${phrase(args[0], reading)}`;
+  }
+  if (expr.name === 'LEN' && args.length === 1) return `the number of characters in ${phrase(args[0], reading)}`;
+  if (expr.name === 'ISNULL' && args.length === 1) return `${phrase(args[0], reading)} is blank`;
+  if (expr.name === 'IFERROR' && args.length === 2) {
+    return `${phrase(args[0], reading)}, or ${phrase(args[1], reading)} if that cannot be calculated`;
+  }
   if (expr.name === 'AND') return args.map((arg) => phrase(arg, reading)).join(', and ');
   if (expr.name === 'OR') return args.map((arg) => phrase(arg, reading)).join(', or ');
   if (expr.name === 'ISNUMBER' && args.length === 1) {
@@ -431,6 +457,8 @@ function callPhrase(expr: Extract<Expr, { kind: 'call' }>, reading: Reading): st
   if (expr.name === 'SEARCH' && args.length >= 2) {
     return `the position of ${phrase(args[0], reading)} in ${phrase(args[1], reading)}`;
   }
+  if (expr.name === 'YEAR' && args.length === 1) return `the year of ${phrase(args[0], reading)}`;
+  if (expr.name === 'TODAY' && args.length === 0) return 'today';
   const rendered = args.map((arg) => phrase(arg, reading));
   return rendered.length === 0 ? expr.name : `${expr.name}(${rendered.join(', ')})`;
 }

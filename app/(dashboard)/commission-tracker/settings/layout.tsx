@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Building2, ChevronRight, PanelLeftClose, PanelLeftOpen, Settings2, User, Zap, type LucideIcon } from 'lucide-react';
+import { Building2, ChartColumn, ChevronRight, ListFilter, PanelLeftClose, PanelLeftOpen, Settings2, User, Zap, type LucideIcon } from 'lucide-react';
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -21,12 +21,38 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     });
   };
 
-  const navItems: { label: string; href: string; icon: LucideIcon }[] = [
-    { label: 'Field Customizations', href: '/commission-tracker/settings/fields', icon: Settings2 },
-    { label: 'Agents', href: '/commission-tracker/settings/agents', icon: User },
-    { label: 'Commission Entities', href: '/commission-tracker/settings/commission-entities', icon: Building2 },
-    { label: 'Commission Templates', href: '/commission-tracker/settings/commission-templates', icon: Zap },
+  type NavLink = { label: string; href: string; icon: LucideIcon };
+  type NavEntry =
+    | { kind: 'link'; item: NavLink }
+    | { kind: 'section'; label: string; items: NavLink[] };
+
+  const nav: NavEntry[] = [
+    { kind: 'link', item: { label: 'Field Customizations', href: '/commission-tracker/settings/fields', icon: Settings2 } },
+    {
+      kind: 'section',
+      label: 'Transactions',
+      items: [
+        { label: 'Default View', href: '/commission-tracker/settings/transaction-view', icon: ListFilter },
+        { label: 'Scorecards', href: '/commission-tracker/settings/scorecards', icon: ChartColumn },
+      ],
+    },
+    { kind: 'link', item: { label: 'Agents', href: '/commission-tracker/settings/agents', icon: User } },
+    { kind: 'link', item: { label: 'Commission Entities', href: '/commission-tracker/settings/commission-entities', icon: Building2 } },
+    { kind: 'link', item: { label: 'Commission Templates', href: '/commission-tracker/settings/commission-templates', icon: Zap } },
   ];
+
+  const navLinks = nav.flatMap((entry) => (entry.kind === 'link' ? [entry.item] : entry.items));
+
+  const linkClass = (href: string, nested = false) => {
+    const isActive = pathname.startsWith(href);
+    return `flex items-center justify-between rounded-lg text-xs font-semibold transition ${
+      nested ? 'px-3 py-2' : 'px-3.5 py-2.5'
+    } ${
+      isActive
+        ? 'bg-emerald-500/10 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-bold'
+        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 border border-transparent'
+    }`;
+  };
 
   return (
     <main className="p-6 md:p-8 max-w-[1600px] mx-auto space-y-6">
@@ -56,7 +82,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
               >
                 <PanelLeftOpen className="w-4 h-4" />
               </button>
-              {navItems.map((item) => {
+              {navLinks.map((item) => {
                 const isActive = pathname.startsWith(item.href);
                 const Icon = item.icon;
                 return (
@@ -94,19 +120,35 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                   <PanelLeftClose className="w-3.5 h-3.5" />
                 </button>
               </div>
-              {navItems.map((item) => {
-                const isActive = pathname.startsWith(item.href);
+              {nav.map((entry) => {
+                if (entry.kind === 'section') {
+                  return (
+                    <div key={entry.label} className="pt-2">
+                      <div className="px-3.5 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                        {entry.label}
+                      </div>
+                      <div className="space-y-1 border-l border-slate-200 ml-5 pl-2 dark:border-slate-700">
+                        {entry.items.map((item) => {
+                          const Icon = item.icon;
+                          return (
+                            <Link key={item.href} href={item.href} className={linkClass(item.href, true)}>
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                                <span>{item.label}</span>
+                              </div>
+                              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={1.75} aria-hidden />
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                }
+
+                const item = entry.item;
                 const Icon = item.icon;
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-semibold transition ${
-                      isActive
-                        ? 'bg-emerald-500/10 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-bold'
-                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50'
-                    }`}
-                  >
+                  <Link key={item.href} href={item.href} className={linkClass(item.href)}>
                     <div className="flex items-center gap-2.5">
                       <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
                       <span>{item.label}</span>

@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { EditPencil } from '@/components/ui/edit-pencil';
+import { TrashIcon } from '@/components/ui/trash-icon';
+import { isHiddenRecordId } from '@/lib/fields';
 
 export interface CommissionEntity {
   id: string;
@@ -412,7 +414,7 @@ export default function CommissionEntitiesPage() {
                   { key: 'contact_email', label: 'Contact Email' },
                   { key: 'tax_id', label: 'Tax ID (EIN)' },
                   { key: 'is_active', label: 'Status', alignCenter: true },
-                ].map((col) => (
+                ].filter((col) => !isHiddenRecordId('entities', col.key)).map((col) => (
                   <th
                     key={col.key}
                     onClick={() => handleSort(col.key)}
@@ -434,13 +436,13 @@ export default function CommissionEntitiesPage() {
             <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60 font-medium text-slate-800 dark:text-slate-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="p-5 text-center text-slate-400">
+                  <td colSpan={7} className="p-5 text-center text-slate-400">
                     Loading commission entities...
                   </td>
                 </tr>
               ) : processedEntities.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-5 text-center text-slate-400 italic">
+                  <td colSpan={7} className="p-5 text-center text-slate-400 italic">
                     {searchQuery ? `No matching commission entities found for "${searchQuery}".` : 'No commission entities found.'}
                   </td>
                 </tr>
@@ -455,15 +457,6 @@ export default function CommissionEntitiesPage() {
                         !ent.is_active ? 'bg-slate-50/50 dark:bg-slate-900/40 opacity-70' : ''
                       }`}
                     >
-                      <td className="p-3.5 whitespace-nowrap font-bold">
-                        <button
-                          onClick={() => handleOpenEdit(ent)}
-                          className="text-emerald-600 dark:text-emerald-400 hover:underline transition text-left cursor-pointer"
-                        >
-                          {ent.id}
-                        </button>
-                      </td>
-
                       <td className="p-3.5 whitespace-nowrap">
                         <button
                           onClick={() => handleOpenEdit(ent)}
@@ -532,7 +525,7 @@ export default function CommissionEntitiesPage() {
                             className="text-rose-500 hover:text-rose-600 font-bold p-1 rounded hover:bg-rose-500/10 cursor-pointer disabled:opacity-50"
                             title="Delete entity"
                           >
-                            {isActionLoading ? <span className="animate-spin inline-block">⏳</span> : '🗑️'}
+                            {isActionLoading ? <span className="animate-spin inline-block">⏳</span> : <TrashIcon />}
                           </button>
                         </div>
                       </td>
@@ -564,19 +557,6 @@ export default function CommissionEntitiesPage() {
             </div>
 
             <form onSubmit={handleSave} className="space-y-3 text-xs">
-              <div className={underlineShell}>
-                <label className={underlineLabel}>Entity ID</label>
-                <div className="flex h-5 items-center">
-                  <input
-                    type="text"
-                    disabled
-                    tabIndex={-1}
-                    value={String(formData.id || editingEntity?.id || 'Auto-generated')}
-                    className={`${underlineControl} ${formData.id || editingEntity?.id ? '' : '!text-slate-400 dark:!text-slate-500'}`}
-                  />
-                </div>
-              </div>
-
               <div className={underlineShell}>
                 <label className={underlineLabel}>
                   Entity Name <span className="text-rose-500">*</span>

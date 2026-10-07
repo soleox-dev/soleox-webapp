@@ -1,13 +1,19 @@
 const FUNCTION_ARITY: Record<string, { min: number; max: number; even?: boolean; pairsAfterFirst?: boolean }> = {
   IF: { min: 3, max: 3 },
+  IFERROR: { min: 2, max: 2 },
   AND: { min: 1, max: 20 },
   OR: { min: 1, max: 20 },
+  NOT: { min: 1, max: 1 },
   COUNTIFS: { min: 2, max: 40, even: true },
   SUMIFS: { min: 3, max: 41, pairsAfterFirst: true },
   MIN: { min: 1, max: 20 },
   MAX: { min: 1, max: 20 },
   ISNUMBER: { min: 1, max: 1 },
+  ISNULL: { min: 1, max: 1 },
+  YEAR: { min: 1, max: 1 },
+  TODAY: { min: 0, max: 0 },
   NUMBERVALUE: { min: 1, max: 1 },
+  LEN: { min: 1, max: 1 },
   SEARCH: { min: 2, max: 3 },
   TEXTAFTER: { min: 2, max: 3 },
   TEXTBEFORE: { min: 2, max: 3 },
@@ -256,6 +262,7 @@ export function validateFormula(source: string, knownNames: string[]): string | 
         if (peek().type !== 'rparen') fail(`${token.value} is missing a closing parenthesis.`);
         eat();
         if (count < rule.min || count > rule.max) {
+          if (rule.max === 0) fail(`${upper} does not take a value.`);
           fail(rule.min === rule.max
             ? `${upper} needs ${rule.min} value${rule.min === 1 ? '' : 's'}.`
             : `${upper} needs at least ${rule.min} value${rule.min === 1 ? '' : 's'}.`);

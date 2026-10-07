@@ -1,3 +1,8 @@
+import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/page-titles';
+
+export const metadata: Metadata = pageMetadata('Operating Expenses Settings');
+
 export default function OperatingExpensesSettingsPage() {
   return (
     <div className="p-8">

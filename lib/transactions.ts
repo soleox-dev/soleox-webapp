@@ -300,15 +300,21 @@ export async function createTransaction(
     await processTransactionWaterfall(input.client_id, finalTransactionId, templateId, submissionId, sb);
   }
 
-  // Persist final disbursements & payment authorizations if provided
+  // Payments follow the same rule as commission lines: an explicit list replaces
+  // what is stored, and an empty list removes every payment for the deal.
+  if (Array.isArray(input.payments)) {
+    const { error: clearPayErr } = await sb
+      .from('payments')
+      .delete()
+      .eq('transaction_id', finalTransactionId)
+      .eq('client_id', input.client_id);
+    if (clearPayErr) {
+      throw new Error(`Could not save payments: ${clearPayErr.message}`);
+    }
+  }
+
   if (Array.isArray(input.payments) && input.payments.length > 0) {
     try {
-      // Remove any existing payments for this transaction
-      await sb
-        .from('payments')
-        .delete()
-        .eq('transaction_id', finalTransactionId)
-        .eq('client_id', input.client_id);
 
       const payRowsToInsert = input.payments.map((p: any) => ({
         client_id: input.client_id,
@@ -352,4 +358,59 @@ export async function createTransaction(
     transaction: presentTransaction(finalRecord),
     ...(savedCommissionItems !== undefined ? { commissionItems: savedCommissionItems } : {}),
   };
+}
+
+/** Archives a transaction and the commission, payment, and template records that belong to it. */
+export async function deleteTransaction(
+  clientId: string,
+  transactionId: string,
+  userId: string,
+  client?: SupabaseClient,
+) {
+  const sb = client || (await getAuthenticatedSupabase());
+  const now = new Date().toISOString();
+  const archivedRow = {
+    archived: true,
+    updated_at: now,
+    updated_by: userId,
+  };
+
+  const { data: existing, error: lookupError } = await sb
+    .from('transactions')
+    .select('id')
+    .eq('id', transactionId)
+    .eq('client_id', clientId)
+    .or('archived.is.null,archived.eq.false')
+    .maybeSingle();
+
+  if (lookupError) throw new Error(lookupError.message);
+  if (!existing) throw new Error('Transaction not found.');
+
+  const relatedTables = [
+    'transaction_commission_items',
+    'payments',
+    'commission_template_submissions',
+  ] as const;
+
+  for (const table of relatedTables) {
+    const { error } = await sb
+      .from(table)
+      .update(archivedRow)
+      .eq('transaction_id', transactionId)
+      .eq('client_id', clientId);
+
+    if (error) throw new Error(error.message);
+  }
+
+  const { data: archived, error: archiveError } = await sb
+    .from('transactions')
+    .update(archivedRow)
+    .eq('id', transactionId)
+    .eq('client_id', clientId)
+    .select('id');
+
+  if (archiveError) throw new Error(archiveError.message);
+  if (!archived?.length) throw new Error('Transaction not found or you do not have permission to delete it.');
+
+  return { id: transactionId };
 }

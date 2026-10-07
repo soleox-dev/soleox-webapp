@@ -1,5 +1,6 @@
 import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { formatPercentRate } from '@/lib/percent';
 
 export interface FieldConfiguration {
   id: string;
@@ -160,15 +161,25 @@ export interface DatabaseColumnDefinition {
 }
 
 /**
- * Formats a numeric rate/percentage value into a standard percentage string with 3 decimal places (e.g. 2.500%, 2.000%, 2.750%, 3.000%).
- * Supports both decimal rate inputs (e.g. 0.025 -> 2.500%) and whole percent inputs (e.g. 2.5 -> 2.500%).
+ * Formats a stored rate as percent points. 0.015 → "1.5%", 0.8 → "80%", 1.1024 → "110.24%".
  */
-export function formatPercent(val: any, decimals: number = 3): string {
-  if (val === undefined || val === null || val === '') return '—';
-  const num = Number(val);
-  if (isNaN(num)) return String(val);
-  const target = Math.abs(num) <= 1 && num !== 0 ? num * 100 : num;
-  return `${target.toFixed(decimals)}%`;
+export function formatPercent(val: unknown, _decimals?: number): string {
+  return formatPercentRate(val);
+}
+
+/**
+ * Internal record keys stay in Field Customizations so formulas can reference them.
+ * Tables and data-entry forms do not render them.
+ * On a transaction, agent_id is the Primary Agent and stays visible.
+ */
+const HIDDEN_RECORD_ID_KEYS: Record<'transactions' | 'agents' | 'entities', ReadonlySet<string>> = {
+  transactions: new Set(['id']),
+  agents: new Set(['id', 'agent_id']),
+  entities: new Set(['id']),
+};
+
+export function isHiddenRecordId(table: 'transactions' | 'agents' | 'entities', fieldKey: string): boolean {
+  return HIDDEN_RECORD_ID_KEYS[table].has(fieldKey);
 }
 
 /**
@@ -215,7 +226,7 @@ export const DB_AGENT_COLUMNS: DatabaseColumnDefinition[] = [
   { field_key: 'agent_email', field_label: 'Email Address', field_type: 'TEXT', section_name: 'Identity & Status', storage_type: 'CORE_COLUMN', is_system: true, is_required: true, is_enabled: true },
   { field_key: 'agent_phone', field_label: 'Phone Number', field_type: 'TEXT', section_name: 'Identity & Status', storage_type: 'CORE_COLUMN', is_system: false, is_required: false, is_enabled: true },
   { field_key: 'group_id', field_label: 'Group / Team', field_type: 'SELECT', section_name: 'Identity & Status', storage_type: 'CORE_COLUMN', is_system: true, is_required: true, is_enabled: true },
-  { field_key: 'agent_status', field_label: 'Agent Status', field_type: 'SELECT', section_name: 'Identity & Status', storage_type: 'CORE_COLUMN', is_system: true, is_required: true, is_enabled: true, dropdown_options: ['Active', 'Released'] },
+  { field_key: 'agent_status', field_label: 'Agent Status', field_type: 'SELECT', section_name: 'Identity & Status', storage_type: 'CORE_COLUMN', is_system: true, is_required: true, is_enabled: true },
   { field_key: 'is_team_lead', field_label: 'Team Lead', field_type: 'BOOLEAN', section_name: 'Identity & Status', storage_type: 'CORE_COLUMN', is_system: false, is_required: false, is_enabled: true },
   { field_key: 'agent_onboard_date', field_label: 'Onboard Date', field_type: 'DATE', section_name: 'Identity & Status', storage_type: 'CORE_COLUMN', is_system: false, is_required: false, is_enabled: true },
   { field_key: 'agent_offboard_date', field_label: 'Offboard Date', field_type: 'DATE', section_name: 'Identity & Status', storage_type: 'CORE_COLUMN', is_system: false, is_required: false, is_enabled: true },

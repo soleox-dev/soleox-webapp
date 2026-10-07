@@ -1613,7 +1613,7 @@
   ],
   "commission_templates": [],
   "commission_template_parameters": [],
-  "commission_template_logic": [],
+  "commission_template_rules": [],
   "commission_template_submissions": [],
   "transactions": [
     {

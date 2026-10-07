@@ -3,6 +3,8 @@ import {
   FieldSetting,
   formatPercentageClean,
   formatPercent,
+  toPercentPoints,
+  fromPercentPoints,
   KnownAgentInfo,
   readTransactionField,
   isOverviewFieldVisible,
@@ -12,17 +14,22 @@ import {
   DecimalInput,
 } from './DecimalInput';
 import { normalizeAgentName } from '@/lib/id';
+import { isHiddenRecordId } from '@/lib/fields';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { HoverNote } from './HoverNote';
 import { SectionIcon } from './SectionIcon';
+import { toggleFromSectionHeader } from './sectionHeaderClick';
+import { SectionCollapseButton } from './SectionCollapseButton';
 import { CancelEditPrompt } from './CancelEditPrompt';
 import { useEditOnDoublePress } from './useEditOnDoublePress';
 import { useSectionEditKeys } from './useSectionEditKeys';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { BooleanField, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { UndoableDateInput } from '@/components/ui/UndoableDateInput';
 
 interface TransactionOverviewProps {
   isCollapsed: boolean;
+  sidebarCollapsed: boolean;
   onToggleSection: () => void;
   isEditing: boolean;
   hasChanges: boolean;
@@ -45,6 +52,7 @@ interface TransactionOverviewProps {
 
 export function TransactionOverview({
   isCollapsed,
+  sidebarCollapsed,
   onToggleSection,
   isEditing,
   hasChanges,
@@ -139,7 +147,10 @@ export function TransactionOverview({
 
   return (
     <section id="overview" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-8 transition-colors">
-      <div className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+      <div
+        onClick={(event) => toggleFromSectionHeader(event, onToggleSection)}
+        className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center cursor-pointer"
+      >
         <div className="flex items-center gap-3">
           <SectionIcon name="overview" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">1. Transaction Overview</h2>
@@ -164,22 +175,18 @@ export function TransactionOverview({
               >
                 Cancel
               </button>
-              <button
-                onClick={onApplyEdit}
-                className="text-xs bg-emerald-500 text-slate-950 px-3 py-1.5 rounded-lg font-bold transition hover:bg-emerald-400 shadow-md cursor-pointer"
-              >
-                Apply Changes
-              </button>
+              {hasChanges && (
+                <button
+                  onClick={onApplyEdit}
+                  className="text-xs bg-emerald-500 text-slate-950 px-3 py-1.5 rounded-lg font-bold transition hover:bg-emerald-400 shadow-md cursor-pointer"
+                >
+                  Apply Changes
+                </button>
+              )}
             </div>
           )}
 
-          <button
-            onClick={onToggleSection}
-            className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-bold transition text-base leading-none cursor-pointer"
-            title={isCollapsed ? 'Expand Section' : 'Collapse Section'}
-          >
-            {isCollapsed ? '+' : '−'}
-          </button>
+          <SectionCollapseButton collapsed={isCollapsed} onClick={onToggleSection} />
         </div>
       </div>
 
@@ -190,7 +197,7 @@ export function TransactionOverview({
               Loading Overview fields...
             </div>
           ) : (
-            <div className="lg:columns-2 lg:gap-x-8">
+            <div className={sidebarCollapsed ? 'lg:[column-count:4] lg:[column-width:20rem] lg:gap-x-8' : 'lg:columns-2 lg:gap-x-8'}>
             {Object.entries(groupedSections).map(([sectionName, fields]) => {
               const visibleFields = fields.filter((field) => {
                 const rawDbVal = readTransactionField(selectedDeal, field.key);
@@ -198,6 +205,7 @@ export function TransactionOverview({
                   ? (overviewFormValues[field.key] ?? rawDbVal ?? '')
                   : (rawDbVal ?? '');
 
+                if (isHiddenRecordId('transactions', field.key)) return false;
                 return isFieldVisible(field, activeValue);
               });
 
@@ -205,12 +213,12 @@ export function TransactionOverview({
 
               return (
                 <div key={sectionName} className="mb-6 break-inside-avoid space-y-2">
-                  <div className="border-b border-slate-300 dark:border-slate-700 pb-1 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                  <div className="border-b border-slate-300 dark:border-slate-700 pb-1 flex items-start gap-2">
+                    <span className="mt-1 w-2 h-2 shrink-0 rounded-full bg-emerald-500"></span>
+                    <span className="min-w-0 text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                       {sectionName}
                     </span>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold ml-auto">
+                    <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500 font-semibold ml-auto">
                       {visibleFields.length} {visibleFields.length === 1 ? 'Field' : 'Fields'}
                     </span>
                   </div>
@@ -248,6 +256,8 @@ export function TransactionOverview({
                         ? validationResult.message
                         : '';
                       const isDropdown = field.type === 'AGENT_PICKER' || field.key === 'agent_id' || field.key === 'primary_agent' || (field.type === 'SELECT' && dynamicOptions.length > 0);
+                      const isBoolean = field.type === 'BOOLEAN';
+                      const booleanChecked = isBooleanChecked(isEditing ? overviewFormValues[field.key] : readTransactionField(selectedDeal, field.key));
                       const filledControl = 'w-full bg-transparent border-0 p-0 h-5 text-xs leading-4 text-slate-900 dark:text-white focus:outline-none focus:ring-0 font-medium disabled:opacity-50 disabled:cursor-not-allowed';
                       const shellBorder = showError
                         ? 'border-b-rose-500'
@@ -259,6 +269,25 @@ export function TransactionOverview({
                         : showWarning
                         ? 'text-amber-600 dark:text-amber-400'
                         : 'text-slate-500 dark:text-slate-400';
+
+                      if (isBoolean) {
+                        return (
+                          <div key={field.id} className="min-w-0 py-1">
+                            <BooleanField
+                              label={field.label}
+                              required={field.is_required}
+                              checked={booleanChecked}
+                              disabled={!isEditing || isInputDisabled}
+                              onChange={(checked) => handleOverviewInputChange(field.key, checked)}
+                            />
+                            {assistiveMessage && (
+                              <p className={`mt-0.5 text-[10px] leading-3 font-medium ${showError ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                {assistiveMessage}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      }
 
                       return (
                         <div key={field.id} className="min-w-0">
@@ -316,8 +345,15 @@ export function TransactionOverview({
                                 ) : field.type === 'CURRENCY' || field.type === 'NUMBER' || field.type === 'PERCENT' ? (
                                   <DecimalInput
                                     disabled={isInputDisabled}
-                                    value={Number(overviewFormValues[field.key]) || 0}
-                                    onChange={(val) => handleOverviewInputChange(field.key, val)}
+                                    value={
+                                      field.type === 'PERCENT' || field.key === 'gci_perc'
+                                        ? toPercentPoints(Number(overviewFormValues[field.key]) || 0)
+                                        : Number(overviewFormValues[field.key]) || 0
+                                    }
+                                    onChange={(val) => handleOverviewInputChange(
+                                      field.key,
+                                      field.type === 'PERCENT' || field.key === 'gci_perc' ? fromPercentPoints(val) : val,
+                                    )}
                                     isPercent={field.type === 'PERCENT' || field.key === 'gci_perc'}
                                     useCommas={field.type === 'CURRENCY'}
                                     onKeyDown={preventMinus}

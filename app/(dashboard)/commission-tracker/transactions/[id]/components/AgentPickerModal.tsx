@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { KnownAgentInfo } from '../types';
+import { formatPercentPoints, fromPercentPoints } from '@/lib/percent';
 
 interface AgentPickerModalProps {
   isOpen: boolean;
@@ -61,12 +62,7 @@ export function AgentPickerModal({
     }
 
     if (splitType === 'PERCENT') {
-      const rate = numericVal > 1 ? numericVal / 100 : numericVal;
-      if (rate >= 1) {
-        setErrorMsg('Split percentage must be less than 100%.');
-        return;
-      }
-      onConfirmAddAgent(selectedAgent, 'PERCENT', rate);
+      onConfirmAddAgent(selectedAgent, 'PERCENT', fromPercentPoints(numericVal));
     } else {
       if (commissionAfterOffTop > 0 && numericVal >= commissionAfterOffTop) {
         setErrorMsg(`Split amount must be less than net commission (${formatCurrency(commissionAfterOffTop)}).`);
@@ -201,8 +197,8 @@ export function AgentPickerModal({
                   splitType === 'PERCENT' ? 'text-blue-600 dark:text-blue-400' : 'text-emerald-600 dark:text-emerald-400'
                 }`}>
                   {splitType === 'PERCENT'
-                    ? `≈ ${formatCurrency(commissionAfterOffTop * (numericVal > 1 ? numericVal / 100 : numericVal))}`
-                    : `≈ ${((numericVal / commissionAfterOffTop) * 100).toFixed(2)}% of net commission`}
+                    ? `≈ ${formatCurrency(commissionAfterOffTop * fromPercentPoints(numericVal))}`
+                    : `≈ ${formatPercentPoints((numericVal / commissionAfterOffTop) * 100)}% of net commission`}
                 </span>
               )}
             </div>

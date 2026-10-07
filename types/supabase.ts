@@ -389,7 +389,7 @@ export type Database = {
         }
         Relationships: []
       }
-      commission_template_logic: {
+      commission_template_rules: {
         Row: {
           archived: boolean | null
           agent_key: string | null
@@ -405,9 +405,11 @@ export type Database = {
           payee_formula: string | null
           popup_section: string | null
           rule_key: string | null
+          result_type: string | null
           rule_name: string
           section: string | null
           show_in_popup: boolean | null
+          show_when_formula: string | null
           split_type: string | null
           step_number: number
           template_id: string
@@ -428,10 +430,12 @@ export type Database = {
           payee_entity_id?: string | null
           payee_formula?: string | null
           popup_section?: string | null
+          result_type?: string | null
           rule_key?: string | null
           rule_name: string
           section?: string | null
           show_in_popup?: boolean | null
+          show_when_formula?: string | null
           split_type?: string | null
           step_number: number
           template_id: string
@@ -452,10 +456,12 @@ export type Database = {
           payee_entity_id?: string | null
           payee_formula?: string | null
           popup_section?: string | null
+          result_type?: string | null
           rule_key?: string | null
           rule_name?: string
           section?: string | null
           show_in_popup?: boolean | null
+          show_when_formula?: string | null
           split_type?: string | null
           step_number?: number
           template_id?: string
@@ -472,7 +478,6 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           data_type: string | null
-          default_value: number | null
           id: string
           is_required: boolean | null
           is_user_editable: boolean | null
@@ -494,7 +499,6 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           data_type?: string | null
-          default_value?: number | null
           id?: string
           is_required?: boolean | null
           is_user_editable?: boolean | null
@@ -516,7 +520,6 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           data_type?: string | null
-          default_value?: number | null
           id?: string
           is_required?: boolean | null
           is_user_editable?: boolean | null
@@ -582,6 +585,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           description: string | null
+          eligibility_formula: string | null
           id: string
           is_active: boolean | null
           is_default: boolean | null
@@ -595,6 +599,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          eligibility_formula?: string | null
           id?: string
           is_active?: boolean | null
           is_default?: boolean | null
@@ -608,6 +613,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          eligibility_formula?: string | null
           id?: string
           is_active?: boolean | null
           is_default?: boolean | null

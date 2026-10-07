@@ -62,7 +62,6 @@ export async function POST(request: Request) {
       parameter_name: String(param.parameter_name),
       parameter_key: String(param.parameter_key || param.parameter_name.toLowerCase().replace(/\s+/g, '_')),
       data_type: String(param.data_type || 'CURRENCY'),
-      default_value: param.default_value !== undefined && param.default_value !== '' && param.default_value !== null ? Number(param.default_value) : null,
       autofill_formula: param.autofill_formula ? String(param.autofill_formula) : null,
       validation_rule: param.validation_rule ? String(param.validation_rule) : null,
       notes: param.notes ? String(param.notes) : null,
@@ -78,6 +77,31 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
       updated_by: String(user),
     };
+
+    const key = String(rowPayload.parameter_key || '').trim().toLowerCase();
+    if (!isUpdate) {
+      rowPayload.parameter_key = key;
+      const [{ data: siblingParameters, error: parameterLookupError }, { data: siblingRules, error: ruleLookupError }] = await Promise.all([
+        supabase
+          .from('commission_template_parameters')
+          .select('id, parameter_key, parameter_name')
+          .eq('template_id', rowPayload.template_id)
+          .or('archived.is.null,archived.eq.false'),
+        supabase
+          .from('commission_template_rules')
+          .select('rule_key, rule_name')
+          .eq('template_id', rowPayload.template_id)
+          .or('archived.is.null,archived.eq.false'),
+      ]);
+      if (parameterLookupError) throw parameterLookupError;
+      if (ruleLookupError) throw ruleLookupError;
+      const parameterClash = (siblingParameters || []).find((row) => String(row.parameter_key || '').trim().toLowerCase() === key);
+      const ruleClash = (siblingRules || []).find((row) => String(row.rule_key || '').trim().toLowerCase() === key);
+      const clashName = parameterClash?.parameter_name || ruleClash?.rule_name;
+      if (clashName) {
+        return NextResponse.json({ error: `That key is already used by ${clashName}.` }, { status: 409 });
+      }
+    }
 
     // Attach ID only if updating an existing record explicitly
     if (isUpdate) {
@@ -104,6 +128,9 @@ export async function POST(request: Request) {
     while (error?.message?.includes('schema cache')) {
       const missingColumn = error.message.match(/Could not find the '([^']+)' column/)?.[1];
       if (!missingColumn || omittedColumns.has(missingColumn) || !(missingColumn in rowPayload)) break;
+      if (missingColumn === 'validation_rule' && param.validation_rule) {
+        throw new Error('The validation rule could not be saved. Reload the page and try again.');
+      }
       omittedColumns.add(missingColumn);
       delete rowPayload[missingColumn];
       const retry = isUpdate

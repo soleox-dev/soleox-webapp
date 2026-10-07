@@ -63,6 +63,7 @@ export async function POST(request: Request) {
       client_id: clientId,
       template_name: String(template.template_name),
       description: template.description ? String(template.description) : null,
+      eligibility_formula: template.eligibility_formula ? String(template.eligibility_formula).trim() || null : null,
       is_default: Boolean(template.is_default),
       is_active: template.is_active !== undefined ? Boolean(template.is_active) : true,
       archived: Boolean(template.archived),
@@ -91,7 +92,16 @@ export async function POST(request: Request) {
         .select();
     }
 
-    const { data, error } = await query;
+    let { data, error } = await query;
+    if (error && String(error.message || '').includes('eligibility_formula')) {
+      delete rowPayload.eligibility_formula;
+      const retry = isUpdate
+        ? supabase.from('commission_templates').upsert(rowPayload, { onConflict: 'id' }).select()
+        : supabase.from('commission_templates').insert(rowPayload).select();
+      const retried = await retry;
+      data = retried.data;
+      error = retried.error;
+    }
     if (error) throw error;
 
     const returnedRow = data ? data[0] : rowPayload;

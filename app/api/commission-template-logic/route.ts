@@ -11,7 +11,7 @@ export async function GET(request: Request) {
 
     const supabase = await getAuthenticatedSupabase();
     let query = supabase
-      .from('commission_template_logic')
+      .from('commission_template_rules')
       .select('*')
       .or('archived.is.null,archived.eq.false')
       .order('step_number', { ascending: true });
@@ -74,9 +74,15 @@ export async function POST(request: Request) {
         if (splitType === 'PERCENT' || splitType === 'AMOUNT') return splitType;
         return null;
       })(),
+      result_type: (() => {
+        const resultType = String(logic.result_type || '').trim().toUpperCase();
+        if (resultType === 'CURRENCY' || resultType === 'NUMBER' || resultType === 'PERCENT') return resultType;
+        return null;
+      })(),
       cap_condition_key: logic.cap_condition_key ? String(logic.cap_condition_key) : null,
       show_in_popup: Boolean(logic.show_in_popup),
       popup_section: logic.popup_section ? String(logic.popup_section).trim() || null : null,
+      show_when_formula: logic.show_when_formula ? String(logic.show_when_formula).trim() || null : null,
       archived: Boolean(logic.archived),
       created_by: logic.created_by || user,
       updated_at: new Date().toISOString(),
@@ -92,24 +98,24 @@ export async function POST(request: Request) {
     let query;
     if (isUpdate) {
       query = supabase
-        .from('commission_template_logic')
+        .from('commission_template_rules')
         .upsert(rowPayload, { onConflict: 'id' })
         .select();
     } else {
       // Insert new logic step (Postgres will trigger generate_prefixed_id('CTL'))
       query = supabase
-        .from('commission_template_logic')
+        .from('commission_template_rules')
         .insert(rowPayload)
         .select();
     }
 
     let { data, error } = await query;
-    for (const column of ['popup_section', 'show_in_popup']) {
+    for (const column of ['result_type', 'popup_section', 'show_in_popup', 'show_when_formula']) {
       if (!error || !String(error.message || '').includes(column)) continue;
       delete rowPayload[column];
       const retry = isUpdate
-        ? supabase.from('commission_template_logic').upsert(rowPayload, { onConflict: 'id' }).select()
-        : supabase.from('commission_template_logic').insert(rowPayload).select();
+        ? supabase.from('commission_template_rules').upsert(rowPayload, { onConflict: 'id' }).select()
+        : supabase.from('commission_template_rules').insert(rowPayload).select();
       const retried = await retry;
       data = retried.data;
       error = retried.error;
@@ -147,7 +153,7 @@ export async function DELETE(request: Request) {
 
     const supabase = await getAuthenticatedSupabase();
     const { error } = await supabase
-      .from('commission_template_logic')
+      .from('commission_template_rules')
       .update({
         archived: true,
         updated_at: new Date().toISOString(),

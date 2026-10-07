@@ -162,7 +162,10 @@ export default function Navbar() {
                       <button
                         key={option.id}
                         type="button"
-                        onClick={() => setTheme(option.id)}
+                        onClick={() => {
+                          setTheme(option.id);
+                          setIsUserMenuOpen(false);
+                        }}
                         aria-pressed={selected}
                         className={`w-full text-left px-4 py-2 text-xs font-semibold flex items-center gap-2 transition cursor-pointer ${
                           selected

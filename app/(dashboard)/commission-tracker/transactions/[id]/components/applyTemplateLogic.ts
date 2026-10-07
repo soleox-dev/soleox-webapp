@@ -1,5 +1,5 @@
 import { evaluateFormula, formulaDataNeeds, type FormulaLedgerRow, type FormulaLookups, type FormulaLookupCell, type FormulaLookupRow, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
-import { FORMULA_LOOKUP_TABLES } from '@/lib/formula-lookup-tables';
+import { FORMULA_LOOKUP_TABLES, formulaLookupSource } from '@/lib/formula-lookup-tables';
 import { DynamicRule, roundCurrency, roundPercentRate } from '../types';
 
 export interface TemplateLogicStep {
@@ -15,8 +15,10 @@ export interface TemplateLogicStep {
   custom_baseline?: string | null;
   calculation_formula?: string | null;
   split_type?: string | null;
+  result_type?: string | null;
   show_in_popup?: boolean | null;
   popup_section?: string | null;
+  show_when_formula?: string | null;
 }
 
 export interface NamedParty {
@@ -39,6 +41,7 @@ export interface AppliedCalculation {
   name: string;
   section: string;
   value: FormulaValue | null;
+  resultType?: string | null;
   error?: string;
 }
 
@@ -74,14 +77,22 @@ function bucketFor(section: string | null | undefined): Bucket | null {
   return null;
 }
 
-function storedValue(raw: unknown): FormulaValue {
+function isBooleanType(dataType: string | null | undefined): boolean {
+  const key = String(dataType || '').trim().toUpperCase();
+  return key === 'BOOLEAN' || key === 'YES_NO';
+}
+
+function storedValue(raw: unknown, asBoolean = false): FormulaValue {
   if (raw === undefined || raw === null || raw === '') return { type: 'blank' };
   if (typeof raw === 'number') return Number.isFinite(raw) ? { type: 'number', value: raw } : { type: 'error' };
   if (typeof raw === 'boolean') return { type: 'boolean', value: raw };
   const text = String(raw).trim();
   if (!text) return { type: 'blank' };
-  if (text === 'Yes') return { type: 'boolean', value: true };
-  if (text === 'No') return { type: 'boolean', value: false };
+  if (asBoolean) {
+    const flag = text.toLowerCase();
+    if (flag === 'true' || flag === 'yes') return { type: 'boolean', value: true };
+    if (flag === 'false' || flag === 'no') return { type: 'boolean', value: false };
+  }
   if (text.endsWith('%')) {
     const amount = Number(text.slice(0, -1).replace(/[$,]/g, ''));
     return Number.isFinite(amount) ? { type: 'percent', value: amount / 100 } : { type: 'text', value: text };
@@ -137,6 +148,7 @@ function readDeal(deal: Record<string, unknown> | null, key: string): unknown {
 export function applyTemplateLogic({
   steps,
   parameters,
+  parameterTypes = {},
   deal,
   entities,
   rosterAgents,
@@ -148,6 +160,7 @@ export function applyTemplateLogic({
 }: {
   steps: TemplateLogicStep[];
   parameters: Record<string, string>;
+  parameterTypes?: Record<string, string | null | undefined>;
   deal: Record<string, unknown> | null;
   entities: NamedParty[];
   rosterAgents: NamedParty[];
@@ -193,7 +206,10 @@ export function applyTemplateLogic({
     if (ruleHit) return ruleResults[ruleHit];
     if (Object.prototype.hasOwnProperty.call(parameters, key) || parameters[key] !== undefined) {
       const match = Object.keys(parameters).find((parameterKey) => parameterKey.toLowerCase() === key);
-      if (match !== undefined) return storedValue(parameters[match]);
+      if (match !== undefined) {
+        const typeKey = Object.keys(parameterTypes).find((parameterKey) => parameterKey.toLowerCase() === match.toLowerCase());
+        return storedValue(parameters[match], isBooleanType(typeKey ? parameterTypes[typeKey] : undefined));
+      }
     }
     return storedValue(readDeal(deal, key));
   };
@@ -235,6 +251,20 @@ export function applyTemplateLogic({
     const pending = previousShown;
     previousShown = null;
     if (!pending?.step.show_in_popup) return;
+    const showWhen = (pending.step.show_when_formula || '').trim();
+    if (showWhen) {
+      try {
+        const result = evaluateFormula(showWhen, resolve, rosterAgents, ledger, lookups);
+        const visible = result?.type === 'boolean'
+          ? result.value
+          : result?.type === 'number' || result?.type === 'percent'
+            ? result.value !== 0
+            : false;
+        if (!visible) return;
+      } catch {
+        return;
+      }
+    }
     const key = pending.step.rule_key?.trim();
     const stored = key ? ruleResults[key] : undefined;
     calculations.push({
@@ -242,6 +272,7 @@ export function applyTemplateLogic({
       name: pending.step.rule_name?.trim() || 'Rule',
       section: pending.step.popup_section?.trim() || '',
       value: pending.error ? null : (stored || { type: 'blank' }),
+      resultType: pending.step.result_type,
       error: pending.error,
     });
   };
@@ -477,7 +508,7 @@ export function templateFormulaSources(
 ): string[] {
   const sources: string[] = [];
   for (const step of steps) {
-    for (const formula of [step.calculation_formula, step.payee_formula, step.apply_condition, step.custom_baseline]) {
+    for (const formula of [step.calculation_formula, step.payee_formula, step.apply_condition, step.custom_baseline, step.show_when_formula]) {
       if (formula && formula.trim()) sources.push(formula);
     }
   }
@@ -536,8 +567,11 @@ async function loadFormulaLookupTable(clientId: string, table: string): Promise<
 
 /** Client-scoped rows for the tables a formula's XLOOKUP actually reads. */
 export async function loadFormulaLookups(clientId: string, tablesToLoad: readonly string[] = FORMULA_LOOKUP_TABLES): Promise<FormulaLookups> {
-  const requested = [...new Set(tablesToLoad)].filter((table) => (FORMULA_LOOKUP_TABLES as readonly string[]).includes(table));
-  const loaded = await Promise.all(requested.map(async (table) => [table, await loadFormulaLookupTable(clientId, table)] as const));
+  const requested = [...new Set(tablesToLoad)].flatMap((table) => {
+    const source = formulaLookupSource(table);
+    return source ? [{ key: table, source }] : [];
+  });
+  const loaded = await Promise.all(requested.map(async ({ key, source }) => [key, await loadFormulaLookupTable(clientId, source)] as const));
   const tables: FormulaLookups['tables'] = {};
   for (const [table, rows] of loaded) tables[table] = rows;
   return { clientId, tables };

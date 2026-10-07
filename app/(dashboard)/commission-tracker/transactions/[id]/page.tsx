@@ -23,10 +23,15 @@ import { AgentPickerModal } from './components/AgentPickerModal';
 import { TransferPrimaryAgentModal } from './components/TransferPrimaryAgentModal';
 import { RevertPrimaryAgentModal } from './components/RevertPrimaryAgentModal';
 import { UnsavedChangesModal } from './components/UnsavedChangesModal';
-import { generatePrefixedId } from '@/lib/id';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ToastBanner } from '@/components/ui/ToastBanner';
+import { AllocateCommissionModal } from './components/AllocateCommissionModal';
+import { toPercentPoints } from '@/lib/percent';
 import type { AppliedTemplateRules } from './components/applyTemplateLogic';
 import type { TemplateSubmissionDraft } from './components/CommissionTemplatePanel';
 import { isPrimaryAgent, resolvePrimaryAgentId, waterfallFromCommissionItems } from './commissionItemState';
+import { generatePrefixedId } from '@/lib/id';
+import { transactionDealLabel, transactionSearchLabel } from '@/lib/transaction-label';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -79,6 +84,24 @@ export default function Dashboard() {
   };
   const isProgrammaticScrollRef = useRef(false);
   const toggleSection = (key: string) => setCollapsed((p) => ({ ...p, [key]: !p[key] }));
+
+  const scrolledSectionRef = useRef<string | null>(null);
+
+  const sectionFromLocation = (): 'overview' | 'commission' | 'disbursements' | null => {
+    const stored = window.sessionStorage.getItem('soleox-transaction-section');
+    if (stored === 'overview' || stored === 'commission' || stored === 'disbursements') {
+      window.sessionStorage.removeItem('soleox-transaction-section');
+      return stored;
+    }
+    const section = window.location.hash.replace(/^#/, '').split('#')[0];
+    if (section === 'overview' || section === 'commission' || section === 'disbursements') return section;
+    return null;
+  };
+
+  const writeSectionHash = (section: 'overview' | 'commission' | 'disbursements') => {
+    if (window.location.hash === `#${section}`) return;
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}#${section}`);
+  };
 
   const scrollToSection = (sectionId: 'overview' | 'commission' | 'disbursements') => {
     setActiveTab(sectionId);
@@ -140,12 +163,55 @@ export default function Dashboard() {
   const [dealNotFound, setDealNotFound] = useState(false);
 
   useEffect(() => {
+    scrolledSectionRef.current = null;
+    const section = sectionFromLocation();
+    if (section) {
+      writeSectionHash(section);
+      return;
+    }
+    window.scrollTo(0, 0);
+  }, [routeId]);
+
+  useEffect(() => {
+    if (isNewTransaction || dealNotFound || selectedDealId !== routeId) return;
+    const hash = sectionFromLocation();
+    if (!hash) return;
+    writeSectionHash(hash);
+    const token = `${routeId}#${hash}`;
+    if (scrolledSectionRef.current === token) return;
+    setActiveTab(hash);
+    setCollapsed((prev) => ({ ...prev, [hash]: false }));
+    isProgrammaticScrollRef.current = true;
+
+    let settled = false;
+    let attempts = 0;
+    const interval = window.setInterval(() => {
+      attempts += 1;
+      const el = document.getElementById(hash);
+      el?.scrollIntoView({ behavior: 'auto', block: 'start' });
+      const top = el?.getBoundingClientRect().top ?? 999;
+      if ((top >= -4 && top < 80) || attempts > 20) {
+        window.clearInterval(interval);
+        settled = true;
+        scrolledSectionRef.current = token;
+        window.setTimeout(() => {
+          isProgrammaticScrollRef.current = false;
+        }, 200);
+      }
+    }, 100);
+
+    return () => {
+      window.clearInterval(interval);
+      if (!settled) isProgrammaticScrollRef.current = false;
+    };
+  }, [routeId, isNewTransaction, dealNotFound, selectedDealId]);
+
+  useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
         if (selectedDeal) {
-          const clientLabel = selectedDeal.client_id ? `[${selectedDeal.client_id}] ` : '';
-          setSearchQuery(`${clientLabel}${selectedDeal.id} — ${selectedDeal.property_address || ''}`);
+          setSearchQuery(transactionSearchLabel(selectedDeal));
         }
       }
     }
@@ -157,9 +223,7 @@ export default function Dashboard() {
   const filteredDeals = useMemo(() => {
     if (!savedDeals || savedDeals.length === 0) return [];
 
-    const currentDealLabel = selectedDeal
-      ? `${selectedDeal.client_id ? `[${selectedDeal.client_id}] ` : ''}${selectedDeal.id} — ${selectedDeal.property_address || ''}`
-      : '';
+    const currentDealLabel = selectedDeal ? transactionSearchLabel(selectedDeal) : '';
 
     const trimmed = searchQuery.trim();
 
@@ -181,9 +245,10 @@ export default function Dashboard() {
       const tenantStr = String(deal.client_id || '').toLowerCase();
       const leadStr = String(deal.lead_source || '').toLowerCase();
       const statusStr = String(deal.transaction_status || deal.status || '').toLowerCase();
+      const sideStr = String(deal.transaction_side || '').toLowerCase();
       const priceStr = deal.sales_price != null ? `$${Number(deal.sales_price).toLocaleString()} ${deal.sales_price}`.toLowerCase() : '';
 
-      const combined = `${tenantStr} ${idStr} ${addrStr} ${clientStr} ${agentStr} ${leadStr} ${statusStr} ${priceStr}`;
+      const combined = `${tenantStr} ${idStr} ${addrStr} ${sideStr} ${clientStr} ${agentStr} ${leadStr} ${statusStr} ${priceStr}`;
 
       return tokens.every((token) => combined.includes(token));
     });
@@ -257,6 +322,12 @@ export default function Dashboard() {
     postSplit2RulesByAgent: Record<string, DynamicRule[]>;
   } | null>(null);
   const [hasUnsavedLocalChanges, setHasUnsavedLocalChanges] = useState(false);
+  const [waterfallResetPending, setWaterfallResetPending] = useState(false);
+  const [allocatePromptOpen, setAllocatePromptOpen] = useState(false);
+  const allocateAfterSaveRef = useRef<(() => void) | undefined>(undefined);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [pendingTemplateSubmission, setPendingTemplateSubmission] = useState<TemplateSubmissionDraft | null>(null);
   const [templateSubmissionRevision, setTemplateSubmissionRevision] = useState(0);
   const pendingTemplateSubmissionRef = useRef<TemplateSubmissionDraft | null>(null);
@@ -656,7 +727,7 @@ export default function Dashboard() {
       setLeadSource(matched.lead_source || '');
 
       setSalesPrice(matched.sales_price ? Math.abs(Number(matched.sales_price)) : 0);
-      setGciPerc(matched.gci_perc ? (Math.abs(Number(matched.gci_perc)) > 1 ? Number(matched.gci_perc) / 100 : Number(matched.gci_perc)) : 0);
+      setGciPerc(Number(matched.gci_perc) || 0);
 
       const waterfall = waterfallFromCommissionItems(
         commissionItems,
@@ -670,8 +741,7 @@ export default function Dashboard() {
       setPostSplitRulesByAgent(waterfall.postSplitRulesByAgent);
       setPostSplit2RulesByAgent(waterfall.postSplit2RulesByAgent);
 
-      const clientLabel = matched.client_id ? `[${matched.client_id}] ` : '';
-      setSearchQuery(`${clientLabel}${matched.id} — ${matched.property_address || ''}`);
+      setSearchQuery(transactionSearchLabel(matched));
     }
   }, [routeId, isNewTransaction, savedDeals, knownAgents, knownEntities, commissionItems, commissionItemsDealId]);
 
@@ -686,10 +756,27 @@ export default function Dashboard() {
     'updated_at', 'updated_by'
   ]);
 
-  const handleSave = (afterSaveSuccess?: () => void) => {
+  const handleSave = (afterSaveSuccess?: () => void, options?: { decided?: boolean; omitPayments?: boolean }) => {
     if (!activeClientId && !isNewTransaction) {
       showToast('Cannot save transaction: Missing active Client ID.', 'error');
       return;
+    }
+
+    const rulesEmpty = offTheTopRules.length === 0
+      && preSplitRules.length === 0
+      && Object.values(postSplitRulesByAgent).every((rules) => rules.length === 0)
+      && Object.values(postSplit2RulesByAgent).every((rules) => rules.length === 0);
+    const clearedWaterfall = rulesEmpty && (
+      agents.length === 0
+      || (agents.length === 1 && agents[0].splitType === 'PERCENT' && Number(agents[0].splitVal) === 1)
+    );
+    if (!options?.decided && waterfallResetPending) {
+      if (clearedWaterfall) {
+        allocateAfterSaveRef.current = afterSaveSuccess;
+        setAllocatePromptOpen(true);
+        return;
+      }
+      setWaterfallResetPending(false);
     }
 
     const form = overviewForm.overviewFormValues;
@@ -768,7 +855,7 @@ export default function Dashboard() {
         const splitType = item.type || 'PERCENT';
         const cleanVal = item.value !== undefined && item.value !== null
           ? (splitType === 'PERCENT'
-              ? roundPercentRate(item.value > 1 ? item.value / 100 : item.value)
+              ? roundPercentRate(Number(item.value))
               : roundCurrency(Number(item.value)))
           : null;
         return {
@@ -789,7 +876,7 @@ export default function Dashboard() {
         const splitType = item.type || 'PERCENT';
         const cleanVal = item.value !== undefined && item.value !== null
           ? (splitType === 'PERCENT'
-              ? roundPercentRate(item.value > 1 ? item.value / 100 : item.value)
+              ? roundPercentRate(Number(item.value))
               : roundCurrency(Number(item.value)))
           : null;
         return {
@@ -813,9 +900,7 @@ export default function Dashboard() {
         if (splitType === 'PERCENT') {
           const raw = item.percent !== undefined && item.percent !== null
             ? item.percent
-            : (item.splitVal !== undefined && item.splitVal !== null
-                ? (item.splitVal > 1 ? item.splitVal / 100 : item.splitVal)
-                : null);
+            : (item.splitVal !== undefined && item.splitVal !== null ? item.splitVal : null);
           cleanSplitVal = raw !== null ? roundPercentRate(Number(raw)) : null;
         } else {
           cleanSplitVal = item.splitVal !== undefined && item.splitVal !== null
@@ -842,7 +927,7 @@ export default function Dashboard() {
         const splitType = item.type || 'PERCENT';
         const cleanVal = item.value !== undefined && item.value !== null
           ? (splitType === 'PERCENT'
-              ? roundPercentRate(item.value > 1 ? item.value / 100 : item.value)
+              ? roundPercentRate(Number(item.value))
               : roundCurrency(Number(item.value)))
           : null;
         return {
@@ -864,7 +949,7 @@ export default function Dashboard() {
         const splitType = item.type || 'PERCENT';
         const cleanVal = item.value !== undefined && item.value !== null
           ? (splitType === 'PERCENT'
-              ? roundPercentRate(item.value > 1 ? item.value / 100 : item.value)
+              ? roundPercentRate(Number(item.value))
               : roundCurrency(Number(item.value)))
           : null;
         return {
@@ -921,8 +1006,8 @@ export default function Dashboard() {
     const templateSubmission = pendingTemplateSubmissionRef.current;
     const payload = {
       ...coreDbFields,
-      commission_items: commissionItems,
-      payments: paymentItems,
+      commission_items: options?.omitPayments ? [] : commissionItems,
+      payments: options?.omitPayments ? [] : paymentItems,
       custom_attributes: customAttrs,
       ...(templateSubmission ? { template_submission: templateSubmission } : {}),
     };
@@ -936,6 +1021,9 @@ export default function Dashboard() {
       });
 
       if (!savedTxn) return;
+
+      setWaterfallResetPending(false);
+      setAllocatePromptOpen(false);
 
       if (Array.isArray(savedItems)) {
         setCommissionItems(savedItems);
@@ -961,7 +1049,20 @@ export default function Dashboard() {
     });
   };
 
-  const agentDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => agents.some((a) => a.name === e)) as [string, number][];
+  const agentDisbursements = Object.entries(dealResult.netPayouts)
+    .filter(([name]) => agents.some((agent) => agent.name === name))
+    .map(([name, amount]) => {
+      const agent = agents.find((item) => item.name === name);
+      const isPrimary = agent
+        ? (primaryAgentId ? isPrimaryAgent(agent, primaryAgentId) : agents[0]?.id === agent.id)
+        : false;
+      return {
+        name,
+        amount,
+        isPrimary,
+        isTeamLead: Boolean(agent?.isTeamLead),
+      };
+    });
   const entityDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => !agents.some((a) => a.name === e)) as [string, number][];
 
   // Filter available agents for picker modal so already added agents are excluded
@@ -972,6 +1073,56 @@ export default function Dashboard() {
     );
   }, [knownAgents, agents]);
 
+  const handleResetWaterfall = () => {
+    const named = String(primaryAgent || '').trim();
+    const known = knownAgents.find((agent) =>
+      (primaryAgentId && (agent.id === primaryAgentId || agent.name.toLowerCase() === String(primaryAgentId).toLowerCase()))
+      || (named && agent.name.toLowerCase() === named.toLowerCase())
+    );
+    const current = agents.find((agent) =>
+      isPrimaryAgent(agent, primaryAgentId) || (named && agent.name.toLowerCase() === named.toLowerCase())
+    );
+    const name = known?.name || current?.name || named;
+    const nextAgents: AgentConfig[] = name
+      ? [{
+          id: known?.id || current?.id || (primaryAgentId ? String(primaryAgentId) : `AGT_${name}`),
+          name,
+          isTeamLead: known?.isTeamLead ?? current?.isTeamLead ?? false,
+          splitType: 'PERCENT',
+          splitVal: 1,
+          brokerCapLimit: 0,
+          brokerCapPaidYTD: 0,
+          riskCapLimit: 0,
+          riskPaidYTD: 0,
+        }]
+      : [];
+    const rulesEmpty = offTheTopRules.length === 0
+      && preSplitRules.length === 0
+      && Object.values(postSplitRulesByAgent).every((rules) => rules.length === 0)
+      && Object.values(postSplit2RulesByAgent).every((rules) => rules.length === 0);
+    const agentsAlreadyReset = agents.length === nextAgents.length
+      && agents.every((agent, index) => agent.id === nextAgents[index]?.id && agent.splitType === 'PERCENT' && agent.splitVal === 1);
+
+    setWaterfallEditSnapshot(null);
+    setIsEditingWaterfall(false);
+    setIsAddAgentModalOpen(false);
+    setOffTheTopRules([]);
+    setPreSplitRules([]);
+    setPostSplitRulesByAgent({});
+    setPostSplit2RulesByAgent({});
+    setAgents(nextAgents);
+    if (!rulesEmpty || !agentsAlreadyReset) {
+      setHasUnsavedLocalChanges(true);
+      setWaterfallResetPending(true);
+    }
+  };
+
+  const handleTemplateSubmissionDeleted = () => {
+    pendingTemplateSubmissionRef.current = null;
+    setPendingTemplateSubmission(null);
+    setTemplateSubmissionRevision((current) => current + 1);
+  };
+
   const discardPendingTemplateSubmission = () => {
     if (!pendingTemplateSubmissionRef.current) return;
     pendingTemplateSubmissionRef.current = null;
@@ -980,6 +1131,8 @@ export default function Dashboard() {
   };
 
   const handleDiscardChanges = () => {
+    setWaterfallResetPending(false);
+    setAllocatePromptOpen(false);
     overviewForm.setIsEditingOverview(false);
     setIsEditingWaterfall(false);
     setWaterfallEditSnapshot(null);
@@ -1030,7 +1183,7 @@ export default function Dashboard() {
     setListDate(saved.list_date ? String(saved.list_date).substring(0, 10) : '');
     setLeadSource(saved.lead_source || '');
     setSalesPrice(saved.sales_price ? Math.abs(Number(saved.sales_price)) : 0);
-    setGciPerc(saved.gci_perc ? (Math.abs(Number(saved.gci_perc)) > 1 ? Number(saved.gci_perc) / 100 : Number(saved.gci_perc)) : 0);
+    setGciPerc(Number(saved.gci_perc) || 0);
     setGciType(saved.gci_type || 'PERCENTAGE');
 
     const waterfall = waterfallFromCommissionItems(
@@ -1061,6 +1214,8 @@ export default function Dashboard() {
   };
 
   const handleDiscardAndLeave = () => {
+    setWaterfallResetPending(false);
+    setAllocatePromptOpen(false);
     const navigate = pendingNavigationRef.current;
     pendingNavigationRef.current = null;
     setHasUnsavedLocalChanges(false);
@@ -1070,6 +1225,42 @@ export default function Dashboard() {
     overviewForm.setIsEditingOverview(false);
     setIsUnsavedModalOpen(false);
     navigate?.();
+  };
+
+  const deleteLabel =
+    transactionDealLabel({
+      property_address: selectedDeal?.property_address || propertyAddress,
+      transaction_side: selectedDeal?.transaction_side,
+      transaction_status: selectedDeal?.transaction_status || selectedDeal?.status,
+    }) || String(selectedDeal?.id || routeId);
+
+  const handleConfirmDelete = async () => {
+    const transactionId = String(selectedDeal?.id || routeId);
+    if (!transactionId || transactionId === 'new' || isDeleting) return;
+
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const clientId = String(selectedDeal?.client_id || 'DEMO');
+      const res = await fetch(
+        `/api/transactions?id=${encodeURIComponent(transactionId)}&client_id=${encodeURIComponent(clientId)}`,
+        {
+          method: 'DELETE',
+          headers: { 'x-client-id': clientId },
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        throw new Error(data.error || 'Failed to delete the transaction.');
+      }
+      setHasUnsavedLocalChanges(false);
+      setConfirmDeleteOpen(false);
+      router.push('/commission-tracker/transactions');
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete the transaction.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleSaveAndLeave = () => {
@@ -1147,13 +1338,14 @@ export default function Dashboard() {
 
   return (
     <div className={`p-8 mx-auto space-y-6 relative ${sidebarCollapsed ? 'max-w-[100rem]' : 'max-w-7xl'}`}>
-      {toast && <div className="fixed top-5 right-5 z-50 px-4 py-3 bg-slate-900 text-white rounded-xl shadow-xl">{toast.message}</div>}
+      {toast && <ToastBanner message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
 
       <HeaderCard
         isNewTransaction={isNewTransaction}
         isSaving={isSaving}
         onSave={() => handleSave()}
         onDiscard={handleDiscardChanges}
+        onDelete={selectedDeal?.id ? () => { setDeleteError(null); setConfirmDeleteOpen(true); } : undefined}
         hasUnsavedChanges={hasUnsavedLocalChanges}
       />
 
@@ -1173,8 +1365,7 @@ export default function Dashboard() {
             setSelectedDealId(deal.id);
             setDealId(deal.id);
             setDealNotFound(false);
-            const clientLabel = deal.client_id ? `[${deal.client_id}] ` : '';
-            setSearchQuery(`${clientLabel}${deal.id} — ${deal.property_address || ''}`);
+            setSearchQuery(transactionSearchLabel(deal));
             if (deal.id !== routeId) {
               router.push(`/commission-tracker/transactions/${deal.id}`);
             }
@@ -1204,6 +1395,7 @@ export default function Dashboard() {
         <div className="min-w-0 space-y-8">
           <TransactionOverview
             isCollapsed={collapsed.overview}
+            sidebarCollapsed={sidebarCollapsed}
             onToggleSection={() => toggleSection('overview')}
             isEditing={overviewForm.isEditingOverview}
             hasChanges={!overviewForm.overviewValuesUnchanged()}
@@ -1246,10 +1438,10 @@ export default function Dashboard() {
                 const primary = remaining[0];
                 let restoredVal = primary.splitVal;
                 const baselinePool = dealResult.commissionAfterPreSplit ?? dealResult.commissionAfterOffTop;
-                if (toRemove.splitType === 'PERCENT') {
-                  restoredVal = Math.min(1.0, primary.splitVal + toRemove.splitVal);
-                } else if (baselinePool > 0) {
-                  restoredVal = Math.min(1.0, primary.splitVal + (toRemove.splitVal / baselinePool));
+                if (toRemove.splitType === 'PERCENT' && primary.splitType === 'PERCENT') {
+                  restoredVal = roundPercentRate(primary.splitVal + toRemove.splitVal);
+                } else if (baselinePool > 0 && primary.splitType === 'PERCENT') {
+                  restoredVal = roundPercentRate(primary.splitVal + (toRemove.splitVal / baselinePool));
                 }
                 remaining[0] = { ...primary, splitVal: restoredVal };
                 return [...remaining];
@@ -1306,10 +1498,7 @@ export default function Dashboard() {
             onToggleAgentSplitType={(id) => setAgents((p) => p.map((a) => {
               if (a.id !== id) return a;
               const newType = a.splitType === 'PERCENT' ? 'AMOUNT' : 'PERCENT';
-              const normalizedVal = (a.splitType === 'PERCENT' && a.splitVal <= 1 && a.splitVal > 0)
-                ? Number((a.splitVal * 100).toFixed(5))
-                : a.splitVal;
-              return { ...a, splitType: newType, splitVal: normalizedVal };
+              return { ...a, splitType: newType };
             }))}
             onSplitValueChange={(id, val) => setAgents((p) => p.map((a) => a.id === id ? { ...a, splitVal: val } : a))}
             dealResult={dealResult}
@@ -1319,10 +1508,7 @@ export default function Dashboard() {
             onToggleOffTopRuleType={(id) => setOffTheTopRules((p) => p.map((r) => {
               if (r.id !== id) return r;
               const newType = r.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT';
-              const normalizedVal = (r.type === 'PERCENT' && r.value <= 1 && r.value > 0)
-                ? Number((r.value * 100).toFixed(5))
-                : r.value;
-              return { ...r, type: newType, value: normalizedVal };
+              return { ...r, type: newType };
             }))}
             onUpdateOffTopRuleValue={(id, val) => setOffTheTopRules((p) => p.map((r) => r.id === id ? { ...r, value: val } : r))}
             onUpdateOffTopRuleEntity={(id, ent) => setOffTheTopRules((p) => p.map((r) => r.id === id ? { ...r, entity: ent, name: ent } : r))}
@@ -1342,10 +1528,7 @@ export default function Dashboard() {
             onTogglePreSplitRuleType={(id) => setPreSplitRules((p) => p.map((r) => {
               if (r.id !== id) return r;
               const newType = r.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT';
-              const normalizedVal = (r.type === 'PERCENT' && r.value <= 1 && r.value > 0)
-                ? Number((r.value * 100).toFixed(5))
-                : r.value;
-              return { ...r, type: newType, value: normalizedVal };
+              return { ...r, type: newType };
             }))}
             onUpdatePreSplitRuleValue={(id, val) => setPreSplitRules((p) => p.map((r) => r.id === id ? { ...r, value: val } : r))}
             onUpdatePreSplitRuleEntity={(id, ent) => setPreSplitRules((p) => p.map((r) => r.id === id ? { ...r, entity: ent, name: ent } : r))}
@@ -1376,10 +1559,7 @@ export default function Dashboard() {
               [name]: (p[name] || []).map((r) => {
                 if (r.id !== id) return r;
                 const newType = r.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT';
-                const normalizedVal = (r.type === 'PERCENT' && r.value <= 1 && r.value > 0)
-                  ? Number((r.value * 100).toFixed(5))
-                  : r.value;
-                return { ...r, type: newType, value: normalizedVal };
+                return { ...r, type: newType };
               })
             }))}
             onUpdateAgentPostSplitValue={(name, id, val) => setPostSplitRulesByAgent((p) => ({ ...p, [name]: (p[name] || []).map((r) => r.id === id ? { ...r, value: val } : r) }))}
@@ -1406,10 +1586,7 @@ export default function Dashboard() {
               [name]: (p[name] || []).map((r) => {
                 if (r.id !== id) return r;
                 const newType = r.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT';
-                const normalizedVal = (r.type === 'PERCENT' && r.value <= 1 && r.value > 0)
-                  ? Number((r.value * 100).toFixed(5))
-                  : r.value;
-                return { ...r, type: newType, value: normalizedVal };
+                return { ...r, type: newType };
               })
             }))}
             onUpdateAgentPostSplit2Value={(name, id, val) => setPostSplit2RulesByAgent((p) => ({ ...p, [name]: (p[name] || []).map((r) => r.id === id ? { ...r, value: val } : r) }))}
@@ -1438,6 +1615,8 @@ export default function Dashboard() {
             templateAgents={knownAgents.map((agent) => ({ id: agent.id, name: agent.name, isTeamLead: agent.isTeamLead, clientId: agent.clientId, fields: agent.fields }))}
             primaryAgentId={primaryAgentId}
             onApplyTemplate={handleApplyTemplateRules}
+            onSubmissionDeleted={handleTemplateSubmissionDeleted}
+            onResetWaterfall={handleResetWaterfall}
             submissionRevision={templateSubmissionRevision}
           />
 
@@ -1446,6 +1625,7 @@ export default function Dashboard() {
             onToggleSection={() => toggleSection('disbursements')}
             agentDisbursements={agentDisbursements}
             entityDisbursements={entityDisbursements}
+            totalCommission={dealResult.totalCommission}
           />
         </div>
       </div>
@@ -1468,7 +1648,7 @@ export default function Dashboard() {
         primarySplitValue={
           transferInfo?.splitType === 'AMOUNT'
             ? (transferInfo.splitVal || 0)
-            : ((transferInfo?.splitVal || 0) > 1 ? (transferInfo?.splitVal || 0) : (transferInfo?.splitVal || 0) * 100)
+            : toPercentPoints(transferInfo?.splitVal || 0)
         }
         level1RulesCount={(transferInfo && postSplitRulesByAgent[transferInfo.formerAgent]?.length) || 0}
         level2RulesCount={(transferInfo && postSplit2RulesByAgent[transferInfo.formerAgent]?.length) || 0}
@@ -1484,6 +1664,17 @@ export default function Dashboard() {
         onRevertNo={handleRevertNo}
       />
 
+      <AllocateCommissionModal
+        isOpen={allocatePromptOpen}
+        agentName={agents.length === 1 ? agents[0].name : ''}
+        isSaving={isSaving}
+        onCancel={() => {
+          if (!isSaving) setAllocatePromptOpen(false);
+        }}
+        onNo={() => handleSave(allocateAfterSaveRef.current, { decided: true, omitPayments: true })}
+        onYes={() => handleSave(allocateAfterSaveRef.current, { decided: true })}
+      />
+
       <UnsavedChangesModal
         isOpen={isUnsavedModalOpen}
         isSaving={isSaving}
@@ -1491,6 +1682,19 @@ export default function Dashboard() {
         onDiscard={handleDiscardAndLeave}
         onSave={handleSaveAndLeave}
       />
+
+      {confirmDeleteOpen && (
+        <ConfirmDialog
+          title={`Delete transaction "${deleteLabel}"?`}
+          message="This removes the transaction, including its commission and payment records."
+          error={deleteError}
+          isPending={isDeleting}
+          onCancel={() => {
+            if (!isDeleting) setConfirmDeleteOpen(false);
+          }}
+          onConfirm={() => void handleConfirmDelete()}
+        />
+      )}
 
       <AgentPickerModal
         isOpen={isAddAgentModalOpen}
@@ -1508,7 +1712,7 @@ export default function Dashboard() {
             name: selected.name,
             isTeamLead: selected.isTeamLead,
             splitType: isFirstAgent ? 'PERCENT' : splitType,
-            splitVal: isFirstAgent ? 100 : splitVal,
+            splitVal: isFirstAgent ? 1 : splitVal,
             brokerCapLimit: 0,
             brokerCapPaidYTD: 0,
             riskCapLimit: 0,
@@ -1519,11 +1723,14 @@ export default function Dashboard() {
             if (prev.length === 0) return [newAgent];
             const primary = prev[0];
             const baselinePool = dealResult.commissionAfterPreSplit ?? dealResult.commissionAfterOffTop;
-            const rate = splitType === 'PERCENT' ? (splitVal > 1 ? splitVal / 100 : splitVal) : (baselinePool > 0 ? splitVal / baselinePool : 0);
-            const primaryRate = (primary.splitVal > 1 ? primary.splitVal / 100 : primary.splitVal);
-            const remainingRate = Math.max(0, primaryRate - rate);
-            const newPrimaryVal = primary.splitVal > 1 ? Number((remainingRate * 100).toFixed(5)) : roundPercentRate(remainingRate);
-            return [{ ...primary, splitVal: newPrimaryVal }, ...prev.slice(1), newAgent];
+            if (primary.splitType !== 'PERCENT') {
+              return [...prev, newAgent];
+            }
+            const incomingRate = splitType === 'PERCENT'
+              ? splitVal
+              : (baselinePool > 0 ? splitVal / baselinePool : 0);
+            const remainingRate = Math.max(0, primary.splitVal - incomingRate);
+            return [{ ...primary, splitVal: roundPercentRate(remainingRate) }, ...prev.slice(1), newAgent];
           });
 
           if (isFirstAgent) {

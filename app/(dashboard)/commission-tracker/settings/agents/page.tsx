@@ -1,9 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { formatPercent } from '@/lib/fields';
+import { PERCENT_POINT_DECIMALS, formatPercentPoints, formatTablePercent, fromPercentPoints, toPercentPoints } from '@/lib/percent';
+import { isHiddenRecordId } from '@/lib/fields';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { BooleanCheckbox, BooleanField, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
+import { EditPencil } from '@/components/ui/edit-pencil';
+import { TrashIcon } from '@/components/ui/trash-icon';
 
 type FieldType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
 
@@ -98,22 +102,77 @@ function FieldCalendar({ label }: { label: string }) {
   );
 }
 
-const DEFAULT_AGENT_FIELDS: FieldConfig[] = [
-  { id: 'CFG_AG_ID', client_id: 'DEMO', target_table: 'agents', field_key: 'id', storage_type: 'CORE_COLUMN', section_name: 'Identity & Status', section_sort_order: 1, sort_order: 1, field_label: 'Agent ID', field_type: 'TEXT', is_required: true, is_system: true, is_enabled: true, max_length: 50 },
-  { id: 'CFG_AG_NAME', client_id: 'DEMO', target_table: 'agents', field_key: 'agent_name', storage_type: 'CORE_COLUMN', section_name: 'Identity & Status', section_sort_order: 1, sort_order: 2, field_label: 'Agent Name', field_type: 'TEXT', is_required: true, is_system: true, is_enabled: true, max_length: 100 },
-  { id: 'CFG_AG_STATUS', client_id: 'DEMO', target_table: 'agents', field_key: 'agent_status', storage_type: 'CORE_COLUMN', section_name: 'Identity & Status', section_sort_order: 1, sort_order: 3, field_label: 'Status', field_type: 'SELECT', is_required: true, is_system: true, is_enabled: true, dropdown_options: ['Active', 'Released'] },
-  { id: 'CFG_AG_GROUP', client_id: 'DEMO', target_table: 'agents', field_key: 'group_id', storage_type: 'CORE_COLUMN', section_name: 'Identity & Status', section_sort_order: 1, sort_order: 4, field_label: 'Group / Team', field_type: 'SELECT', is_required: false, is_system: true, is_enabled: true, dropdown_options: ['Springfield Team', 'Miami Coastal', 'Enterprise'] },
-  { id: 'CFG_AG_EMAIL', client_id: 'DEMO', target_table: 'agents', field_key: 'agent_email', storage_type: 'CORE_COLUMN', section_name: 'Identity & Status', section_sort_order: 1, sort_order: 5, field_label: 'Email Address', field_type: 'TEXT', is_required: true, is_system: true, is_enabled: true, max_length: 150 },
-];
+function editableAmount(amount: number): string {
+  return formatPercentPoints(amount);
+}
+
+function AgentAmountInput({
+  kind,
+  value,
+  disabled,
+  required,
+  onChange,
+}: {
+  kind: 'CURRENCY' | 'PERCENT';
+  value: unknown;
+  disabled?: boolean;
+  required?: boolean;
+  onChange: (next: number | undefined) => void;
+}) {
+  const stored = value === '' || value === undefined || value === null ? null : Number(value);
+  const finite = stored !== null && Number.isFinite(stored) ? stored : null;
+  const points = finite === null ? null : kind === 'PERCENT' ? toPercentPoints(finite) : finite;
+  const committed = points === null
+    ? ''
+    : kind === 'CURRENCY'
+      ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(points)
+      : `${formatPercentPoints(points)}%`;
+  const [focused, setFocused] = useState(false);
+  const [draft, setDraft] = useState('');
+
+  useEffect(() => {
+    if (!focused) setDraft(points === null ? '' : editableAmount(points));
+  }, [focused, points]);
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      required={required}
+      disabled={disabled}
+      value={focused ? draft : committed}
+      onFocus={() => {
+        setDraft(points === null ? '' : editableAmount(points));
+        setFocused(true);
+      }}
+      onBlur={() => setFocused(false)}
+      onChange={(event) => {
+        let raw = event.target.value.replace(/[$,%\s]/g, '');
+        if (raw !== '' && !/^-?\d*\.?\d*$/.test(raw)) return;
+        const fractionLimit = kind === 'PERCENT' ? PERCENT_POINT_DECIMALS : 2;
+        if (raw.includes('.')) {
+          const [integer, decimals] = raw.split('.');
+          if (decimals && decimals.length > fractionLimit) raw = `${integer}.${decimals.slice(0, fractionLimit)}`;
+        }
+        setDraft(raw);
+        if (raw === '' || raw === '-' || raw === '.' || raw === '-.') {
+          onChange(undefined);
+          return;
+        }
+        const parsed = Number(raw);
+        if (!Number.isFinite(parsed)) return;
+        onChange(kind === 'PERCENT' ? fromPercentPoints(parsed) : parsed);
+      }}
+      className={underlineControl}
+    />
+  );
+}
 
 const GROUP_COLOR_STYLES: Record<string, string> = {
   'group a': 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/30',
   'group b': 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30',
   'group c': 'bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-500/30',
   'group d': 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30',
-  'springfield team': 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30',
-  'miami coastal': 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30',
-  'enterprise': 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-400 border-fuchsia-500/30',
   'orange county': 'bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30',
 };
 
@@ -148,7 +207,7 @@ function getGroupBadgeStyle(groupName: string): string {
 }
 
 export default function AgentsSettingsPage() {
-  const [fieldConfigs, setFieldConfigs] = useState<FieldConfig[]>(DEFAULT_AGENT_FIELDS);
+  const [fieldConfigs, setFieldConfigs] = useState<FieldConfig[]>([]);
   const [agents, setAgents] = useState<AgentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -170,14 +229,10 @@ export default function AgentsSettingsPage() {
         headers: { 'x-client-id': 'DEMO' },
       });
       const data = await res.json();
-      if (data.catalog && Array.isArray(data.catalog) && data.catalog.length > 0) {
+      if (data.catalog && Array.isArray(data.catalog)) {
         setFieldConfigs(data.catalog);
       } else {
-        const savedConfigs = localStorage.getItem('soleox_field_cfg_agents');
-        if (savedConfigs) {
-          const parsed = JSON.parse(savedConfigs);
-          if (Array.isArray(parsed) && parsed.length > 0) setFieldConfigs(parsed);
-        }
+        setFieldConfigs([]);
       }
     } catch (err) {
       console.error('Failed to load live agent schema:', err);
@@ -230,7 +285,7 @@ export default function AgentsSettingsPage() {
   }, [isModalOpen]);
 
   const activeConfigs = fieldConfigs
-    .filter((f) => f.is_enabled || f.field_key === 'id' || f.field_key === 'agent_id')
+    .filter((f) => f.is_enabled && !isHiddenRecordId('agents', f.field_key))
     .sort((a, b) => {
       if (a.section_sort_order !== b.section_sort_order) {
         return a.section_sort_order - b.section_sort_order;
@@ -317,7 +372,6 @@ export default function AgentsSettingsPage() {
   const handleOpenAdd = () => {
     setEditingAgent(null);
     const initialData: Partial<AgentRecord> = {
-      agent_status: 'Active',
       is_team_lead: false,
     };
     activeConfigs.forEach((cfg) => {
@@ -344,7 +398,7 @@ export default function AgentsSettingsPage() {
     const targetAgent: AgentRecord = {
       agent_name: formData.agent_name || '',
       agent_email: formData.agent_email || '',
-      agent_status: formData.agent_status || 'Active',
+      agent_status: formData.agent_status || '',
       ...formData,
     };
     if (!isEditing) {
@@ -374,9 +428,14 @@ export default function AgentsSettingsPage() {
     }
   };
 
+  const statusOptions = fieldConfigs.find((cfg) => cfg.field_key === 'agent_status')?.dropdown_options?.filter(Boolean) ?? [];
+
   const toggleStatus = async (agent: AgentRecord) => {
-    const nextStatus = agent.agent_status === 'Active' ? 'Released' : 'Active';
-    const actionLabel = nextStatus === 'Active' ? 'activate' : 'release';
+    if (statusOptions.length < 2) return;
+    const current = String(agent.agent_status || '');
+    const currentIndex = statusOptions.findIndex((option) => option.toLowerCase() === current.toLowerCase());
+    const nextStatus = statusOptions[(currentIndex + 1) % statusOptions.length];
+    const actionLabel = `set the status to ${nextStatus}`;
 
     if (!confirm(`Are you sure you want to ${actionLabel} "${agent.agent_name}"?`)) {
       return;
@@ -403,7 +462,7 @@ export default function AgentsSettingsPage() {
   const handleDelete = async (agent: AgentRecord) => {
     if (agent.has_transactions) {
       alert(
-        `Cannot delete "${agent.agent_name}" because they have active or historical transactions attached. You can set their status to Released instead.`
+        `Cannot delete "${agent.agent_name}" because they have active or historical transactions attached. You can change their status instead.`
       );
       return;
     }
@@ -511,9 +570,9 @@ export default function AgentsSettingsPage() {
                   <th
                     key={cfg.field_key}
                     onClick={() => handleSort(cfg.field_key)}
-                    className="p-3.5 whitespace-nowrap cursor-pointer hover:text-slate-900 dark:hover:text-white transition group"
+                    className={`p-3.5 whitespace-nowrap cursor-pointer hover:text-slate-900 dark:hover:text-white transition group ${cfg.field_type === 'BOOLEAN' || cfg.field_type === 'DATE' ? 'text-center' : ''} ${cfg.field_type === 'CURRENCY' || cfg.field_type === 'PERCENT' ? 'text-right' : ''}`}
                   >
-                    <div className="flex items-center gap-1.5">
+                    <div className={`flex items-center gap-1.5 ${cfg.field_type === 'BOOLEAN' || cfg.field_type === 'DATE' ? 'justify-center' : ''} ${cfg.field_type === 'CURRENCY' || cfg.field_type === 'PERCENT' ? 'justify-end' : ''}`}>
                       <span>{cfg.field_label}</span>
                       <span className="text-slate-400 dark:text-slate-600 group-hover:opacity-100 transition">
                         {sortField === cfg.field_key ? (sortOrder === 'asc' ? '↑' : '↓') : '↕'}
@@ -573,21 +632,26 @@ export default function AgentsSettingsPage() {
 
                       // Status Badge Column
                       if (cfg.field_key === 'agent_status') {
-                        const st = String(rawVal || 'Active');
+                        const st = rawVal ? String(rawVal) : '';
                         const stLower = st.toLowerCase();
                         let badgeStyle = 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30';
                         if (stLower === 'released' || stLower === 'inactive' || stLower === 'terminated') {
                           badgeStyle = 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30';
                         } else if (stLower === 'pending' || stLower === 'onboarding') {
                           badgeStyle = 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30';
+                        } else if (!st) {
+                          badgeStyle = 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700';
                         }
+                        const canToggle = statusOptions.length >= 2;
                         return (
                           <td key={cfg.field_key} className="p-3.5 text-center whitespace-nowrap">
                             <button
+                              type="button"
                               onClick={() => toggleStatus(ag)}
-                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider transition cursor-pointer ${badgeStyle}`}
+                              disabled={!canToggle}
+                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider transition ${canToggle ? 'cursor-pointer' : 'cursor-default'} ${badgeStyle}`}
                             >
-                              {st}
+                              {st || '—'}
                             </button>
                           </td>
                         );
@@ -620,16 +684,8 @@ export default function AgentsSettingsPage() {
                       // Boolean Cell
                       if (cfg.field_type === 'BOOLEAN') {
                         return (
-                          <td key={cfg.field_key} className="p-3.5 whitespace-nowrap">
-                            <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                                Boolean(rawVal)
-                                  ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
-                                  : 'bg-slate-100 dark:bg-slate-900 text-slate-400 border-slate-300 dark:border-slate-700'
-                              }`}
-                            >
-                              {Boolean(rawVal) ? 'Yes' : 'No'}
-                            </span>
+                          <td key={cfg.field_key} className="p-3.5 text-center align-middle whitespace-nowrap">
+                            <BooleanCheckbox checked={isBooleanChecked(rawVal)} disabled />
                           </td>
                         );
                       }
@@ -637,7 +693,7 @@ export default function AgentsSettingsPage() {
                       // Currency Cell
                       if (cfg.field_type === 'CURRENCY') {
                         return (
-                          <td key={cfg.field_key} className="p-3.5 font-mono whitespace-nowrap">
+                          <td key={cfg.field_key} className="p-3.5 whitespace-nowrap text-right tabular-nums">
                             {formatCurrency(Number(rawVal) || 0)}
                           </td>
                         );
@@ -646,8 +702,8 @@ export default function AgentsSettingsPage() {
                       // Percent Cell
                       if (cfg.field_type === 'PERCENT') {
                         return (
-                          <td key={cfg.field_key} className="p-3.5 font-mono whitespace-nowrap">
-                            {formatPercent(rawVal)}
+                          <td key={cfg.field_key} className="p-3.5 whitespace-nowrap text-right tabular-nums">
+                            {formatTablePercent(rawVal)}
                           </td>
                         );
                       }
@@ -655,7 +711,7 @@ export default function AgentsSettingsPage() {
                       // Number Cell
                       if (cfg.field_type === 'NUMBER') {
                         return (
-                          <td key={cfg.field_key} className="p-3.5 font-mono whitespace-nowrap">
+                          <td key={cfg.field_key} className="p-3.5 whitespace-nowrap">
                             {rawVal !== undefined && rawVal !== null ? String(rawVal) : '—'}
                           </td>
                         );
@@ -664,7 +720,7 @@ export default function AgentsSettingsPage() {
                       // Date Cell
                       if (cfg.field_type === 'DATE') {
                         return (
-                          <td key={cfg.field_key} className="p-3.5 font-mono text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                          <td key={cfg.field_key} className="p-3.5 text-center tabular-nums text-slate-500 dark:text-slate-400 whitespace-nowrap">
                             {rawVal ? String(rawVal) : '—'}
                           </td>
                         );
@@ -684,10 +740,13 @@ export default function AgentsSettingsPage() {
                     <td className="p-3.5 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1.5">
                         <button
+                          type="button"
                           onClick={() => handleOpenEdit(ag)}
-                          className="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 px-2.5 py-1 rounded font-bold transition cursor-pointer"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
+                          title="Edit"
+                          aria-label={`Edit ${ag.agent_name || 'agent'}`}
                         >
-                          Edit
+                          <EditPencil className="h-[18px] w-[18px]" />
                         </button>
 
                         <button
@@ -695,7 +754,7 @@ export default function AgentsSettingsPage() {
                           className="text-rose-500 hover:text-rose-600 font-bold p-1 rounded hover:bg-rose-500/10 cursor-pointer"
                           title="Delete agent"
                         >
-                          🗑️
+                          <TrashIcon />
                         </button>
                       </div>
                     </td>
@@ -750,19 +809,22 @@ export default function AgentsSettingsPage() {
                         if (cfg.field_key === 'id' || cfg.field_key === 'agent_id') {
                           const idValue = String(val || editingAgent?.id || '');
                           return (
-                            <div key={cfg.field_key} className={underlineShell}>
-                              <label className={underlineLabel}>
+                            <div key={cfg.field_key} className="group/field relative underline-field is-locked rounded-t-md border-b border-b-slate-200 pl-2.5 pr-14 pt-1 pb-0.5 dark:border-b-slate-700">
+                              <label className="block truncate text-[10px] leading-3 font-medium text-slate-400 dark:text-slate-500">
                                 {cfg.field_label} (System Key)
                               </label>
                               <div className="flex h-5 items-center">
                                 <input
                                   type="text"
-                                  disabled
+                                  readOnly
                                   tabIndex={-1}
                                   value={idValue || 'Auto-generated'}
-                                  className={`${underlineControl} ${idValue ? '' : '!text-slate-400 dark:!text-slate-500'}`}
+                                  className={`${underlineControl} cursor-default text-slate-400 dark:text-slate-500`}
                                 />
                               </div>
+                              <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded bg-slate-200 px-1 py-0.5 font-mono text-[9px] text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                                LOCKED
+                              </span>
                             </div>
                           );
                         }
@@ -770,19 +832,14 @@ export default function AgentsSettingsPage() {
                         // Boolean Input
                         if (cfg.field_type === 'BOOLEAN') {
                           return (
-                            <div key={cfg.field_key} className="col-span-2 pt-1">
-                              <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  disabled={isSubmitting}
-                                  checked={Boolean(val)}
-                                  onChange={(e) => setFormData({ ...formData, [cfg.field_key]: e.target.checked })}
-                                  className="rounded border-slate-300 dark:border-slate-700 text-emerald-500 focus:ring-emerald-500 disabled:opacity-50"
-                                />
-                                <span className="font-bold text-slate-700 dark:text-slate-300">
-                                  {cfg.field_label} {cfg.is_required && '*'}
-                                </span>
-                              </label>
+                            <div key={cfg.field_key} className="flex min-h-9 items-end self-end pb-0.5 pl-2.5">
+                              <BooleanField
+                                label={cfg.field_label}
+                                required={cfg.is_required}
+                                checked={isBooleanChecked(val)}
+                                disabled={isSubmitting}
+                                onChange={(checked) => setFormData({ ...formData, [cfg.field_key]: checked })}
+                              />
                             </div>
                           );
                         }
@@ -820,26 +877,36 @@ export default function AgentsSettingsPage() {
                           return (
                             <div key={cfg.field_key} className={underlineShell}>
                               <label className={underlineLabel}>
-                                {cfg.field_label} ({cfg.field_type === 'CURRENCY' ? '$' : cfg.field_type === 'PERCENT' ? '%' : '#'})
+                                {cfg.field_label}
                                 {cfg.is_required && <span className="text-rose-500"> *</span>}
                               </label>
                               <div className="flex h-5 items-center">
-                                <input
-                                  type="number"
-                                  step="any"
-                                  required={cfg.is_required}
-                                  disabled={isSubmitting}
-                                  min={cfg.min_value}
-                                  max={cfg.max_value}
-                                  value={val !== undefined ? val : ''}
-                                  onChange={(e) =>
-                                    setFormData({
-                                      ...formData,
-                                      [cfg.field_key]: e.target.value !== '' ? Number(e.target.value) : undefined,
-                                    })
-                                  }
-                                  className={underlineControl}
-                                />
+                                {cfg.field_type === 'NUMBER' ? (
+                                  <input
+                                    type="number"
+                                    step="any"
+                                    required={cfg.is_required}
+                                    disabled={isSubmitting}
+                                    min={cfg.min_value}
+                                    max={cfg.max_value}
+                                    value={val !== undefined && val !== null ? val : ''}
+                                    onChange={(e) =>
+                                      setFormData({
+                                        ...formData,
+                                        [cfg.field_key]: e.target.value !== '' ? Number(e.target.value) : undefined,
+                                      })
+                                    }
+                                    className={underlineControl}
+                                  />
+                                ) : (
+                                  <AgentAmountInput
+                                    kind={cfg.field_type}
+                                    value={val}
+                                    required={cfg.is_required}
+                                    disabled={isSubmitting}
+                                    onChange={(next) => setFormData({ ...formData, [cfg.field_key]: next })}
+                                  />
+                                )}
                               </div>
                             </div>
                           );

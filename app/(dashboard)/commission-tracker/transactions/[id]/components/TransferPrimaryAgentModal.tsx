@@ -1,5 +1,5 @@
 // app/(dashboard)/commission-tracker/transactions/[id]/components/TransferPrimaryAgentModal.tsx
-import React from 'react';
+import { formatPercentPoints } from '@/lib/percent';
 
 interface TransferPrimaryAgentModalProps {
   isOpen: boolean;
@@ -75,7 +75,7 @@ export function TransferPrimaryAgentModal({
               <span className="font-semibold text-slate-900 dark:text-white">
                 {primarySplitType === 'AMOUNT'
                   ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(primarySplitValue || 0)
-                  : `${(primarySplitValue ?? 0).toFixed(2)}%`}
+                  : `${formatPercentPoints(primarySplitValue || 0)}%`}
               </span>
             </div>
             <div className="flex justify-between items-center">

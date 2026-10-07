@@ -12,8 +12,6 @@ import {
 
 const CACHE_TTL_MS = 10 * 1000;
 
-const DEFAULT_AGENT_STATUS_OPTIONS = ['Active', 'Released'];
-
 const BASE_TRANSACTION_SYSTEM_FIELDS = [
   { field_key: 'id', field_label: 'Transaction ID', field_type: 'TEXT', section_name: 'Deal Essentials', is_system: true, is_enabled: true },
   { field_key: 'transaction_status', field_label: 'Status', field_type: 'SELECT', section_name: 'Deal Essentials', is_system: true, is_enabled: true },
@@ -132,7 +130,6 @@ export async function GET(
       if (col.field_type === 'SELECT') {
         const matched = getDropdownOptions(col.field_key);
         if (matched) dropdownOptions = matched;
-        else if (col.field_key === 'agent_status') dropdownOptions = DEFAULT_AGENT_STATUS_OPTIONS;
       }
 
       return {

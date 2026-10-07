@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getTransactions, createTransaction } from '@/lib/transactions';
+import { getTransactions, createTransaction, deleteTransaction } from '@/lib/transactions';
 import { CreateTransactionSchema } from '@/lib/validations/transaction';
 import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
@@ -85,5 +85,33 @@ export async function POST(request: Request) {
 
     const status = error.message?.includes('Unauthorized') ? 401 : 400;
     return NextResponse.json({ success: false, error: error.message || 'Server error' }, { status });
+  }
+}
+
+// DELETE: Archive a transaction and its related commission, payment, and template records
+export async function DELETE(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    const clientId = searchParams.get('client_id') || request.headers.get('x-client-id') || 'DEMO';
+
+    if (!id || id === 'new') {
+      return NextResponse.json({ success: false, error: 'Transaction ID is required' }, { status: 400 });
+    }
+
+    const supabase = await getAuthenticatedSupabase();
+    await deleteTransaction(clientId, id, session.user.email, supabase);
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Error in DELETE /api/transactions:', error);
+    const message = error.message || 'Server error';
+    const status = message.includes('Unauthorized') ? 401 : message.includes('not found') ? 404 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
   }
 }

@@ -19,7 +19,7 @@ export async function calculateWaterfallForTransaction(
 
   if (templateId) {
     const { data, error } = await sb
-      .from('commission_template_logic')
+      .from('commission_template_rules')
       .select('id, step_number, rule_name, section, payee_entity_id, calculation_formula')
       .eq('template_id', templateId)
       .eq('client_id', clientId)

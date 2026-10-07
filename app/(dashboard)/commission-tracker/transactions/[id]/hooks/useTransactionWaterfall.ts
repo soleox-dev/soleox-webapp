@@ -24,7 +24,7 @@ interface UseTransactionWaterfallProps {
   clientType: string;
 }
 
-export function useTransactionWaterfall({
+export function computeTransactionWaterfall({
   salesPrice,
   gciPerc,
   offTheTopRules,
@@ -38,7 +38,6 @@ export function useTransactionWaterfall({
   overviewFormValues,
   clientType,
 }: UseTransactionWaterfallProps) {
-  return useMemo(() => {
     const grossComm = roundCurrency(salesPrice * gciPerc);
 
     const currentContext = {
@@ -72,8 +71,7 @@ export function useTransactionWaterfall({
 
     // 1. Off-The-Top Deductions calculated against Total Commission baseline
     const offTopCalculated = offTheTopRules.map((r) => {
-      const rate = r.value > 1 ? r.value / 100 : r.value;
-      const amt = r.type === 'PERCENT' ? roundCurrency(baselineTotalComm * rate) : roundCurrency(r.value);
+      const amt = r.type === 'PERCENT' ? roundCurrency(baselineTotalComm * r.value) : roundCurrency(r.value);
       return { ...r, amount: amt };
     });
 
@@ -82,8 +80,7 @@ export function useTransactionWaterfall({
 
     // 2. Pre-Split Deductions (after Off-The-Top, before Agent Splits)
     const preSplitCalculated = preSplitRules.map((r) => {
-      const rate = r.value > 1 ? r.value / 100 : r.value;
-      const amt = r.type === 'PERCENT' ? roundCurrency(netOffTopComm * rate) : roundCurrency(r.value);
+      const amt = r.type === 'PERCENT' ? roundCurrency(netOffTopComm * r.value) : roundCurrency(r.value);
       return { ...r, amount: amt };
     });
 
@@ -108,8 +105,7 @@ export function useTransactionWaterfall({
       let requestedRate = 0;
 
       if (ag.splitType === 'PERCENT') {
-        const rate = ag.splitVal > 1 ? ag.splitVal / 100 : ag.splitVal;
-        requestedRate = roundPercentRate(rate);
+        requestedRate = roundPercentRate(ag.splitVal);
         requested = roundCurrency(netToSplit * requestedRate);
       } else {
         requested = roundCurrency(Math.max(0, ag.splitVal));
@@ -174,8 +170,7 @@ export function useTransactionWaterfall({
         )?.[1] ||
         [];
       agentRules.forEach((r) => {
-        const rate = r.value > 1 ? r.value / 100 : r.value;
-        const amt = r.type === 'PERCENT' ? roundCurrency(agSplitAmt * rate) : roundCurrency(r.value);
+        const amt = r.type === 'PERCENT' ? roundCurrency(agSplitAmt * r.value) : roundCurrency(r.value);
         agDeductions += amt;
 
         postSplitCalculated.push({
@@ -206,8 +201,7 @@ export function useTransactionWaterfall({
         [];
 
       agentLevel2Rules.forEach((r2) => {
-        const rate2 = r2.value > 1 ? r2.value / 100 : r2.value;
-        const amt2 = r2.type === 'PERCENT' ? roundCurrency(netAfterLevel1 * rate2) : roundCurrency(r2.value);
+        const amt2 = r2.type === 'PERCENT' ? roundCurrency(netAfterLevel1 * r2.value) : roundCurrency(r2.value);
         agLevel2Deductions += amt2;
 
         postSplit2Calculated.push({
@@ -257,5 +251,21 @@ export function useTransactionWaterfall({
       agentNetAfterLevel1,
       netPayouts,
     };
-  }, [salesPrice, gciPerc, offTheTopRules, preSplitRules, postSplitRulesByAgent, postSplit2RulesByAgent, agents, primaryAgentId, overviewFields, selectedDeal, overviewFormValues, clientType]);
+}
+
+export function useTransactionWaterfall(props: UseTransactionWaterfallProps) {
+  return useMemo(() => computeTransactionWaterfall(props), [
+    props.salesPrice,
+    props.gciPerc,
+    props.offTheTopRules,
+    props.preSplitRules,
+    props.postSplitRulesByAgent,
+    props.postSplit2RulesByAgent,
+    props.agents,
+    props.primaryAgentId,
+    props.overviewFields,
+    props.selectedDeal,
+    props.overviewFormValues,
+    props.clientType,
+  ]);
 }

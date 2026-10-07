@@ -2,18 +2,38 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { RotateCcw, Zap } from 'lucide-react';
+import { Lock, RotateCcw, Trash2, Zap } from 'lucide-react';
 import { evaluateFormula, formulaValueToInput, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { normalizeAgentName } from '@/lib/id';
+import { templateBoltTone, type TemplateBoltTone } from '@/lib/transaction-default-view';
+import { payoutSignature, replayedPaymentSignature, savedPayouts } from '@/lib/template-payment-drift';
 import { applyTemplateLogic, formulaDataNeeds, loadCommissionLedger, loadFormulaLookups, templateFormulaSources, type AppliedCalculation, type AppliedTemplateRules, type TemplateLogicStep } from './applyTemplateLogic';
 import type { FormulaLedgerRow, FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
+import type { StoredCommissionItem } from '../commissionItemState';
+import type { CommissionEntityOption, FieldSetting, KnownAgentInfo } from '../types';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { BooleanField, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
+import { parameterValidationMessage } from '@/lib/parameter-validation';
 
 interface TemplateOption {
   id: string;
   template_name: string;
+  eligibility_formula?: string | null;
+  is_active?: boolean | null;
 }
+
+interface SubmittedTemplateRow {
+  templateId: string;
+  parameters: Record<string, string>;
+}
+
+const TEMPLATE_BUTTON_CLASS: Record<TemplateBoltTone, string> = {
+  submitted: 'bg-emerald-500 text-white hover:bg-emerald-600',
+  ready: 'bg-amber-400 text-slate-950 hover:bg-amber-500',
+  ineligible: 'bg-rose-500 text-white hover:bg-rose-600',
+  drift: 'bg-violet-400 text-slate-950 hover:bg-violet-500',
+};
 
 interface TemplateParameter {
   id: string;
@@ -21,6 +41,8 @@ interface TemplateParameter {
   parameter_key: string;
   data_type?: string | null;
   autofill_formula?: string | null;
+  validation_rule?: string | null;
+  is_required?: boolean | null;
   is_user_editable?: boolean | null;
   sort_order?: number | null;
   section?: string | null;
@@ -40,31 +62,41 @@ interface ParameterDefault {
   raw: string;
 }
 
-function calculationField(row: AppliedCalculation): { kind: 'text' | 'currency' | 'percent' | 'date'; value: string; error: boolean } {
-  if (row.error) return { kind: 'text', value: row.error, error: true };
+function calculationField(row: AppliedCalculation): { kind: 'text' | 'currency' | 'number' | 'percent' | 'date' | 'boolean'; value: string; checked: boolean; error: boolean } {
+  if (row.error) return { kind: 'text', value: row.error, checked: false, error: true };
   const value = row.value;
-  if (!value || value.type === 'blank') return { kind: 'text', value: '', error: false };
-  if (value.type === 'error') return { kind: 'text', value: 'Could not calculate', error: true };
-  if (value.type === 'boolean') return { kind: 'text', value: value.value ? 'Yes' : 'No', error: false };
-  if (value.type === 'percent') return { kind: 'percent', value: String(value.value * 100), error: false };
+  if (!value || value.type === 'blank') return { kind: 'text', value: '', checked: false, error: false };
+  if (value.type === 'error') return { kind: 'text', value: 'Could not calculate', checked: false, error: true };
+  if (value.type === 'boolean') return { kind: 'boolean', value: '', checked: value.value, error: false };
   if (value.type === 'text') {
-    if (/^\d{4}-\d{2}-\d{2}/.test(value.value)) return { kind: 'date', value: value.value.slice(0, 10), error: false };
-    return { kind: 'text', value: value.value, error: false };
+    if (/^\d{4}-\d{2}-\d{2}/.test(value.value)) return { kind: 'date', value: value.value.slice(0, 10), checked: false, error: false };
+    return { kind: 'text', value: value.value, checked: false, error: false };
   }
-  return { kind: 'currency', value: String(value.value), error: false };
+  if (value.type === 'number' || value.type === 'percent') {
+    const chosen = String(row.resultType || '').trim().toUpperCase();
+    if (chosen === 'NUMBER') return { kind: 'number', value: String(value.value), checked: false, error: false };
+    if (chosen === 'PERCENT') return { kind: 'percent', value: String(value.value * 100), checked: false, error: false };
+    if (chosen === 'CURRENCY') return { kind: 'currency', value: String(value.value), checked: false, error: false };
+    if (value.type === 'percent') return { kind: 'percent', value: String(value.value * 100), checked: false, error: false };
+    return { kind: 'currency', value: String(value.value), checked: false, error: false };
+  }
+  return { kind: 'text', value: '', checked: false, error: false };
 }
 
 function CalculationField({ row }: { row: AppliedCalculation }) {
   const field = calculationField(row);
   const id = `template-calculation-${row.id}`;
-  const tone = field.error ? 'text-rose-600 dark:text-rose-400' : '';
+  const valueClass = field.error ? 'logic-result-error' : 'logic-result';
   let control: React.ReactNode = null;
+  if (field.kind === 'boolean') {
+    return <BooleanField id={id} label={row.name} checked={field.checked} disabled />;
+  }
   if (field.kind === 'date') {
-    control = <NativeDateInput id={id} value={field.value} disabled className={`${controlClass(true)} dark:[color-scheme:dark]`} />;
-  } else if (field.kind === 'currency' || field.kind === 'percent') {
-    control = <NumericParameterInput id={id} kind={field.kind === 'currency' ? 'CURRENCY' : 'PERCENT'} value={field.value} readOnly onChange={() => undefined} />;
+    control = <NativeDateInput id={id} value={field.value} disabled className={`${controlClass(true)} ${valueClass} dark:[color-scheme:dark]`} />;
+  } else if (field.kind === 'currency' || field.kind === 'percent' || field.kind === 'number') {
+    control = <NumericParameterInput id={id} kind={field.kind === 'currency' ? 'CURRENCY' : field.kind === 'percent' ? 'PERCENT' : 'NUMBER'} value={field.value} readOnly onChange={() => undefined} className={valueClass} />;
   } else {
-    control = <input id={id} value={field.value} readOnly className={`${controlClass(true)} ${tone}`} />;
+    control = <input id={id} value={field.value} readOnly className={`${controlClass(true)} ${valueClass}`} />;
   }
   return (
     <LabeledParameter id={id} label={row.name} locked changed={false} showChevron={false}>
@@ -110,10 +142,11 @@ type ParameterControlType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' 
 const valueControl =
   'w-full bg-transparent border-0 p-0 h-5 text-xs leading-4 focus:outline-none focus:ring-0';
 
-function controlClass(locked: boolean, select = false): string {
-  if (select) return `${valueControl} overview-field-select cursor-pointer font-medium text-slate-900 dark:text-white`;
-  if (locked) return `parameter-locked ${valueControl} cursor-default font-medium text-slate-400 dark:text-slate-500`;
-  return `${valueControl} font-medium text-slate-900 dark:text-white`;
+function controlClass(locked: boolean, select = false, invalid = false): string {
+  const tone = invalid ? 'parameter-invalid text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white';
+  if (select) return `${valueControl} overview-field-select cursor-pointer font-medium ${invalid ? 'parameter-invalid text-rose-600 dark:text-rose-400' : tone}`;
+  if (locked) return `parameter-locked ${invalid ? 'parameter-invalid' : ''} ${valueControl} cursor-default font-medium ${invalid ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}`;
+  return `${valueControl} font-medium ${tone}`;
 }
 
 function LabeledParameter({
@@ -121,29 +154,39 @@ function LabeledParameter({
   label,
   locked,
   changed,
+  invalid,
+  message,
   showChevron,
   mirror,
   onReset,
+  flashToken = 0,
   children,
 }: {
   id: string;
   label: string;
   locked: boolean;
   changed: boolean;
+  invalid?: boolean;
+  message?: string;
   showChevron: boolean;
   mirror?: string;
   onReset?: () => void;
+  flashToken?: number;
   children: React.ReactNode;
 }) {
-  const labelTone = locked
+  const labelTone = invalid
+    ? 'text-rose-600 dark:text-rose-400'
+    : locked
     ? 'text-slate-400 dark:text-slate-500'
     : 'text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
-  const shellBorder = locked
+  const shellBorder = invalid
+    ? 'border-b-rose-400 dark:border-b-rose-500 focus-within:border-b-rose-600 focus-within:shadow-[0_1px_0_rgb(225_29_72/0.45),0_6px_12px_-6px_rgb(225_29_72/0.8)]'
+    : locked
     ? 'border-b-slate-200 dark:border-b-slate-700'
     : 'border-b-slate-300 dark:border-b-slate-600 focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)]';
 
   return (
-    <div className={`group/field relative underline-field rounded-t-md pl-2.5 pr-2.5 pt-1 pb-0.5 border-b transition-colors ${locked ? 'is-locked' : ''} ${changed ? 'is-changed' : ''} ${shellBorder}`}>
+    <div key={flashToken || undefined} className={`group/field relative underline-field rounded-t-md pl-2.5 pr-2.5 pt-1 pb-0.5 border-b transition-colors ${locked ? 'is-locked' : ''} ${changed ? 'is-changed' : ''} ${flashToken ? 'is-recalculated' : ''} ${shellBorder}`}>
       <div className="flex min-w-0 items-center gap-1">
         <label htmlFor={id} className={`min-w-0 truncate text-[10px] leading-3 font-medium ${labelTone}`}>
           {label}
@@ -162,7 +205,7 @@ function LabeledParameter({
       </div>
       <div className="flex h-5 items-center">
         {children ?? (
-          <span className={`truncate text-xs leading-4 font-medium ${locked ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'}`}>
+          <span className={`parameter-recalc-value truncate text-xs leading-4 font-medium ${invalid ? 'text-rose-600 dark:text-rose-400' : locked ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'}`}>
             {mirror}
           </span>
         )}
@@ -176,6 +219,7 @@ function LabeledParameter({
           <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
+      {message && <p className="mt-0.5 text-[10px] leading-3 font-medium text-rose-600 dark:text-rose-400">{message}</p>}
     </div>
   );
 }
@@ -217,6 +261,36 @@ function formatCommitted(kind: 'CURRENCY' | 'PERCENT' | 'NUMBER', core: string):
   return kind === 'PERCENT' ? `${clean}%` : String(clean);
 }
 
+function parameterIssuesFor(
+  parameters: TemplateParameter[],
+  values: Record<string, string>,
+  deal: Record<string, unknown> | null,
+): Map<string, { message: string; section: string }> {
+  const issues = new Map<string, { message: string; section: string }>();
+  if (Object.keys(values).length === 0) return issues;
+  const parametersByKey: Record<string, string> = {};
+  const parameterTypes: Record<string, string> = {};
+  for (const parameter of parameters) {
+    parametersByKey[parameter.parameter_key] = values[parameter.id] ?? '';
+    parameterTypes[parameter.parameter_key] = parameter.data_type || '';
+  }
+  for (const parameter of parameters) {
+    if (!(parameter.id in values)) continue;
+    const message = parameterValidationMessage({
+      dataType: parameter.data_type,
+      value: values[parameter.id] ?? '',
+      rule: parameter.validation_rule,
+      required: Boolean(parameter.is_required),
+      parameters: parametersByKey,
+      parameterTypes,
+      deal,
+    });
+    if (!message) continue;
+    issues.set(parameter.id, { message, section: parameter.section?.trim() || 'No Section' });
+  }
+  return issues;
+}
+
 function parameterValuesMatch(
   parameter: TemplateParameter,
   current: string,
@@ -244,6 +318,15 @@ function parameterValuesMatch(
     return agentName(left) === agentName(right);
   }
   if (control === 'DATE') return left.slice(0, 10) === right.slice(0, 10);
+  if (control === 'BOOLEAN') {
+    const flag = (value: string) => {
+      const key = value.trim().toLowerCase();
+      if (key === 'true' || key === 'yes') return 'true';
+      if (key === 'false' || key === 'no') return 'false';
+      return key;
+    };
+    return flag(left) === flag(right);
+  }
   return left === right;
 }
 
@@ -252,13 +335,17 @@ function NumericParameterInput({
   kind,
   value,
   readOnly,
+  invalid = false,
   onChange,
+  className = '',
 }: {
   id: string;
   kind: 'CURRENCY' | 'PERCENT' | 'NUMBER';
   value: string;
   readOnly: boolean;
+  invalid?: boolean;
   onChange: (next: string) => void;
+  className?: string;
 }) {
   const core = numericCore(value);
   const shown = core === null ? value : formatCommitted(kind, core);
@@ -274,6 +361,7 @@ function NumericParameterInput({
       id={id}
       inputMode="decimal"
       readOnly={readOnly}
+      aria-invalid={invalid}
       value={focused ? draft : shown}
       onFocus={() => {
         setDraft(core ?? value);
@@ -297,9 +385,14 @@ function NumericParameterInput({
           const [integer, decimals] = raw.split('.');
           if (decimals && decimals.length > 2) raw = `${integer}.${decimals.slice(0, 2)}`;
         }
-        if (raw === '' || /^-?\d*\.?\d*$/.test(raw)) setDraft(raw);
+        if (raw !== '' && !/^-?\d*\.?\d*$/.test(raw)) return;
+        setDraft(raw);
+        const nextCore = numericCore(raw);
+        if (nextCore === null) return;
+        const next = nextCore === '' ? '' : formatCommitted(kind, nextCore);
+        if (next !== value) onChange(next);
       }}
-      className={`${controlClass(readOnly)} text-left`}
+      className={`${controlClass(readOnly, false, invalid)} text-left ${className}`}
     />
   );
 }
@@ -308,19 +401,39 @@ function ParameterControl({
   parameter,
   value,
   agents,
+  message,
   onChange,
   onReset,
+  flashToken = 0,
 }: {
   parameter: TemplateParameter;
   value: string;
   agents: AgentOption[];
+  message?: string;
   onChange: (next: string) => void;
   onReset?: () => void;
+  flashToken?: number;
 }) {
   const control = canonicalParameterType(parameter.data_type);
   const locked = parameter.is_user_editable === false;
+  const invalid = Boolean(message);
   const id = `template-parameter-${parameter.id}`;
-  const isSelect = control === 'SELECT' || control === 'AGENT_PICKER' || control === 'BOOLEAN';
+  if (control === 'BOOLEAN') {
+    return (
+      <div>
+        <BooleanField
+          id={id}
+          label={parameter.parameter_name}
+          required={Boolean(parameter.is_required)}
+          checked={isBooleanChecked(value)}
+          disabled={locked}
+          onChange={(checked) => onChange(checked ? 'TRUE' : 'FALSE')}
+        />
+        {message && <p className="mt-0.5 text-[10px] leading-3 font-medium text-rose-600 dark:text-rose-400">{message}</p>}
+      </div>
+    );
+  }
+  const isSelect = control === 'SELECT' || control === 'AGENT_PICKER';
   let field: React.ReactNode = null;
 
   if (locked && isSelect) {
@@ -329,7 +442,7 @@ function ParameterControl({
     const options = parameter.dropdown_options || [];
     const selectOptions = value && !options.includes(value) ? [value, ...options] : options;
     field = (
-      <ClearableSelect id={id} value={value} disabled={locked} onChange={(event) => onChange(event.target.value)} className={controlClass(locked, true)}>
+      <ClearableSelect id={id} value={value} disabled={locked} aria-invalid={invalid} onChange={(event) => onChange(event.target.value)} className={controlClass(locked, true, invalid)}>
         {selectOptions.map((option) => <option key={option} value={option}>{option}</option>)}
       </ClearableSelect>
     );
@@ -345,11 +458,12 @@ function ParameterControl({
         id={id}
         value={matched?.id || (value ? value : '')}
         disabled={locked}
+        aria-invalid={invalid}
         onChange={(event) => {
           const agent = choices.find((item) => item.id === event.target.value);
           onChange(agent?.name || '');
         }}
-        className={controlClass(false, true)}
+        className={controlClass(false, true, invalid)}
       >
         {choices.map((agent) => (
           <option key={agent.id} value={agent.id}>
@@ -358,29 +472,21 @@ function ParameterControl({
         ))}
       </ClearableSelect>
     );
-  } else if (control === 'BOOLEAN') {
-    const yesNo = value === 'Yes' || value === 'No' ? value : '';
-    field = (
-      <ClearableSelect id={id} value={yesNo} disabled={locked} onChange={(event) => onChange(event.target.value)} className={controlClass(locked, true)}>
-        <option value="Yes">Yes</option>
-        <option value="No">No</option>
-      </ClearableSelect>
-    );
   } else if (control === 'DATE') {
     const date = /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : '';
     field = (
-      <NativeDateInput id={id} value={date} disabled={locked} onChange={(event) => onChange(event.target.value)} className={`${controlClass(locked)} dark:[color-scheme:dark]`} />
+      <NativeDateInput id={id} value={date} disabled={locked} aria-invalid={invalid} onChange={(event) => onChange(event.target.value)} className={`${controlClass(locked, false, invalid)} dark:[color-scheme:dark]`} />
     );
   } else if (control === 'CURRENCY' || control === 'PERCENT' || control === 'NUMBER') {
-    field = <NumericParameterInput id={id} kind={control} value={value} readOnly={locked} onChange={onChange} />;
+    field = <NumericParameterInput id={id} kind={control} value={value} readOnly={locked} invalid={invalid} onChange={onChange} />;
   } else {
     field = (
-      <input id={id} value={value} readOnly={locked} onChange={(event) => onChange(event.target.value)} className={controlClass(locked)} />
+      <input id={id} value={value} readOnly={locked} aria-invalid={invalid} onChange={(event) => onChange(event.target.value)} className={controlClass(locked, false, invalid)} />
     );
   }
 
   return (
-    <LabeledParameter id={id} label={parameter.parameter_name} locked={locked} changed={Boolean(onReset)} showChevron={isSelect && !locked} mirror={isSelect ? value : undefined} onReset={onReset}>
+    <LabeledParameter id={id} label={parameter.parameter_name} locked={locked} changed={Boolean(onReset)} invalid={invalid} message={message} showChevron={isSelect && !locked} mirror={isSelect ? value : undefined} onReset={onReset} flashToken={flashToken}>
       {field}
     </LabeledParameter>
   );
@@ -392,7 +498,8 @@ function defaultFromFormula(
   deal: Record<string, unknown> | null,
   agents: AgentOption[],
   resolved: Record<string, string>,
-  lookups?: FormulaLookups,
+  lookups: FormulaLookups | undefined,
+  booleanKeys: Set<string>,
 ): { display: string; pending: boolean; raw: string } {
   const body = formula.trim().replace(/^=/, '').trim();
   if (!body || body === '""') return { display: 'Blank', pending: false, raw: '' };
@@ -401,7 +508,7 @@ function defaultFromFormula(
     return { display: text || 'Blank', pending: false, raw: text };
   }
   if (/^(true|false)$/i.test(body)) {
-    const text = body.toLowerCase() === 'true' ? 'Yes' : 'No';
+    const text = body.toLowerCase() === 'true' ? 'TRUE' : 'FALSE';
     return { display: text, pending: false, raw: text };
   }
   const number = body.match(/^(\d+(?:\.\d+)?)(%)?$/);
@@ -431,8 +538,11 @@ function defaultFromFormula(
     if (resolved[key] !== undefined) {
       const stored = resolved[key];
       if (!stored) return { type: 'blank' };
-      if (stored === 'Yes') return { type: 'boolean', value: true };
-      if (stored === 'No') return { type: 'boolean', value: false };
+      if (booleanKeys.has(key)) {
+        const flag = stored.trim().toLowerCase();
+        if (flag === 'true' || flag === 'yes') return { type: 'boolean', value: true };
+        if (flag === 'false' || flag === 'no') return { type: 'boolean', value: false };
+      }
       if (stored.endsWith('%')) {
         const amount = Number(stored.slice(0, -1).replace(/,/g, ''));
         return Number.isFinite(amount) ? { type: 'percent', value: amount / 100 } : { type: 'text', value: stored };
@@ -473,13 +583,54 @@ function resolveDefaults(
   agents: AgentOption[],
   lookups?: FormulaLookups,
 ): ParameterDefault[] {
+  const booleanKeys = new Set(
+    parameters
+      .filter((parameter) => canonicalParameterType(parameter.data_type) === 'BOOLEAN')
+      .map((parameter) => parameter.parameter_key.toLowerCase()),
+  );
   const ordered = [...parameters].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   const resolved: Record<string, string> = {};
   return ordered.map((parameter) => {
-    const result = defaultFromFormula(parameter.autofill_formula || '', parameter.data_type, deal, agents, resolved, lookups);
+    const result = defaultFromFormula(parameter.autofill_formula || '', parameter.data_type, deal, agents, resolved, lookups, booleanKeys);
     if (!result.pending) resolved[parameter.parameter_key.toLowerCase()] = result.raw;
     return { parameter, raw: result.pending ? '' : result.raw };
   });
+}
+
+function refreshLockedValues(
+  parameters: TemplateParameter[],
+  current: Record<string, string>,
+  deal: Record<string, unknown> | null,
+  agents: AgentOption[],
+  lookups: FormulaLookups | undefined,
+): Record<string, string> {
+  const booleanKeys = new Set(
+    parameters
+      .filter((parameter) => canonicalParameterType(parameter.data_type) === 'BOOLEAN')
+      .map((parameter) => parameter.parameter_key.toLowerCase()),
+  );
+  const ordered = [...parameters].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const next = { ...current };
+  for (let pass = 0; pass < Math.max(ordered.length, 1); pass += 1) {
+    const resolved: Record<string, string> = {};
+    for (const parameter of parameters) {
+      resolved[parameter.parameter_key.toLowerCase()] = next[parameter.id] ?? '';
+    }
+    let changed = false;
+    for (const parameter of ordered) {
+      const formula = parameter.autofill_formula?.trim() || '';
+      if (parameter.is_user_editable !== false || !formula) continue;
+      const result = defaultFromFormula(formula, parameter.data_type, deal, agents, resolved, lookups, booleanKeys);
+      const raw = result.pending ? '' : result.raw;
+      if ((next[parameter.id] ?? '') !== raw) {
+        next[parameter.id] = raw;
+        changed = true;
+      }
+      resolved[parameter.parameter_key.toLowerCase()] = raw;
+    }
+    if (!changed) break;
+  }
+  return next;
 }
 
 function parameterRecord(value: unknown): Record<string, string> {
@@ -524,6 +675,7 @@ export function CommissionTemplatePanel({
   entities = [],
   totalCommission = 0,
   onApplied,
+  onSubmissionDeleted,
   submissionRevision = 0,
   embedded = false,
 }: {
@@ -535,6 +687,8 @@ export function CommissionTemplatePanel({
   entities?: { id: string; name: string }[];
   totalCommission?: number;
   onApplied?: (applied: AppliedTemplateRules, submission: TemplateSubmissionDraft) => void;
+  /** Saved submission was removed. The waterfall is left as it is. */
+  onSubmissionDeleted?: () => void;
   /** Bumped when an unsaved template submission is discarded, so the panel reloads the stored one. */
   submissionRevision?: number;
   embedded?: boolean;
@@ -542,9 +696,20 @@ export function CommissionTemplatePanel({
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [committedTemplateId, setCommittedTemplateId] = useState('');
   const [submissionId, setSubmissionId] = useState<string | null>(null);
+  const [submissionIds, setSubmissionIds] = useState<string[]>([]);
   const [submittedTemplateId, setSubmittedTemplateId] = useState('');
   const [submittedParameters, setSubmittedParameters] = useState<Record<string, string>>({});
+  const [submittedRows, setSubmittedRows] = useState<SubmittedTemplateRow[]>([]);
+  const [submissionReady, setSubmissionReady] = useState(false);
+  const [fieldTypes, setFieldTypes] = useState<Record<string, string>>({});
+  const [overviewFields, setOverviewFields] = useState<FieldSetting[]>([]);
+  const [schemaReady, setSchemaReady] = useState(false);
+  const [paymentsWouldChange, setPaymentsWouldChange] = useState(false);
+  const [paymentDriftReady, setPaymentDriftReady] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeletingSubmission, setIsDeletingSubmission] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [draftTemplateId, setDraftTemplateId] = useState('');
   const [popupOpen, setPopupOpen] = useState(false);
   const [parameters, setParameters] = useState<TemplateParameter[]>([]);
@@ -559,6 +724,7 @@ export function CommissionTemplatePanel({
   const [loadError, setLoadError] = useState('');
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
   const templateFieldRef = useRef<HTMLDivElement>(null);
+  const localSubmitRef = useRef(false);
   const templateMenuRef = useRef<HTMLUListElement>(null);
   const [templateMenuBox, setTemplateMenuBox] = useState({ top: 0, left: 0, width: 0 });
 
@@ -585,31 +751,97 @@ export function CommissionTemplatePanel({
   }, [clientId]);
 
   useEffect(() => {
+    let cancelled = false;
+    const loadSchema = async () => {
+      try {
+        const response = await fetch('/api/schema/transactions', { headers: { 'x-client-id': clientId } });
+        const data = await response.json();
+        if (!response.ok || cancelled) return;
+        const catalog = (data.catalog || data.fields || data.data || []) as { id?: string; field_key?: string; field_label?: string; field_type?: string; section_name?: string; calculation_formula?: string }[];
+        if (!Array.isArray(catalog)) return;
+        setFieldTypes(Object.fromEntries(catalog.flatMap((field) => {
+          const key = String(field.field_key || '').trim();
+          return key ? [[key, String(field.field_type || 'TEXT')]] : [];
+        })));
+        setOverviewFields(catalog.flatMap((field, index) => {
+          const key = String(field.field_key || '').trim();
+          if (!key) return [];
+          return [{
+            id: field.id || `schema_${index}`,
+            label: field.field_label || key,
+            key,
+            type: field.field_type || 'TEXT',
+            section: field.section_name || 'General',
+            calculation_formula: field.calculation_formula?.trim() || undefined,
+          }];
+        }));
+      } catch {
+        if (!cancelled) {
+          setFieldTypes({});
+          setOverviewFields([]);
+        }
+      } finally {
+        if (!cancelled) setSchemaReady(true);
+      }
+    };
+    void loadSchema();
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId]);
+
+  useEffect(() => {
     if (!transactionId) {
       setCommittedTemplateId('');
       setSubmissionId(null);
+      setSubmissionIds([]);
       setSubmittedTemplateId('');
       setSubmittedParameters({});
+      setSubmittedRows([]);
+      setSubmissionReady(true);
       return;
     }
     let cancelled = false;
+    localSubmitRef.current = false;
+    setPaymentDriftReady(false);
+    setPaymentsWouldChange(false);
+    setSubmissionReady(false);
+    const clearSubmission = () => {
+      setCommittedTemplateId('');
+      setSubmissionId(null);
+      setSubmissionIds([]);
+      setSubmittedTemplateId('');
+      setSubmittedParameters({});
+      setSubmittedRows([]);
+    };
     const loadSubmission = async () => {
       try {
         const response = await fetch(`/api/commission-template-submissions?client_id=${encodeURIComponent(clientId)}&transaction_id=${encodeURIComponent(transactionId)}`);
         const data = await response.json();
-        if (!response.ok || !data.success || cancelled) return;
-        const submitted = (data.submissions || [])[0];
+        if (cancelled) return;
+        if (!response.ok || !data.success) {
+          clearSubmission();
+          return;
+        }
+        const submissions = Array.isArray(data.submissions) ? data.submissions : [];
+        const submitted = submissions[0];
+        const ids = submissions.flatMap((row: { id?: string }) => {
+          const id = String(row?.id || '').trim();
+          return id ? [id] : [];
+        });
         setCommittedTemplateId(submitted?.template_id || '');
         setSubmissionId(submitted?.id || null);
+        setSubmissionIds(ids);
         setSubmittedTemplateId(submitted?.template_id || '');
         setSubmittedParameters(parameterRecord(submitted?.submitted_parameters));
+        setSubmittedRows(submissions.flatMap((row: { template_id?: string; submitted_parameters?: unknown }) => {
+          const templateId = String(row?.template_id || '').trim();
+          return templateId ? [{ templateId, parameters: parameterRecord(row?.submitted_parameters) }] : [];
+        }));
       } catch {
-        if (!cancelled) {
-          setCommittedTemplateId('');
-          setSubmissionId(null);
-          setSubmittedTemplateId('');
-          setSubmittedParameters({});
-        }
+        if (!cancelled) clearSubmission();
+      } finally {
+        if (!cancelled) setSubmissionReady(true);
       }
     };
     void loadSubmission();
@@ -617,6 +849,111 @@ export function CommissionTemplatePanel({
       cancelled = true;
     };
   }, [clientId, transactionId, submissionRevision]);
+
+  useEffect(() => {
+    if (!deal || !submissionReady || !schemaReady || isLoadingTemplates) return;
+    if (localSubmitRef.current) {
+      setPaymentsWouldChange(false);
+      setPaymentDriftReady(true);
+      return;
+    }
+    const base = templateBoltTone(
+      deal,
+      templates,
+      submittedRows.map((row) => row.templateId),
+      fieldTypes,
+      false,
+    );
+    if (base?.tone !== 'submitted') {
+      setPaymentsWouldChange(false);
+      setPaymentDriftReady(true);
+      return;
+    }
+
+    setPaymentDriftReady(false);
+    let cancelled = false;
+    const checkDrift = async () => {
+      const fetchOptions = { headers: { 'x-client-id': clientId } };
+      const bundles = await Promise.all(submittedRows.map(async (row) => {
+        const [logicResponse, parameterResponse] = await Promise.all([
+          fetch(`/api/commission-template-logic?template_id=${encodeURIComponent(row.templateId)}`, fetchOptions),
+          fetch(`/api/commission-template-parameters?template_id=${encodeURIComponent(row.templateId)}`, fetchOptions),
+        ]);
+        const logicData = await logicResponse.json();
+        const parameterData = await parameterResponse.json();
+        if (!logicResponse.ok || logicData.success === false) throw new Error(logicData.error || 'Failed to load rules.');
+        if (!parameterResponse.ok || parameterData.success === false) throw new Error(parameterData.error || 'Failed to load parameters.');
+        const steps = (logicData.logic_steps || []) as TemplateLogicStep[];
+        const parameterTypes = Object.fromEntries(
+          (Array.isArray(parameterData.parameters) ? parameterData.parameters : []).map((parameter: { parameter_key?: string; data_type?: string | null }) => [
+            String(parameter.parameter_key || ''),
+            parameter.data_type || '',
+          ]),
+        );
+        return { templateId: row.templateId, steps, parameterTypes };
+      }));
+      if (cancelled) return;
+
+      const bundleById = new Map(bundles.map((bundle) => [bundle.templateId, bundle]));
+      const needs = formulaDataNeeds(bundles.flatMap((bundle) => templateFormulaSources(bundle.steps, [])));
+      const knownAgents: KnownAgentInfo[] = agents.map((agent) => ({
+        id: agent.id,
+        name: normalizeAgentName(agent.name),
+        isTeamLead: Boolean(agent.isTeamLead),
+        clientId: agent.clientId,
+        fields: agent.fields,
+      }));
+      const entityOptions: CommissionEntityOption[] = entities.map((entity) => ({ id: entity.id, name: entity.name }));
+      const itemsResponse = await fetch(`/api/transaction-commission-items?client_id=${encodeURIComponent(clientId)}&transaction_id=${encodeURIComponent(transactionId)}`, fetchOptions);
+      const itemsData = await itemsResponse.json();
+      if (!itemsResponse.ok || itemsData.success === false) throw new Error(itemsData.error || 'Failed to load commission lines.');
+      const items = (Array.isArray(itemsData.items) ? itemsData.items : []) as StoredCommissionItem[];
+      const [ledgerRows, lookupRows] = await Promise.all([
+        needs.needsLedger ? loadCommissionLedger(clientId, entityOptions) : Promise.resolve([]),
+        needs.lookupTables.length > 0 ? loadFormulaLookups(clientId, needs.lookupTables) : Promise.resolve({ clientId, tables: {} }),
+      ]);
+      if (cancelled) return;
+
+      const saved = payoutSignature(savedPayouts(items, knownAgents, entityOptions));
+      let changed = false;
+      for (const row of submittedRows) {
+        const bundle = bundleById.get(row.templateId);
+        if (!bundle) continue;
+        try {
+          const replayed = replayedPaymentSignature({
+            deal,
+            steps: bundle.steps,
+            parameters: row.parameters,
+            parameterTypes: bundle.parameterTypes,
+            items,
+            agents: knownAgents,
+            entities: entityOptions,
+            overviewFields,
+            ledger: ledgerRows,
+            lookups: lookupRows,
+          });
+          if (replayed !== saved) changed = true;
+        } catch {
+          // A replay that cannot be calculated stays green.
+        }
+      }
+      if (!cancelled) {
+        setPaymentsWouldChange(changed);
+        setPaymentDriftReady(true);
+      }
+    };
+
+    void checkDrift().catch((error) => {
+      console.error('template payment check failed', error);
+      if (!cancelled) {
+        setPaymentsWouldChange(false);
+        setPaymentDriftReady(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [deal, submissionReady, schemaReady, isLoadingTemplates, submittedRows, templates, fieldTypes, agents, entities, overviewFields, clientId, transactionId]);
 
   useEffect(() => {
     if (!popupOpen || !draftTemplateId) {
@@ -642,7 +979,7 @@ export function CommissionTemplatePanel({
         const data = await parametersResponse.json();
         const logicData = await logicResponse.json();
         if (!parametersResponse.ok || !data.success) throw new Error(data.error || 'Failed to load parameters.');
-        if (!logicResponse.ok || !logicData.success) throw new Error(logicData.error || 'Failed to load template logic.');
+        if (!logicResponse.ok || !logicData.success) throw new Error(logicData.error || 'Failed to load rules.');
         const steps = (logicData.logic_steps || []) as TemplateLogicStep[];
         const parameterRows = (data.parameters || []) as TemplateParameter[];
         if (cancelled) return;
@@ -702,9 +1039,13 @@ export function CommissionTemplatePanel({
     return list;
   }, [agents]);
   const [values, setValues] = useState<Record<string, string>>({});
+  const liveValues = useRef<Record<string, string>>({});
+  const [recalcFlash, setRecalcFlash] = useState<Record<string, number>>({});
+  const flashScrollId = useRef<string | null>(null);
   const [activeGroup, setActiveGroup] = useState('');
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [collapsedLogicSections, setCollapsedLogicSections] = useState<Record<string, boolean>>({});
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   useEffect(() => {
     const useSubmission = draftTemplateId === submittedTemplateId;
@@ -713,8 +1054,10 @@ export function CommissionTemplatePanel({
       const saved = useSubmission ? savedParameterValue(submittedParameters, row.parameter.parameter_key) : undefined;
       next[row.parameter.id] = saved !== undefined ? saved : row.raw;
     }
-    setValues(next);
-  }, [rows, draftTemplateId, submittedTemplateId, submittedParameters]);
+    const refreshed = refreshLockedValues(parameters, next, deal, agents, lookups ?? { clientId, tables: {} });
+    liveValues.current = refreshed;
+    setValues(refreshed);
+  }, [rows, parameters, deal, agents, lookups, clientId, draftTemplateId, submittedTemplateId, submittedParameters]);
 
   useEffect(() => {
     setActiveGroup('');
@@ -722,7 +1065,15 @@ export function CommissionTemplatePanel({
     setCollapsedLogicSections({});
     setParametersOpen(true);
     setLogicOpen(true);
+    setRecalcFlash({});
   }, [draftTemplateId]);
+
+  useEffect(() => {
+    const id = flashScrollId.current;
+    if (!id) return;
+    flashScrollId.current = null;
+    document.getElementById(`template-parameter-${id}`)?.closest('.underline-field')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [recalcFlash]);
 
   const shownCalculations = useMemo(() => {
     if (!logicSteps.some((step) => step.show_in_popup) || !ledger || !lookups) return [];
@@ -733,6 +1084,7 @@ export function CommissionTemplatePanel({
     return applyTemplateLogic({
       steps: logicSteps,
       parameters: parameterValues,
+      parameterTypes: Object.fromEntries(parameters.map((parameter) => [parameter.parameter_key, parameter.data_type || ''])),
       deal,
       entities,
       rosterAgents: agents,
@@ -755,6 +1107,40 @@ export function CommissionTemplatePanel({
     return groups.sort((a, b) => Number(a.name === 'No Section') - Number(b.name === 'No Section'));
   }, [shownCalculations]);
 
+  const parameterIssues = useMemo(() => parameterIssuesFor(parameters, values, deal), [parameters, values, deal]);
+
+  const publishParameterValue = (id: string, next: string) => {
+    const draft = { ...liveValues.current, [id]: next };
+    const recalculated = refreshLockedValues(parameters, draft, deal, agents, lookups ?? { clientId, tables: {} });
+    const unchanged = parameters.every((parameter) => (recalculated[parameter.id] ?? '') === (liveValues.current[parameter.id] ?? ''));
+    if (unchanged) return;
+    const flashed = parameters.filter((parameter) => (
+      parameter.id !== id
+      && parameter.is_user_editable === false
+      && (recalculated[parameter.id] ?? '') !== (liveValues.current[parameter.id] ?? '')
+    ));
+    liveValues.current = recalculated;
+    setValues(recalculated);
+    if (flashed.length === 0) return;
+    flashScrollId.current = flashed[0].id;
+    setRecalcFlash((current) => {
+      const nextFlash = { ...current };
+      for (const parameter of flashed) nextFlash[parameter.id] = (nextFlash[parameter.id] ?? 0) + 1;
+      return nextFlash;
+    });
+    setParametersOpen(true);
+    setCollapsedSections((current) => {
+      const nextSections = { ...current };
+      for (const parameter of flashed) nextSections[parameter.section?.trim() || 'No Section'] = false;
+      return nextSections;
+    });
+    setActiveGroup((current) => {
+      if (!current) return current;
+      const hidden = flashed.some((parameter) => (parameter.section?.trim() || 'No Section') !== current);
+      return hidden ? '' : current;
+    });
+  };
+
   const toggleSection = (name: string) => {
     setCollapsedSections((current) => ({ ...current, [name]: !current[name] }));
   };
@@ -766,21 +1152,66 @@ export function CommissionTemplatePanel({
   const closePopup = () => {
     setPopupOpen(false);
     setDraftTemplateId('');
+    setSubmitAttempted(false);
+    setConfirmingDelete(false);
+    setDeleteError('');
+  };
+
+  const deleteSubmission = async () => {
+    if (submissionIds.length === 0 || isDeletingSubmission) return;
+    setIsDeletingSubmission(true);
+    setDeleteError('');
+    try {
+      for (const id of submissionIds) {
+        const response = await fetch(`/api/commission-template-submissions?id=${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+          headers: { 'x-client-id': clientId },
+        });
+        const data = await response.json();
+        if (!response.ok || data.success === false) {
+          throw new Error(data.error || 'Could not delete the template submission.');
+        }
+      }
+      localSubmitRef.current = false;
+      onSubmissionDeleted?.();
+      setPopupOpen(false);
+      setDraftTemplateId('');
+      setConfirmingDelete(false);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Could not delete the template submission.');
+    } finally {
+      setIsDeletingSubmission(false);
+    }
   };
 
   const submitTemplate = async () => {
     if (!draftTemplateId || !transactionId || isSubmitting) return;
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    const issues = parameterIssuesFor(parameters, liveValues.current, deal);
+    if (issues.size > 0) {
+      setValues({ ...liveValues.current });
+      setSubmitAttempted(true);
+      setParametersOpen(true);
+      setActiveGroup('');
+      setCollapsedSections((current) => {
+        const next = { ...current };
+        for (const issue of issues.values()) next[issue.section] = false;
+        return next;
+      });
+      return;
+    }
+    setSubmitAttempted(false);
     setIsSubmitting(true);
     setLoadError('');
     try {
       const parameterValues: Record<string, string> = {};
       for (const parameter of parameters) {
-        parameterValues[parameter.parameter_key] = values[parameter.id] ?? '';
+        parameterValues[parameter.parameter_key] = liveValues.current[parameter.id] ?? '';
       }
 
       const logicResponse = await fetch(`/api/commission-template-logic?template_id=${encodeURIComponent(draftTemplateId)}`);
       const logicData = await logicResponse.json();
-      if (!logicResponse.ok || !logicData.success) throw new Error(logicData.error || 'Failed to load template logic.');
+      if (!logicResponse.ok || !logicData.success) throw new Error(logicData.error || 'Failed to load rules.');
       const steps = (logicData.logic_steps || []) as TemplateLogicStep[];
       const needs = formulaDataNeeds(templateFormulaSources(steps, parameters));
       const [submitLedger, lookupsForSubmit] = await Promise.all([
@@ -790,6 +1221,7 @@ export function CommissionTemplatePanel({
       const applied = applyTemplateLogic({
         steps,
         parameters: parameterValues,
+        parameterTypes: Object.fromEntries(parameters.map((parameter) => [parameter.parameter_key, parameter.data_type || ''])),
         deal,
         entities,
         rosterAgents: agents,
@@ -799,9 +1231,13 @@ export function CommissionTemplatePanel({
         lookups: lookupsForSubmit,
       });
 
+      localSubmitRef.current = true;
       setCommittedTemplateId(draftTemplateId);
       setSubmittedTemplateId(draftTemplateId);
       setSubmittedParameters(parameterValues);
+      setSubmittedRows([{ templateId: draftTemplateId, parameters: parameterValues }]);
+      setPaymentsWouldChange(false);
+      setPaymentDriftReady(true);
       onApplied?.(applied, {
         id: submissionId,
         template_id: draftTemplateId,
@@ -855,6 +1291,31 @@ export function CommissionTemplatePanel({
   const shownTemplateName = templates.find((template) => template.id === shownTemplateId)?.template_name
     || (templates.length === 0 && !isLoadingTemplates ? 'No templates' : '');
   const singleTemplate = templates.length === 1 ? templates[0] : null;
+  const bolt = useMemo(() => {
+    if (!deal || isLoadingTemplates || !submissionReady || !schemaReady) return undefined;
+    return templateBoltTone(
+      deal,
+      templates,
+      submittedRows.map((row) => row.templateId),
+      fieldTypes,
+      paymentsWouldChange,
+    );
+  }, [deal, isLoadingTemplates, submissionReady, schemaReady, templates, submittedRows, fieldTypes, paymentsWouldChange]);
+  const locked = bolt === null;
+  const tone = bolt && (bolt.tone !== 'submitted' || paymentDriftReady) ? bolt.tone : null;
+  const templateButtonLabel = singleTemplate
+    ? (locked || committedTemplateId === singleTemplate.id ? singleTemplate.template_name : `Add ${singleTemplate.template_name}`)
+    : 'Commission Template';
+  const templateButtonTitle = locked
+    ? 'Not eligible for a commission template'
+    : bolt && tone
+      ? bolt.label
+      : 'Checking template status';
+  const templateButtonClass = locked
+    ? 'bg-slate-200 text-slate-400 cursor-not-allowed dark:bg-slate-700 dark:text-slate-500'
+    : tone
+      ? `${TEMPLATE_BUTTON_CLASS[tone]} cursor-pointer`
+      : 'bg-slate-200 text-slate-500 cursor-pointer dark:bg-slate-700 dark:text-slate-300';
 
   const openTemplate = (templateId: string) => {
     setDraftTemplateId(templateId);
@@ -874,16 +1335,19 @@ export function CommissionTemplatePanel({
         </span>
       )}
       <div ref={templateFieldRef} className="relative">
-        {singleTemplate ? (
+        {templates.length > 0 && (singleTemplate || locked) ? (
           <button
             type="button"
-            onClick={() => openTemplate(singleTemplate.id)}
-            className="inline-flex h-7 max-w-64 items-center gap-1.5 rounded-md bg-emerald-600 px-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 cursor-pointer"
+            disabled={locked}
+            title={templateButtonTitle}
+            onClick={() => {
+              if (!locked && singleTemplate) openTemplate(singleTemplate.id);
+            }}
+            className={`inline-flex h-7 max-w-64 items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold shadow-sm transition ${templateButtonClass}`}
           >
-            <Zap className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-            <span className="truncate">
-              {committedTemplateId === singleTemplate.id ? singleTemplate.template_name : `Add ${singleTemplate.template_name}`}
-            </span>
+            <Zap className="h-3.5 w-3.5 shrink-0" fill="currentColor" strokeWidth={1.75} aria-hidden />
+            {locked && <Lock className="h-3 w-3 shrink-0" strokeWidth={1.75} aria-hidden />}
+            <span className="truncate">{templateButtonLabel}</span>
           </button>
         ) : (
         <button
@@ -957,8 +1421,9 @@ export function CommissionTemplatePanel({
                 ))}
               </div>
             )}
-            <div className="@container/params mt-3 overflow-y-auto min-h-0 flex-1 space-y-3">
-              <section className="rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
+            <div className="@container/params mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl bg-slate-100 p-4 dark:bg-slate-900">
+              <div className="space-y-6">
+              <section className="rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800">
                 <button
                   type="button"
                   onClick={() => setParametersOpen((open) => !open)}
@@ -968,10 +1433,12 @@ export function CommissionTemplatePanel({
                   <span className="w-3 shrink-0 text-center text-sm font-bold leading-none text-emerald-600 dark:text-emerald-400">{parametersOpen ? '−' : '+'}</span>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Parameters</span>
                 </button>
-              {parametersOpen && (isLoadingParameters ? (
-                <p className="px-3 pb-3 text-xs text-slate-500">Loading parameters...</p>
+              {parametersOpen && (
+                <div className="border-t border-slate-200 px-3 py-2 dark:border-slate-700">
+              {isLoadingParameters ? (
+                <p className="text-xs text-slate-500">Loading parameters...</p>
               ) : rows.length === 0 ? (
-                <p className="px-3 pb-3 text-xs text-slate-500">This template has no parameters.</p>
+                <p className="text-xs text-slate-500">This template has no parameters.</p>
               ) : (
                 <div className={visibleGroups.length > 1 ? '@min-[1280px]/params:columns-5 @min-[1280px]/params:gap-x-4' : ''}>
                   {visibleGroups.map((group) => {
@@ -1005,10 +1472,12 @@ export function CommissionTemplatePanel({
                               parameter={parameter}
                               value={values[parameter.id] ?? ''}
                               agents={uniqueAgents}
-                              onChange={(next) => setValues((current) => ({ ...current, [parameter.id]: next }))}
-                              onReset={parameterValuesMatch(parameter, values[parameter.id] ?? '', raw, uniqueAgents)
+                              message={parameterIssues.get(parameter.id)?.message}
+                              flashToken={recalcFlash[parameter.id] ?? 0}
+                              onChange={(next) => publishParameterValue(parameter.id, next)}
+                              onReset={parameter.is_user_editable === false || parameterValuesMatch(parameter, values[parameter.id] ?? '', raw, uniqueAgents)
                                 ? undefined
-                                : () => setValues((current) => ({ ...current, [parameter.id]: raw }))}
+                                : () => publishParameterValue(parameter.id, raw)}
                             />
                           ))}
                         </div>
@@ -1017,10 +1486,12 @@ export function CommissionTemplatePanel({
                     );
                   })}
                 </div>
-              ))}
+              )}
+                </div>
+              )}
               </section>
-              {(ledgerError || logicSteps.some((step) => step.show_in_popup)) && (
-                <section className="rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
+              {(ledgerError || logicGroups.length > 0 || (logicSteps.some((step) => step.show_in_popup) && (!ledger || !lookups))) && (
+                <section className="rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800">
                   <button
                     type="button"
                     onClick={() => setLogicOpen((open) => !open)}
@@ -1028,7 +1499,8 @@ export function CommissionTemplatePanel({
                     className="flex w-full items-center gap-2 px-3 py-2 text-left cursor-pointer"
                   >
                     <span className="w-3 shrink-0 text-center text-sm font-bold leading-none text-emerald-600 dark:text-emerald-400">{logicOpen ? '−' : '+'}</span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Logic</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Calculations</span>
+                    <span className="text-[10px] font-semibold tracking-wide text-slate-400 dark:text-slate-500">(Read only)</span>
                   </button>
                   {logicOpen && (
                     <div className="border-t border-slate-200 px-3 py-2 dark:border-slate-700">
@@ -1075,13 +1547,29 @@ export function CommissionTemplatePanel({
                   )}
                 </section>
               )}
+              </div>
             </div>
+            {submitAttempted && parameterIssues.size > 0 && (
+              <p className="pt-3 text-xs font-medium text-rose-600 dark:text-rose-400">
+                Fix the highlighted parameters before submitting.
+              </p>
+            )}
+            {deleteError && (
+              <p className="pt-3 text-xs font-medium text-rose-600 dark:text-rose-400">{deleteError}</p>
+            )}
             <div className="flex items-center justify-between gap-2 pt-3">
+              {confirmingDelete ? (
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                  Delete the saved submission? The waterfall stays as it is.
+                </p>
+              ) : (
+              <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
                   const next: Record<string, string> = {};
                   for (const row of rows) next[row.parameter.id] = row.raw;
+                  liveValues.current = next;
                   setValues(next);
                 }}
                 disabled={!rows.some((row) => !parameterValuesMatch(row.parameter, values[row.parameter.id] ?? '', row.raw, uniqueAgents))}
@@ -1090,7 +1578,41 @@ export function CommissionTemplatePanel({
                 <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                 Reset all
               </button>
-              <div className="flex gap-2">
+              {submissionIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(true)}
+                  disabled={isSubmitting || isDeletingSubmission}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-rose-300 text-rose-600 transition hover:bg-rose-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/40"
+                >
+                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                  Delete submission
+                </button>
+              )}
+              </div>
+              )}
+              <div className="flex shrink-0 gap-2">
+              {confirmingDelete ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingDelete(false)}
+                    disabled={isDeletingSubmission}
+                    className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void deleteSubmission()}
+                    disabled={isDeletingSubmission}
+                    className="px-4 py-1.5 text-xs font-bold rounded-lg bg-rose-500 text-white transition hover:bg-rose-600 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {isDeletingSubmission ? 'Deleting...' : 'Delete'}
+                  </button>
+                </>
+              ) : (
+                <>
               <button type="button" onClick={closePopup} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer">Close</button>
               <button
                 type="button"
@@ -1100,6 +1622,8 @@ export function CommissionTemplatePanel({
               >
                 {isSubmitting ? 'Submitting...' : 'Submit'}
               </button>
+                </>
+              )}
               </div>
             </div>
           </div>

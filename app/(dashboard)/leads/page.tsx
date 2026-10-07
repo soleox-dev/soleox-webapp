@@ -1,3 +1,8 @@
+import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/page-titles';
+
+export const metadata: Metadata = pageMetadata('Leads');
+
 export default function LeadsPage() {
   return (
     <div className="p-8">

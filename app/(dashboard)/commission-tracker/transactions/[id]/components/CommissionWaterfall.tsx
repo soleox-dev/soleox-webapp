@@ -1,6 +1,8 @@
 // app/commission-tracker/transactions/[id]/components/CommissionWaterfall.tsx
 import React, { useEffect, useState } from 'react';
-import { LayoutGrid, Table2 } from 'lucide-react';
+import { Eraser, LayoutGrid, Table2 } from 'lucide-react';
+import { toPercentPoints } from '@/lib/percent';
+import { TrashIcon } from '@/components/ui/trash-icon';
 import { AgentConfig, DynamicRule, CommissionEntityOption, KnownAgentInfo } from '../types';
 import { CommissionWaterfallTable } from './CommissionWaterfallTable';
 import { isPrimaryAgent } from '../commissionItemState';
@@ -8,6 +10,8 @@ import { HoverNote } from './HoverNote';
 import { SplitPair } from './SplitPair';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { SectionIcon } from './SectionIcon';
+import { toggleFromSectionHeader } from './sectionHeaderClick';
+import { SectionCollapseButton } from './SectionCollapseButton';
 import { CancelEditPrompt } from './CancelEditPrompt';
 import { useEditOnDoublePress } from './useEditOnDoublePress';
 import { useSectionEditKeys } from './useSectionEditKeys';
@@ -75,6 +79,8 @@ interface CommissionWaterfallProps {
   templateAgents: { id: string; name: string; isTeamLead?: boolean; clientId?: string; fields?: Record<string, string> }[];
   primaryAgentId?: string | null;
   onApplyTemplate?: (applied: AppliedTemplateRules, submission: TemplateSubmissionDraft) => void;
+  onSubmissionDeleted?: () => void;
+  onResetWaterfall?: () => void;
   submissionRevision?: number;
 }
 
@@ -137,12 +143,15 @@ export function CommissionWaterfall({
   templateAgents,
   primaryAgentId,
   onApplyTemplate,
+  onSubmissionDeleted,
+  onResetWaterfall,
   submissionRevision = 0,
 }: CommissionWaterfallProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
 
   const baselineTotalCommission = dealResult.totalCommission || dealResult.grossCommission || 0;
+  const [confirmReset, setConfirmReset] = useState(false);
   const commissionAfterOffTop = dealResult.commissionAfterOffTop ?? 0;
   const commissionAfterPreSplit = dealResult.commissionAfterPreSplit ?? commissionAfterOffTop;
   const agentSplitsExceedPool = (dealResult.agentSplitItems || []).some((item: { overAllocated?: boolean }) => item.overAllocated);
@@ -347,23 +356,19 @@ export function CommissionWaterfall({
   };
 
   const toggleNewOffTopType = () => {
-    setNewOffTopValue((v) => (newOffTopType === 'PERCENT' && v <= 1 && v > 0 ? Number((v * 100).toFixed(5)) : v));
-    setNewOffTopType((p) => (p === 'PERCENT' ? 'AMOUNT' : 'PERCENT'));
+    setNewOffTopType((current) => (current === 'PERCENT' ? 'AMOUNT' : 'PERCENT'));
   };
 
   const toggleNewPreSplitType = () => {
-    setNewPreSplitValue((v) => (newPreSplitType === 'PERCENT' && v <= 1 && v > 0 ? Number((v * 100).toFixed(5)) : v));
-    setNewPreSplitType((p) => (p === 'PERCENT' ? 'AMOUNT' : 'PERCENT'));
+    setNewPreSplitType((current) => (current === 'PERCENT' ? 'AMOUNT' : 'PERCENT'));
   };
 
   const toggleNewPostSplitType = () => {
-    setNewPostSplitValue((v) => (newPostSplitType === 'PERCENT' && v <= 1 && v > 0 ? Number((v * 100).toFixed(5)) : v));
-    setNewPostSplitType((p) => (p === 'PERCENT' ? 'AMOUNT' : 'PERCENT'));
+    setNewPostSplitType((current) => (current === 'PERCENT' ? 'AMOUNT' : 'PERCENT'));
   };
 
   const toggleNewPostSplit2Type = () => {
-    setNewPostSplit2Value((v) => (newPostSplit2Type === 'PERCENT' && v <= 1 && v > 0 ? Number((v * 100).toFixed(5)) : v));
-    setNewPostSplit2Type((p) => (p === 'PERCENT' ? 'AMOUNT' : 'PERCENT'));
+    setNewPostSplit2Type((current) => (current === 'PERCENT' ? 'AMOUNT' : 'PERCENT'));
   };
 
   const renderReorderControls = (
@@ -442,7 +447,10 @@ export function CommissionWaterfall({
   return (
     <section id="commission" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-8 transition-colors">
       {/* Top Header */}
-      <div className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+      <div
+        onClick={(event) => toggleFromSectionHeader(event, onToggleSection)}
+        className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center cursor-pointer"
+      >
         <div className="flex shrink-0 items-center gap-3">
           <SectionIcon name="commission" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">2. Commission Waterfall</h2>
@@ -459,8 +467,19 @@ export function CommissionWaterfall({
             entities={knownEntities}
             totalCommission={baselineTotalCommission}
             onApplied={onApplyTemplate}
+            onSubmissionDeleted={onSubmissionDeleted}
             submissionRevision={submissionRevision}
           />
+          {onResetWaterfall && (
+            <button
+              type="button"
+              onClick={() => setConfirmReset(true)}
+              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 cursor-pointer dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-950/70"
+            >
+              <Eraser className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+              Reset waterfall
+            </button>
+          )}
           {agentLayoutToggle}
           {!isEditing ? (
             <HoverNote label="Edit Commission Waterfall">
@@ -482,25 +501,21 @@ export function CommissionWaterfall({
               >
                 Cancel
               </button>
-              <button
-                type="button"
-                onClick={onApplyEdit}
-                disabled={agentSplitsExceedPool}
-                title={agentSplitsExceedPool ? "Agent splits can't exceed 100% of the remaining commission." : undefined}
-                className={`text-xs bg-emerald-500 text-slate-950 px-3 py-1.5 rounded-lg font-bold transition shadow-md ${agentSplitsExceedPool ? 'opacity-40 cursor-not-allowed' : 'hover:bg-emerald-400 cursor-pointer'}`}
-              >
-                Apply Changes
-              </button>
+              {hasChanges && (
+                <button
+                  type="button"
+                  onClick={onApplyEdit}
+                  disabled={agentSplitsExceedPool}
+                  title={agentSplitsExceedPool ? "Agent splits can't exceed 100% of the remaining commission." : undefined}
+                  className={`text-xs bg-emerald-500 text-slate-950 px-3 py-1.5 rounded-lg font-bold transition shadow-md ${agentSplitsExceedPool ? 'opacity-40 cursor-not-allowed' : 'hover:bg-emerald-400 cursor-pointer'}`}
+                >
+                  Apply Changes
+                </button>
+              )}
             </div>
           )}
 
-          <button
-            onClick={onToggleSection}
-            className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-bold transition text-base leading-none cursor-pointer"
-            title={isCollapsed ? 'Expand Section' : 'Collapse Section'}
-          >
-            {isCollapsed ? '+' : '−'}
-          </button>
+          <SectionCollapseButton collapsed={isCollapsed} onClick={onToggleSection} />
         </div>
       </div>
 
@@ -565,8 +580,8 @@ export function CommissionWaterfall({
                   <SplitPair
                     isEditing
                     type={newOffTopType}
-                    percentPoints={newOffTopType === 'PERCENT' ? newOffTopValue : (baselineTotalCommission > 0 ? (newOffTopValue / baselineTotalCommission) * 100 : 0)}
-                    dollarAmount={newOffTopType === 'AMOUNT' ? newOffTopValue : baselineTotalCommission * (newOffTopValue > 1 ? newOffTopValue / 100 : newOffTopValue)}
+                    percentPoints={newOffTopType === 'PERCENT' ? toPercentPoints(newOffTopValue) : (baselineTotalCommission > 0 ? (newOffTopValue / baselineTotalCommission) * 100 : 0)}
+                    dollarAmount={newOffTopType === 'AMOUNT' ? newOffTopValue : baselineTotalCommission * newOffTopValue}
                     onPercentChange={(val) => {
                       if (newOffTopType !== 'PERCENT') toggleNewOffTopType();
                       setNewOffTopValue(val);
@@ -619,7 +634,7 @@ export function CommissionWaterfall({
                           className="text-rose-500 hover:text-rose-600 font-bold cursor-pointer transition p-0.5"
                           title="Delete rule"
                         >
-                          🗑️
+                          <TrashIcon />
                         </button>
                       )}
 
@@ -656,7 +671,7 @@ export function CommissionWaterfall({
                       compact={!isEditing}
                       isEditing={isEditing}
                       type={rule.type}
-                      percentPoints={rule.type === 'PERCENT' ? rule.value : (baselineTotalCommission > 0 ? ((calculatedItem?.amount || 0) / baselineTotalCommission) * 100 : 0)}
+                      percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (baselineTotalCommission > 0 ? ((calculatedItem?.amount || 0) / baselineTotalCommission) * 100 : 0)}
                       dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
                       deduction
                       onPercentChange={(val) => {
@@ -730,8 +745,8 @@ export function CommissionWaterfall({
                   <SplitPair
                     isEditing
                     type={newPreSplitType}
-                    percentPoints={newPreSplitType === 'PERCENT' ? newPreSplitValue : (commissionAfterOffTop > 0 ? (newPreSplitValue / commissionAfterOffTop) * 100 : 0)}
-                    dollarAmount={newPreSplitType === 'AMOUNT' ? newPreSplitValue : commissionAfterOffTop * (newPreSplitValue > 1 ? newPreSplitValue / 100 : newPreSplitValue)}
+                    percentPoints={newPreSplitType === 'PERCENT' ? toPercentPoints(newPreSplitValue) : (commissionAfterOffTop > 0 ? (newPreSplitValue / commissionAfterOffTop) * 100 : 0)}
+                    dollarAmount={newPreSplitType === 'AMOUNT' ? newPreSplitValue : commissionAfterOffTop * newPreSplitValue}
                     onPercentChange={(val) => {
                       if (newPreSplitType !== 'PERCENT') toggleNewPreSplitType();
                       setNewPreSplitValue(val);
@@ -784,7 +799,7 @@ export function CommissionWaterfall({
                           className="text-rose-500 hover:text-rose-600 font-bold cursor-pointer transition p-0.5"
                           title="Delete rule"
                         >
-                          🗑️
+                          <TrashIcon />
                         </button>
                       )}
 
@@ -821,7 +836,7 @@ export function CommissionWaterfall({
                       compact={!isEditing}
                       isEditing={isEditing}
                       type={rule.type}
-                      percentPoints={rule.type === 'PERCENT' ? rule.value : (commissionAfterOffTop > 0 ? ((calculatedItem?.amount || 0) / commissionAfterOffTop) * 100 : 0)}
+                      percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (commissionAfterOffTop > 0 ? ((calculatedItem?.amount || 0) / commissionAfterOffTop) * 100 : 0)}
                       dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
                       deduction
                       onPercentChange={(val) => {
@@ -970,7 +985,7 @@ export function CommissionWaterfall({
                             locked={isEditing}
                             matchColumns
                             type={agent.splitType}
-                            percentPoints={(computedSplitItem?.percent || 0) * 100}
+                            percentPoints={toPercentPoints(computedSplitItem?.percent || 0)}
                             dollarAmount={computedSplitItem?.amount || 0}
                             onPercentChange={() => {}}
                             onAmountChange={() => {}}
@@ -997,7 +1012,7 @@ export function CommissionWaterfall({
                               className="text-xs text-rose-500 hover:text-rose-600 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition"
                               title={`Remove ${agent.name}`}
                             >
-                              🗑️
+                              <TrashIcon />
                             </button>
                           )}
 
@@ -1035,7 +1050,7 @@ export function CommissionWaterfall({
                           isEditing={isEditing}
                           matchColumns
                           type={agent.splitType}
-                          percentPoints={agent.splitType === 'PERCENT' ? agent.splitVal : ((computedSplitItem?.percent || 0) * 100)}
+                          percentPoints={agent.splitType === 'PERCENT' ? toPercentPoints(agent.splitVal) : toPercentPoints(computedSplitItem?.percent || 0)}
                           dollarAmount={agent.splitType === 'AMOUNT' ? agent.splitVal : (computedSplitItem?.amount || 0)}
                           invalid={Boolean(computedSplitItem?.overAllocated)}
                           onPercentChange={(val) => {
@@ -1136,7 +1151,7 @@ export function CommissionWaterfall({
                           </span>
                         )}
                         <span className="text-xs text-slate-500 dark:text-slate-400">
-                          (Agent Split: <strong className="text-slate-800 dark:text-slate-200">{formatCurrency(agentGrossSplit)}</strong>)
+                          (Agent Split: <strong className={agentGrossSplit < -0.004 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-200'}>{formatCurrency(agentGrossSplit)}</strong>)
                         </span>
                       </div>
                     </div>
@@ -1197,8 +1212,8 @@ export function CommissionWaterfall({
                             <SplitPair
                               isEditing
                               type={newPostSplitType}
-                              percentPoints={newPostSplitType === 'PERCENT' ? newPostSplitValue : (agentGrossSplit > 0 ? (newPostSplitValue / agentGrossSplit) * 100 : 0)}
-                              dollarAmount={newPostSplitType === 'AMOUNT' ? newPostSplitValue : agentGrossSplit * (newPostSplitValue > 1 ? newPostSplitValue / 100 : newPostSplitValue)}
+                              percentPoints={newPostSplitType === 'PERCENT' ? toPercentPoints(newPostSplitValue) : (agentGrossSplit > 0 ? (newPostSplitValue / agentGrossSplit) * 100 : 0)}
+                              dollarAmount={newPostSplitType === 'AMOUNT' ? newPostSplitValue : agentGrossSplit * newPostSplitValue}
                               onPercentChange={(val) => {
                                 if (newPostSplitType !== 'PERCENT') toggleNewPostSplitType();
                                 setNewPostSplitValue(val);
@@ -1253,7 +1268,7 @@ export function CommissionWaterfall({
                                     className="text-rose-500 hover:text-rose-600 cursor-pointer p-0.5"
                                     title="Delete rule"
                                   >
-                                    🗑️
+                                    <TrashIcon />
                                   </button>
                                 )}
 
@@ -1289,7 +1304,7 @@ export function CommissionWaterfall({
                                 isEditing={isEditing}
                                 matchColumns
                                 type={rule.type}
-                                percentPoints={rule.type === 'PERCENT' ? rule.value : (agentGrossSplit > 0 ? ((calculatedItem?.amount || 0) / agentGrossSplit) * 100 : 0)}
+                                percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (agentGrossSplit > 0 ? ((calculatedItem?.amount || 0) / agentGrossSplit) * 100 : 0)}
                                 dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
                                 deduction
                                 onPercentChange={(val) => {
@@ -1379,8 +1394,8 @@ export function CommissionWaterfall({
                             <SplitPair
                               isEditing
                               type={newPostSplit2Type}
-                              percentPoints={newPostSplit2Type === 'PERCENT' ? newPostSplit2Value : (netAfterL1 > 0 ? (newPostSplit2Value / netAfterL1) * 100 : 0)}
-                              dollarAmount={newPostSplit2Type === 'AMOUNT' ? newPostSplit2Value : netAfterL1 * (newPostSplit2Value > 1 ? newPostSplit2Value / 100 : newPostSplit2Value)}
+                              percentPoints={newPostSplit2Type === 'PERCENT' ? toPercentPoints(newPostSplit2Value) : (netAfterL1 > 0 ? (newPostSplit2Value / netAfterL1) * 100 : 0)}
+                              dollarAmount={newPostSplit2Type === 'AMOUNT' ? newPostSplit2Value : netAfterL1 * newPostSplit2Value}
                               onPercentChange={(val) => {
                                 if (newPostSplit2Type !== 'PERCENT') toggleNewPostSplit2Type();
                                 setNewPostSplit2Value(val);
@@ -1435,7 +1450,7 @@ export function CommissionWaterfall({
                                     className="text-rose-500 hover:text-rose-600 cursor-pointer p-0.5"
                                     title="Delete rule"
                                   >
-                                    🗑️
+                                    <TrashIcon />
                                   </button>
                                 )}
 
@@ -1471,7 +1486,7 @@ export function CommissionWaterfall({
                                 isEditing={isEditing}
                                 matchColumns
                                 type={rule.type}
-                                percentPoints={rule.type === 'PERCENT' ? rule.value : (netAfterL1 > 0 ? ((calculatedItem2?.amount || 0) / netAfterL1) * 100 : 0)}
+                                percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (netAfterL1 > 0 ? ((calculatedItem2?.amount || 0) / netAfterL1) * 100 : 0)}
                                 dollarAmount={calculatedItem2?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
                                 deduction
                                 onPercentChange={(val) => {
@@ -1514,6 +1529,48 @@ export function CommissionWaterfall({
         onKeepEditing={editKeys.keepEditing}
         onDiscard={editKeys.discard}
       />
+      {confirmReset && (
+        <div
+          className="fixed inset-0 z-[80] bg-slate-950/70 backdrop-blur-sm flex justify-center items-center p-4"
+          onClick={() => setConfirmReset(false)}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 border border-amber-500/30 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-5"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reset-waterfall-title"
+          >
+            <div>
+              <h3 id="reset-waterfall-title" className="text-base font-bold text-slate-900 dark:text-white">
+                Reset the waterfall?
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+                Deductions and extra agents are removed. The Primary Agent keeps 100% of the commission. The template submission stays.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmReset(false)}
+                className="px-3 py-2 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onResetWaterfall?.();
+                  setConfirmReset(false);
+                }}
+                className="px-3 py-2 text-xs font-bold rounded-lg bg-amber-400 text-slate-950 transition hover:bg-amber-500 cursor-pointer"
+              >
+                Reset waterfall
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

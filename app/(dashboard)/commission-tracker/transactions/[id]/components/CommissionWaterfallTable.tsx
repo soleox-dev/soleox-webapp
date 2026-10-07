@@ -4,6 +4,8 @@ import { isPrimaryAgent } from '../commissionItemState';
 import { HoverNote } from './HoverNote';
 import { SplitPair } from './SplitPair';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { TrashIcon } from '@/components/ui/trash-icon';
+import { toPercentPoints } from '@/lib/percent';
 
 type SplitType = 'PERCENT' | 'AMOUNT';
 
@@ -464,7 +466,7 @@ export function CommissionWaterfallTable({
                       </div>
                       <div className="flex h-5 items-center justify-end gap-1">
                         {isEditing && !agentIsPrimary && (
-                          <button type="button" onClick={() => onRemoveAgent(agent.name)} className="text-xs text-rose-500 hover:text-rose-600 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition" title={`Remove ${agent.name}`} aria-label={`Remove ${agent.name}`}>🗑️</button>
+                          <button type="button" onClick={() => onRemoveAgent(agent.name)} className="text-xs text-rose-500 hover:text-rose-600 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition" title={`Remove ${agent.name}`} aria-label={`Remove ${agent.name}`}><TrashIcon /></button>
                         )}
                         {isEditing && !agentIsPrimary && knownAgents.length > 0 ? (
                           <ClearableSelect
@@ -496,12 +498,12 @@ export function CommissionWaterfallTable({
                   const dollar = !agentIsPrimary && agent.splitType === 'AMOUNT'
                     ? agent.splitVal
                     : (computed?.amount || 0);
-                  const percentPoints = agent.splitType === 'PERCENT' ? agent.splitVal : ((computed?.percent || 0) * 100);
+                  const percentPoints = agent.splitType === 'PERCENT' ? toPercentPoints(agent.splitVal) : toPercentPoints(computed?.percent || 0);
                   return (
                     <td key={agent.id} className={agentCell}>
                       {splitPair(
                         agent.splitType,
-                        agentIsPrimary && agent.splitType === 'PERCENT' ? ((computed?.percent || 0) * 100) : percentPoints,
+                        agentIsPrimary && agent.splitType === 'PERCENT' ? toPercentPoints(computed?.percent || 0) : percentPoints,
                         dollar,
                         () => onToggleAgentSplitType(agent.id),
                         (val) => onSplitValueChange(agent.id, val),
@@ -537,7 +539,7 @@ export function CommissionWaterfallTable({
                     <div className="flex items-center gap-1">
                       {reorderControls(index, level1Order.length, 'postSplit1', (from, to) => applyMove(level1Order, setLevel1Order, onReorderPostSplitEntities, from, to))}
                       {isEditing && (
-                        <button type="button" onClick={() => { deleteEntityRow(entity, postSplitRulesByAgent, onDeleteAgentPostSplitRule); setDraftLevel1((prev) => prev.filter((item) => item !== entity)); }} className={trashButton} title={`Remove ${entity}`} aria-label={`Remove ${entity}`}>🗑️</button>
+                        <button type="button" onClick={() => { deleteEntityRow(entity, postSplitRulesByAgent, onDeleteAgentPostSplitRule); setDraftLevel1((prev) => prev.filter((item) => item !== entity)); }} className={trashButton} title={`Remove ${entity}`} aria-label={`Remove ${entity}`}><TrashIcon /></button>
                       )}
                       {entityField(entity, (next) => renameEntityRow(entity, next, postSplitRulesByAgent, onUpdateAgentPostSplitEntity))}
                     </div>
@@ -566,14 +568,14 @@ export function CommissionWaterfallTable({
                               <div key={rule.id}>
                                 {splitPair(
                                   rule.type,
-                                  rule.type === 'PERCENT' ? rule.value : (gross > 0 ? ((calculated?.amount || 0) / gross) * 100 : 0),
+                                  rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (gross > 0 ? ((calculated?.amount || 0) / gross) * 100 : 0),
                                   calculated?.amount || (rule.type === 'AMOUNT' ? rule.value : 0),
                                   () => onToggleAgentPostSplitType(agent.name, rule.id),
                                   (val) => onUpdateAgentPostSplitValue(agent.name, rule.id, val),
                                   {
                                     deduction: true,
                                     beforePercent: isEditing ? (
-                                      <button type="button" onClick={() => onDeleteAgentPostSplitRule(agent.name, rule.id)} className={`${trashButton} shrink-0`} title="Delete rule" aria-label="Delete rule">🗑️</button>
+                                      <button type="button" onClick={() => onDeleteAgentPostSplitRule(agent.name, rule.id)} className={`${trashButton} shrink-0`} title="Delete rule" aria-label="Delete rule"><TrashIcon /></button>
                                     ) : null,
                                   },
                                 )}
@@ -635,7 +637,7 @@ export function CommissionWaterfallTable({
                     <div className="flex items-center gap-1">
                       {reorderControls(index, level2Order.length, 'postSplit2', (from, to) => applyMove(level2Order, setLevel2Order, onReorderPostSplit2Entities, from, to))}
                       {isEditing && (
-                        <button type="button" onClick={() => { if (onDeleteAgentPostSplit2Rule) deleteEntityRow(entity, postSplit2RulesByAgent, onDeleteAgentPostSplit2Rule); setDraftLevel2((prev) => prev.filter((item) => item !== entity)); }} className={trashButton} title={`Remove ${entity}`} aria-label={`Remove ${entity}`}>🗑️</button>
+                        <button type="button" onClick={() => { if (onDeleteAgentPostSplit2Rule) deleteEntityRow(entity, postSplit2RulesByAgent, onDeleteAgentPostSplit2Rule); setDraftLevel2((prev) => prev.filter((item) => item !== entity)); }} className={trashButton} title={`Remove ${entity}`} aria-label={`Remove ${entity}`}><TrashIcon /></button>
                       )}
                       {entityField(entity, (next) => renameEntityRow(entity, next, postSplit2RulesByAgent, onUpdateAgentPostSplit2Entity))}
                     </div>
@@ -665,14 +667,14 @@ export function CommissionWaterfallTable({
                               <div key={rule.id}>
                                 {splitPair(
                                   rule.type,
-                                  rule.type === 'PERCENT' ? rule.value : (netAfterL1 > 0 ? ((calculated?.amount || 0) / netAfterL1) * 100 : 0),
+                                  rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (netAfterL1 > 0 ? ((calculated?.amount || 0) / netAfterL1) * 100 : 0),
                                   calculated?.amount || (rule.type === 'AMOUNT' ? rule.value : 0),
                                   () => onToggleAgentPostSplit2Type?.(agent.name, rule.id),
                                   (val) => onUpdateAgentPostSplit2Value?.(agent.name, rule.id, val),
                                   {
                                     deduction: true,
                                     beforePercent: isEditing ? (
-                                      <button type="button" onClick={() => onDeleteAgentPostSplit2Rule?.(agent.name, rule.id)} className={`${trashButton} shrink-0`} title="Delete rule" aria-label="Delete rule">🗑️</button>
+                                      <button type="button" onClick={() => onDeleteAgentPostSplit2Rule?.(agent.name, rule.id)} className={`${trashButton} shrink-0`} title="Delete rule" aria-label="Delete rule"><TrashIcon /></button>
                                     ) : null,
                                   },
                                 )}

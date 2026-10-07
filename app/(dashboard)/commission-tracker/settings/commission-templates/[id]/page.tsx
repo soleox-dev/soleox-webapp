@@ -1,15 +1,18 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { FormulaEditor, FormulaExplain, FormulaPreview, type FormulaName } from '../FormulaEditor';
-import { LogicStepForm, canonicalLogicSection, logicSectionShowsAgent, logicSectionShowsEntity, logicContextNames, ledgerFormulaNames, ruleKeyFromName, type LogicStepDraft } from './LogicStepForm';
+import { FormulaEditor, FormulaExplain, FormulaHint, FormulaPreview, type FormulaName } from '../FormulaEditor';
+import { LogicStepForm, LOGIC_SECTIONS, canonicalLogicSection, canonicalResultType, logicSectionShowsAgent, logicSectionShowsEntity, logicContextNames, ledgerFormulaNames, resultTypeLabel, ruleKeyFromName, describeKeyConflict, type LogicStepDraft } from './LogicStepForm';
 import { EditPencil } from '@/components/ui/edit-pencil';
+import { TrashIcon } from '@/components/ui/trash-icon';
 import { ReorderControls } from '@/components/ui/reorder-controls';
 import { normalizeFormula, validateFormula } from '../formula-validator';
+import { interpretValidationRule } from '@/lib/parameter-validation';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { Rows3 } from 'lucide-react';
 
 type ParameterType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
 
@@ -17,6 +20,7 @@ interface CommissionTemplate {
   id: string;
   template_name: string;
   description?: string | null;
+  eligibility_formula?: string | null;
   client_id?: string | null;
   is_default?: boolean | null;
   is_active?: boolean | null;
@@ -52,8 +56,10 @@ interface LogicStep {
   custom_baseline?: string | null;
   calculation_formula?: string | null;
   split_type?: string | null;
+  result_type?: string | null;
   show_in_popup?: boolean | null;
   popup_section?: string | null;
+  show_when_formula?: string | null;
 }
 
 interface CommissionEntity {
@@ -78,6 +84,30 @@ const underlineLabel =
   'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
 const underlineControl =
   'w-full border-0 bg-transparent p-0 h-5 text-xs leading-4 font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 dark:text-white dark:placeholder:text-slate-500';
+const fieldColumn = 'w-full max-w-[39rem]';
+const sideLabel = 'pt-1 text-xs font-bold leading-4 text-slate-900 dark:text-white';
+
+function ParameterRow({
+  label,
+  htmlFor,
+  children,
+  note,
+}: {
+  label: string;
+  htmlFor?: string;
+  children: React.ReactNode;
+  note?: React.ReactNode;
+}) {
+  return (
+    <div className={`${fieldColumn} grid grid-cols-[7.75rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1`}>
+      <label htmlFor={htmlFor} className={sideLabel}>{label}</label>
+      <div className="min-w-0 space-y-1">
+        {children}
+        {note}
+      </div>
+    </div>
+  );
+}
 
 function FieldChevron() {
   return (
@@ -94,8 +124,45 @@ function FieldChevron() {
 const rowActionClass =
   'inline-flex h-7 w-7 items-center justify-center rounded transition cursor-pointer';
 
+function eligibilityFormulaNames(fields: FormulaName[]): FormulaName[] {
+  if (fields.some((field) => field.name === 'status')) return fields;
+  return [...fields, { name: 'status', label: 'Status', kind: 'field' }];
+}
+
 function typeLabel(dataType?: string | null): string {
   return PARAMETER_TYPES.find((type) => type.value === canonicalParameterType(dataType))?.label || dataType || '—';
+}
+
+function FormulaLabel({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={`View ${label}`}
+      className="font-semibold text-emerald-700 hover:underline dark:text-emerald-400 cursor-pointer"
+    >
+      {label}
+    </button>
+  );
+}
+
+function formulaField(
+  compact: boolean,
+  value: string,
+  label: string,
+  names: FormulaName[],
+  onOpen: () => void,
+  empty = '—',
+) {
+  if (compact) {
+    return value.trim() ? <FormulaLabel label={label} onClick={onOpen} /> : empty;
+  }
+  return (
+    <div className="flex items-start gap-2">
+      <FormulaExplain value={value} names={names} />
+      <FormulaPreview value={value} names={names} empty={empty} />
+    </div>
+  );
 }
 
 function canonicalParameterType(value?: string | null): ParameterType {
@@ -130,8 +197,31 @@ function parameterGroups(parameters: TemplateParameter[]): { name: string; items
   return groups.sort((a, b) => Number(a.name === 'No Section') - Number(b.name === 'No Section'));
 }
 
+function logicSectionName(step: { section?: string | null }): string {
+  return canonicalLogicSection(step.section || '') || step.section?.trim() || 'No Section';
+}
+
+function logicSectionRank(name: string): number {
+  const index = (LOGIC_SECTIONS as readonly string[]).indexOf(name);
+  if (index >= 0) return index;
+  return name === 'No Section' ? LOGIC_SECTIONS.length + 1 : LOGIC_SECTIONS.length;
+}
+
+function logicGroups(steps: LogicStep[]): { name: string; items: LogicStep[] }[] {
+  const ordered = [...steps].sort((a, b) => a.step_number - b.step_number);
+  const groups: { name: string; items: LogicStep[] }[] = [];
+  for (const step of ordered) {
+    const name = logicSectionName(step);
+    const existing = groups.find((group) => group.name === name);
+    if (existing) existing.items.push(step);
+    else groups.push({ name, items: [step] });
+  }
+  return groups.sort((a, b) => logicSectionRank(a.name) - logicSectionRank(b.name));
+}
+
 const emptyParameter = {
   parameter_name: '',
+  parameter_key: '',
   data_type: 'CURRENCY' as ParameterType,
   is_required: false,
   is_user_editable: true,
@@ -154,8 +244,11 @@ const emptyLogic: LogicStepDraft = {
   custom_baseline: '',
   calculation_formula: '',
   split_type: 'AMOUNT',
+  result_type: 'CURRENCY',
   show_in_popup: false,
   popup_section: '',
+  show_only_when: false,
+  show_when_formula: '',
 };
 
 export default function CommissionTemplateDetailPage() {
@@ -170,24 +263,32 @@ export default function CommissionTemplateDetailPage() {
   const [transactionFields, setTransactionFields] = useState<FormulaName[]>([]);
   const [agentFields, setAgentFields] = useState<FormulaName[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const parameterScrollRef = useRef<HTMLDivElement>(null);
+  const logicScrollRef = useRef<HTMLDivElement>(null);
+  const restoreScrollRef = useRef<{ parameter: number; logic: number; window: number } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
   const [dropTarget, setDropTarget] = useState<null | { parameterId: string; placement: 'before' | 'after' } | { sectionName: string }>(null);
-  const [logicDropTarget, setLogicDropTarget] = useState<null | { stepId: string; placement: 'before' | 'after' }>(null);
+  const [logicDropTarget, setLogicDropTarget] = useState<null | { stepId: string; placement: 'before' | 'after' } | { sectionName: string }>(null);
   const [parametersCollapsed, setParametersCollapsed] = useState(false);
   const [logicCollapsed, setLogicCollapsed] = useState(false);
+  const [compactRows, setCompactRows] = useState(false);
   const [parameterSearch, setParameterSearch] = useState('');
   const [logicSearch, setLogicSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [showParameterFields, setShowParameterFields] = useState(false);
   const [parameterForm, setParameterForm] = useState<typeof emptyParameter | null>(null);
   const [editingParameterId, setEditingParameterId] = useState<string | null>(null);
+  const [recentParameterId, setRecentParameterId] = useState<string | null>(null);
   const [logicForm, setLogicForm] = useState<LogicStepDraft | null>(null);
   const [editingLogicId, setEditingLogicId] = useState<string | null>(null);
+  const [recentLogicId, setRecentLogicId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<null | { kind: 'template' | 'parameter' | 'logic'; id?: string; label: string }>(null);
   const [editTemplateOpen, setEditTemplateOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [editEligibility, setEditEligibility] = useState('');
   const [sectionMenuOpen, setSectionMenuOpen] = useState(false);
   const [sectionMenuBox, setSectionMenuBox] = useState({ top: 0, left: 0, width: 0 });
   const sectionFieldRef = useRef<HTMLDivElement>(null);
@@ -195,9 +296,17 @@ export default function CommissionTemplateDetailPage() {
   const [renamingOption, setRenamingOption] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
 
-  const loadTemplate = async () => {
+  const loadTemplate = async (options?: { keepPlace?: boolean }) => {
     if (!templateId) return;
-    setIsLoading(true);
+    if (options?.keepPlace) {
+      restoreScrollRef.current = {
+        parameter: parameterScrollRef.current?.scrollTop ?? 0,
+        logic: logicScrollRef.current?.scrollTop ?? 0,
+        window: window.scrollY,
+      };
+    } else {
+      setIsLoading(true);
+    }
     setError(null);
     try {
       const [templatesResponse, parametersResponse, logicResponse, entitiesResponse] = await Promise.all([
@@ -218,7 +327,7 @@ export default function CommissionTemplateDetailPage() {
         throw new Error(parametersData.error || 'Failed to load template parameters.');
       }
       if (!logicResponse.ok || !logicData.success) {
-        throw new Error(logicData.error || 'Failed to load template logic.');
+        throw new Error(logicData.error || 'Failed to load rules.');
       }
 
       const match = (templatesData.templates || []).find((item: CommissionTemplate) => item.id === templateId);
@@ -231,13 +340,34 @@ export default function CommissionTemplateDetailPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load this template.');
     } finally {
-      setIsLoading(false);
+      if (!options?.keepPlace) setIsLoading(false);
     }
   };
+
+  useLayoutEffect(() => {
+    const pending = restoreScrollRef.current;
+    if (!pending) return;
+    restoreScrollRef.current = null;
+    if (parameterScrollRef.current) parameterScrollRef.current.scrollTop = pending.parameter;
+    if (logicScrollRef.current) logicScrollRef.current.scrollTop = pending.logic;
+    window.scrollTo(0, pending.window);
+  }, [parameters, logicSteps]);
 
   useEffect(() => {
     void loadTemplate();
   }, [templateId]);
+
+  useEffect(() => {
+    setCompactRows(window.localStorage.getItem('soleox-template-row-density') === 'compact');
+  }, []);
+
+  const toggleCompactRows = () => {
+    setCompactRows((current) => {
+      const next = !current;
+      window.localStorage.setItem('soleox-template-row-density', next ? 'compact' : 'comfortable');
+      return next;
+    });
+  };
 
   useEffect(() => {
     const loadFields = async () => {
@@ -288,18 +418,35 @@ export default function CommissionTemplateDetailPage() {
     event.preventDefault();
     if (!parameterForm || !templateId || isSaving) return;
     const normalizedFormula = normalizeFormula(parameterForm.autofill_formula).text;
-    if (normalizedFormula !== parameterForm.autofill_formula) {
-      setParameterForm({ ...parameterForm, autofill_formula: normalizedFormula });
+    const normalizedValidation = normalizeFormula(parameterForm.validation_rule).text;
+    if (normalizedFormula !== parameterForm.autofill_formula || normalizedValidation !== parameterForm.validation_rule) {
+      setParameterForm({ ...parameterForm, autofill_formula: normalizedFormula, validation_rule: normalizedValidation });
     }
     const formulaIssue = validateFormula(normalizedFormula, formulaNames.map((item) => item.name));
     if (formulaIssue) {
       setFormError(formulaIssue);
       return;
     }
+    const validationIssue = interpretValidationRule(
+      normalizedValidation,
+      validationFormulaNames.map((item) => item.name),
+    );
+    if (validationIssue.ok === false) {
+      setFormError(validationIssue.message);
+      return;
+    }
+    const existing = parameters.find((parameter) => parameter.id === editingParameterId);
+    const parameterKey = existing?.parameter_key || parameterForm.parameter_key.trim().toLowerCase();
+    if (!existing) {
+      const keyIssue = describeKeyConflict(parameterKey, parameterKeyOwners);
+      if (keyIssue) {
+        setFormError(keyIssue);
+        return;
+      }
+    }
     setIsSaving(true);
     setFormError(null);
     try {
-      const existing = parameters.find((parameter) => parameter.id === editingParameterId);
       const response = await fetch('/api/commission-template-parameters', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -309,12 +456,12 @@ export default function CommissionTemplateDetailPage() {
             template_id: templateId,
             client_id: 'DEMO',
             parameter_name: parameterForm.parameter_name.trim(),
-            parameter_key: existing?.parameter_key || parameterKeyFromName(parameterForm.parameter_name),
+            parameter_key: parameterKey,
             data_type: parameterForm.data_type,
             is_required: parameterForm.is_required,
             is_user_editable: parameterForm.is_user_editable,
             autofill_formula: normalizedFormula.trim() || null,
-            validation_rule: parameterForm.validation_rule.trim() || null,
+            validation_rule: normalizedValidation.trim() || null,
             notes: parameterForm.notes.trim() || null,
             section: parameterForm.section.trim() || null,
             dropdown_options: parameterForm.data_type === 'SELECT' ? parameterForm.dropdown_options : null,
@@ -327,7 +474,7 @@ export default function CommissionTemplateDetailPage() {
       setParameterForm(null);
       setEditingParameterId(null);
       setFormError(null);
-      await loadTemplate();
+      await loadTemplate({ keepPlace: true });
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to save the parameter.');
     } finally {
@@ -376,7 +523,7 @@ export default function CommissionTemplateDetailPage() {
       await Promise.all(changed.map((item) => persistParameter(item)));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save the parameter order.');
-      await loadTemplate();
+      await loadTemplate({ keepPlace: true });
     } finally {
       setIsReordering(false);
     }
@@ -452,8 +599,12 @@ export default function CommissionTemplateDetailPage() {
           custom_baseline: step.custom_baseline || null,
           calculation_formula: step.calculation_formula || null,
           split_type: step.split_type || null,
+          result_type: canonicalLogicSection(step.section || '') === 'Calculation' && step.result_type
+            ? canonicalResultType(step.result_type)
+            : null,
           show_in_popup: Boolean(step.show_in_popup),
           popup_section: step.popup_section || null,
+          show_when_formula: step.show_when_formula || null,
         },
       }),
     });
@@ -462,8 +613,11 @@ export default function CommissionTemplateDetailPage() {
   };
 
   const commitLogicOrder = async (updated: LogicStep[]) => {
-    const previous = new Map(logicSteps.map((step) => [step.id, step.step_number]));
-    const changed = updated.filter((step) => previous.get(step.id) !== step.step_number);
+    const previous = new Map(logicSteps.map((step) => [step.id, { step_number: step.step_number, section: step.section || '' }]));
+    const changed = updated.filter((step) => {
+      const prior = previous.get(step.id);
+      return prior?.step_number !== step.step_number || (prior?.section || '') !== (step.section || '');
+    });
     setLogicSteps(updated);
     if (changed.length === 0) return;
     setIsReordering(true);
@@ -472,7 +626,7 @@ export default function CommissionTemplateDetailPage() {
       await Promise.all(changed.map((step) => persistLogicStep(step)));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save the rule order.');
-      await loadTemplate();
+      await loadTemplate({ keepPlace: true });
     } finally {
       setIsReordering(false);
     }
@@ -480,28 +634,75 @@ export default function CommissionTemplateDetailPage() {
 
   const moveLogic = async (stepId: string, direction: 'UP' | 'DOWN') => {
     if (isReordering) return;
-    const ordered = [...logicSteps].sort((a, b) => a.step_number - b.step_number);
-    const index = ordered.findIndex((step) => step.id === stepId);
+    const groups = logicGroups(logicSteps);
+    const group = groups.find((item) => item.items.some((step) => step.id === stepId));
+    if (!group) return;
+    const index = group.items.findIndex((step) => step.id === stepId);
     const targetIndex = direction === 'UP' ? index - 1 : index + 1;
-    if (index < 0 || targetIndex < 0 || targetIndex >= ordered.length) return;
-    const next = [...ordered];
-    const [moved] = next.splice(index, 1);
-    next.splice(targetIndex, 0, moved);
-    await commitLogicOrder(next.map((step, itemIndex) => ({ ...step, step_number: itemIndex + 1 })));
+    if (targetIndex < 0 || targetIndex >= group.items.length) return;
+    const reordered = [...group.items];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(targetIndex, 0, moved);
+    const slots = group.items.map((step) => step.step_number).sort((a, b) => a - b);
+    const updated = new Map(reordered.map((step, itemIndex) => [step.id, { ...step, step_number: slots[itemIndex] }]));
+    await commitLogicOrder(logicSteps.map((step) => updated.get(step.id) ?? step));
   };
 
-  const dropLogic = async (sourceId: string, target: { stepId: string; placement: 'before' | 'after' }) => {
-    if (isReordering || target.stepId === sourceId) return;
-    const ordered = [...logicSteps].sort((a, b) => a.step_number - b.step_number);
-    const sourceIndex = ordered.findIndex((step) => step.id === sourceId);
-    if (sourceIndex < 0) return;
-    const next = [...ordered];
-    const [moved] = next.splice(sourceIndex, 1);
-    const targetIndex = next.findIndex((step) => step.id === target.stepId);
-    if (targetIndex < 0 || !moved) return;
-    next.splice(target.placement === 'before' ? targetIndex : targetIndex + 1, 0, moved);
+  const dropLogic = async (sourceId: string, target: { stepId: string; placement: 'before' | 'after' } | { sectionName: string }) => {
+    if (isReordering || ('stepId' in target && target.stepId === sourceId)) return;
+    const groups = logicGroups(logicSteps).map((group) => ({ ...group, items: [...group.items] }));
+    let moved: LogicStep | undefined;
+    for (const group of groups) {
+      const index = group.items.findIndex((step) => step.id === sourceId);
+      if (index >= 0) {
+        [moved] = group.items.splice(index, 1);
+        break;
+      }
+    }
+    if (!moved) return;
+
+    const destinationName = 'sectionName' in target
+      ? target.sectionName
+      : logicSectionName(logicSteps.find((step) => step.id === target.stepId) || moved);
+    let destination = groups.find((group) => group.name === destinationName);
+    if (!destination) {
+      destination = { name: destinationName, items: [] };
+      groups.push(destination);
+      groups.sort((a, b) => logicSectionRank(a.name) - logicSectionRank(b.name));
+    }
+    const sameSection = logicSectionName(moved) === destination.name;
+    const nextSection = destination.name === 'No Section' ? null : destination.name;
+    const nextMoved = { ...moved, section: nextSection };
+
+    if (sameSection) {
+      const slots = [...destination.items.map((step) => step.step_number), moved.step_number].sort((a, b) => a - b);
+      if ('sectionName' in target) destination.items.push(nextMoved);
+      else {
+        const index = destination.items.findIndex((step) => step.id === target.stepId);
+        destination.items.splice(target.placement === 'before' ? index : index + 1, 0, nextMoved);
+      }
+      const updated = new Map(destination.items.map((step, itemIndex) => [step.id, { ...step, step_number: slots[itemIndex] }]));
+      setLogicDropTarget(null);
+      await commitLogicOrder(logicSteps.map((step) => updated.get(step.id) ?? step));
+      return;
+    }
+
+    const ordered = logicSteps.filter((step) => step.id !== sourceId).sort((a, b) => a.step_number - b.step_number);
+    const insertAt = 'sectionName' in target
+      ? (() => {
+          let last = -1;
+          ordered.forEach((step, index) => {
+            if (logicSectionName(step) === destination.name) last = index;
+          });
+          return last + 1;
+        })()
+      : (() => {
+          const index = ordered.findIndex((step) => step.id === target.stepId);
+          return target.placement === 'before' ? index : index + 1;
+        })();
+    ordered.splice(insertAt, 0, nextMoved);
     setLogicDropTarget(null);
-    await commitLogicOrder(next.map((step, itemIndex) => ({ ...step, step_number: itemIndex + 1 })));
+    await commitLogicOrder(ordered.map((step, itemIndex) => ({ ...step, step_number: itemIndex + 1 })));
   };
 
   const saveLogic = async (event: React.FormEvent) => {
@@ -514,7 +715,9 @@ export default function CommissionTemplateDetailPage() {
     const selectedSection = canonicalLogicSection(logicForm.section);
     const entityFormula = logicSectionShowsEntity(selectedSection) && logicForm.entity_mode === 'formula';
     const formulas = [
-      ...(selectedSection === 'Calculation' ? [] : [['Condition', logicForm.apply_condition] as const]),
+      ...(selectedSection === 'Calculation'
+        ? (logicForm.show_in_popup && logicForm.show_only_when ? [['Show when', logicForm.show_when_formula] as const] : [])
+        : [['Condition', logicForm.apply_condition] as const]),
       ['Custom baseline', logicForm.custom_baseline],
       ['Formula', logicForm.calculation_formula],
       ...(entityFormula ? [['Entity', logicForm.payee_formula] as const] : []),
@@ -529,6 +732,15 @@ export default function CommissionTemplateDetailPage() {
     }
     if (!logicForm.calculation_formula.trim()) {
       setFormError('Enter the amount formula.');
+      return;
+    }
+    if (
+      selectedSection === 'Calculation'
+      && logicForm.show_in_popup
+      && logicForm.show_only_when
+      && !normalizeFormula(logicForm.show_when_formula).text.trim()
+    ) {
+      setFormError('Enter a Show when formula, or uncheck "Show only under specific conditions".');
       return;
     }
     const section = canonicalLogicSection(logicForm.section);
@@ -585,8 +797,12 @@ export default function CommissionTemplateDetailPage() {
             custom_baseline: normalizeFormula(logicForm.custom_baseline).text.trim() || null,
             calculation_formula: normalizeFormula(logicForm.calculation_formula).text.trim() || null,
             split_type: postsSplit ? (logicForm.split_type === 'PERCENT' ? 'PERCENT' : 'AMOUNT') : null,
+            result_type: postsSplit ? null : canonicalResultType(logicForm.result_type),
             show_in_popup: !postsSplit && logicForm.show_in_popup,
             popup_section: !postsSplit && logicForm.show_in_popup ? logicForm.popup_section.trim() || null : null,
+            show_when_formula: !postsSplit && logicForm.show_in_popup && logicForm.show_only_when
+              ? normalizeFormula(logicForm.show_when_formula).text.trim() || null
+              : null,
           },
         }),
       });
@@ -594,7 +810,7 @@ export default function CommissionTemplateDetailPage() {
       if (!response.ok || !data.success) throw new Error(data.error || 'Failed to save the logic step.');
       setLogicForm(null);
       setEditingLogicId(null);
-      await loadTemplate();
+      await loadTemplate({ keepPlace: true });
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to save the logic step.');
     } finally {
@@ -622,7 +838,7 @@ export default function CommissionTemplateDetailPage() {
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.error || 'Failed to delete.');
       setConfirmDelete(null);
-      await loadTemplate();
+      await loadTemplate({ keepPlace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete.');
     } finally {
@@ -632,9 +848,12 @@ export default function CommissionTemplateDetailPage() {
 
   const openEditParameter = (parameter: TemplateParameter) => {
     setFormError(null);
+    setShowParameterFields(false);
     setEditingParameterId(parameter.id);
+    setRecentParameterId(parameter.id);
     setParameterForm({
       parameter_name: parameter.parameter_name,
+      parameter_key: parameter.parameter_key,
       data_type: canonicalParameterType(parameter.data_type),
       is_required: Boolean(parameter.is_required),
       is_user_editable: parameter.is_user_editable !== false,
@@ -651,6 +870,7 @@ export default function CommissionTemplateDetailPage() {
   const openEditLogic = (step: LogicStep) => {
     setFormError(null);
     setEditingLogicId(step.id);
+    setRecentLogicId(step.id);
     const storedFormula = step.payee_formula?.trim() || '';
     const legacyAgentKey = !step.agent_key?.trim() && /^[A-Za-z_][A-Za-z0-9_]*$/.test(storedFormula) ? storedFormula : '';
     const entityFormula = storedFormula && storedFormula !== legacyAgentKey ? storedFormula : '';
@@ -679,8 +899,11 @@ export default function CommissionTemplateDetailPage() {
       custom_baseline: step.custom_baseline || '',
       calculation_formula: step.calculation_formula || '',
       split_type: String(step.split_type || '').trim().toUpperCase() === 'PERCENT' ? 'PERCENT' : 'AMOUNT',
+      result_type: canonicalResultType(step.result_type),
       show_in_popup: Boolean(step.show_in_popup),
       popup_section: step.popup_section || '',
+      show_only_when: Boolean(step.show_when_formula?.trim()),
+      show_when_formula: step.show_when_formula || '',
     });
   };
 
@@ -688,6 +911,7 @@ export default function CommissionTemplateDetailPage() {
     if (!template) return;
     setEditName(template.template_name);
     setEditDescription(template.description || '');
+    setEditEligibility(template.eligibility_formula || '');
     setError(null);
     setEditTemplateOpen(true);
   };
@@ -695,6 +919,12 @@ export default function CommissionTemplateDetailPage() {
   const handleSaveTemplate = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!template || !editName.trim() || isSaving) return;
+    const normalizedEligibility = normalizeFormula(editEligibility).text.trim();
+    const eligibilityIssue = validateFormula(normalizedEligibility, eligibilityFormulaNames(transactionFields).map((field) => field.name));
+    if (eligibilityIssue) {
+      setError(eligibilityIssue);
+      return;
+    }
     setIsSaving(true);
     setError(null);
     try {
@@ -707,6 +937,7 @@ export default function CommissionTemplateDetailPage() {
             client_id: template.client_id || 'DEMO',
             template_name: editName.trim(),
             description: editDescription.trim() || null,
+            eligibility_formula: normalizedEligibility || null,
             is_default: Boolean(template.is_default),
             is_active: template.is_active !== false,
             archived: Boolean(template.archived),
@@ -723,6 +954,7 @@ export default function CommissionTemplateDetailPage() {
         ...(data.template || {}),
         template_name: editName.trim(),
         description: editDescription.trim() || null,
+        eligibility_formula: normalizedEligibility || null,
       });
       setEditTemplateOpen(false);
     } catch (err) {
@@ -760,6 +992,7 @@ export default function CommissionTemplateDetailPage() {
       const section = (canonicalLogicSection(step.section || '') || step.section || '').toLowerCase();
       const entity = entityName(step.payee_entity_id).toLowerCase();
       const splitType = String(step.split_type || '').toLowerCase();
+      const resultType = canonicalLogicSection(step.section || '') === 'Calculation' ? resultTypeLabel(step.result_type).toLowerCase() : '';
       const stepNum = String(step.step_number);
       const isPopup = step.show_in_popup ? 'shown when applying' : '';
       return (
@@ -770,8 +1003,10 @@ export default function CommissionTemplateDetailPage() {
         entity.includes(query) ||
         (step.payee_formula || '').toLowerCase().includes(query) ||
         (step.apply_condition || '').toLowerCase().includes(query) ||
+        (step.show_when_formula || '').toLowerCase().includes(query) ||
         (step.custom_baseline || '').toLowerCase().includes(query) ||
         (step.calculation_formula || '').toLowerCase().includes(query) ||
+        resultType.includes(query) ||
         splitType.includes(query) ||
         stepNum === query ||
         `#${stepNum}` === query ||
@@ -788,6 +1023,39 @@ export default function CommissionTemplateDetailPage() {
       label: parameter.parameter_name,
       kind: 'parameter' as const,
     }));
+
+  const draftParameterKey = parameterForm?.parameter_key || '';
+  const parameterKeyOwners = [
+    ...parameters.filter((parameter) => parameter.id !== editingParameterId).map((parameter) => ({ name: parameter.parameter_key, label: parameter.parameter_name })),
+    ...logicSteps.filter((step) => step.rule_key?.trim()).map((step) => ({ name: step.rule_key!.trim(), label: step.rule_name })),
+    ...transactionFields,
+    ...agentFields,
+    ...logicContextNames,
+    { name: 'total_commission', label: 'Total commission' },
+  ];
+  const parameterKeyConflict = editingParameterId ? null : describeKeyConflict(draftParameterKey, parameterKeyOwners);
+  const validationParameterFields: FormulaName[] = parameters.map((parameter) => ({
+    name: parameter.parameter_key,
+    label: parameter.id === editingParameterId && parameterForm ? parameterForm.parameter_name : parameter.parameter_name,
+    kind: 'parameter' as const,
+  }));
+  if (draftParameterKey && !validationParameterFields.some((field) => field.name === draftParameterKey)) {
+    validationParameterFields.unshift({
+      name: draftParameterKey,
+      label: parameterForm?.parameter_name || 'This parameter',
+      kind: 'parameter',
+    });
+  }
+  const validationFormulaNames: FormulaName[] = [
+    ...transactionFields,
+    ...agentFields,
+    ...validationParameterFields,
+  ];
+  const validationFieldGroups = [
+    { id: 'transactions', title: 'Transactions', fields: transactionFields },
+    { id: 'agents', title: 'Agents', fields: agentFields },
+    { id: 'parameters', title: 'Template Parameters', fields: validationParameterFields },
+  ];
 
   const formulaNames: FormulaName[] = [
     ...transactionFields,
@@ -840,6 +1108,20 @@ export default function CommissionTemplateDetailPage() {
             <div className="col-start-2 row-start-1 row-span-3 self-center flex items-center gap-1">
               <button
                 type="button"
+                onClick={toggleCompactRows}
+                aria-pressed={compactRows}
+                title={compactRows ? 'Use comfortable rows' : 'Use compact rows'}
+                className={`mr-1 inline-flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-bold transition cursor-pointer ${
+                  compactRows
+                    ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
+                    : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
+              >
+                <Rows3 className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+                Compact
+              </button>
+              <button
+                type="button"
                 onClick={openEditTemplate}
                 className={`${rowActionClass} text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700`}
                 title="Edit template"
@@ -854,7 +1136,7 @@ export default function CommissionTemplateDetailPage() {
                 title="Delete template"
                 aria-label="Delete template"
               >
-                🗑️
+                <TrashIcon />
               </button>
             </div>
           )}
@@ -864,7 +1146,7 @@ export default function CommissionTemplateDetailPage() {
 
       {!isLoading && template && (
         <>
-          <section className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md overflow-hidden">
+          <section className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md overflow-clip">
             <div className={`px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${parametersCollapsed ? '' : 'border-b border-slate-200 dark:border-slate-700'}`}>
               <button
                 type="button"
@@ -919,6 +1201,7 @@ export default function CommissionTemplateDetailPage() {
                   type="button"
                   onClick={() => {
                     setFormError(null);
+                    setShowParameterFields(false);
                     setEditingParameterId(null);
                     setParameterForm({ ...emptyParameter });
                   }}
@@ -942,18 +1225,18 @@ export default function CommissionTemplateDetailPage() {
                 </button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700">
-                  <thead className="bg-slate-50 dark:bg-slate-900/60 text-[10px] uppercase tracking-wider text-slate-500">
+              <div ref={parameterScrollRef} className="max-h-[calc(100vh-7rem)] overflow-auto">
+                <table className={`w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700 ${compactRows ? '[&_th]:!px-3 [&_th]:!py-1.5 [&_td]:!px-3 [&_td]:!py-1 [&_tbody_td]:!align-middle' : ''}`}>
+                  <thead className="text-[10px] uppercase tracking-wider text-slate-500 [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-50 dark:[&>tr>th]:bg-slate-900 [&>tr>th:last-child]:z-30">
                     <tr>
                       <th className="px-4 py-3">#</th>
                       <th className="px-4 py-3">Parameter</th>
                       <th className="px-4 py-3">Key</th>
                       <th className="px-4 py-3">Type</th>
                       <th className="px-4 py-3">Required</th>
-                      <th className="px-4 py-3">Formula</th>
+                      <th className="px-4 py-3">Autofill Formula</th>
                       <th className="px-4 py-3">Validation</th>
-                      <th className="sticky right-0 z-20 bg-slate-50 dark:bg-slate-900 px-4 py-3 border-l border-slate-200 dark:border-slate-700 shadow-[-10px_0_12px_-12px_rgba(15,23,42,0.7)]"></th>
+                      <th className="sticky right-0 top-0 z-30 bg-slate-50 dark:bg-slate-900 px-4 py-3 border-l border-slate-200 dark:border-slate-700 shadow-[-10px_0_12px_-12px_rgba(15,23,42,0.7)]"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
@@ -990,7 +1273,7 @@ export default function CommissionTemplateDetailPage() {
                         {group.items.map((parameter, itemIndex) => (
                       <tr
                         key={parameter.id}
-                        className={`align-top ${dropTarget && 'parameterId' in dropTarget && dropTarget.parameterId === parameter.id ? (dropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
+                        className={`align-top ${parameter.id === recentParameterId ? '[&>td]:bg-emerald-50 dark:[&>td]:bg-emerald-500/10' : ''} ${dropTarget && 'parameterId' in dropTarget && dropTarget.parameterId === parameter.id ? (dropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
                         onDragOver={(event) => {
                           if (parameterSearch.trim()) return;
                           event.preventDefault();
@@ -1008,25 +1291,22 @@ export default function CommissionTemplateDetailPage() {
                           if (sourceId) void dropParameter(sourceId, { parameterId: parameter.id, placement });
                         }}
                       >
-                        <td className="px-4 py-3 font-mono text-slate-500">{parameter.sort_order ?? '—'}</td>
+                        <td className="px-4 py-3 text-slate-500">{parameter.sort_order ?? '—'}</td>
                         <td className="px-4 py-3">
                           <p className="font-bold text-slate-900 dark:text-white">{parameter.parameter_name}</p>
-                          {parameter.is_user_editable === false && (
+                          {!compactRows && parameter.is_user_editable === false && (
                             <p className="text-[10px] font-bold uppercase text-slate-400 mt-1">Read-only on the transaction</p>
                           )}
-                          {parameter.notes && <p className="text-[11px] text-slate-500 mt-1">{parameter.notes}</p>}
+                          {!compactRows && parameter.notes && <p className="text-[11px] text-slate-500 mt-1">{parameter.notes}</p>}
                         </td>
                         <td className="px-4 py-3 font-mono text-sky-700 dark:text-sky-300 whitespace-nowrap">{parameter.parameter_key}</td>
                         <td className="px-4 py-3 whitespace-nowrap">{typeLabel(parameter.data_type)}</td>
                         <td className="px-4 py-3">{parameter.is_required ? 'Yes' : 'No'}</td>
-                        <td className="px-4 py-3 min-w-[18rem]">
-                          <div className="flex items-start gap-2">
-                            <FormulaExplain value={parameter.autofill_formula || ''} names={formulaNames} />
-                            <FormulaPreview value={parameter.autofill_formula || ''} names={formulaNames} />
-                          </div>
+                        <td className={`px-4 py-3 ${compactRows ? '' : 'min-w-[18rem]'}`}>
+                          {formulaField(compactRows, parameter.autofill_formula || '', 'Autofill', formulaNames, () => openEditParameter(parameter))}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-slate-600 dark:text-slate-300">
-                          {parameter.validation_rule || '—'}
+                        <td className={`px-4 py-3 ${compactRows ? '' : 'min-w-[18rem]'}`}>
+                          {formulaField(compactRows, parameter.validation_rule || '', 'Validation', validationFormulaNames, () => openEditParameter(parameter))}
                         </td>
                         <td className="sticky right-0 z-10 bg-white dark:bg-slate-800 px-4 py-3 whitespace-nowrap text-right border-l border-slate-200 dark:border-slate-700 shadow-[-10px_0_12px_-12px_rgba(15,23,42,0.7)]">
                           <div className="inline-flex items-center justify-end gap-1">
@@ -1054,7 +1334,7 @@ export default function CommissionTemplateDetailPage() {
                             <button type="button" onClick={() => openEditParameter(parameter)} className={`${rowActionClass} text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700`} title="Edit" aria-label="Edit">
                               <EditPencil className="h-[18px] w-[18px]" />
                             </button>
-                            <button type="button" onClick={() => setConfirmDelete({ kind: 'parameter', id: parameter.id, label: parameter.parameter_name })} className={`${rowActionClass} text-[18px] leading-none text-rose-500 hover:text-rose-600 hover:bg-rose-500/10`} title="Delete" aria-label="Delete">🗑️</button>
+                            <button type="button" onClick={() => setConfirmDelete({ kind: 'parameter', id: parameter.id, label: parameter.parameter_name })} className={`${rowActionClass} text-[18px] leading-none text-rose-500 hover:text-rose-600 hover:bg-rose-500/10`} title="Delete" aria-label="Delete"><TrashIcon /></button>
                           </div>
                         </td>
                       </tr>
@@ -1068,7 +1348,7 @@ export default function CommissionTemplateDetailPage() {
             )}
           </section>
 
-          <section className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md overflow-hidden">
+          <section className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md overflow-clip">
             <div className={`px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${logicCollapsed ? '' : 'border-b border-slate-200 dark:border-slate-700'}`}>
               <button
                 type="button"
@@ -1081,7 +1361,7 @@ export default function CommissionTemplateDetailPage() {
                 </span>
                 <span>
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
-                    Logic
+                    Rules
                     {logicSearch.trim() && (
                       <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 normal-case ml-1.5">
                         ({filteredLogicSteps.length} of {logicSteps.length})
@@ -1128,12 +1408,12 @@ export default function CommissionTemplateDetailPage() {
                   }}
                   className="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer whitespace-nowrap"
                 >
-                  Add step
+                  Add rule
                 </button>
               </div>
             </div>
             {logicCollapsed ? null : logicSteps.length === 0 ? (
-              <p className="px-5 py-6 text-xs text-slate-500 dark:text-slate-400">No calculation steps yet.</p>
+              <p className="px-5 py-6 text-xs text-slate-500 dark:text-slate-400">No rules yet.</p>
             ) : filteredLogicSteps.length === 0 ? (
               <div className="px-5 py-8 text-center text-xs text-slate-500 dark:text-slate-400">
                 No rules matching &ldquo;{logicSearch}&rdquo;.
@@ -1146,9 +1426,9 @@ export default function CommissionTemplateDetailPage() {
                 </button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700">
-                  <thead className="bg-slate-50 dark:bg-slate-900/60 text-[10px] uppercase tracking-wider text-slate-500">
+              <div ref={logicScrollRef} className="max-h-[calc(100vh-7rem)] overflow-auto">
+                <table className={`w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700 ${compactRows ? '[&_th]:!px-3 [&_th]:!py-1.5 [&_td]:!px-3 [&_td]:!py-1 [&_tbody_td]:!align-middle' : ''}`}>
+                  <thead className="text-[10px] uppercase tracking-wider text-slate-500 [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-50 dark:[&>tr>th]:bg-slate-900 [&>tr>th:last-child]:z-30">
                     <tr>
                       <th className="px-4 py-3">#</th>
                       <th className="px-4 py-3">Rule</th>
@@ -1157,16 +1437,47 @@ export default function CommissionTemplateDetailPage() {
                       <th className="px-4 py-3">Agent</th>
                       <th className="px-4 py-3">Entity</th>
                       <th className="px-4 py-3">Custom baseline</th>
-                      <th className="px-4 py-3">Formula</th>
+                      <th className="px-4 py-3">Calculation</th>
+                      <th className="px-4 py-3">Result type</th>
                       <th className="px-4 py-3">Split type</th>
-                      <th className="sticky right-0 z-20 bg-slate-50 dark:bg-slate-900 px-4 py-3 border-l border-slate-200 dark:border-slate-700 shadow-[-10px_0_12px_-12px_rgba(15,23,42,0.7)]"></th>
+                      <th className="sticky right-0 top-0 z-30 bg-slate-50 dark:bg-slate-900 px-4 py-3 border-l border-slate-200 dark:border-slate-700 shadow-[-10px_0_12px_-12px_rgba(15,23,42,0.7)]"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {[...filteredLogicSteps].sort((a, b) => a.step_number - b.step_number).map((step, stepIndex, orderedSteps) => (
+                    {logicGroups(filteredLogicSteps).map((group) => {
+                      const isUnsectioned = group.name === 'No Section';
+                      return (
+                      <React.Fragment key={group.name}>
+                        <tr
+                          onDragOver={(event) => {
+                            if (logicSearch.trim()) return;
+                            event.preventDefault();
+                            setLogicDropTarget({ sectionName: group.name });
+                          }}
+                          onDrop={(event) => {
+                            if (logicSearch.trim()) return;
+                            event.preventDefault();
+                            const sourceId = event.dataTransfer.getData('text/plain');
+                            setLogicDropTarget(null);
+                            if (sourceId) void dropLogic(sourceId, { sectionName: group.name });
+                          }}
+                        >
+                          <td colSpan={11} className={`px-4 py-2 ${logicDropTarget && 'sectionName' in logicDropTarget && logicDropTarget.sectionName === group.name ? (isUnsectioned ? 'bg-amber-500/20' : 'bg-emerald-500/15') : 'bg-slate-50 dark:bg-slate-900/60'}`}>
+                            <div className="flex items-center gap-2">
+                              <span className={`w-2 h-2 rounded-full ${isUnsectioned ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                              <span className={`text-[10px] font-bold uppercase tracking-wider ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                Section: {group.name}
+                              </span>
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold ml-auto">
+                                {group.items.length} {group.items.length === 1 ? 'Rule' : 'Rules'}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        {group.items.map((step, itemIndex) => (
                       <tr
                         key={step.id}
-                        className={`align-top ${logicDropTarget?.stepId === step.id ? (logicDropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
+                        className={`align-top ${step.id === recentLogicId ? '[&>td]:bg-emerald-50 dark:[&>td]:bg-emerald-500/10' : ''} ${logicDropTarget && 'stepId' in logicDropTarget && logicDropTarget.stepId === step.id ? (logicDropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
                         onDragOver={(event) => {
                           if (logicSearch.trim()) return;
                           event.preventDefault();
@@ -1184,49 +1495,38 @@ export default function CommissionTemplateDetailPage() {
                           if (sourceId) void dropLogic(sourceId, { stepId: step.id, placement });
                         }}
                       >
-                        <td className="px-4 py-3 font-mono text-slate-500">{step.step_number}</td>
+                        <td className="px-4 py-3 text-slate-500">{step.step_number}</td>
                         <td className="px-4 py-3">
                           <div className="font-bold text-slate-900 dark:text-white">{step.rule_name}</div>
-                          {step.rule_key?.trim() && <div className="mt-0.5 font-mono text-[11px] text-sky-700 dark:text-sky-300">{step.rule_key}</div>}
-                          {step.show_in_popup && <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Shown when applying{step.popup_section?.trim() ? ` · ${step.popup_section.trim()}` : ''}</div>}
+                          {!compactRows && step.rule_key?.trim() && <div className="mt-0.5 font-mono text-[11px] text-sky-700 dark:text-sky-300">{step.rule_key}</div>}
+                          {!compactRows && step.show_in_popup && <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Shown when applying{step.popup_section?.trim() ? ` · ${step.popup_section.trim()}` : ''}</div>}
                         </td>
-                        <td className="px-4 py-3 min-w-[12rem] text-slate-600 dark:text-slate-300">
+                        <td className={`px-4 py-3 ${compactRows ? '' : 'min-w-[12rem]'} text-slate-600 dark:text-slate-300`}>
                           {canonicalLogicSection(step.section || '') === 'Calculation' ? '—' : step.apply_condition?.trim() ? (
-                            <div className="flex items-start gap-2">
-                              <FormulaExplain value={step.apply_condition} names={logicFormulaNames} />
-                              <FormulaPreview value={step.apply_condition} names={logicFormulaNames} />
-                            </div>
+                            formulaField(compactRows, step.apply_condition, 'Condition', logicFormulaNames, () => openEditLogic(step), '')
                           ) : 'Always'}
                         </td>
                         <td className="px-4 py-3">{canonicalLogicSection(step.section || '') || step.section?.trim() || '—'}</td>
                         <td className="px-4 py-3 font-mono text-sky-700 dark:text-sky-300">
                           {logicSectionShowsAgent(canonicalLogicSection(step.section || '')) ? (step.agent_key?.trim() || '—') : '—'}
                         </td>
-                        <td className="px-4 py-3 min-w-[12rem] text-slate-600 dark:text-slate-300">
+                        <td className={`px-4 py-3 ${compactRows ? '' : 'min-w-[12rem]'} text-slate-600 dark:text-slate-300`}>
                           {logicSectionShowsEntity(canonicalLogicSection(step.section || '')) && step.payee_entity_id
                             ? entityName(step.payee_entity_id)
                             : logicSectionShowsEntity(canonicalLogicSection(step.section || '')) && step.payee_formula?.trim()
-                              ? (
-                                <div className="flex items-start gap-2">
-                                  <FormulaExplain value={step.payee_formula} names={logicFormulaNames} />
-                                  <FormulaPreview value={step.payee_formula} names={logicFormulaNames} />
-                                </div>
-                              )
+                              ? formulaField(compactRows, step.payee_formula, 'Entity', logicFormulaNames, () => openEditLogic(step), '')
                               : '—'}
                         </td>
-                        <td className="px-4 py-3 min-w-[12rem] text-slate-600 dark:text-slate-300">
-                          {step.custom_baseline?.trim() ? (
-                            <div className="flex items-start gap-2">
-                              <FormulaExplain value={step.custom_baseline} names={logicFormulaNames} />
-                              <FormulaPreview value={step.custom_baseline} names={logicFormulaNames} />
-                            </div>
-                          ) : '—'}
+                        <td className={`px-4 py-3 ${compactRows ? '' : 'min-w-[12rem]'} text-slate-600 dark:text-slate-300`}>
+                          {step.custom_baseline?.trim()
+                            ? formulaField(compactRows, step.custom_baseline, 'Baseline', logicFormulaNames, () => openEditLogic(step), '')
+                            : '—'}
                         </td>
-                        <td className="px-4 py-3 min-w-[16rem] leading-relaxed text-slate-600 dark:text-slate-300">
-                          <div className="flex items-start gap-2">
-                            <FormulaExplain value={step.calculation_formula || ''} names={logicFormulaNames} />
-                            <FormulaPreview value={step.calculation_formula || ''} names={logicFormulaNames} />
-                          </div>
+                        <td className={`px-4 py-3 ${compactRows ? '' : 'min-w-[16rem] leading-relaxed'} text-slate-600 dark:text-slate-300`}>
+                          {formulaField(compactRows, step.calculation_formula || '', 'Calculation', logicFormulaNames, () => openEditLogic(step), 'Blank')}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-slate-600 dark:text-slate-300">
+                          {canonicalLogicSection(step.section || '') === 'Calculation' ? resultTypeLabel(step.result_type) : '—'}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-slate-600 dark:text-slate-300">
                           {String(step.split_type || '').trim().toUpperCase() === 'PERCENT' ? 'Percent' : String(step.split_type || '').trim().toUpperCase() === 'AMOUNT' ? 'Amount' : '—'}
@@ -1242,7 +1542,7 @@ export default function CommissionTemplateDetailPage() {
                               }}
                               onDragEnd={() => setLogicDropTarget(null)}
                               className={`${logicSearch.trim() ? 'opacity-30 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'} text-sm px-0.5 select-none`}
-                              title={logicSearch.trim() ? 'Clear search to reorder' : 'Drag to reorder'}
+                              title={logicSearch.trim() ? 'Clear search to reorder' : 'Drag to reorder or move to a section'}
                             >
                               ⠿
                             </span>
@@ -1251,17 +1551,20 @@ export default function CommissionTemplateDetailPage() {
                               orientation="vertical"
                               onMoveUp={() => void moveLogic(step.id, 'UP')}
                               onMoveDown={() => void moveLogic(step.id, 'DOWN')}
-                              isFirst={stepIndex === 0 || isReordering || Boolean(logicSearch.trim())}
-                              isLast={stepIndex === orderedSteps.length - 1 || isReordering || Boolean(logicSearch.trim())}
+                              isFirst={itemIndex === 0 || isReordering || Boolean(logicSearch.trim())}
+                              isLast={itemIndex === group.items.length - 1 || isReordering || Boolean(logicSearch.trim())}
                             />
                             <button type="button" onClick={() => openEditLogic(step)} className={`${rowActionClass} text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700`} title="Edit" aria-label="Edit">
                               <EditPencil className="h-[18px] w-[18px]" />
                             </button>
-                            <button type="button" onClick={() => setConfirmDelete({ kind: 'logic', id: step.id, label: step.rule_name })} className={`${rowActionClass} text-[18px] leading-none text-rose-500 hover:text-rose-600 hover:bg-rose-500/10`} title="Delete" aria-label="Delete">🗑️</button>
+                            <button type="button" onClick={() => setConfirmDelete({ kind: 'logic', id: step.id, label: step.rule_name })} className={`${rowActionClass} text-[18px] leading-none text-rose-500 hover:text-rose-600 hover:bg-rose-500/10`} title="Delete" aria-label="Delete"><TrashIcon /></button>
                           </div>
                         </td>
                       </tr>
-                    ))}
+                        ))}
+                      </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1272,51 +1575,103 @@ export default function CommissionTemplateDetailPage() {
 
       {parameterForm && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-center items-center p-4">
-          <form onSubmit={saveParameter} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+          <form onSubmit={saveParameter} className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full rounded-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden ${showParameterFields ? 'max-w-[min(75rem,calc(100vw-2rem))]' : 'max-w-2xl'}`}>
             <div className="shrink-0 px-6 pt-6 pb-3">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">{editingParameterId ? 'Edit parameter' : 'Add parameter'}</h3>
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">{editingParameterId ? 'Edit parameter' : 'Add parameter'}</h3>
+                <button
+                  type="button"
+                  aria-pressed={showParameterFields}
+                  onClick={() => setShowParameterFields((open) => !open)}
+                  className={`shrink-0 px-2.5 py-1 text-[11px] font-bold rounded-lg border cursor-pointer ${
+                    showParameterFields
+                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                      : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {showParameterFields ? 'Hide Fields and Parameters' : 'Fields and Parameters'}
+                </button>
+              </div>
               {formError && <p className="mt-3 text-xs text-rose-600 dark:text-rose-400">{formError}</p>}
             </div>
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 pb-4">
-            <label className={underlineShell}>
-              <span className={underlineLabel}>Name</span>
-              <input required value={parameterForm.parameter_name} onChange={(event) => setParameterForm({ ...parameterForm, parameter_name: event.target.value })} className={underlineControl} />
-            </label>
-            <div ref={sectionFieldRef} className={underlineShell}>
-              <label className={underlineLabel}>Section</label>
-              <input
-                value={parameterForm.section}
-                onChange={(event) => setParameterForm({ ...parameterForm, section: event.target.value })}
-                onFocus={() => openSectionMenu()}
-                onClick={() => openSectionMenu()}
-                onBlur={() => setSectionMenuOpen(false)}
-                placeholder="Example: Off the top"
-                className={`${underlineControl} pr-4`}
-              />
-              <FieldChevron />
-            </div>
-            <label className={underlineShell}>
-              <span className={underlineLabel}>Key</span>
-              <input
-                readOnly
-                tabIndex={-1}
-                value={(parameters.find((parameter) => parameter.id === editingParameterId)?.parameter_key) || parameterKeyFromName(parameterForm.parameter_name)}
-                className={`${underlineControl} cursor-default font-mono !text-sky-700 dark:!text-sky-300`}
-              />
-            </label>
-            <label className={underlineShell}>
-              <span className={underlineLabel}>Type</span>
-              <ClearableSelect value={parameterForm.data_type} onChange={(event) => setParameterForm({ ...parameterForm, data_type: event.target.value as ParameterType })} className={`${underlineControl} overview-field-select cursor-pointer`}>
-                {PARAMETER_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
-              </ClearableSelect>
-              <FieldChevron />
-            </label>
+            <div className="min-h-0 flex-1 space-y-4 overflow-x-auto overflow-y-auto px-6 pb-4">
+            <ParameterRow label="Name" htmlFor="parameter-name">
+              <div className={underlineShell}>
+                <input
+                  id="parameter-name"
+                  required
+                  value={parameterForm.parameter_name}
+                  onChange={(event) => {
+                    const parameter_name = event.target.value;
+                    if (editingParameterId) {
+                      setParameterForm({ ...parameterForm, parameter_name });
+                      return;
+                    }
+                    const previousAuto = parameterKeyFromName(parameterForm.parameter_name);
+                    const nextAuto = parameterKeyFromName(parameter_name);
+                    const parameter_key = !parameterForm.parameter_key || parameterForm.parameter_key === previousAuto ? nextAuto : parameterForm.parameter_key;
+                    setParameterForm({ ...parameterForm, parameter_name, parameter_key });
+                  }}
+                  className={underlineControl}
+                />
+              </div>
+            </ParameterRow>
+            <ParameterRow label="Section" htmlFor="parameter-section">
+              <div ref={sectionFieldRef} className={underlineShell}>
+                <input
+                  id="parameter-section"
+                  value={parameterForm.section}
+                  onChange={(event) => setParameterForm({ ...parameterForm, section: event.target.value })}
+                  onFocus={() => openSectionMenu()}
+                  onClick={() => openSectionMenu()}
+                  onBlur={() => setSectionMenuOpen(false)}
+                  placeholder="Example: Off the top"
+                  className={`${underlineControl} pr-4`}
+                />
+                <FieldChevron />
+              </div>
+            </ParameterRow>
+            <ParameterRow
+              label="Key"
+              htmlFor="parameter-key"
+              note={parameterKeyConflict ? (
+                <p className="text-[11px] font-medium text-rose-600 dark:text-rose-400">{parameterKeyConflict}</p>
+              ) : editingParameterId ? null : (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Formulas use this key. You can change it until the parameter is saved.</p>
+              )}
+            >
+              <div className={`${underlineShell} ${parameterKeyConflict ? '!border-b-rose-500 focus-within:!border-b-rose-500 focus-within:!shadow-none' : ''}`}>
+                <input
+                  id="parameter-key"
+                  required
+                  readOnly={Boolean(editingParameterId)}
+                  tabIndex={editingParameterId ? -1 : undefined}
+                  aria-invalid={Boolean(parameterKeyConflict)}
+                  value={parameterForm.parameter_key}
+                  onChange={(event) => {
+                    if (editingParameterId) return;
+                    setParameterForm({ ...parameterForm, parameter_key: event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') });
+                  }}
+                  className={`${underlineControl} font-mono !text-sky-700 dark:!text-sky-300 ${editingParameterId ? 'cursor-default' : ''}`}
+                />
+              </div>
+            </ParameterRow>
+            <ParameterRow label="Type" htmlFor="parameter-type">
+              <div className={underlineShell}>
+                <ClearableSelect id="parameter-type" value={parameterForm.data_type} onChange={(event) => setParameterForm({ ...parameterForm, data_type: event.target.value as ParameterType })} className={`${underlineControl} overview-field-select cursor-pointer`}>
+                  {PARAMETER_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+                </ClearableSelect>
+                <FieldChevron />
+              </div>
+            </ParameterRow>
             {parameterForm.data_type === 'SELECT' && (
-              <div className="space-y-3 bg-slate-50 dark:bg-slate-900/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+              <div className={`${fieldColumn} grid grid-cols-[7.75rem_minmax(0,1fr)] items-start gap-x-3`}>
+                <p className={sideLabel}>Options</p>
+                <div className="min-w-0 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/60">
                 <div className="flex justify-between items-center">
-                  <label className="block text-slate-700 dark:text-slate-300 font-bold text-xs">
-                    Dropdown Select Options ({parameterForm.dropdown_options.length})
-                  </label>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white">
+                    {parameterForm.dropdown_options.length} {parameterForm.dropdown_options.length === 1 ? 'option' : 'options'}
+                  </p>
                   {parameterForm.dropdown_options.length > 1 && (
                     <button
                       type="button"
@@ -1362,7 +1717,7 @@ export default function CommissionTemplateDetailPage() {
                       setParameterForm({ ...parameterForm, dropdown_options: withDropdownOption(parameterForm.dropdown_options, newDropdownOption) });
                       setNewDropdownOption('');
                     }}
-                    className="px-3 py-2 bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 rounded-lg font-bold hover:bg-emerald-500/30 transition cursor-pointer"
+                    className="mb-0.5 h-7 shrink-0 px-2.5 text-xs font-semibold bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 rounded-md hover:bg-emerald-500/30 transition cursor-pointer"
                   >
                     + Add Option
                   </button>
@@ -1440,36 +1795,67 @@ export default function CommissionTemplateDetailPage() {
                     </div>
                   ))}
                 </div>
+                </div>
               </div>
             )}
-            <div>
-              <FormulaEditor
-                value={parameterForm.autofill_formula}
-                onChange={(formula) => setParameterForm({ ...parameterForm, autofill_formula: formula })}
-                names={formulaNames}
-                fieldGroups={fieldGroups}
-              />
+            <div className={`${fieldColumn} grid grid-cols-[7.75rem_minmax(0,1fr)] items-start gap-x-3`}>
+              <div className="flex h-6 items-center gap-1">
+                <p className="whitespace-nowrap text-xs font-bold leading-4 text-slate-900 dark:text-white">Autofill Formula</p>
+                <FormulaHint text="Optional. This formula will be evaluated when loading the commission template to determine the default value of this parameter." />
+              </div>
+              <div className="min-w-0">
+                <FormulaEditor
+                  value={parameterForm.autofill_formula}
+                  onChange={(formula) => setParameterForm({ ...parameterForm, autofill_formula: formula })}
+                  names={formulaNames}
+                  fieldGroups={fieldGroups}
+                  fieldsAside
+                  fieldsOpen={showParameterFields}
+                  showFieldsToggle={false}
+                />
+              </div>
             </div>
-            <label className={underlineShell}>
-              <span className={underlineLabel}>Validation</span>
-              <input value={parameterForm.validation_rule} onChange={(event) => setParameterForm({ ...parameterForm, validation_rule: event.target.value })} className={underlineControl} placeholder="Example: 0–100%" />
-            </label>
-            <label className={underlineShell}>
-              <span className={underlineLabel}>Notes</span>
-              <input value={parameterForm.notes} onChange={(event) => setParameterForm({ ...parameterForm, notes: event.target.value })} className={underlineControl} />
-            </label>
-            <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
-              <input type="checkbox" checked={parameterForm.is_required} onChange={(event) => setParameterForm({ ...parameterForm, is_required: event.target.checked })} />
-              Required before the template can be submitted
-            </label>
-            <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
-              <input type="checkbox" checked={parameterForm.is_user_editable} onChange={(event) => setParameterForm({ ...parameterForm, is_user_editable: event.target.checked })} />
-              User can change this value on the transaction
-            </label>
+            <div className={`${fieldColumn} grid grid-cols-[7.75rem_minmax(0,1fr)] items-start gap-x-3`}>
+              <div className="flex h-6 items-center gap-1">
+                <p className="text-xs font-bold leading-4 text-slate-900 dark:text-white">Validation</p>
+                <FormulaHint text="Optional. This formula must be true before the template can be submitted." />
+              </div>
+              <div className="min-w-0">
+                <FormulaEditor
+                  label="Validation"
+                  value={parameterForm.validation_rule}
+                  onChange={(formula) => setParameterForm({ ...parameterForm, validation_rule: formula })}
+                  names={validationFormulaNames}
+                  fieldGroups={validationFieldGroups}
+                  fieldsAside
+                  fieldsOpen={showParameterFields}
+                  showFieldsToggle={false}
+                />
+              </div>
+            </div>
+            <ParameterRow label="Notes" htmlFor="parameter-notes">
+              <div className={underlineShell}>
+                <input id="parameter-notes" value={parameterForm.notes} onChange={(event) => setParameterForm({ ...parameterForm, notes: event.target.value })} className={underlineControl} />
+              </div>
+            </ParameterRow>
+            <div className={`${fieldColumn} grid grid-cols-[7.75rem_minmax(0,1fr)] items-start gap-x-3`}>
+              <p className="flex h-6 items-center text-xs font-bold leading-4 text-slate-900 dark:text-white">Required</p>
+              <label className="flex h-6 items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
+                <input type="checkbox" checked={parameterForm.is_required} onChange={(event) => setParameterForm({ ...parameterForm, is_required: event.target.checked })} />
+                Before the template can be submitted
+              </label>
+            </div>
+            <div className={`${fieldColumn} grid grid-cols-[7.75rem_minmax(0,1fr)] items-start gap-x-3`}>
+              <p className="flex h-6 items-center text-xs font-bold leading-4 text-slate-900 dark:text-white">Editable</p>
+              <label className="flex h-6 items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
+                <input type="checkbox" checked={parameterForm.is_user_editable} onChange={(event) => setParameterForm({ ...parameterForm, is_user_editable: event.target.checked })} />
+                User can change this value on the transaction
+              </label>
+            </div>
             </div>
             <div className="flex shrink-0 justify-end gap-2 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
-              <button type="button" onClick={() => { setParameterForm(null); setEditingParameterId(null); setFormError(null); }} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer">Cancel</button>
-              <button type="submit" disabled={isSaving} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 text-slate-950 cursor-pointer disabled:opacity-50">{isSaving ? 'Saving...' : 'Save parameter'}</button>
+              <button type="button" onClick={() => { setParameterForm(null); setEditingParameterId(null); setFormError(null); setShowParameterFields(false); }} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer">Cancel</button>
+              <button type="submit" disabled={isSaving || Boolean(parameterKeyConflict)} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 text-slate-950 cursor-pointer disabled:opacity-50">{isSaving ? 'Saving...' : 'Save parameter'}</button>
             </div>
           </form>
           {sectionMenuOpen && sectionOptions.length > 0 && createPortal(
@@ -1532,7 +1918,7 @@ export default function CommissionTemplateDetailPage() {
           <form
             onSubmit={(event) => void handleSaveTemplate(event)}
             onClick={(event) => event.stopPropagation()}
-            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-lg rounded-xl p-6 shadow-2xl space-y-4"
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-3xl rounded-xl p-6 shadow-2xl space-y-4"
             role="dialog"
             aria-modal="true"
             aria-labelledby="edit-template-title"
@@ -1556,6 +1942,14 @@ export default function CommissionTemplateDetailPage() {
                 className={`${underlineControl} min-h-16 resize-none py-1`}
               />
             </label>
+            <FormulaEditor
+              label="Template Eligibility Formula"
+              value={editEligibility}
+              onChange={setEditEligibility}
+              names={eligibilityFormulaNames(transactionFields)}
+              fitContent
+              hint="Leave this blank and the template does not qualify for submission. A transaction qualifies when this formula is true. status is another name for transaction_status."
+            />
             {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
             <div className="flex justify-end gap-2">
               <button

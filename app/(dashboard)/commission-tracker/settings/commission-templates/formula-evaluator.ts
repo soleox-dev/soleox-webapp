@@ -183,6 +183,16 @@ function parseFormula(source: string): Expr | null {
   return expr;
 }
 
+/** Addition and subtraction stay percentages when either side is one. A percentage times a percentage stays a percentage. Dividing a percentage by a number stays a percentage. */
+function percentResult(op: string, left: FormulaValue, right: FormulaValue): boolean {
+  const leftPercent = left.type === 'percent';
+  const rightPercent = right.type === 'percent';
+  if (op === '+' || op === '-') return leftPercent || rightPercent;
+  if (op === '*') return leftPercent && rightPercent;
+  if (op === '/') return leftPercent && !rightPercent;
+  return false;
+}
+
 function asNumber(value: FormulaValue): number | null {
   if (value.type === 'number' || value.type === 'percent') return value.value;
   if (value.type === 'boolean') return value.value ? 1 : 0;
@@ -307,7 +317,7 @@ function columnRef(expr: Expr): { table: string; field: string } | null {
   return { table, field };
 }
 
-const LOOKUP_TABLES = new Set<string>(FORMULA_LOOKUP_TABLES);
+const LOOKUP_TABLES = new Set<string>([...FORMULA_LOOKUP_TABLES, 'commission_template_logic']);
 
 function visitFormula(expr: Expr, visit: (node: Expr) => void) {
   visit(expr);
@@ -529,6 +539,27 @@ function callFunction(
     const value = args[0];
     return { type: 'boolean', value: value?.type === 'number' || value?.type === 'percent' };
   }
+  if (name === 'ISNULL') {
+    const value = args[0];
+    if (!value || value.type === 'error') return { type: 'error' };
+    return { type: 'boolean', value: value.type === 'blank' };
+  }
+  if (name === 'NOT') {
+    const truth = isTruthy(args[0] || { type: 'error' });
+    if (truth === null) return { type: 'error' };
+    return { type: 'boolean', value: !truth };
+  }
+  if (name === 'LEN') {
+    const text = asText(args[0] || { type: 'error' });
+    if (text === null) return { type: 'error' };
+    return { type: 'number', value: text.length };
+  }
+  if (name === 'IFERROR') {
+    if (rawArgs.length !== 2) return { type: 'error' };
+    const value = evalExpr(rawArgs[0]);
+    if (!value || value.type === 'error') return evalExpr(rawArgs[1]);
+    return value;
+  }
   if (name === 'NUMBERVALUE') {
     const text = asText(args[0] || { type: 'error' });
     if (text === null) return { type: 'error' };
@@ -582,6 +613,21 @@ function callFunction(
     return lookupCell(match.fields[returnColumn.field]);
   }
   if (name === 'SUMIFS') return sumIfs(rawArgs, evalExpr, ledger);
+  if (name === 'TODAY') {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return { type: 'text', value: `${now.getFullYear()}-${month}-${day}` };
+  }
+  if (name === 'YEAR') {
+    const value = args[0];
+    if (!value || value.type === 'error') return { type: 'error' };
+    if (value.type === 'blank') return { type: 'blank' };
+    const text = value.type === 'text' ? value.value : value.type === 'number' ? String(Math.trunc(value.value)) : '';
+    const match = text.trim().match(/^(\d{4})(?:-\d{2}-\d{2})?/);
+    if (!match) return { type: 'blank' };
+    return { type: 'number', value: Number(match[1]) };
+  }
   return { type: 'error' };
 }
 
@@ -606,7 +652,8 @@ function evaluateExpr(
       const value = visit(node.expr);
       const amount = asNumber(value);
       if (amount === null) return { type: 'error' };
-      return { type: 'number', value: node.op === '-' ? -amount : amount };
+      const next = node.op === '-' ? -amount : amount;
+      return value.type === 'percent' ? { type: 'percent', value: next } : { type: 'number', value: next };
     }
     if (node.kind === 'binary') {
       if (node.op === '&') {
@@ -618,14 +665,16 @@ function evaluateExpr(
       if (['=', '<>', '<', '<=', '>', '>='].includes(node.op)) {
         return compare(visit(node.left), node.op, visit(node.right));
       }
-      const left = asNumber(visit(node.left));
-      const right = asNumber(visit(node.right));
+      const leftValue = visit(node.left);
+      const rightValue = visit(node.right);
+      const left = asNumber(leftValue);
+      const right = asNumber(rightValue);
       if (left === null || right === null) return { type: 'error' };
       if (node.op === '/' && right === 0) return { type: 'error' };
       const value = node.op === '+' ? left + right : node.op === '-' ? left - right : node.op === '*' ? left * right : left / right;
-      return { type: 'number', value };
+      return percentResult(node.op, leftValue, rightValue) ? { type: 'percent', value } : { type: 'number', value };
     }
-    if (node.name === 'IF' || node.name === 'SUMIFS') return callFunction(node.name, [], node.args, visit, agents, ledger, lookups);
+    if (node.name === 'IF' || node.name === 'IFERROR' || node.name === 'SUMIFS') return callFunction(node.name, [], node.args, visit, agents, ledger, lookups);
     const args = node.args.map((arg) => visit(arg));
     return callFunction(node.name, args, node.args, visit, agents, ledger, lookups);
   };
@@ -648,7 +697,7 @@ export function evaluateFormula(
 
 export function formulaValueToInput(value: FormulaValue, dataType?: string | null): string {
   if (value.type === 'blank' || value.type === 'error') return '';
-  if (value.type === 'boolean') return value.value ? 'Yes' : 'No';
+  if (value.type === 'boolean') return value.value ? 'TRUE' : 'FALSE';
   if (value.type === 'text') return value.value;
   if (value.type === 'percent') return `${trimNumber(value.value * 100)}%`;
   if (dataType === 'PERCENT') return `${trimNumber(value.value)}%`;

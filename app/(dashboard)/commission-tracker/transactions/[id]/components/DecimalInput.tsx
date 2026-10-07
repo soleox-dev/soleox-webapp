@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { PERCENT_POINT_DECIMALS } from '@/lib/percent';
 import { formatPercentageClean, roundCurrency } from '../types';
 import { undoKeyAction, useUndoHistory } from '@/components/ui/undo-history';
 
@@ -46,8 +47,8 @@ export const DecimalInput = React.forwardRef<HTMLInputElement, DecimalInputProps
   const formatVal = (num: number) => {
     if (num === null || num === undefined || isNaN(num)) return '';
     if (allowEmpty && num === 0) return '';
-    if (decimalPlaces != null) return Number(num).toFixed(decimalPlaces);
     if (isPercent) return formatPercentageClean(num);
+    if (decimalPlaces != null) return Number(num).toFixed(decimalPlaces);
 
     const formatted = num.toFixed(2);
     if (!useCommas) return formatted;
@@ -86,7 +87,7 @@ export const DecimalInput = React.forwardRef<HTMLInputElement, DecimalInputProps
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (disabled) return;
     let raw = e.target.value.replace(/,/g, '');
-    const fractionLimit = decimalPlaces ?? (isPercent ? null : 2);
+    const fractionLimit = isPercent ? PERCENT_POINT_DECIMALS : (decimalPlaces ?? 2);
 
     if (fractionLimit != null && raw.includes('.')) {
       const [integer, decimals] = raw.split('.');
