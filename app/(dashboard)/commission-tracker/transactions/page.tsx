@@ -11,7 +11,8 @@ import { formatPercent, isHiddenRecordId } from '@/lib/fields';
 import { formatPercentRate, formatTablePercent } from '@/lib/percent';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { Loader2, Rows3, Search, Zap } from 'lucide-react';
+import { Highlighter, Link2, ListChecks, ListFilter, Loader2, Plus, RotateCcw, Rows3, Unlink, Zap } from 'lucide-react';
+import { HoverNote } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/HoverNote';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import {
   compareBySortRules,
@@ -25,15 +26,17 @@ import {
 import { payoutSignature, replayedPaymentSignature, savedPayouts } from '@/lib/template-payment-drift';
 import { formulaDataNeeds, loadCommissionLedger, loadFormulaLookups, templateFormulaSources, type TemplateLogicStep } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/applyTemplateLogic';
 import type { StoredCommissionItem } from '@/app/(dashboard)/commission-tracker/transactions/[id]/commissionItemState';
-import type { CommissionEntityOption, FieldSetting, KnownAgentInfo } from '@/app/(dashboard)/commission-tracker/transactions/[id]/types';
+import type { CommissionEntityOption, FieldSetting, KnownAgentInfo, VisibilityRulesConfig } from '@/app/(dashboard)/commission-tracker/transactions/[id]/types';
 import { transactionDealLabel } from '@/lib/transaction-label';
+import { BulkUpdateDialog } from '@/app/(dashboard)/commission-tracker/transactions/components/BulkUpdateDialog';
+import { SyncErrorsDialog, SyncResultDialog, SyncSummaryLine, type SyncRunDetail } from '@/app/(dashboard)/commission-tracker/transactions/components/SyncResultDialog';
+import { lastSyncResultsNote, syncFinishedSummary } from '@/lib/sync-finished-summary';
 import {
   DEMO_TRANSACTION_SCORECARDS,
   SCORECARD_COLOR_STYLES,
   colorForStatus,
   qualifyingDeals,
   scorecardMetricValue,
-  statusNamedByFormula,
   type TransactionScorecard,
 } from '@/lib/transaction-scorecards';
 
@@ -46,6 +49,9 @@ interface SchemaField {
   is_enabled?: boolean;
   dropdown_options?: string[];
   calculation_formula?: string;
+  storage_type?: string | null;
+  is_required?: boolean | null;
+  visibility_rules?: VisibilityRulesConfig | null;
 }
 
 interface SubmittedTemplate {
@@ -54,6 +60,27 @@ interface SubmittedTemplate {
 }
 
 type BoltTone = TemplateBoltTone;
+
+function tmsLinkMark(
+  deal: Record<string, any>,
+  sourceTmsIds: Set<string> | null,
+  inDefaultView: boolean,
+): { label: string; disconnected: boolean } | null {
+  const tmsId = String(deal.tms_id || '').trim();
+  if (!tmsId || !sourceTmsIds) return null;
+  if (sourceTmsIds.has(tmsId.toLowerCase())) {
+    return { disconnected: false, label: 'Connected to TMS' };
+  }
+  if (!inDefaultView) return null;
+  return { disconnected: true, label: 'Disconnected from TMS' };
+}
+
+type TmsLinkFilter = 'connected' | 'disconnected';
+
+const TMS_FILTERS: { value: TmsLinkFilter; label: string; iconClass: string; activeClass: string }[] = [
+  { value: 'connected', label: 'Connected to TMS', iconClass: 'text-emerald-500', activeClass: 'bg-emerald-500/20 border-emerald-500/40' },
+  { value: 'disconnected', label: 'Disconnected from TMS', iconClass: 'text-amber-500', activeClass: 'bg-amber-500/20 border-amber-500/40' },
+];
 
 const BOLT_FILTERS: { tone: BoltTone; label: string; iconClass: string; activeClass: string }[] = [
   { tone: 'submitted', label: 'Submitted', iconClass: 'text-emerald-500', activeClass: 'bg-emerald-500/20 border-emerald-500/40' },
@@ -86,8 +113,23 @@ function dealMatchesStatus(deal: Record<string, any>, lookup: StatusLookup) {
 
 const ALL_TAB = 'ALL';
 const DEFAULT_TAB = 'DEFAULT';
+const DELETED_TAB = 'DELETED';
+const SYNCED_TAB = 'SYNCED';
+type LedgerView = typeof ALL_TAB | typeof DEFAULT_TAB | typeof DELETED_TAB | typeof SYNCED_TAB;
 
-const SCORECARD_FILTER_PREFIX = 'card:';
+function parseSyncHighlights(raw: unknown): Map<string, Set<string>> {
+  const highlights = new Map<string, Set<string>>();
+  if (!Array.isArray(raw)) return highlights;
+  raw.forEach((item) => {
+    if (!item || typeof item !== 'object') return;
+    const record = item as { transactionId?: unknown; fieldKeys?: unknown };
+    const id = String(record.transactionId || '').trim();
+    if (!id) return;
+    const fieldKeys = Array.isArray(record.fieldKeys) ? record.fieldKeys.map((key) => String(key)) : [];
+    highlights.set(id, new Set(fieldKeys));
+  });
+  return highlights;
+}
 
 function formatTableCurrency(val: number) {
   return new Intl.NumberFormat('en-US', {
@@ -106,6 +148,10 @@ function isDateColumn(field: { field_type: string }) {
   return field.field_type === 'DATE';
 }
 
+function isStatusColumn(field: { field_key: string }) {
+  return field.field_key === 'transaction_status' || field.field_key === 'status';
+}
+
 function scorecardCurrency(value: number, fractionDigits: number, compact: boolean) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -116,10 +162,8 @@ function scorecardCurrency(value: number, fractionDigits: number, compact: boole
   }).format(value);
 }
 
-/** Most precise label first. Compact notation is only used once even whole dollars overflow. */
+/** Whole dollars while the full amount fits. Compact notation then keeps 2 decimals, then 1, then 0, whichever still fits. */
 const SCORECARD_CURRENCY_OPTIONS: { fractionDigits: number; compact: boolean }[] = [
-  { fractionDigits: 2, compact: false },
-  { fractionDigits: 1, compact: false },
   { fractionDigits: 0, compact: false },
   { fractionDigits: 2, compact: true },
   { fractionDigits: 1, compact: true },
@@ -185,23 +229,56 @@ function FitVolume({ value, className }: { value: number; className: string }) {
   );
 }
 
+const filterShell =
+  'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 px-2 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600';
+const filterControl =
+  'w-full border-0 bg-transparent p-0 h-5 text-[11px] leading-4 font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 dark:text-white dark:placeholder:text-slate-500';
+
 export default function TransactionsListPage() {
   const router = useRouter();
   const [schemaFields, setSchemaFields] = useState<SchemaField[]>([]);
   const [deals, setDeals] = useState<Record<string, any>[]>([]);
+  const [deletedDeals, setDeletedDeals] = useState<Record<string, any>[]>([]);
   const [agentsList, setAgentsList] = useState<{ id: string; agent_name?: string; name?: string; [key: string]: any }[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [showFilters, setShowFilters] = useState<boolean>(false);
   const [compactRows, setCompactRows] = useState(false);
 
-  // Search & Global Tabs
+  // Search, ledger view, and the status-header filter. The view stays put when a status is chosen.
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>(DEFAULT_TAB);
+  const [ledgerView, setLedgerView] = useState<LedgerView>(DEFAULT_TAB);
+  const [statusSelection, setStatusSelection] = useState<string | null>(null);
+  const [activeScorecardId, setActiveScorecardId] = useState<string | null>(null);
   const [boltTone, setBoltTone] = useState<BoltTone | null>(null);
   const [boltMenuOpen, setBoltMenuOpen] = useState(false);
   const boltMenuButtonRef = useRef<HTMLButtonElement>(null);
   const boltMenuPanelRef = useRef<HTMLDivElement>(null);
   const [boltMenuBox, setBoltMenuBox] = useState({ top: 0, left: 0 });
+  const [tmsFilter, setTmsFilter] = useState<TmsLinkFilter | null>(null);
+  const [tmsMenuOpen, setTmsMenuOpen] = useState(false);
+  const tmsMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const tmsMenuPanelRef = useRef<HTMLDivElement>(null);
+  const [tmsMenuBox, setTmsMenuBox] = useState({ top: 0, left: 0 });
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const statusMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const statusMenuPanelRef = useRef<HTMLDivElement>(null);
+  const [statusMenuBox, setStatusMenuBox] = useState({ top: 0, left: 0 });
+  const [sourceTmsIds, setSourceTmsIds] = useState<Set<string> | null>(null);
+  const [tmsConnectorActive, setTmsConnectorActive] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncNotice, setSyncNotice] = useState<{
+    tone: 'ok' | 'error';
+    text: string;
+    finishedAt?: string;
+    createdCount?: number;
+    updatedCount?: number;
+    errorCount?: number;
+  } | null>(null);
+  const [syncResult, setSyncResult] = useState<{ summary: string; note: string | null; details: SyncRunDetail[] } | null>(null);
+  const [syncResultOpen, setSyncResultOpen] = useState(false);
+  const [syncChangesOn, setSyncChangesOn] = useState(false);
+  const [syncHighlights, setSyncHighlights] = useState<Map<string, Set<string>>>(() => new Map());
+  const [syncErrorsOpen, setSyncErrorsOpen] = useState(false);
   const [statusLookups, setStatusLookups] = useState<StatusLookup[]>([]);
   const [defaultView, setDefaultView] = useState<TransactionDefaultView>({ filterFormula: '', sortRules: [] });
   const [scorecards, setScorecards] = useState<TransactionScorecard[]>(DEMO_TRANSACTION_SCORECARDS);
@@ -221,6 +298,21 @@ export default function TransactionsListPage() {
   const [pendingDelete, setPendingDelete] = useState<{ id: string; label: string; clientId: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [pendingPermanent, setPendingPermanent] = useState<{ id: string; label: string; clientId: string } | null>(null);
+  const [isPermanentDeleting, setIsPermanentDeleting] = useState(false);
+  const [permanentError, setPermanentError] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkNotice, setBulkNotice] = useState<string | null>(null);
+  const [pendingBulkDelete, setPendingBulkDelete] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
 
   useLayoutEffect(() => {
     setCompactRows(window.localStorage.getItem('soleox-transactions-row-density') === 'compact');
@@ -250,15 +342,18 @@ export default function TransactionsListPage() {
           }
         };
 
-        const [schemaRes, dealsRes, agentsRes, statusRes, viewRes, scoreRes, templateRes, submissionRes] = await Promise.all([
+        const [schemaRes, dealsRes, deletedRes, agentsRes, statusRes, viewRes, scoreRes, templateRes, submissionRes, tmsIdsRes, sheetsRes] = await Promise.all([
           fetch('/api/schema/transactions', fetchOptions),
           fetch('/api/transactions', fetchOptions),
+          fetch('/api/transactions?view=deleted', fetchOptions),
           fetch('/api/agents?include_archived=true', fetchOptions),
           fetch('/api/client-lookup-values?category=TRANSACTION_STATUS', fetchOptions),
           fetch('/api/transaction-default-view', fetchOptions),
           fetch('/api/transaction-scorecards', fetchOptions),
           fetch('/api/commission-templates', fetchOptions),
           fetch(`/api/commission-template-submissions?client_id=${encodeURIComponent(activeClientId)}`, fetchOptions),
+          fetch('/api/integrations/tms-ids', fetchOptions),
+          fetch('/api/integrations/google-sheets', fetchOptions),
         ]);
 
         // Process Schema Catalog
@@ -303,6 +398,14 @@ export default function TransactionsListPage() {
           setDeals(Array.isArray(list) ? list : []);
         } else {
           setDeals([]); // Clean empty state on failure
+        }
+
+        if (deletedRes.ok) {
+          const deletedData = await deletedRes.json();
+          const list = deletedData.transactions || deletedData.deals || [];
+          setDeletedDeals(Array.isArray(list) ? list : []);
+        } else {
+          setDeletedDeals([]);
         }
 
         if (statusRes.ok) {
@@ -373,6 +476,50 @@ export default function TransactionsListPage() {
           setSubmittedTemplates(byTransaction);
         } else {
           setSubmittedTemplates(new Map());
+        }
+
+        if (sheetsRes.ok) {
+          const sheetsData = await sheetsRes.json();
+          const connection = sheetsData.connection as { spreadsheetId?: string } | null;
+          setTmsConnectorActive(Boolean(connection && String(connection.spreadsheetId || '').trim()));
+          const run = sheetsData.lastRun;
+          const errorCount = Number(run?.error_count ?? 0);
+          const details = Array.isArray(run?.details) ? run.details as SyncRunDetail[] : [];
+          setSyncHighlights(parseSyncHighlights(run?.highlights));
+          const finishedAt = run?.finished_at || run?.started_at;
+          if (run && run.status === 'succeeded' && finishedAt) {
+            setSyncNotice({
+              tone: 'ok',
+              finishedAt: String(finishedAt),
+              createdCount: Number(run.created_count ?? 0),
+              updatedCount: Number(run.updated_count ?? 0),
+              errorCount,
+              text: '',
+            });
+          }
+          if (run && errorCount > 0 && details.some((detail) => detail.outcome === 'error')) {
+            const summary = syncFinishedSummary({
+              createdCount: Number(run.created_count ?? 0),
+              updatedCount: Number(run.updated_count ?? 0),
+              skippedCount: Number(run.skipped_count ?? 0),
+              errorCount,
+              connectedCount: Number(run.connected_count ?? 0),
+              disconnectedCount: Number(run.disconnected_count ?? 0),
+              details,
+            });
+            setSyncResult({
+              summary,
+              note: run.message ? String(run.message) : null,
+              details,
+            });
+          }
+        }
+
+        if (tmsIdsRes.ok) {
+          const tmsIdsData = await tmsIdsRes.json();
+          setSourceTmsIds(tmsIdsData.available ? new Set((tmsIdsData.tmsIds || []).map((id: unknown) => String(id).toLowerCase())) : null);
+        } else {
+          setSourceTmsIds(null);
         }
       } catch (err) {
         console.error('Data initialization failed:', err);
@@ -459,11 +606,68 @@ export default function TransactionsListPage() {
         throw new Error(data.error || 'Failed to delete the transaction.');
       }
       setDeals((current) => current.filter((deal) => String(deal.id) !== pendingDelete.id));
+      setDeletedDeals((current) => {
+        const alreadyListed = current.some((deal) => String(deal.id) === pendingDelete.id);
+        if (alreadyListed) return current;
+        const removed = deals.find((deal) => String(deal.id) === pendingDelete.id);
+        return removed ? [{ ...removed, archived: true }, ...current] : current;
+      });
       setPendingDelete(null);
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'Failed to delete the transaction.');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const restoreDeal = async (deal: Record<string, any>, dealId: string) => {
+    if (restoringId) return;
+    setRestoringId(dealId);
+    setRestoreError(null);
+    const clientId = String(deal.client_id || 'DEMO');
+    try {
+      const res = await fetch('/api/transactions/lifecycle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-client-id': clientId },
+        body: JSON.stringify({ id: dealId, clientId, action: 'restore' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        throw new Error(data.error || 'Failed to restore the transaction.');
+      }
+      setDeletedDeals((current) => current.filter((item) => String(item.id) !== dealId));
+      setDeals((current) => {
+        if (current.some((item) => String(item.id) === dealId)) return current;
+        return [{ ...deal, archived: false, permanently_deleted: false }, ...current];
+      });
+    } catch (err) {
+      setRestoreError(err instanceof Error ? err.message : 'Failed to restore the transaction.');
+    } finally {
+      setRestoringId(null);
+    }
+  };
+
+  const confirmPermanentDelete = async () => {
+    if (!pendingPermanent || isPermanentDeleting) return;
+    setIsPermanentDeleting(true);
+    setPermanentError(null);
+    try {
+      const res = await fetch('/api/transactions/lifecycle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-client-id': pendingPermanent.clientId },
+        body: JSON.stringify({ id: pendingPermanent.id, clientId: pendingPermanent.clientId, action: 'permanent' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        throw new Error(data.error || 'Failed to permanently delete the transaction.');
+      }
+      setDeletedDeals((current) => current.filter((deal) => String(deal.id) !== pendingPermanent.id));
+      setDeals((current) => current.filter((deal) => String(deal.id) !== pendingPermanent.id));
+      setPendingPermanent(null);
+    } catch (err) {
+      setPermanentError(err instanceof Error ? err.message : 'Failed to permanently delete the transaction.');
+    } finally {
+      setIsPermanentDeleting(false);
     }
   };
 
@@ -481,10 +685,113 @@ export default function TransactionsListPage() {
     setColFilters((prev) => ({ ...prev, [fieldKey]: value }));
   };
 
+  const syncWithTms = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    setSyncNotice(null);
+    const clientId = 'DEMO';
+    const fetchOptions = { headers: { 'x-client-id': clientId } };
+    try {
+      const response = await fetch('/api/integrations/google-sheets/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-client-id': clientId },
+        body: JSON.stringify({
+          clientId,
+          ...(bulkMode && selectedIds.size > 0 ? { transactionIds: [...selectedIds] } : {}),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.success === false) {
+        throw new Error(data.error || data.run?.message || 'Sync failed.');
+      }
+      const [dealsRes, deletedRes, tmsIdsRes] = await Promise.all([
+        fetch('/api/transactions', fetchOptions),
+        fetch('/api/transactions?view=deleted', fetchOptions),
+        fetch('/api/integrations/tms-ids', fetchOptions),
+      ]);
+      if (dealsRes.ok) {
+        const dealsData = await dealsRes.json();
+        const list = dealsData.transactions || dealsData.deals || dealsData.catalog || [];
+        setDeals(Array.isArray(list) ? list : []);
+      }
+      if (deletedRes.ok) {
+        const deletedData = await deletedRes.json();
+        const list = deletedData.transactions || deletedData.deals || [];
+        setDeletedDeals(Array.isArray(list) ? list : []);
+      }
+      if (tmsIdsRes.ok) {
+        const tmsIdsData = await tmsIdsRes.json();
+        setSourceTmsIds(tmsIdsData.available ? new Set((tmsIdsData.tmsIds || []).map((id: unknown) => String(id).toLowerCase())) : null);
+      }
+      const run = data.run || {};
+      const details = Array.isArray(run.details) ? run.details as SyncRunDetail[] : [];
+      const summary = syncFinishedSummary({
+        createdCount: run.createdCount ?? 0,
+        updatedCount: run.updatedCount ?? 0,
+        skippedCount: run.skippedCount ?? 0,
+        errorCount: run.errorCount ?? 0,
+        connectedCount: run.connectedCount ?? 0,
+        disconnectedCount: run.disconnectedCount ?? 0,
+        details,
+      });
+      setSyncNotice({
+        tone: 'ok',
+        finishedAt: run.finishedAt || new Date().toISOString(),
+        createdCount: run.createdCount ?? 0,
+        updatedCount: run.updatedCount ?? 0,
+        errorCount: run.errorCount ?? 0,
+        text: '',
+      });
+      setSyncResult({
+        summary,
+        note: run.message ? String(run.message) : null,
+        details,
+      });
+      setSyncResultOpen(true);
+      setSyncHighlights(parseSyncHighlights(run.highlights));
+      setSyncChangesOn(true);
+    } catch (err) {
+      setSyncNotice({ tone: 'error', text: err instanceof Error ? err.message : 'Sync failed.' });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const fieldTypes = useMemo(
     () => Object.fromEntries(schemaFields.map((field) => [field.field_key, field.field_type])),
     [schemaFields],
   );
+  const fieldLabels = useMemo(
+    () => Object.fromEntries(schemaFields.map((field) => [field.field_key, field.field_label || field.field_key])),
+    [schemaFields],
+  );
+  const syncErrorCount = syncResult?.details.filter((detail) => detail.outcome === 'error').length ?? 0;
+
+  const markTmsLink = useCallback((deal: Record<string, any>) => {
+    return tmsLinkMark(
+      deal,
+      sourceTmsIds,
+      dealMatchesDefaultView(deal, defaultView.filterFormula, fieldTypes),
+    );
+  }, [sourceTmsIds, defaultView.filterFormula, fieldTypes]);
+
+  const tmsLinkTotals = useMemo(() => {
+    const counts = { connected: 0, disconnected: 0 };
+    deals.forEach((deal) => {
+      if (!dealMatchesDefaultView(deal, defaultView.filterFormula, fieldTypes)) return;
+      const mark = markTmsLink(deal);
+      if (!mark) return;
+      counts[mark.disconnected ? 'disconnected' : 'connected'] += 1;
+    });
+    return counts;
+  }, [deals, markTmsLink, defaultView.filterFormula, fieldTypes]);
+
+  const showTmsConnection = (filter: TmsLinkFilter) => {
+    setLedgerView(DEFAULT_TAB);
+    setActiveScorecardId(null);
+    setStatusSelection(null);
+    setTmsFilter(filter);
+  };
 
   useEffect(() => {
     if (isLoading) return;
@@ -636,65 +943,65 @@ export default function TransactionsListPage() {
   }, [submittedTemplates, commissionTemplates, fieldTypes, paymentDriftReady]);
 
   // 2. Process Filters & Sorting
+  const showingDeleted = ledgerView === DELETED_TAB && !activeScorecardId;
+
+  const matchesLedgerFilters = (deal: Record<string, any>, ignoreStatus: boolean) => {
+    if (activeScorecardId) {
+      const card = scorecards.find((item) => item.id === activeScorecardId);
+      if (card && !dealMatchesDefaultView(deal, card.filterFormula, fieldTypes)) return false;
+    } else if (ledgerView === SYNCED_TAB) {
+      if (!syncHighlights.has(String(deal.id))) return false;
+    } else if (ledgerView === DEFAULT_TAB && defaultView.filterFormula.trim()) {
+      if (!dealMatchesDefaultView(deal, defaultView.filterFormula, fieldTypes)) return false;
+    }
+
+    if (!ignoreStatus && statusSelection) {
+      const statusVal = normalizeStatus(String(deal.transaction_status || deal.status || ''));
+      const selected = statusLookups.find((lookup) => lookup.optionLabel === statusSelection);
+      const selectedValues = [
+        selected ? normalizeStatus(selected.optionValue) : '',
+        normalizeStatus(selected?.optionLabel || statusSelection),
+      ].filter(Boolean);
+      if (!selectedValues.includes(statusVal)) return false;
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const resolvedAgent = getAgentName(deal.agent_id, deal).toLowerCase();
+      const matchesGlobal = Object.values(deal).some((val) =>
+        String(val || '').toLowerCase().includes(q)
+      ) || resolvedAgent.includes(q);
+      if (!matchesGlobal) return false;
+    }
+
+    for (const [key, filterVal] of Object.entries(colFilters)) {
+      if (!filterVal || filterVal === 'All') continue;
+      if (key === 'agent_id' || key === 'primary_agent') {
+        const agentName = getAgentName(deal.agent_id, deal).toLowerCase();
+        const rawAgentId = String(deal.agent_id || '').toLowerCase();
+        const target = filterVal.toLowerCase();
+        if (!agentName.includes(target) && !rawAgentId.includes(target)) return false;
+      } else {
+        const fieldDef = schemaFields.find((f) => f.field_key === key);
+        const isPercent = fieldDef?.field_type === 'PERCENT' || key === 'gci_perc';
+        const cellVal = String(deal[key] ?? '').toLowerCase();
+        const target = filterVal.toLowerCase();
+        if (isPercent) {
+          const pctVal = `${formatPercent(deal[key])} ${formatTablePercent(deal[key])}`.toLowerCase();
+          if (!cellVal.includes(target) && !pctVal.includes(target)) return false;
+        } else if (!cellVal.includes(target)) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  };
+
   const viewedDeals = useMemo(() => {
-    return deals
-      .filter((deal) => {
-        if (statusFilter === DEFAULT_TAB && defaultView.filterFormula.trim()) {
-          if (!dealMatchesDefaultView(deal, defaultView.filterFormula, fieldTypes)) return false;
-        }
-
-        if (statusFilter.startsWith(SCORECARD_FILTER_PREFIX)) {
-          const card = scorecards.find((item) => `${SCORECARD_FILTER_PREFIX}${item.id}` === statusFilter);
-          if (card && !dealMatchesDefaultView(deal, card.filterFormula, fieldTypes)) return false;
-        } else if (statusFilter !== ALL_TAB && statusFilter !== DEFAULT_TAB) {
-          const statusVal = normalizeStatus(String(deal.transaction_status || deal.status || ''));
-          const selected = statusLookups.find((lookup) => lookup.optionLabel === statusFilter);
-          const selectedValues = [
-            selected ? normalizeStatus(selected.optionValue) : '',
-            normalizeStatus(selected?.optionLabel || statusFilter),
-          ].filter(Boolean);
-          if (!selectedValues.includes(statusVal)) return false;
-        }
-
-        // Global Quick Search
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase();
-          const resolvedAgent = getAgentName(deal.agent_id, deal).toLowerCase();
-          const matchesGlobal = Object.values(deal).some((val) =>
-            String(val || '').toLowerCase().includes(q)
-          ) || resolvedAgent.includes(q);
-          if (!matchesGlobal) return false;
-        }
-
-        // Dynamic Column Filters
-        for (const [key, filterVal] of Object.entries(colFilters)) {
-          if (!filterVal || filterVal === 'All') continue;
-          if (key === 'agent_id' || key === 'primary_agent') {
-            const agentName = getAgentName(deal.agent_id, deal).toLowerCase();
-            const rawAgentId = String(deal.agent_id || '').toLowerCase();
-            const target = filterVal.toLowerCase();
-            if (!agentName.includes(target) && !rawAgentId.includes(target)) {
-              return false;
-            }
-          } else {
-            const fieldDef = schemaFields.find((f) => f.field_key === key);
-            const isPercent = fieldDef?.field_type === 'PERCENT' || key === 'gci_perc';
-            const cellVal = String(deal[key] ?? '').toLowerCase();
-            const target = filterVal.toLowerCase();
-            if (isPercent) {
-              const pctVal = `${formatPercent(deal[key])} ${formatTablePercent(deal[key])}`.toLowerCase();
-              if (!cellVal.includes(target) && !pctVal.includes(target)) {
-                return false;
-              }
-            } else if (!cellVal.includes(target)) {
-              return false;
-            }
-          }
-        }
-
-        return true;
-      });
-  }, [deals, searchQuery, statusFilter, statusLookups, colFilters, schemaFields, defaultView, fieldTypes, scorecards]);
+    const source = showingDeleted ? deletedDeals : deals;
+    return source.filter((deal) => matchesLedgerFilters(deal, false));
+  }, [deals, deletedDeals, searchQuery, ledgerView, statusSelection, activeScorecardId, showingDeleted, statusLookups, colFilters, schemaFields, defaultView, fieldTypes, scorecards, syncHighlights]);
 
   const boltCounts = useMemo(() => {
     const counts: Record<BoltTone, number> = { submitted: 0, ready: 0, ineligible: 0, drift: 0 };
@@ -704,6 +1011,16 @@ export default function TransactionsListPage() {
     }
     return counts;
   }, [viewedDeals, templateBolt]);
+
+  const tmsCounts = useMemo(() => {
+    const counts: Record<TmsLinkFilter, number> = { connected: 0, disconnected: 0 };
+    for (const deal of viewedDeals) {
+      const mark = markTmsLink(deal);
+      if (!mark) continue;
+      counts[mark.disconnected ? 'disconnected' : 'connected'] += 1;
+    }
+    return counts;
+  }, [viewedDeals, markTmsLink]);
 
   useLayoutEffect(() => {
     if (!boltMenuOpen) return;
@@ -741,10 +1058,87 @@ export default function TransactionsListPage() {
     };
   }, [boltMenuOpen]);
 
+  useLayoutEffect(() => {
+    if (!tmsMenuOpen) return;
+    const place = () => {
+      const anchor = tmsMenuButtonRef.current?.getBoundingClientRect();
+      if (!anchor) return;
+      const width = 256;
+      const left = Math.min(anchor.left, window.innerWidth - width - 8);
+      setTmsMenuBox({ top: anchor.bottom + 4, left: Math.max(8, left) });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [tmsMenuOpen]);
+
+  useEffect(() => {
+    if (!tmsMenuOpen) return;
+    const close = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (tmsMenuButtonRef.current?.contains(target) || tmsMenuPanelRef.current?.contains(target)) return;
+      setTmsMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setTmsMenuOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [tmsMenuOpen]);
+
+  useLayoutEffect(() => {
+    if (!statusMenuOpen) return;
+    const place = () => {
+      const anchor = statusMenuButtonRef.current?.getBoundingClientRect();
+      if (!anchor) return;
+      const width = 256;
+      const left = Math.min(anchor.left, window.innerWidth - width - 8);
+      setStatusMenuBox({ top: anchor.bottom + 4, left: Math.max(8, left) });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [statusMenuOpen]);
+
+  useEffect(() => {
+    if (!statusMenuOpen) return;
+    const close = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (statusMenuButtonRef.current?.contains(target) || statusMenuPanelRef.current?.contains(target)) return;
+      setStatusMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setStatusMenuOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [statusMenuOpen]);
+
   const processedDeals = useMemo(() => {
-    const rows = boltTone ? viewedDeals.filter((deal) => templateBolt(deal)?.tone === boltTone) : viewedDeals;
+    const rows = viewedDeals.filter((deal) => {
+      if (boltTone && templateBolt(deal)?.tone !== boltTone) return false;
+      if (tmsFilter === 'connected') return markTmsLink(deal)?.disconnected === false;
+      if (tmsFilter === 'disconnected') return markTmsLink(deal)?.disconnected === true;
+      return true;
+    });
     return [...rows].sort((a, b) => {
-        if (statusFilter === DEFAULT_TAB && defaultSortRules && defaultSortRules.length > 0) {
+        if (ledgerView === DEFAULT_TAB && !activeScorecardId && defaultSortRules && defaultSortRules.length > 0) {
           return compareBySortRules(a, b, defaultSortRules, (deal, fieldKey) => {
             if (fieldKey === 'agent_id' || fieldKey === 'primary_agent') return getAgentName(deal.agent_id, deal);
             const raw = deal[fieldKey];
@@ -774,11 +1168,239 @@ export default function TransactionsListPage() {
           ? String(aVal).localeCompare(String(bVal))
           : String(bVal).localeCompare(String(aVal));
     });
-  }, [viewedDeals, boltTone, templateBolt, statusFilter, defaultSortRules, sortField, sortOrder]);
+  }, [viewedDeals, boltTone, tmsFilter, templateBolt, markTmsLink, ledgerView, activeScorecardId, defaultSortRules, sortField, sortOrder]);
+
+  const visibleIds = useMemo(
+    () => processedDeals.map((deal) => String(deal.id || '')).filter(Boolean),
+    [processedDeals],
+  );
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+
+  useEffect(() => {
+    if (!showingDeleted) return;
+    setBulkMode(false);
+    setSelectedIds(new Set());
+    setBulkDialogOpen(false);
+    setBulkError(null);
+  }, [showingDeleted]);
+
+  useEffect(() => {
+    if (!bulkMode) return;
+    const visible = new Set(visibleIds);
+    setSelectedIds((current) => {
+      const next = new Set([...current].filter((id) => visible.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [bulkMode, visibleIds]);
+
+  useEffect(() => {
+    const box = selectAllRef.current;
+    if (!box) return;
+    const count = visibleIds.filter((id) => selectedIds.has(id)).length;
+    box.indeterminate = count > 0 && count < visibleIds.length;
+  }, [visibleIds, selectedIds, bulkMode]);
+
+  const toggleVisibleSelection = () => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (visibleIds.every((id) => next.has(id))) visibleIds.forEach((id) => next.delete(id));
+      else visibleIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+  const toggleRowSelection = (id: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const visibleIdsRef = useRef(visibleIds);
+  visibleIdsRef.current = visibleIds;
+  const dragSelectRef = useRef<{
+    startId: string;
+    originX: number;
+    originY: number;
+    clientX: number;
+    clientY: number;
+    dragging: boolean;
+    base: Set<string>;
+  } | null>(null);
+  const suppressRowClickRef = useRef(false);
+
+  const applyDragSelection = useCallback((startId: string, currentId: string, base: Set<string>) => {
+    const ids = visibleIdsRef.current;
+    const start = ids.indexOf(startId);
+    const current = ids.indexOf(currentId);
+    if (start < 0 || current < 0) return;
+    const from = Math.min(start, current);
+    const to = Math.max(start, current);
+    const next = new Set(base);
+    for (let index = from; index <= to; index += 1) next.add(ids[index]);
+    setSelectedIds((existing) => {
+      if (existing.size === next.size && [...next].every((id) => existing.has(id))) return existing;
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!bulkMode) {
+      dragSelectRef.current = null;
+      return;
+    }
+    let frame = 0;
+    const rowIdAt = (x: number, y: number) => {
+      const scroller = tableScrollRef.current;
+      let pointY = y;
+      const head = scroller?.querySelector('thead');
+      const headBottom = head?.getBoundingClientRect().bottom;
+      if (headBottom !== undefined && pointY <= headBottom) pointY = headBottom + 8;
+      const target = document.elementFromPoint(x, pointY);
+      const row = target instanceof Element ? target.closest('tr[data-bulk-id]') : null;
+      return row?.getAttribute('data-bulk-id') || '';
+    };
+    const extendSelection = () => {
+      const drag = dragSelectRef.current;
+      if (!drag?.dragging) return;
+      const scroller = tableScrollRef.current;
+      if (scroller) {
+        const bounds = scroller.getBoundingClientRect();
+        if (drag.clientY < bounds.top + 36) scroller.scrollTop -= 18;
+        else if (drag.clientY > bounds.bottom - 36) scroller.scrollTop += 18;
+      }
+      const id = rowIdAt(drag.clientX, drag.clientY);
+      if (id) applyDragSelection(drag.startId, id, drag.base);
+    };
+    const onMove = (event: PointerEvent) => {
+      const drag = dragSelectRef.current;
+      if (!drag) return;
+      drag.clientX = event.clientX;
+      drag.clientY = event.clientY;
+      const distance = Math.hypot(event.clientX - drag.originX, event.clientY - drag.originY);
+      if (!drag.dragging && distance < 4) return;
+      if (!drag.dragging) {
+        drag.dragging = true;
+        document.body.classList.add('select-none');
+      }
+      const id = rowIdAt(event.clientX, event.clientY);
+      if (id) applyDragSelection(drag.startId, id, drag.base);
+      if (!frame) frame = requestAnimationFrame(function loop() {
+        extendSelection();
+        frame = dragSelectRef.current?.dragging ? requestAnimationFrame(loop) : 0;
+      });
+    };
+    const stop = () => {
+      if (dragSelectRef.current?.dragging) suppressRowClickRef.current = true;
+      dragSelectRef.current = null;
+      document.body.classList.remove('select-none');
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', stop);
+    window.addEventListener('pointercancel', stop);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', stop);
+      window.removeEventListener('pointercancel', stop);
+      document.body.classList.remove('select-none');
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [applyDragSelection, bulkMode]);
+
+  const confirmBulkUpdate = async (fieldKey: string, value: string) => {
+    setIsBulkUpdating(true);
+    setBulkError(null);
+    try {
+      const response = await fetch('/api/transactions/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-client-id': 'DEMO' },
+        body: JSON.stringify({ clientId: 'DEMO', ids: [...selectedIds], fieldKey, value }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.success) throw new Error(payload.error || 'Could not update those transactions.');
+      const rows = Array.isArray(payload.rows) ? payload.rows : [];
+      if (rows.length > 0) {
+        const byId = new Map(rows.map((row: Record<string, any>) => [String(row.id), row]));
+        setDeals((current) => current.map((deal) => byId.get(String(deal.id)) || deal));
+      }
+      const updated = Number(payload.updated) || 0;
+      const unchanged = Number(payload.unchanged) || 0;
+      const skipped = Number(payload.skipped) || 0;
+      const failed = Array.isArray(payload.errors) ? payload.errors.length : 0;
+      const parts = [`Updated ${updated} ${updated === 1 ? 'transaction' : 'transactions'}.`];
+      if (unchanged) parts.push(`${unchanged} already had that value.`);
+      if (skipped) parts.push(`${skipped} were skipped.`);
+      if (failed) parts.push(`${failed} could not be updated.`);
+      setBulkNotice(parts.join(' '));
+      setSelectedIds(new Set());
+      setBulkDialogOpen(false);
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : 'Could not update those transactions.');
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  const confirmBulkDelete = async () => {
+    if (isBulkDeleting || selectedIds.size === 0) return;
+    setIsBulkDeleting(true);
+    setBulkDeleteError(null);
+    const ids = [...selectedIds];
+    try {
+      const response = await fetch('/api/transactions/bulk', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'x-client-id': 'DEMO' },
+        body: JSON.stringify({ clientId: 'DEMO', ids }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      const deletedIds = new Set<string>(Array.isArray(payload.deleted) ? payload.deleted.map((id: unknown) => String(id)) : []);
+      if (deletedIds.size > 0) {
+        const removed = deals.filter((deal) => deletedIds.has(String(deal.id)));
+        setDeals((current) => current.filter((deal) => !deletedIds.has(String(deal.id))));
+        setDeletedDeals((current) => {
+          const listed = new Set(current.map((deal) => String(deal.id)));
+          const additions = removed
+            .filter((deal) => !listed.has(String(deal.id)))
+            .map((deal) => ({ ...deal, archived: true }));
+          return additions.length > 0 ? [...additions, ...current] : current;
+        });
+        setSelectedIds((current) => {
+          const next = new Set(current);
+          deletedIds.forEach((id) => next.delete(id));
+          return next;
+        });
+      }
+      const failed = Array.isArray(payload.errors) ? payload.errors.length : 0;
+      if (!response.ok && deletedIds.size === 0) {
+        throw new Error(payload.error || payload.errors?.[0]?.message || 'Could not delete those transactions.');
+      }
+      const noun = deletedIds.size === 1 ? 'transaction' : 'transactions';
+      if (failed === 0) {
+        setBulkNotice(`Deleted ${deletedIds.size} ${noun}.`);
+        setPendingBulkDelete(false);
+      } else {
+        setBulkDeleteError(`${failed} ${failed === 1 ? 'transaction' : 'transactions'} could not be deleted.`);
+        if (deletedIds.size > 0) setBulkNotice(`Deleted ${deletedIds.size} ${noun}.`);
+      }
+    } catch (error) {
+      setBulkDeleteError(error instanceof Error ? error.message : 'Could not delete those transactions.');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
 
   const defaultMatchCount = useMemo(() => {
     return deals.filter((deal) => dealMatchesDefaultView(deal, defaultView.filterFormula, fieldTypes)).length;
   }, [deals, defaultView, fieldTypes]);
+
+  const syncedMatchCount = useMemo(() => {
+    return deals.filter((deal) => syncHighlights.has(String(deal.id))).length;
+  }, [deals, syncHighlights]);
 
   const statusCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -814,11 +1436,40 @@ export default function TransactionsListPage() {
     return [...matched, ...extras];
   }, [deals, statusLookups, statusCounts]);
 
+  const syncErrorIdentity = useMemo(() => {
+    const byTmsId = new Map<string, { propertyAddress: string; transactionSide: string }>();
+    [...deals, ...deletedDeals].forEach((deal) => {
+      const tmsId = String(deal.tms_id || '').trim().toLowerCase();
+      if (!tmsId || byTmsId.has(tmsId)) return;
+      byTmsId.set(tmsId, {
+        propertyAddress: String(deal.property_address || '').trim(),
+        transactionSide: String(deal.transaction_side || '').trim(),
+      });
+    });
+    return byTmsId;
+  }, [deals, deletedDeals]);
+
+  const statusMenuCounts = useMemo(() => {
+    const source = showingDeleted ? deletedDeals : deals;
+    const rows = source.filter((deal) => {
+      if (!matchesLedgerFilters(deal, true)) return false;
+      if (boltTone && templateBolt(deal)?.tone !== boltTone) return false;
+      if (tmsFilter === 'connected') return markTmsLink(deal)?.disconnected === false;
+      if (tmsFilter === 'disconnected') return markTmsLink(deal)?.disconnected === true;
+      return true;
+    });
+    const counts = new Map<string, number>();
+    visibleStatusLookups.forEach((lookup) => {
+      counts.set(lookup.optionLabel, rows.filter((deal) => dealMatchesStatus(deal, lookup)).length);
+    });
+    return counts;
+  }, [deals, deletedDeals, showingDeleted, ledgerView, statusSelection, activeScorecardId, visibleStatusLookups, boltTone, tmsFilter, templateBolt, markTmsLink, searchQuery, colFilters, schemaFields, defaultView, fieldTypes, scorecards, statusLookups, syncHighlights]);
+
   useEffect(() => {
-    if (statusFilter === ALL_TAB || statusFilter === DEFAULT_TAB || statusFilter.startsWith(SCORECARD_FILTER_PREFIX)) return;
-    const stillVisible = visibleStatusLookups.some((lookup) => lookup.optionLabel === statusFilter);
-    if (!stillVisible) setStatusFilter(ALL_TAB);
-  }, [statusFilter, visibleStatusLookups]);
+    if (!statusSelection) return;
+    const stillVisible = visibleStatusLookups.some((lookup) => lookup.optionLabel === statusSelection);
+    if (!stillVisible) setStatusSelection(null);
+  }, [statusSelection, visibleStatusLookups]);
 
   const scorecardRows = useMemo(() => {
     return scorecards.map((card) => ({
@@ -827,18 +1478,9 @@ export default function TransactionsListPage() {
     }));
   }, [scorecards, deals, fieldTypes]);
 
-  const scorecardFilterKey = (card: TransactionScorecard) => {
-    const named = statusNamedByFormula(card.filterFormula);
-    if (!named) return `${SCORECARD_FILTER_PREFIX}${card.id}`;
-    const lookup = statusLookups.find((item) => {
-      const norm = normalizeStatus(named);
-      return norm === normalizeStatus(item.optionLabel) || norm === normalizeStatus(item.optionValue);
-    });
-    return lookup?.optionLabel || `${SCORECARD_FILTER_PREFIX}${card.id}`;
-  };
-
   const selectDefaultView = () => {
-    setStatusFilter(DEFAULT_TAB);
+    setLedgerView(DEFAULT_TAB);
+    setActiveScorecardId(null);
     setDefaultSortRules(defaultView.sortRules.length > 0 ? defaultView.sortRules : null);
     if (defaultView.sortRules[0]) {
       setSortField(defaultView.sortRules[0].fieldKey);
@@ -846,20 +1488,32 @@ export default function TransactionsListPage() {
     }
   };
 
+  useEffect(() => {
+    if (isLoading || ledgerView !== DELETED_TAB || deletedDeals.length > 0) return;
+    selectDefaultView();
+  }, [isLoading, ledgerView, deletedDeals.length, defaultView]);
+
+  useEffect(() => {
+    if (syncChangesOn || ledgerView !== SYNCED_TAB) return;
+    selectDefaultView();
+  }, [syncChangesOn, ledgerView, defaultView]);
+
   const resetAllFilters = () => {
     setSearchQuery('');
-    setStatusFilter(ALL_TAB);
+    setLedgerView(ALL_TAB);
+    setActiveScorecardId(null);
     setColFilters({});
   };
 
   const selectScorecard = (card: TransactionScorecard, count: number) => {
     if (count === 0) return;
-    const key = scorecardFilterKey(card);
-    if (statusFilter === key) {
+    if (activeScorecardId === card.id) {
       resetAllFilters();
+      setStatusSelection(null);
       return;
     }
-    setStatusFilter(key);
+    setActiveScorecardId(card.id);
+    setStatusSelection(null);
   };
 
   const formatScorecardMetric = (value: number | null, kind: string, fieldType?: string) => {
@@ -916,7 +1570,7 @@ export default function TransactionsListPage() {
   return (
     <main className="min-h-screen bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100 p-6 md:p-8 max-w-[1600px] mx-auto space-y-6 transition-colors duration-200">
       {/* Top Banner */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-colors">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl flex flex-wrap justify-between items-start sm:items-center gap-4 transition-colors">
         <div>
           <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
             <span>Commission Tracker</span>
@@ -929,17 +1583,36 @@ export default function TransactionsListPage() {
 
         <Link
           href="/commission-tracker/transactions/new"
-          className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 px-4 py-2.5 rounded-lg text-xs font-bold transition flex items-center gap-2 whitespace-nowrap"
+          className="border border-slate-300 bg-white px-4 py-2.5 rounded-lg text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700 flex items-center gap-2 whitespace-nowrap"
         >
-          <span>+ Create Transaction</span>
+          <Plus className="h-3.5 w-3.5 text-emerald-500" strokeWidth={1.75} aria-hidden />
+          <span>New Transaction</span>
         </Link>
+        {syncResult && syncErrorsOpen && (
+          <SyncErrorsDialog
+            details={syncResult.details}
+            fieldLabels={fieldLabels}
+            identityByTmsId={syncErrorIdentity}
+            onClose={() => setSyncErrorsOpen(false)}
+          />
+        )}
+        {syncResult && syncResultOpen && (
+          <SyncResultDialog
+            summary={syncResult.summary}
+            note={syncResult.note}
+            details={syncResult.details}
+            fieldLabels={fieldLabels}
+            identityByTmsId={syncErrorIdentity}
+            onClose={() => setSyncResultOpen(false)}
+          />
+        )}
       </div>
 
       {scorecardRows.length > 0 && (
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {scorecardRows.map(({ card, rows }) => {
           const styles = SCORECARD_COLOR_STYLES[card.color] || SCORECARD_COLOR_STYLES.blue;
-          const selected = statusFilter === scorecardFilterKey(card);
+          const selected = activeScorecardId === card.id;
           return (
             <button
               key={card.id}
@@ -975,49 +1648,52 @@ export default function TransactionsListPage() {
 
       {/* Ledger Table Container */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden p-5 space-y-4 transition-colors">
+        {restoreError && (
+          <p className="text-xs text-rose-600 dark:text-rose-400">{restoreError}</p>
+        )}
+        {bulkNotice && (
+          <p className="text-xs text-slate-600 dark:text-slate-300">{bulkNotice}</p>
+        )}
         
         {/* Controls Bar */}
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-slate-200 dark:border-slate-700 pb-4">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            {/* Quick Status Tabs */}
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700 overflow-x-auto min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-700 pb-4">
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
               {[
-                { key: DEFAULT_TAB, label: 'Default View' },
-                { key: ALL_TAB, label: ALL_TAB },
-                ...visibleStatusLookups.map((lookup) => ({ key: lookup.optionLabel, label: lookup.optionLabel })),
+                { key: DEFAULT_TAB, label: 'Unfinished' },
+                { key: ALL_TAB, label: 'All' },
+                ...(syncChangesOn ? [{ key: SYNCED_TAB, label: 'Just Synced' }] : []),
+                ...(deletedDeals.length > 0 ? [{ key: DELETED_TAB, label: 'Deleted' }] : []),
               ].map((tab) => {
-                const isView = tab.key === ALL_TAB || tab.key === DEFAULT_TAB;
-                const selected = statusFilter === tab.key;
-                const lookup = isView ? null : visibleStatusLookups.find((item) => item.optionLabel === tab.key);
-                const color = lookup ? colorForStatus(scorecards, lookup.optionLabel, lookup.optionValue) : null;
-                const toneStyle = color ? SCORECARD_COLOR_STYLES[color] : null;
-                const tabClass = isView
+                const selected = !activeScorecardId && ledgerView === tab.key;
+                const tabClass = tab.key === SYNCED_TAB
                   ? selected
-                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border border-transparent uppercase tracking-wider'
-                    : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 uppercase tracking-wider'
-                  : toneStyle
+                    ? 'bg-amber-400 text-amber-950 border border-amber-400 uppercase tracking-wider'
+                    : 'bg-amber-100 text-amber-950 border border-amber-300 uppercase tracking-wider dark:bg-amber-400/20 dark:text-amber-100 dark:border-amber-400/40'
+                  : tab.key === DELETED_TAB
                     ? selected
-                      ? toneStyle.tabActive
-                      : toneStyle.tabIdle
+                      ? 'bg-rose-600 text-white border border-rose-600 uppercase tracking-wider dark:bg-rose-500 dark:border-rose-500'
+                      : 'bg-rose-50 text-rose-700 border border-rose-300 uppercase tracking-wider dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/40'
                     : selected
-                      ? 'bg-slate-500/15 text-slate-800 dark:text-slate-200 border border-slate-400/40'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent';
-                const countClass = isView
+                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border border-transparent uppercase tracking-wider'
+                      : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 uppercase tracking-wider';
+                const countClass = tab.key === SYNCED_TAB
                   ? selected
-                    ? 'text-white/80 dark:text-slate-900/70'
-                    : 'text-slate-500 dark:text-slate-400'
-                  : toneStyle
+                    ? 'text-amber-950/70'
+                    : 'text-amber-800/80 dark:text-amber-100/80'
+                  : tab.key === DELETED_TAB
                     ? selected
-                      ? toneStyle.countActive
-                      : toneStyle.countIdle
+                      ? 'text-white/80'
+                      : 'text-rose-600/80 dark:text-rose-300/80'
                     : selected
-                      ? 'text-slate-700 dark:text-slate-200'
-                      : 'text-slate-400 dark:text-slate-500';
+                      ? 'text-white/80 dark:text-slate-900/70'
+                      : 'text-slate-500 dark:text-slate-400';
                 const count = tab.key === DEFAULT_TAB
                   ? defaultMatchCount
-                  : tab.key === ALL_TAB
-                    ? deals.length
-                    : statusCounts.get(tab.key) ?? 0;
+                  : tab.key === SYNCED_TAB
+                    ? syncedMatchCount
+                    : tab.key === ALL_TAB
+                      ? deals.length
+                      : deletedDeals.length;
 
                 return (
                   <button
@@ -1025,9 +1701,15 @@ export default function TransactionsListPage() {
                     onClick={() => {
                       if (tab.key === ALL_TAB) resetAllFilters();
                       else if (tab.key === DEFAULT_TAB) selectDefaultView();
-                      else setStatusFilter(tab.key);
+                      else if (tab.key === SYNCED_TAB) {
+                        setLedgerView(SYNCED_TAB);
+                        setActiveScorecardId(null);
+                      } else {
+                        setLedgerView(DELETED_TAB);
+                        setActiveScorecardId(null);
+                      }
                     }}
-                    className={`inline-flex items-center px-3.5 py-1.5 rounded-md text-xs font-bold transition whitespace-nowrap cursor-pointer ${tabClass} ${tab.key === ALL_TAB ? 'mr-1' : ''}`}
+                    className={`inline-flex items-center px-3.5 py-1.5 rounded-md text-xs font-bold transition whitespace-nowrap cursor-pointer ${tabClass}`}
                   >
                     {tab.label}
                     <span className={`ml-1.5 tabular-nums ${countClass}`}>
@@ -1036,37 +1718,135 @@ export default function TransactionsListPage() {
                   </button>
                 );
               })}
-            </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 w-full md:w-auto justify-end">
-            <button
-              type="button"
-              onClick={toggleCompactRows}
-              aria-pressed={compactRows}
-              title={compactRows ? 'Use comfortable rows' : 'Use compact rows'}
-              className={`px-3 py-2 rounded-lg text-xs font-bold border transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                compactRows
-                  ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
-                  : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              <Rows3 className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-              <span>Compact</span>
-            </button>
-
-            {/* Toggle Filters Button */}
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`px-3 py-2 rounded-lg text-xs font-bold border transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                showFilters
-                  ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
-                  : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              <Search className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-              <span>{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
-            </button>
+          <div className="flex flex-wrap items-center gap-2 shrink-0 w-full md:w-auto md:justify-end">
+            {tmsConnectorActive && (
+            <div className="relative flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={syncWithTms}
+                disabled={isSyncing || isLoading}
+                className="h-9 border border-slate-300 bg-white px-3 rounded-lg text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700 inline-flex items-center gap-2 whitespace-nowrap cursor-pointer"
+              >
+                {isSyncing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-500" strokeWidth={1.75} aria-hidden />
+                ) : (
+                  <Link2 className="h-3.5 w-3.5 text-emerald-500" strokeWidth={1.75} aria-hidden />
+                )}
+                <span>{isSyncing ? 'Syncing…' : bulkMode && selectedIds.size > 0 ? `Sync with TMS ${selectedIds.size}` : 'Sync with TMS'}</span>
+              </button>
+              <HoverNote label="Highlight changes from the last sync">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (syncChangesOn && ledgerView === SYNCED_TAB) selectDefaultView();
+                    setSyncChangesOn((on) => !on);
+                  }}
+                  aria-label="Highlight changes from the last sync"
+                  aria-pressed={syncChangesOn}
+                  className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition cursor-pointer ${
+                    syncChangesOn
+                      ? 'bg-amber-100 text-amber-950 border-amber-300 dark:bg-amber-400/20 dark:text-amber-100 dark:border-amber-400/40'
+                      : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Highlighter className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                </button>
+              </HoverNote>
+            </div>
+            )}
+            {!showingDeleted && (
+              <>
+                {tmsConnectorActive && <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />}
+                <div className="flex flex-wrap items-center gap-2">
+                  <HoverNote label="Select transactions to update or delete at once">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (bulkMode) {
+                          setBulkMode(false);
+                          setSelectedIds(new Set());
+                          setBulkDialogOpen(false);
+                          setBulkError(null);
+                          setPendingBulkDelete(false);
+                          setBulkDeleteError(null);
+                          return;
+                        }
+                        setBulkNotice(null);
+                        setBulkMode(true);
+                      }}
+                      aria-label="Select transactions to update or delete at once"
+                      aria-pressed={bulkMode}
+                      className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition cursor-pointer ${
+                        bulkMode
+                          ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
+                          : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <ListChecks className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                    </button>
+                  </HoverNote>
+                  {bulkMode && selectedIds.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBulkError(null);
+                        setBulkDialogOpen(true);
+                      }}
+                      className="h-9 px-3 rounded-lg text-xs font-bold border border-emerald-500/40 bg-emerald-500 text-white hover:bg-emerald-600 transition inline-flex items-center whitespace-nowrap cursor-pointer"
+                    >
+                      Update {selectedIds.size}
+                    </button>
+                  )}
+                  {bulkMode && selectedIds.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBulkDeleteError(null);
+                        setPendingBulkDelete(true);
+                      }}
+                      className="h-9 px-3 rounded-lg text-xs font-bold border border-rose-500/40 bg-rose-600 text-white hover:bg-rose-500 transition inline-flex items-center whitespace-nowrap cursor-pointer"
+                    >
+                      Delete {selectedIds.size}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+            {(tmsConnectorActive || !showingDeleted) && <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />}
+            <HoverNote label="Compact Table View">
+              <button
+                type="button"
+                onClick={toggleCompactRows}
+                aria-label="Compact Table View"
+                aria-pressed={compactRows}
+                className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition cursor-pointer ${
+                  compactRows
+                    ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
+                    : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
+              >
+                <Rows3 className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+              </button>
+            </HoverNote>
+            <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />
+            <div className="flex items-center gap-2">
+            <HoverNote label="Advanced Filters">
+              <button
+                type="button"
+                onClick={() => setShowFilters(!showFilters)}
+                aria-label="Advanced Filters"
+                aria-pressed={showFilters}
+                className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition cursor-pointer ${
+                  showFilters
+                    ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
+                    : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
+              >
+                <ListFilter className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+              </button>
+            </HoverNote>
 
             {/* Quick Search */}
             <div className="relative w-[20rem] max-w-full">
@@ -1075,22 +1855,55 @@ export default function TransactionsListPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search all fields..."
-                className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-medium"
+                className="h-9 w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-medium"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 >
                   ✕
                 </button>
               )}
             </div>
+            </div>
           </div>
         </div>
 
+        {syncNotice && (syncNotice.tone === 'error' || syncChangesOn) && (
+          <p className={`text-left text-xs ${syncNotice.tone === 'error' ? 'text-rose-600 dark:text-rose-300' : 'text-slate-600 dark:text-slate-300'}`}>
+            <SyncSummaryLine
+              text={syncNotice.tone === 'ok' && syncNotice.finishedAt
+                ? lastSyncResultsNote({
+                  finishedAt: syncNotice.finishedAt,
+                  createdCount: syncNotice.createdCount ?? 0,
+                  updatedCount: syncNotice.updatedCount ?? 0,
+                  connectedCount: tmsLinkTotals.connected,
+                  disconnectedCount: tmsLinkTotals.disconnected,
+                  errorCount: syncNotice.errorCount ?? 0,
+                })
+                : syncNotice.text}
+              errorCount={syncNotice.tone === 'ok' ? syncNotice.errorCount ?? 0 : syncErrorCount}
+              connectedCount={syncNotice.tone === 'ok' ? tmsLinkTotals.connected : undefined}
+              disconnectedCount={syncNotice.tone === 'ok' ? tmsLinkTotals.disconnected : undefined}
+              onShowErrors={() => setSyncErrorsOpen(true)}
+              onShowConnected={() => showTmsConnection('connected')}
+              onShowDisconnected={() => showTmsConnection('disconnected')}
+            />
+          </p>
+        )}
+
         {/* Scrollable Table */}
-        <div className={`overflow-x-auto overflow-y-auto border border-slate-200 dark:border-slate-700/80 rounded-lg scrollbar-thin ${compactRows ? 'max-h-[calc(100dvh-11rem)]' : 'max-h-[640px]'}`}>
+        <div
+          ref={tableScrollRef}
+          onClickCapture={(event) => {
+            if (!suppressRowClickRef.current) return;
+            suppressRowClickRef.current = false;
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          className={`overflow-x-auto overflow-y-auto border border-slate-200 dark:border-slate-700/80 rounded-lg scrollbar-thin ${compactRows ? 'max-h-[calc(100dvh-11rem)]' : 'max-h-[640px]'}`}
+        >
           <table className="w-full text-left text-xs min-w-[1200px] border-separate border-spacing-0">
             
             {/* Dynamic Table Header */}
@@ -1098,6 +1911,8 @@ export default function TransactionsListPage() {
               
               {/* Section Group Header Row */}
               <tr className="bg-slate-200 dark:bg-slate-950 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                {bulkMode && <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />}
+                <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />
                 <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />
                 {sectionHeaderGroups.map((group, idx) => (
                   <th
@@ -1116,6 +1931,42 @@ export default function TransactionsListPage() {
 
               {/* Field Label Header Row */}
               <tr className="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 uppercase tracking-wider font-semibold">
+                {bulkMode && (
+                  <th className={`${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} w-8 align-middle bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
+                    <span className="inline-flex items-center justify-center">
+                      <input
+                        ref={selectAllRef}
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        onChange={toggleVisibleSelection}
+                        aria-label="Select all transactions in this view"
+                        className="block h-3.5 w-3.5 accent-emerald-500 cursor-pointer"
+                      />
+                    </span>
+                  </th>
+                )}
+                <th className={`${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
+                  <button
+                    ref={tmsMenuButtonRef}
+                    type="button"
+                    aria-expanded={tmsMenuOpen}
+                    aria-haspopup="menu"
+                    aria-pressed={tmsFilter !== null}
+                    title={tmsFilter ? `Filtering: ${TMS_FILTERS.find((filter) => filter.value === tmsFilter)?.label}` : 'Filter by TMS connection'}
+                    onClick={() => {
+                      setBoltMenuOpen(false);
+                      setStatusMenuOpen(false);
+                      setTmsMenuOpen((open) => !open);
+                    }}
+                    className={`inline-flex h-6 w-6 items-center justify-center rounded text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer ${tmsFilter ? 'bg-slate-200 dark:bg-slate-800' : ''}`}
+                  >
+                    {tmsFilter === 'disconnected' ? (
+                      <Unlink className="h-3.5 w-3.5 text-amber-500" strokeWidth={1.75} aria-hidden />
+                    ) : (
+                      <Link2 className={`h-3.5 w-3.5 ${tmsFilter === 'connected' ? 'text-emerald-500' : ''}`} strokeWidth={1.75} aria-hidden />
+                    )}
+                  </button>
+                </th>
                 <th className={`${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
                   <button
                     ref={boltMenuButtonRef}
@@ -1124,13 +1975,67 @@ export default function TransactionsListPage() {
                     aria-haspopup="menu"
                     aria-pressed={boltTone !== null}
                     title={boltTone ? `Filtering: ${BOLT_FILTERS.find((filter) => filter.tone === boltTone)?.label}` : 'Filter by lightning color'}
-                    onClick={() => setBoltMenuOpen((open) => !open)}
+                    onClick={() => {
+                      setTmsMenuOpen(false);
+                      setStatusMenuOpen(false);
+                      setBoltMenuOpen((open) => !open);
+                    }}
                     className={`inline-flex h-6 w-6 items-center justify-center rounded text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer ${boltTone ? 'bg-slate-200 dark:bg-slate-800' : ''}`}
                   >
-                    <Zap className="h-3.5 w-3.5" fill={boltTone ? 'currentColor' : 'none'} strokeWidth={1.75} aria-hidden />
+                    <Zap className={`h-3.5 w-3.5 ${BOLT_FILTERS.find((filter) => filter.tone === boltTone)?.iconClass ?? ''}`} fill={boltTone ? 'currentColor' : 'none'} strokeWidth={1.75} aria-hidden />
                   </button>
                 </th>
-                {schemaFields.map((field) => (
+                {schemaFields.map((field) => {
+                  const statusColumn = isStatusColumn(field);
+                  const statusLookup = statusColumn && statusSelection
+                    ? visibleStatusLookups.find((lookup) => lookup.optionLabel === statusSelection) ?? null
+                    : null;
+                  const statusColor = statusLookup ? colorForStatus(scorecards, statusLookup.optionLabel, statusLookup.optionValue) : null;
+                  const statusPill = statusColor
+                    ? SCORECARD_COLOR_STYLES[statusColor].tabActive
+                    : 'bg-slate-500/15 text-slate-700 dark:text-slate-200 border border-slate-400/40';
+                  if (statusColumn) {
+                    return (
+                      <th
+                        key={field.field_key}
+                        className={`${compactRows ? 'px-3 py-1.5' : 'px-4 py-3'} bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 whitespace-nowrap border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <button
+                            ref={field.field_key === 'transaction_status' || !schemaFields.some((item) => item.field_key === 'transaction_status') ? statusMenuButtonRef : undefined}
+                            type="button"
+                            aria-expanded={statusMenuOpen}
+                            aria-haspopup="menu"
+                            aria-pressed={Boolean(statusLookup)}
+                            title={statusLookup ? `Filtering: ${statusLookup.optionLabel}` : 'Filter by status'}
+                            onClick={() => {
+                              setBoltMenuOpen(false);
+                              setTmsMenuOpen(false);
+                              setStatusMenuOpen((open) => !open);
+                            }}
+                            className="inline-flex cursor-pointer items-center rounded font-semibold uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-slate-800"
+                          >
+                            {statusLookup ? (
+                              <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusPill}`}>
+                                {statusLookup.optionLabel}
+                              </span>
+                            ) : (
+                              <span className="px-0.5">{field.field_label}</span>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSort(field.field_key)}
+                            className="cursor-pointer text-slate-400 hover:text-slate-900 dark:text-slate-600 dark:hover:text-white"
+                            aria-label={`Sort ${field.field_label}`}
+                          >
+                            {sortField === field.field_key ? (sortOrder === 'asc' ? '↑' : '↓') : '↕'}
+                          </button>
+                        </div>
+                      </th>
+                    );
+                  }
+                  return (
                   <th
                     key={field.field_key}
                     onClick={() => handleSort(field.field_key)}
@@ -1143,7 +2048,8 @@ export default function TransactionsListPage() {
                       </span>
                     </div>
                   </th>
-                ))}
+                  );
+                })}
                 <th className={`${compactRows ? 'px-3 py-1.5' : 'px-4 py-3'} bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 whitespace-nowrap text-center`}>
                   Actions
                 </th>
@@ -1151,55 +2057,63 @@ export default function TransactionsListPage() {
 
               {/* Dynamic Filter Inputs */}
               {showFilters && (
-                <tr className="bg-slate-200 dark:bg-slate-950">
-                  <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />
+                <tr className="bg-slate-100 dark:bg-slate-900">
+                  {bulkMode && <th className="w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700" />}
+                  <th className="w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700" />
+                  <th className="w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700" />
                   {schemaFields.map((field) => (
-                    <th key={`filter_${field.field_key}`} className="p-2 min-w-[120px] bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800 border-r border-slate-300/40 dark:border-slate-800/40 last:border-r-0">
+                    <th key={`filter_${field.field_key}`} className="px-2 py-1.5 min-w-[120px] bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0">
                       {field.field_key === 'agent_id' || field.field_type === 'AGENT_PICKER' ? (
-                        <ClearableSelect
-                          allowBlank={false}
-                          clearValue="All"
-                          value={colFilters[field.field_key] || 'All'}
-                          onChange={(e) => handleFilterChange(field.field_key, e.target.value)}
-                          className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-1 text-[11px] text-slate-900 dark:text-white focus:outline-none font-normal"
-                        >
-                          <option value="All">All {field.field_label}</option>
-                          {agentsList.map((ag) => {
-                            const name = ag.agent_name || ag.name || '';
-                            return (
-                              <option key={ag.id || name} value={name}>
-                                {name}
-                              </option>
-                            );
-                          })}
-                        </ClearableSelect>
+                        <label className={filterShell}>
+                          <ClearableSelect
+                            allowBlank={false}
+                            clearValue="All"
+                            value={colFilters[field.field_key] || 'All'}
+                            onChange={(e) => handleFilterChange(field.field_key, e.target.value)}
+                            className={`${filterControl} cursor-pointer pr-5`}
+                          >
+                            <option value="All">All {field.field_label}</option>
+                            {agentsList.map((ag) => {
+                              const name = ag.agent_name || ag.name || '';
+                              return (
+                                <option key={ag.id || name} value={name}>
+                                  {name}
+                                </option>
+                              );
+                            })}
+                          </ClearableSelect>
+                        </label>
                       ) : field.field_type === 'SELECT' && Array.isArray(field.dropdown_options) ? (
-                        <ClearableSelect
-                          allowBlank={false}
-                          clearValue="All"
-                          value={colFilters[field.field_key] || 'All'}
-                          onChange={(e) => handleFilterChange(field.field_key, e.target.value)}
-                          className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-1.5 py-1 text-[11px] text-slate-900 dark:text-white focus:outline-none font-normal"
-                        >
-                          <option value="All">All {field.field_label}</option>
-                          {field.dropdown_options.map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </ClearableSelect>
+                        <label className={filterShell}>
+                          <ClearableSelect
+                            allowBlank={false}
+                            clearValue="All"
+                            value={colFilters[field.field_key] || 'All'}
+                            onChange={(e) => handleFilterChange(field.field_key, e.target.value)}
+                            className={`${filterControl} cursor-pointer pr-5`}
+                          >
+                            <option value="All">All {field.field_label}</option>
+                            {field.dropdown_options.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {opt}
+                              </option>
+                            ))}
+                          </ClearableSelect>
+                        </label>
                       ) : (
-                        <input
-                          type={field.field_type === 'DATE' ? 'date' : 'text'}
-                          placeholder={`Filter ${field.field_label}...`}
-                          value={colFilters[field.field_key] || ''}
-                          onChange={(e) => handleFilterChange(field.field_key, e.target.value)}
-                          className={`w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2 py-1 text-[11px] text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-normal ${field.field_type === 'DATE' ? 'text-center' : ''}`}
-                        />
+                        <label className={filterShell}>
+                          <input
+                            type={field.field_type === 'DATE' ? 'date' : 'text'}
+                            placeholder={`Filter ${field.field_label}...`}
+                            value={colFilters[field.field_key] || ''}
+                            onChange={(e) => handleFilterChange(field.field_key, e.target.value)}
+                            className={`${filterControl} ${field.field_type === 'DATE' ? 'dark:[color-scheme:dark]' : ''}`}
+                          />
+                        </label>
                       )}
                     </th>
                   ))}
-                  <th className="p-2 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />
+                  <th className="px-2 py-1.5 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700" />
                 </tr>
               )}
             </thead>
@@ -1208,33 +2122,98 @@ export default function TransactionsListPage() {
             <tbody className="text-slate-800 dark:text-slate-200 font-medium bg-white dark:bg-slate-800">
               {isLoading ? (
                 <tr>
-                  <td colSpan={schemaFields.length + 2} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
+                  <td colSpan={schemaFields.length + 3 + (bulkMode ? 1 : 0)} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
                     Loading synchronized schema & transaction ledger...
                   </td>
                 </tr>
               ) : processedDeals.length === 0 ? (
                 <tr>
-                  <td colSpan={schemaFields.length + 2} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
-                    No matching transaction records found for active filters.
+                  <td colSpan={schemaFields.length + 3 + (bulkMode ? 1 : 0)} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
+                    {showingDeleted && deletedDeals.length === 0
+                      ? 'No deleted transactions.'
+                      : ledgerView === SYNCED_TAB && syncedMatchCount === 0
+                        ? 'No transactions were added or updated in the last TMS sync.'
+                        : 'No matching transaction records found for active filters.'}
                   </td>
                 </tr>
               ) : (
                 processedDeals.map((deal, idx) => {
                   const dealId = deal.id || `TXN_${idx + 1}`;
+                  const rowNavigates = !showingDeleted && !bulkMode;
 
                   const bolt = templateBolt(deal);
+                  const tmsLink = markTmsLink(deal);
+                  const markClass = compactRows ? 'h-3.5 w-3.5' : 'h-4 w-4';
                   return (
                     <tr
                       key={dealId}
+                      data-bulk-id={bulkMode ? String(deal.id || dealId) : undefined}
+                      onPointerDown={(event) => {
+                        if (!bulkMode || event.button !== 0) return;
+                        const target = event.target as HTMLElement | null;
+                        if (target?.closest('a, button')) return;
+                        if (!target?.closest('input')) event.preventDefault();
+                        dragSelectRef.current = {
+                          startId: String(deal.id || dealId),
+                          originX: event.clientX,
+                          originY: event.clientY,
+                          clientX: event.clientX,
+                          clientY: event.clientY,
+                          dragging: false,
+                          base: new Set(selectedIds),
+                        };
+                      }}
                       onClick={(event) => {
+                        if (suppressRowClickRef.current) {
+                          suppressRowClickRef.current = false;
+                          return;
+                        }
                         const target = event.target as HTMLElement | null;
                         if (target?.closest('a, button, input, select, textarea, label')) return;
+                        if (bulkMode) {
+                          toggleRowSelection(String(deal.id || dealId));
+                          return;
+                        }
+                        if (showingDeleted) return;
                         router.push(`/commission-tracker/transactions/${dealId}`);
                       }}
-                      className="hover:bg-slate-100 dark:hover:bg-slate-700/50 transition cursor-pointer group"
+                      className={`hover:bg-slate-100 dark:hover:bg-slate-700/50 transition group ${rowNavigates || bulkMode ? 'cursor-pointer' : ''}`}
                     >
-                      <td className={`${compactRows ? 'px-2 py-0.5' : 'px-2 py-3'} w-8 border-b border-slate-200 dark:border-slate-700/60 text-center`}>
+                      {bulkMode && (
+                        <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 align-middle border-b border-slate-200 dark:border-slate-700/60 text-center`}>
+                          <span className="inline-flex items-center justify-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(String(deal.id || dealId))}
+                              onChange={() => toggleRowSelection(String(deal.id || dealId))}
+                              aria-label={`Select ${transactionDealLabel(deal) || String(deal.id || dealId)}`}
+                              className="block h-3.5 w-3.5 accent-emerald-500 cursor-pointer"
+                            />
+                          </span>
+                        </td>
+                      )}
+                      <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 border-b border-slate-200 dark:border-slate-700/60 text-center`}>
+                        {tmsLink ? (
+                          <span title={tmsLink.label} aria-label={tmsLink.label} className="inline-flex items-center justify-center">
+                            {tmsLink.disconnected ? (
+                              <Unlink className={`${markClass} text-amber-500`} strokeWidth={1.75} aria-hidden />
+                            ) : (
+                              <Link2 className={`${markClass} text-emerald-500`} strokeWidth={1.75} aria-hidden />
+                            )}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 border-b border-slate-200 dark:border-slate-700/60 text-center`}>
                         {bolt ? (
+                          !rowNavigates ? (
+                            <span title={bolt.label} aria-label={bolt.label} className="inline-flex rounded p-0.5">
+                              <Zap
+                                className={`${markClass} ${bolt.tone === 'submitted' ? 'text-emerald-500' : bolt.tone === 'drift' ? 'text-violet-400' : bolt.tone === 'ineligible' ? 'text-rose-500' : 'text-amber-400'}`}
+                                fill="currentColor"
+                                strokeWidth={1.75}
+                              />
+                            </span>
+                          ) : (
                           <Link
                             href={`/commission-tracker/transactions/${dealId}#commission`}
                             title={bolt.label}
@@ -1249,11 +2228,12 @@ export default function TransactionsListPage() {
                             }}
                           >
                             <Zap
-                              className={`${compactRows ? 'h-3.5 w-3.5' : 'h-4 w-4'} ${bolt.tone === 'submitted' ? 'text-emerald-500' : bolt.tone === 'drift' ? 'text-violet-400' : bolt.tone === 'ineligible' ? 'text-rose-500' : 'text-amber-400'}`}
+                              className={`${markClass} ${bolt.tone === 'submitted' ? 'text-emerald-500' : bolt.tone === 'drift' ? 'text-violet-400' : bolt.tone === 'ineligible' ? 'text-rose-500' : 'text-amber-400'}`}
                               fill="currentColor"
                               strokeWidth={1.75}
                             />
                           </Link>
+                          )
                         ) : templateBoltChecking(deal) ? (
                           <span
                             className="inline-flex rounded p-0.5"
@@ -1262,23 +2242,38 @@ export default function TransactionsListPage() {
                             aria-label="Checking template status"
                           >
                             <Loader2
-                              className={`${compactRows ? 'h-3.5 w-3.5' : 'h-4 w-4'} animate-spin text-slate-400 dark:text-slate-500`}
+                              className={`${markClass} animate-spin text-slate-400 dark:text-slate-500`}
                               strokeWidth={1.75}
                               aria-hidden
                             />
                           </span>
                         ) : null}
                       </td>
-                      {schemaFields.map((field) => (
-                        <td key={field.field_key} className={`${compactRows ? 'px-3 py-0.5 leading-4' : 'px-4 py-3'} whitespace-nowrap border-b border-slate-200 dark:border-slate-700/60 ${isNumericColumn(field) ? 'text-right tabular-nums' : ''} ${isDateColumn(field) ? 'text-center tabular-nums' : ''}`}>
+                      {schemaFields.map((field) => {
+                        const changedBySync = syncChangesOn && syncHighlights.get(String(deal.id))?.has(field.field_key);
+                        return (
+                        <td
+                          key={field.field_key}
+                          title={changedBySync ? 'Changed in the last TMS sync' : undefined}
+                          className={`${compactRows ? 'px-3 py-0.5 leading-4' : 'px-4 py-3'} whitespace-nowrap border-b border-slate-200 dark:border-slate-700/60 ${isNumericColumn(field) ? 'text-right tabular-nums' : ''} ${isDateColumn(field) ? 'text-center tabular-nums' : ''} ${changedBySync ? 'bg-amber-100 text-amber-950 dark:bg-amber-400/20 dark:text-amber-100' : ''}`}
+                        >
                           {field.field_key === 'id' ? (
+                            !rowNavigates ? (
+                              <span className="font-bold text-slate-800 dark:text-slate-100">{String(deal[field.field_key] || dealId)}</span>
+                            ) : (
                             <Link
                               href={`/commission-tracker/transactions/${dealId}`}
                               className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
                             >
                               {String(deal[field.field_key] || dealId)}
                             </Link>
+                            )
                           ) : field.field_key === 'property_address' ? (
+                            !rowNavigates ? (
+                              deal.property_address
+                                ? <span className="font-semibold text-slate-800 dark:text-slate-100">{String(deal.property_address)}</span>
+                                : <span className="text-slate-400 italic font-normal">-</span>
+                            ) : (
                             <Link
                               href={`/commission-tracker/transactions/${dealId}`}
                               className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
@@ -1287,12 +2282,44 @@ export default function TransactionsListPage() {
                                 ? String(deal.property_address)
                                 : <span className="text-slate-400 italic font-normal">-</span>}
                             </Link>
+                            )
                           ) : (
                             renderCellContent(deal, field)
                           )}
                         </td>
-                      ))}
+                        );
+                      })}
                       <td className={`${compactRows ? 'px-3 py-0.5' : 'px-4 py-3'} whitespace-nowrap border-b border-slate-200 dark:border-slate-700/60 text-center`}>
+                        {showingDeleted ? (
+                          <div className="inline-flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => void restoreDeal(deal, String(deal.id || dealId))}
+                              disabled={restoringId === String(deal.id || dealId)}
+                              className={`inline-flex items-center justify-center rounded text-emerald-600 hover:text-emerald-500 hover:bg-emerald-500/10 cursor-pointer disabled:opacity-50 dark:text-emerald-400 ${compactRows ? 'h-4 w-4' : 'h-7 w-7'}`}
+                              title="Restore transaction"
+                              aria-label={`Restore ${transactionDealLabel(deal) || String(deal.id || dealId)}`}
+                            >
+                              <RotateCcw className={compactRows ? 'h-3.5 w-3.5' : 'h-4 w-4'} strokeWidth={1.75} aria-hidden />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPermanentError(null);
+                                setPendingPermanent({
+                                  id: String(deal.id || dealId),
+                                  label: transactionDealLabel(deal) || String(deal.id || dealId),
+                                  clientId: String(deal.client_id || 'DEMO'),
+                                });
+                              }}
+                              className={`inline-flex items-center justify-center rounded text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer ${compactRows ? 'h-4 w-4' : 'h-7 w-7'}`}
+                              title="Permanently delete"
+                              aria-label={`Permanently delete ${transactionDealLabel(deal) || String(deal.id || dealId)}`}
+                            >
+                              <TrashIcon className={compactRows ? 'h-3.5 w-3.5' : undefined} />
+                            </button>
+                          </div>
+                        ) : (
                         <button
                           type="button"
                           onClick={() => requestDelete(deal, String(deal.id || dealId))}
@@ -1302,6 +2329,7 @@ export default function TransactionsListPage() {
                         >
                           <TrashIcon className={compactRows ? 'h-3.5 w-3.5' : undefined} />
                         </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -1313,10 +2341,44 @@ export default function TransactionsListPage() {
 
         {/* Footer */}
         <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 pt-2">
-          <span>Displaying {processedDeals.length} of {deals.length} records</span>
+          <span>Displaying {processedDeals.length} of {showingDeleted ? deletedDeals.length : deals.length} records</span>
           <span className="text-[11px] italic">Columns synchronized dynamically with client schema configuration</span>
         </div>
       </div>
+
+      {tmsMenuOpen && createPortal(
+        <div
+          ref={tmsMenuPanelRef}
+          role="menu"
+          style={{ top: tmsMenuBox.top, left: tmsMenuBox.left }}
+          className="fixed z-[80] w-64 rounded-lg border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-800"
+        >
+          {TMS_FILTERS.map((filter) => {
+            const selected = tmsFilter === filter.value;
+            const Icon = filter.value === 'disconnected' ? Unlink : Link2;
+            return (
+              <button
+                key={filter.value}
+                type="button"
+                role="menuitemradio"
+                aria-checked={selected}
+                onClick={() => {
+                  setTmsFilter(selected ? null : filter.value);
+                  setTmsMenuOpen(false);
+                }}
+                className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-bold cursor-pointer ${
+                  selected ? filter.activeClass : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700'
+                }`}
+              >
+                <Icon className={`h-3.5 w-3.5 shrink-0 ${filter.iconClass}`} strokeWidth={1.75} aria-hidden />
+                <span className="flex-1 text-left">{filter.label}</span>
+                <span className={`tabular-nums ${selected ? 'opacity-80' : 'text-slate-500 dark:text-slate-400'}`}>{tmsCounts[filter.value]}</span>
+              </button>
+            );
+          })}
+        </div>,
+        document.body,
+      )}
 
       {boltMenuOpen && createPortal(
         <div
@@ -1351,16 +2413,98 @@ export default function TransactionsListPage() {
         document.body,
       )}
 
+      {statusMenuOpen && createPortal(
+        <div
+          ref={statusMenuPanelRef}
+          role="menu"
+          style={{ top: statusMenuBox.top, left: statusMenuBox.left }}
+          className="fixed z-[80] w-64 rounded-lg border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-800"
+        >
+          {visibleStatusLookups.map((lookup) => {
+            const selected = statusSelection === lookup.optionLabel;
+            const color = colorForStatus(scorecards, lookup.optionLabel, lookup.optionValue);
+            const pill = color
+              ? SCORECARD_COLOR_STYLES[color].tabActive
+              : 'bg-slate-500/15 text-slate-700 dark:text-slate-200 border border-slate-400/40';
+            return (
+              <button
+                key={lookup.optionLabel}
+                type="button"
+                role="menuitemradio"
+                aria-checked={selected}
+                onClick={() => {
+                  setStatusSelection(selected ? null : lookup.optionLabel);
+                  setStatusMenuOpen(false);
+                }}
+                className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-bold cursor-pointer ${
+                  selected ? 'bg-slate-100 dark:bg-slate-700' : 'hover:bg-slate-100 dark:hover:bg-slate-700'
+                }`}
+              >
+                <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${pill}`}>
+                  {lookup.optionLabel}
+                </span>
+                <span className={`ml-auto tabular-nums ${selected ? 'text-slate-700 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>
+                  {statusMenuCounts.get(lookup.optionLabel) ?? 0}
+                </span>
+              </button>
+            );
+          })}
+        </div>,
+        document.body,
+      )}
+
+      {pendingBulkDelete && (
+        <ConfirmDialog
+          title={`Delete ${selectedIds.size} ${selectedIds.size === 1 ? 'transaction' : 'transactions'}?`}
+          message={selectedIds.size === 1
+            ? 'This removes the transaction, including its commission and payment records. You can restore it from Deleted.'
+            : `This removes these ${selectedIds.size} transactions, including their commission and payment records. You can restore them from Deleted.`}
+          error={bulkDeleteError}
+          isPending={isBulkDeleting}
+          onCancel={() => {
+            if (!isBulkDeleting) setPendingBulkDelete(false);
+          }}
+          onConfirm={() => void confirmBulkDelete()}
+        />
+      )}
       {pendingDelete && (
         <ConfirmDialog
           title={`Delete transaction "${pendingDelete.label}"?`}
-          message="This removes the transaction, including its commission and payment records."
+          message="This removes the transaction, including its commission and payment records. You can restore it from Deleted Transactions."
           error={deleteError}
           isPending={isDeleting}
           onCancel={() => {
             if (!isDeleting) setPendingDelete(null);
           }}
           onConfirm={() => void confirmDelete()}
+        />
+      )}
+      {pendingPermanent && (
+        <ConfirmDialog
+          title={`Permanently delete "${pendingPermanent.label}"?`}
+          message="This transaction will leave Deleted Transactions and cannot be restored. A later sync will not add it again."
+          error={permanentError}
+          confirmLabel="Delete permanently"
+          pendingLabel="Deleting..."
+          isPending={isPermanentDeleting}
+          onCancel={() => {
+            if (!isPermanentDeleting) setPendingPermanent(null);
+          }}
+          onConfirm={() => void confirmPermanentDelete()}
+        />
+      )}
+      {bulkDialogOpen && (
+        <BulkUpdateDialog
+          fields={schemaFields}
+          agents={agentsList}
+          selectedDeals={deals.filter((deal) => selectedIds.has(String(deal.id)))}
+          selectedCount={selectedIds.size}
+          isPending={isBulkUpdating}
+          error={bulkError}
+          onCancel={() => {
+            if (!isBulkUpdating) setBulkDialogOpen(false);
+          }}
+          onConfirm={(fieldKey, value) => void confirmBulkUpdate(fieldKey, value)}
         />
       )}
     </main>

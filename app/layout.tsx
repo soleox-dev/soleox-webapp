@@ -6,6 +6,7 @@ import { Providers } from './providers';
 import Navbar from '@/components/Navbar';
 import { BackToTop } from '@/components/BackToTop';
 import { PageTitle } from '@/components/PageTitle';
+import { ModalScrollLock } from '@/components/ui/ModalScrollLock';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -66,6 +67,7 @@ export default function RootLayout({
             <PageTitle />
             {children}
             <BackToTop />
+            <ModalScrollLock />
           </Providers>
         </AuthProvider>
       </body>

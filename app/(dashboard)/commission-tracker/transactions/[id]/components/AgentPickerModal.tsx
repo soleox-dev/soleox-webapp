@@ -75,7 +75,7 @@ export function AgentPickerModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-center items-center p-4">
+    <div className="app-modal fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-center items-center p-4">
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-lg rounded-xl p-6 shadow-2xl space-y-4">
         <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
           <div className="flex items-center gap-2">

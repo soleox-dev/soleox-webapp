@@ -824,9 +824,9 @@ export type Database = {
           list_date: string | null
           list_price: number | null
           notes: string | null
+          permanently_deleted: boolean
           property_address: string | null
           sales_price: number | null
-          settlement_vendors: Json | null
           tms_id: string | null
           total_commission: number | null
           transaction_coordinator: string[] | null
@@ -859,9 +859,9 @@ export type Database = {
           list_date?: string | null
           list_price?: number | null
           notes?: string | null
+          permanently_deleted?: boolean
           property_address?: string | null
           sales_price?: number | null
-          settlement_vendors?: Json | null
           tms_id?: string | null
           total_commission?: number | null
           transaction_coordinator?: string[] | null
@@ -894,9 +894,9 @@ export type Database = {
           list_date?: string | null
           list_price?: number | null
           notes?: string | null
+          permanently_deleted?: boolean
           property_address?: string | null
           sales_price?: number | null
-          settlement_vendors?: Json | null
           tms_id?: string | null
           total_commission?: number | null
           transaction_coordinator?: string[] | null

@@ -29,7 +29,7 @@ export function CancelEditPrompt({ open, sectionLabel, onKeepEditing, onDiscard 
   if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[80] bg-slate-950/70 backdrop-blur-sm flex justify-center items-center p-4">
+    <div className="app-modal fixed inset-0 z-[80] bg-slate-950/70 backdrop-blur-sm flex justify-center items-center p-4">
       <div
         role="dialog"
         aria-modal="true"

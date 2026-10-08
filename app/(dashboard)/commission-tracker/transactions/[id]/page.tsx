@@ -454,6 +454,7 @@ export default function Dashboard() {
     } else if (changed) {
       setHasUnsavedLocalChanges(true);
     }
+    scrollToSection('commission');
   };
 
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
@@ -751,7 +752,7 @@ export default function Dashboard() {
     'lead_owner', 'list_price', 'sales_price', 'gci_type', 'gci_perc',
     'gci_amount', 'total_commission', 'transaction_fee', 'list_date',
     'acceptance_date', 'closing_date', 'agent_id', 'isa',
-    'transaction_coordinator', 'co_broker', 'settlement_vendors',
+    'transaction_coordinator', 'co_broker',
     'address_details', 'notes', 'archived', 'created_at', 'created_by',
     'updated_at', 'updated_by'
   ]);
@@ -825,7 +826,6 @@ export default function Dashboard() {
       isa: form.isa ? (Array.isArray(form.isa) ? form.isa : [form.isa]) : (selectedDeal?.isa ?? null),
       transaction_coordinator: form.transaction_coordinator ? (Array.isArray(form.transaction_coordinator) ? form.transaction_coordinator : [form.transaction_coordinator]) : (selectedDeal?.transaction_coordinator ?? null),
       co_broker: form.co_broker ?? selectedDeal?.co_broker ?? null,
-      settlement_vendors: form.settlement_vendors ?? selectedDeal?.settlement_vendors ?? null,
       address_details: form.address_details ?? selectedDeal?.address_details ?? null,
       notes: form.notes ?? selectedDeal?.notes ?? null,
       archived: form.archived ?? selectedDeal?.archived ?? false,

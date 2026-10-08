@@ -1643,9 +1643,6 @@
       "co_broker": {
         "co_broker": null
       },
-      "settlement_vendors": {
-        "settlement_vendors": null
-      },
       "address_details": {
         "address_details": null
       },
@@ -1682,7 +1679,6 @@
       "isa": [],
       "transaction_coordinator": [],
       "co_broker": {},
-      "settlement_vendors": {},
       "address_details": {},
       "notes": null,
       "custom_attributes": {
@@ -1815,9 +1811,6 @@
       "co_broker": {
         "co_broker": null
       },
-      "settlement_vendors": {
-        "settlement_vendors": null
-      },
       "address_details": {
         "address_details": null
       },
@@ -1903,7 +1896,6 @@
       "isa": [],
       "transaction_coordinator": [],
       "co_broker": {},
-      "settlement_vendors": {},
       "address_details": {},
       "notes": null,
       "custom_attributes": {
@@ -1982,7 +1974,6 @@
       "isa": null,
       "transaction_coordinator": null,
       "co_broker": null,
-      "settlement_vendors": null,
       "address_details": null,
       "notes": null,
       "custom_attributes": {

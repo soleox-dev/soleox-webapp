@@ -9,10 +9,11 @@ import { ZodError } from 'zod';
 // GET: Fetch active transactions for a tenant
 export async function GET(request: Request) {
   const clientId = request.headers.get('x-client-id') || request.headers.get('client_id') || 'DEMO';
+  const view = new URL(request.url).searchParams.get('view');
 
   try {
     const supabase = await getAuthenticatedSupabase();
-    const transactions = await getTransactions(clientId, supabase);
+    const transactions = await getTransactions(clientId, supabase, view === 'deleted' ? 'deleted' : 'active');
     return NextResponse.json({ success: true, transactions });
   } catch (error: any) {
     console.error('Error in GET /api/transactions:', error);

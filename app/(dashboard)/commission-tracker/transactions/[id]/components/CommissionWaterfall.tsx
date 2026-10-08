@@ -1531,7 +1531,7 @@ export function CommissionWaterfall({
       />
       {confirmReset && (
         <div
-          className="fixed inset-0 z-[80] bg-slate-950/70 backdrop-blur-sm flex justify-center items-center p-4"
+          className="app-modal fixed inset-0 z-[80] bg-slate-950/70 backdrop-blur-sm flex justify-center items-center p-4"
           onClick={() => setConfirmReset(false)}
         >
           <div

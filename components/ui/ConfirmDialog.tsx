@@ -23,7 +23,7 @@ export function ConfirmDialog({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4"
+      className="app-modal fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4"
       onClick={() => {
         if (!isPending) onCancel();
       }}

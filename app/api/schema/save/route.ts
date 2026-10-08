@@ -58,6 +58,7 @@ export async function POST(request: Request) {
         min_date: f.min_date ? String(f.min_date) : null,
         max_length: f.max_length ? Number(f.max_length) : null,
         visibility_rules: f.visibility_rule || f.visibility_rules || {},
+        calculation_formula: f.calculation_formula ? String(f.calculation_formula).trim() : null,
         regex_pattern: f.regex_pattern ? String(f.regex_pattern) : null,
         regex_mode: String(f.regex_mode || 'MATCHES'),
       };

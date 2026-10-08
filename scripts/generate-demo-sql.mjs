@@ -321,13 +321,6 @@ txCsv.forEach(tx => {
   const createdAt = parseExcelDateTime(tx.Added) || '2026-08-01T00:00:00+00:00';
   const updatedAt = parseExcelDateTime(tx['Last Modified']) || '2026-08-15T00:00:00+00:00';
 
-  const settlementVendors = {
-    lending_company: tx['Lending Company'] || null,
-    loan_officer: tx['Lending Officer'] || null,
-    title_company: tx['Title Company'] || null,
-    title_officer: tx['Title Officer'] || null,
-  };
-
   const txComms = commsByTx.get(legacyId) || [];
   
   // 1. Off the top rules
@@ -426,7 +419,7 @@ txCsv.forEach(tx => {
     postSplitRulesByAgent,
   };
 
-  txRowsSql.push(`  (${sqlEscape(newTxId)}, 'DEMO', ${sqlEscape(legacyId)}, ${sqlEscape(tx.Status || 'Active')}, ${sqlEscape(tx['Finance Status'] || null)}, ${sqlEscape(tx['Client Type'] || 'Buyer')}, ${sqlEscape(tx['Property Address'] || '')}, ${sqlEscape(tx['Client Name'] || null)}, ${sqlEscape(tx['Lead Source'] || null)}, ${sqlEscape(listDate)}, ${sqlEscape(listPrice)}, ${sqlEscape(acceptanceDate)}, ${sqlEscape(closingDate)}, ${sqlEscape(salesPrice)}, 'PERCENTAGE', ${sqlEscape(gciPerc)}, ${sqlEscape(gciAmount)}, ${sqlEscape(txFee)}, ${sqlEscape(totalComm)}, ${sqlEscape(agentId)}, ${sqlEscape(tx.Notes || null)}, ${sqlEscape(settlementVendors)}, ${sqlEscape(customAttrs)}, FALSE, ${sqlEscape(createdAt)}, ${sqlEscape(updatedAt)})`);
+  txRowsSql.push(`  (${sqlEscape(newTxId)}, 'DEMO', ${sqlEscape(legacyId)}, ${sqlEscape(tx.Status || 'Active')}, ${sqlEscape(tx['Finance Status'] || null)}, ${sqlEscape(tx['Client Type'] || 'Buyer')}, ${sqlEscape(tx['Property Address'] || '')}, ${sqlEscape(tx['Client Name'] || null)}, ${sqlEscape(tx['Lead Source'] || null)}, ${sqlEscape(listDate)}, ${sqlEscape(listPrice)}, ${sqlEscape(acceptanceDate)}, ${sqlEscape(closingDate)}, ${sqlEscape(salesPrice)}, 'PERCENTAGE', ${sqlEscape(gciPerc)}, ${sqlEscape(gciAmount)}, ${sqlEscape(txFee)}, ${sqlEscape(totalComm)}, ${sqlEscape(agentId)}, ${sqlEscape(tx.Notes || null)}, ${sqlEscape(customAttrs)}, FALSE, ${sqlEscape(createdAt)}, ${sqlEscape(updatedAt)})`);
 });
 
 const BATCH_SIZE = 100;
@@ -443,7 +436,7 @@ for (let i = 0; i < txRowsSql.length; i += BATCH_SIZE) {
   property_address, client_name, lead_source, list_date, list_price,
   acceptance_date, closing_date, sales_price, gci_type, gci_perc,
   gci_amount, transaction_fee, total_commission, agent_id, notes,
-  settlement_vendors, custom_attributes, archived, created_at, updated_at
+  custom_attributes, archived, created_at, updated_at
 )
 VALUES
 ` + batch.join(',\n') + `
@@ -467,7 +460,6 @@ ON CONFLICT (id) DO UPDATE SET
   total_commission = EXCLUDED.total_commission,
   agent_id = EXCLUDED.agent_id,
   notes = EXCLUDED.notes,
-  settlement_vendors = EXCLUDED.settlement_vendors,
   custom_attributes = EXCLUDED.custom_attributes,
   archived = FALSE,
   updated_at = EXCLUDED.updated_at;\n`;

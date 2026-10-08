@@ -6,6 +6,7 @@ import { Transaction } from '@/types/schema';
 import { CreateTransactionInput } from '@/lib/validations/transaction';
 import { processTransactionWaterfall } from '@/lib/services/waterfall-service';
 import { generatePrefixedId } from '@/lib/id';
+import { recordUserFieldProtections } from '@/lib/transaction-field-protections';
 
 // Helper utility to safely round currency values to 2 decimal places
 const roundCurrency = (num: number): number => {
@@ -34,19 +35,27 @@ export function presentTransaction(row: any): any {
 }
 
 /**
- * Fetch active, non-archived transactions for a specific client tenant.
+ * Fetch transactions for a specific client tenant.
+ * Active rows are the live ledger. Deleted rows are archived and still restorable.
  * Joins/resolves agent_id to the agents table to provide agent_name and primary_agent.
  */
-export async function getTransactions(clientId: string, client?: SupabaseClient): Promise<Transaction[]> {
+export async function getTransactions(
+  clientId: string,
+  client?: SupabaseClient,
+  scope: 'active' | 'deleted' = 'active',
+): Promise<Transaction[]> {
   const sb = client || (await getAuthenticatedSupabase());
 
+  let transactionsQuery = sb
+    .from('transactions')
+    .select('*')
+    .eq('client_id', clientId);
+  transactionsQuery = scope === 'deleted'
+    ? transactionsQuery.eq('archived', true).eq('permanently_deleted', false)
+    : transactionsQuery.or('archived.is.null,archived.eq.false');
+
   const [txRes, agentsRes] = await Promise.all([
-    sb
-      .from('transactions')
-      .select('*')
-      .eq('client_id', clientId)
-      .or('archived.is.null,archived.eq.false')
-      .order('created_at', { ascending: false }),
+    transactionsQuery.order('created_at', { ascending: false }),
     sb
       .from('agents')
       .select('id, agent_name')
@@ -150,6 +159,18 @@ export async function createTransaction(
   const isExistingRecord = Boolean(input.id && input.id.trim() !== '');
   const transactionId = isExistingRecord ? input.id! : generatePrefixedId('TXN');
 
+  let previousRow: Record<string, unknown> | null = null;
+  if (isExistingRecord) {
+    const { data: existingRow, error: existingError } = await sb
+      .from('transactions')
+      .select('*')
+      .eq('id', transactionId)
+      .eq('client_id', input.client_id)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    previousRow = existingRow;
+  }
+
   // Preserve custom attributes and scope unmapped/JSON fields like admin_fee into custom_attributes
   const existingCustomAttrs =
     typeof input.custom_attributes === 'object' && input.custom_attributes !== null
@@ -187,6 +208,12 @@ export async function createTransaction(
     id: transactionId,
     client_id: input.client_id,
     ...(input.tms_id !== undefined ? { tms_id: input.tms_id } : {}),
+    ...(input.tms_id !== undefined
+      && (previousRow?.tms_connection === 'connected' || previousRow?.tms_connection === 'disconnected')
+      && (
+        !String(input.tms_id ?? '').trim()
+        || String(input.tms_id ?? '').trim() !== String(previousRow?.tms_id ?? '').trim()
+      ) ? { tms_connection: null } : {}),
     ...(input.transaction_status !== undefined ? { transaction_status: input.transaction_status } : {}),
     ...(input.finance_status !== undefined ? { finance_status: input.finance_status } : {}),
     ...(input.transaction_side !== undefined ? { transaction_side: input.transaction_side } : {}),
@@ -208,7 +235,6 @@ export async function createTransaction(
     ...(input.isa !== undefined ? { isa: input.isa } : {}),
     ...(input.transaction_coordinator !== undefined ? { transaction_coordinator: input.transaction_coordinator } : {}),
     ...(input.co_broker !== undefined ? { co_broker: input.co_broker } : {}),
-    ...(input.settlement_vendors !== undefined ? { settlement_vendors: input.settlement_vendors } : {}),
     ...(input.address_details !== undefined ? { address_details: input.address_details } : {}),
     ...(input.notes !== undefined ? { notes: input.notes } : {}),
     custom_attributes: cleanCustomAttributes,
@@ -352,6 +378,23 @@ export async function createTransaction(
     await storeTemplateSubmission(sb, input.client_id, finalTransactionId, templateSubmission, userId);
   }
 
+  try {
+    await recordUserFieldProtections(sb, {
+      clientId: input.client_id,
+      transactionId: finalTransactionId,
+      userId,
+      previous: previousRow,
+      next: rowPayload,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    const missingTable = message.includes('does not exist') || message.includes('schema cache');
+    if (!missingTable) {
+      throw new Error(`The transaction was saved, but a field lock could not be recorded. ${message}`);
+    }
+    console.warn('Field protections were not recorded:', message);
+  }
+
   return {
     transactionId: finalTransactionId,
     success: true,
@@ -361,6 +404,32 @@ export async function createTransaction(
 }
 
 /** Archives a transaction and the commission, payment, and template records that belong to it. */
+const TRANSACTION_CHILD_TABLES = [
+  'transaction_commission_items',
+  'payments',
+  'commission_template_submissions',
+] as const;
+
+async function setChildRecordsArchived(
+  sb: SupabaseClient,
+  clientId: string,
+  transactionId: string,
+  archived: boolean,
+  userId: string,
+) {
+  const now = new Date().toISOString();
+  for (const table of TRANSACTION_CHILD_TABLES) {
+    let query = sb
+      .from(table)
+      .update({ archived, updated_at: now, updated_by: userId })
+      .eq('transaction_id', transactionId)
+      .eq('client_id', clientId);
+    if (!archived) query = query.eq('archived', true);
+    const { error } = await query;
+    if (error) throw new Error(error.message);
+  }
+}
+
 export async function deleteTransaction(
   clientId: string,
   transactionId: string,
@@ -369,11 +438,6 @@ export async function deleteTransaction(
 ) {
   const sb = client || (await getAuthenticatedSupabase());
   const now = new Date().toISOString();
-  const archivedRow = {
-    archived: true,
-    updated_at: now,
-    updated_by: userId,
-  };
 
   const { data: existing, error: lookupError } = await sb
     .from('transactions')
@@ -386,31 +450,105 @@ export async function deleteTransaction(
   if (lookupError) throw new Error(lookupError.message);
   if (!existing) throw new Error('Transaction not found.');
 
-  const relatedTables = [
-    'transaction_commission_items',
-    'payments',
-    'commission_template_submissions',
-  ] as const;
-
-  for (const table of relatedTables) {
-    const { error } = await sb
-      .from(table)
-      .update(archivedRow)
-      .eq('transaction_id', transactionId)
-      .eq('client_id', clientId);
-
-    if (error) throw new Error(error.message);
-  }
+  await setChildRecordsArchived(sb, clientId, transactionId, true, userId);
 
   const { data: archived, error: archiveError } = await sb
     .from('transactions')
-    .update(archivedRow)
+    .update({ archived: true, updated_at: now, updated_by: userId })
     .eq('id', transactionId)
     .eq('client_id', clientId)
     .select('id');
 
   if (archiveError) throw new Error(archiveError.message);
   if (!archived?.length) throw new Error('Transaction not found or you do not have permission to delete it.');
+
+  return { id: transactionId };
+}
+
+const MAX_BULK_DELETE = 500;
+
+export async function deleteTransactions(
+  clientId: string,
+  ids: string[],
+  userId: string,
+  client?: SupabaseClient,
+) {
+  const unique = [...new Set(ids.map((id) => String(id || '').trim()).filter(Boolean))];
+  if (unique.length === 0) throw new Error('Choose at least one transaction.');
+  if (unique.length > MAX_BULK_DELETE) throw new Error(`Choose ${MAX_BULK_DELETE} transactions or fewer.`);
+
+  const deleted: string[] = [];
+  const errors: { id: string; message: string }[] = [];
+  for (const id of unique) {
+    try {
+      await deleteTransaction(clientId, id, userId, client);
+      deleted.push(id);
+    } catch (error) {
+      errors.push({ id, message: error instanceof Error ? error.message : 'Could not delete this transaction.' });
+    }
+  }
+  return { deleted, errors };
+}
+
+/** Puts a deleted transaction back on the active ledger and restores the records archived with it. */
+export async function restoreTransaction(
+  clientId: string,
+  transactionId: string,
+  userId: string,
+  client?: SupabaseClient,
+) {
+  const sb = client || (await getAuthenticatedSupabase());
+  const now = new Date().toISOString();
+
+  const { data: existing, error: lookupError } = await sb
+    .from('transactions')
+    .select('id, archived, permanently_deleted')
+    .eq('id', transactionId)
+    .eq('client_id', clientId)
+    .maybeSingle();
+
+  if (lookupError) throw new Error(lookupError.message);
+  if (!existing || existing.archived !== true) throw new Error('Transaction not found.');
+  if (existing.permanently_deleted === true) throw new Error('This transaction was permanently deleted.');
+
+  await setChildRecordsArchived(sb, clientId, transactionId, false, userId);
+
+  const { data: restored, error: restoreError } = await sb
+    .from('transactions')
+    .update({ archived: false, permanently_deleted: false, updated_at: now, updated_by: userId })
+    .eq('id', transactionId)
+    .eq('client_id', clientId)
+    .eq('archived', true)
+    .eq('permanently_deleted', false)
+    .select('id');
+
+  if (restoreError) throw new Error(restoreError.message);
+  if (!restored?.length) throw new Error('Transaction not found or you do not have permission to restore it.');
+
+  return { id: transactionId };
+}
+
+/** Hides a deleted transaction for good. The row stays so sync will not create it again. */
+export async function permanentlyDeleteTransaction(
+  clientId: string,
+  transactionId: string,
+  userId: string,
+  client?: SupabaseClient,
+) {
+  const sb = client || (await getAuthenticatedSupabase());
+  const now = new Date().toISOString();
+
+  const { data: removed, error } = await sb
+    .from('transactions')
+    .update({ archived: true, permanently_deleted: true, updated_at: now, updated_by: userId })
+    .eq('id', transactionId)
+    .eq('client_id', clientId)
+    .eq('archived', true)
+    .eq('permanently_deleted', false)
+    .select('id');
+
+  if (error) throw new Error(error.message);
+  if (!removed?.length) throw new Error('Transaction not found or you do not have permission to delete it.');
 
   return { id: transactionId };
 }

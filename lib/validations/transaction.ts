@@ -66,7 +66,6 @@ export const CreateTransactionSchema = z
     isa: z.array(z.string()).optional().nullable(),
     transaction_coordinator: z.array(z.string()).optional().nullable(),
     co_broker: jsonbRecord,
-    settlement_vendors: jsonbRecord,
     address_details: jsonbRecord,
     notes: nullableString,
 

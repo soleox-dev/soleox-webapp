@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/transaction-sync",
+      "schedule": "0 * * * *"
+    }
+  ]
+}

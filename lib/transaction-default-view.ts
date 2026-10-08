@@ -153,6 +153,28 @@ export function transactionQualifiesForTemplate(
   return result?.type === 'boolean' && result.value;
 }
 
+export type SyncViewResult = 'match' | 'excluded' | 'error';
+
+/**
+ * Sync eligibility is the opposite of a blank or failed list filter.
+ * A blank formula, a formula error, or any result other than true does not match.
+ */
+export function dealMatchesSyncView(
+  deal: Record<string, unknown>,
+  filterFormula: string,
+  fieldTypes: Record<string, string> = {},
+): SyncViewResult {
+  const formula = filterFormula.trim();
+  if (!formula) return 'error';
+  const result = evaluateFormula(formula, (name) => {
+    const key = name.toLowerCase() === 'status' ? 'transaction_status' : name;
+    return toFormulaValue(readDealField(deal, name), fieldTypes[key]);
+  });
+  if (!result || result.type === 'error') return 'error';
+  if (result.type === 'boolean' && result.value) return 'match';
+  return 'excluded';
+}
+
 /** A blank formula includes every transaction. Anything other than true is left out. */
 export function dealMatchesDefaultView(
   deal: Record<string, unknown>,

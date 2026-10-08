@@ -246,3 +246,13 @@ input[type="date"].date-all-selected::-webkit-datetime-edit-text {
   color: HighlightText;
   -webkit-text-fill-color: HighlightText;
 }
+
+/* A popup owns the screen. The page behind it does not scroll. */
+html.modal-open,
+html.modal-open body {
+  overflow: hidden;
+}
+
+.app-modal {
+  overscroll-behavior: none;
+}

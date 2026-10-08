@@ -2,9 +2,13 @@ import React from 'react';
 
 interface LogoProps {
   className?: string;
+  wordClassName?: string;
 }
 
-export function SoleoxLogo({ className = "h-8 w-auto" }: LogoProps) {
+export function SoleoxLogo({
+  className = "h-8 w-auto",
+  wordClassName = "text-slate-900 dark:text-white",
+}: LogoProps) {
   return (
     <div className="flex items-center gap-2">
       {/* Precision-Cropped SVG Icon */}
@@ -78,7 +82,7 @@ export function SoleoxLogo({ className = "h-8 w-auto" }: LogoProps) {
       </svg>
 
       {/* Styled Brand Name Typography */}
-      <span className="text-xl font-semibold text-slate-900 dark:text-white tracking-normal">
+      <span className={`text-xl font-semibold tracking-normal ${wordClassName}`}>
         Soleox
       </span>
     </div>

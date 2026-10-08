@@ -82,10 +82,12 @@ interface ToastNotification {
 const HIDDEN_SYSTEM_KEYS = new Set([
   'client_id',
   'archived',
+  'permanently_deleted',
   'custom_attributes',
   'address_details',
   'co_broker',
   'settlement_vendors',
+  'tms_connection',
 ]);
 
 const READ_ONLY_AUDIT_KEYS = new Set(['created_at', 'created_by', 'updated_at', 'updated_by']);
@@ -123,6 +125,105 @@ function FieldChevron() {
     >
       <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+function SectionCombobox({
+  value,
+  sections,
+  onChange,
+}: {
+  value: string;
+  sections: string[];
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [narrowing, setNarrowing] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const listId = 'field-section-options';
+  const query = value.trim().toLowerCase();
+  const options = narrowing
+    ? sections.filter((name) => name.toLowerCase().includes(query))
+    : sections;
+
+  const choose = (name: string) => {
+    onChange(name);
+    setNarrowing(false);
+    setOpen(false);
+  };
+
+  return (
+    <div className={`relative ${open ? 'z-30' : ''}`}>
+      <input
+        type="text"
+        required
+        tabIndex={2}
+        role="combobox"
+        aria-expanded={open}
+        aria-controls={listId}
+        aria-autocomplete="list"
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value);
+          setNarrowing(true);
+          setActiveIndex(0);
+          setOpen(true);
+        }}
+        onFocus={() => {
+          setNarrowing(false);
+          setActiveIndex(Math.max(0, sections.findIndex((name) => name.toLowerCase() === query)));
+          setOpen(true);
+        }}
+        onBlur={() => {
+          const exact = sections.find((name) => name.toLowerCase() === query);
+          if (exact && exact !== value) onChange(exact);
+          setNarrowing(false);
+          setOpen(false);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setOpen(true);
+            setActiveIndex((index) => Math.min(index + 1, Math.max(options.length - 1, 0)));
+          } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setOpen(true);
+            setActiveIndex((index) => Math.max(index - 1, 0));
+          } else if (event.key === 'Enter' && open && options[activeIndex]) {
+            event.preventDefault();
+            choose(options[activeIndex]);
+          } else if (event.key === 'Escape') {
+            setOpen(false);
+          }
+        }}
+        placeholder="Select or type a section"
+        className={`${underlineControl} pr-4`}
+      />
+      {open && options.length > 0 && (
+        <ul id={listId} role="listbox" className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-800">
+          {options.map((name, index) => (
+            <li key={name} role="option" aria-selected={name === value}>
+              <button
+                type="button"
+                tabIndex={-1}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  choose(name);
+                }}
+                onMouseEnter={() => setActiveIndex(index)}
+                className={`w-full cursor-pointer px-2.5 py-1.5 text-left text-xs font-medium ${
+                  index === activeIndex
+                    ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200'
+                    : 'text-slate-900 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700'
+                }`}
+              >
+                {name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -916,7 +1017,7 @@ export default function FieldCustomizationsPage() {
 
       const finalFormula = hasFormula && formData.calculation_formula && formData.calculation_formula.trim().length > 0
         ? formData.calculation_formula.trim()
-        : undefined;
+        : null;
 
       const fieldPayload: FieldConfig = {
         id: editingField ? editingField.id : `CFG_${formattedKey}_${Date.now()}`,
@@ -1282,7 +1383,7 @@ export default function FieldCustomizationsPage() {
 
       {/* MODAL: CONFIGURATION WITH DYNAMIC VISIBILITY & FORMULA BUILDER */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-center items-center p-4">
+        <div className="app-modal fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-center items-center p-4">
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-xl rounded-xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
@@ -1389,17 +1490,14 @@ export default function FieldCustomizationsPage() {
 
                 <label className={underlineShell}>
                   <span className={underlineLabel}>
-                    Section Group <span className="text-rose-500">*</span>
+                    Section <span className="text-rose-500">*</span>
                   </span>
-                  <input
-                    type="text"
-                    required
-                    tabIndex={2}
+                  <SectionCombobox
                     value={formData.section_name || ''}
-                    onChange={(e) => setFormData({ ...formData, section_name: e.target.value })}
-                    placeholder="e.g. Key Dates, Financials"
-                    className={underlineControl}
+                    sections={orderedSectionNames}
+                    onChange={(sectionName) => setFormData({ ...formData, section_name: sectionName })}
                   />
+                  <FieldChevron />
                 </label>
               </div>
 
@@ -1897,7 +1995,7 @@ export default function FieldCustomizationsPage() {
 
       {/* POPUP MODAL: CONFIRM DROPDOWN OPTION RENAME & DATABASE UPDATE */}
       {renameModal.isOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-sm flex justify-center items-center p-4 animate-in fade-in duration-150">
+        <div className="app-modal fixed inset-0 z-[60] bg-black/75 backdrop-blur-sm flex justify-center items-center p-4 animate-in fade-in duration-150">
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-lg rounded-2xl p-6 shadow-2xl space-y-5">
             {/* Header */}
             <div className="flex justify-between items-start border-b border-slate-200 dark:border-slate-700 pb-3">
@@ -2046,7 +2144,7 @@ export default function FieldCustomizationsPage() {
 
       {/* POPUP MODAL: RENAME OPERATION RESULT MESSAGE */}
       {renameResultModal.isOpen && (
-        <div className="fixed inset-0 z-[70] bg-black/75 backdrop-blur-sm flex justify-center items-center p-4 animate-in fade-in duration-150">
+        <div className="app-modal fixed inset-0 z-[70] bg-black/75 backdrop-blur-sm flex justify-center items-center p-4 animate-in fade-in duration-150">
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4 text-center">
             {/* Success Icon */}
             <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-500/40 rounded-full flex items-center justify-center mx-auto text-emerald-600 dark:text-emerald-400 text-2xl font-bold">

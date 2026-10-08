@@ -142,10 +142,12 @@ export async function getClientLookupValues(
 export const HIDDEN_CONTAINER_KEYS = new Set([
   'client_id',
   'archived',
+  'permanently_deleted',
   'custom_attributes',
   'address_details',
   'co_broker',
   'settlement_vendors',
+  'tms_connection',
 ]);
 
 export interface DatabaseColumnDefinition {

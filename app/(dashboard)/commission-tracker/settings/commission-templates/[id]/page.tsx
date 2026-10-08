@@ -1574,7 +1574,7 @@ export default function CommissionTemplateDetailPage() {
       )}
 
       {parameterForm && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-center items-center p-4">
+        <div className="app-modal fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-center items-center p-4">
           <form onSubmit={saveParameter} className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full rounded-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden ${showParameterFields ? 'max-w-[min(75rem,calc(100vw-2rem))]' : 'max-w-2xl'}`}>
             <div className="shrink-0 px-6 pt-6 pb-3">
               <div className="flex items-center justify-between gap-3">
@@ -1914,7 +1914,7 @@ export default function CommissionTemplateDetailPage() {
       )}
 
       {editTemplateOpen && template && createPortal(
-        <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => { if (!isSaving) setEditTemplateOpen(false); }}>
+        <div className="app-modal fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => { if (!isSaving) setEditTemplateOpen(false); }}>
           <form
             onSubmit={(event) => void handleSaveTemplate(event)}
             onClick={(event) => event.stopPropagation()}
@@ -1974,7 +1974,7 @@ export default function CommissionTemplateDetailPage() {
       )}
 
       {confirmDelete && createPortal(
-        <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => { if (!isSaving) setConfirmDelete(null); }}>
+        <div className="app-modal fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => { if (!isSaving) setConfirmDelete(null); }}>
           <div
             className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-md rounded-xl p-5 shadow-2xl space-y-4"
             onClick={(event) => event.stopPropagation()}

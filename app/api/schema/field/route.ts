@@ -4,6 +4,7 @@ import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { clearSchemaCache } from '@/lib/fields';
+import { disconnectTransactionFieldMapping } from '@/lib/google-sheet-connection';
 
 // POST: Save or Update a single field configuration
 export async function POST(request: Request) {
@@ -127,26 +128,31 @@ export async function DELETE(request: Request) {
       );
     }
 
-    let query = supabase.from('client_field_configurations').update({
-      archived: true,
-      is_enabled: false,
-      updated_at: new Date().toISOString(),
-      updated_by: session.user.email,
-    });
-
-    if (id) {
-      query = query.eq('id', id);
-    } else {
-      query = query
-        .eq('client_id', clientId)
-        .eq('target_table', targetTable)
-        .eq('field_key', fieldKey);
+    let lookup = supabase.from('client_field_configurations').select('id, client_id, target_table, field_key');
+    if (id) lookup = lookup.eq('id', id);
+    else lookup = lookup.eq('client_id', clientId).eq('target_table', targetTable).eq('field_key', fieldKey);
+    const { data: existing, error: lookupError } = await lookup.maybeSingle();
+    if (lookupError) throw lookupError;
+    if (!existing) {
+      return NextResponse.json({ success: true, message: 'Field deleted successfully' });
     }
 
-    const { error } = await query;
+    const { error } = await supabase
+      .from('client_field_configurations')
+      .update({
+        archived: true,
+        is_enabled: false,
+        updated_at: new Date().toISOString(),
+        updated_by: session.user.email,
+      })
+      .eq('id', existing.id);
     if (error) throw error;
 
-    clearSchemaCache(String(clientId), targetTable ? String(targetTable) : undefined);
+    if (existing.target_table === 'transactions' && existing.field_key) {
+      await disconnectTransactionFieldMapping(supabase, String(existing.client_id), String(existing.field_key));
+    }
+
+    clearSchemaCache(String(existing.client_id), String(existing.target_table));
 
     return NextResponse.json({ success: true, message: 'Field deleted successfully' });
   } catch (error: any) {

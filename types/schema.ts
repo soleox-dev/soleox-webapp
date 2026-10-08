@@ -14,17 +14,6 @@ export interface CoBroker {
   email?: string;
 }
 
-export interface SettlementVendors {
-  lending_company?: string;
-  loan_officer?: string;
-  loan_type?: string;
-  title_company?: string;
-  title_officer?: string;
-  escrow_company?: string;
-  escrow_officer?: string;
-  attorney?: string;
-}
-
 export interface AddressDetails {
   street?: string;
   city?: string;
@@ -59,11 +48,11 @@ export interface Transaction {
   isa?: string[];
   transaction_coordinator?: string[];
   co_broker?: CoBroker;
-  settlement_vendors?: SettlementVendors;
   address_details?: AddressDetails;
   notes?: string;
   custom_attributes?: Record<string, unknown>;
   archived: boolean;
+  permanently_deleted?: boolean;
   created_at: string;
   created_by?: string;
   updated_at: string;

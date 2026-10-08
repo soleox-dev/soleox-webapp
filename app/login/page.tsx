@@ -44,13 +44,13 @@ export default function LoginPage() {
         
         {/* Exterior Brand Header */}
         <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center gap-2.5 mb-2">
-            <SoleoxLogo className="h-9 w-auto" />
+          <div className="flex items-center gap-2.5 mb-8">
+            <SoleoxLogo className="h-9 w-auto" wordClassName="text-white" />
             <span className="text-[10px] uppercase font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800/80">
               REBT
             </span>
           </div>
-          <p className="text-slate-400 text-xs font-semibold uppercase tracking-widest">
+          <p className="text-slate-400 text-lg font-semibold uppercase tracking-widest">
             Real Estate Business Tracker
           </p>
         </div>

@@ -247,7 +247,7 @@ export function LogicStepForm({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-center items-center p-4">
+    <div className="app-modal fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-center items-center p-4">
       <form onSubmit={onSubmit} className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full rounded-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden ${showFieldCards ? 'max-w-[min(75rem,calc(100vw-2rem))]' : 'max-w-2xl'}`}>
         <div className="shrink-0 px-6 pt-6 pb-3">
           <div className="flex items-center justify-between gap-3">

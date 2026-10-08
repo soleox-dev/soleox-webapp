@@ -329,13 +329,6 @@ async function main() {
     const createdAt = parseExcelDateTime(tx.Added) || '2026-08-01T00:00:00+00:00';
     const updatedAt = parseExcelDateTime(tx['Last Modified']) || '2026-08-15T00:00:00+00:00';
 
-    const settlementVendors = {
-      lending_company: tx['Lending Company'] || null,
-      loan_officer: tx['Lending Officer'] || null,
-      title_company: tx['Title Company'] || null,
-      title_officer: tx['Title Officer'] || null,
-    };
-
     const txComms = commsByTx.get(legacyId) || [];
 
     const offTheTopRules = txComms
@@ -453,7 +446,6 @@ async function main() {
       total_commission: totalComm,
       agent_id: agentId,
       notes: tx.Notes || null,
-      settlement_vendors: settlementVendors,
       custom_attributes: customAttrs,
       archived: false,
       created_at: createdAt,

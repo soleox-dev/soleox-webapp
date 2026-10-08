@@ -84,7 +84,18 @@ State & Performance:
 
 Auth routes handle browser history restoration (pageshow / focus listeners) to avoid frozen loading states on browser back-button navigation.
 
-5. YOUR ROLE & DIRECTIVES
+5. COMMISSION TEMPLATES
+In settings these are Rules, stored in commission_template_rules. On a transaction the read-only section is Calculations.
+
+An amount formula always calculates dollars. "Show resulting waterfall split with percent" only changes how that dollar result is displayed.
+
+Turning Condition or Custom Baseline off clears that formula. Switching Entity between fixed and formula keeps both draft values, and save writes only the active one.
+
+A parameter key can be edited only before the first save, and it must be unique on that template.
+
+Percent values stay percents through addition and subtraction when either side is a percent. Multiplication stays a percent only when both sides are percents. Division stays a percent only when the left side is a percent.
+
+6. YOUR ROLE & DIRECTIVES
 Always write clean, production-ready TypeScript with strict typing.
 
 Ensure all database calls maintain multi-tenant isolation via client_id and respect RLS.

@@ -17,7 +17,7 @@ export function RequiredFieldsModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex justify-center items-center p-4 animate-in fade-in duration-200">
+    <div className="app-modal fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex justify-center items-center p-4 animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-900 border border-rose-500/30 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-5 relative">
         <div className="flex items-start gap-3">
           <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-xl text-xl">

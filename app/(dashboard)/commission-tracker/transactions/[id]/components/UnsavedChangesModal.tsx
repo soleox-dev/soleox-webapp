@@ -3,6 +3,7 @@ import React from 'react';
 interface UnsavedChangesModalProps {
   isOpen: boolean;
   isSaving?: boolean;
+  description?: string;
   onStay: () => void;
   onDiscard: () => void;
   onSave: () => void;
@@ -11,6 +12,7 @@ interface UnsavedChangesModalProps {
 export function UnsavedChangesModal({
   isOpen,
   isSaving = false,
+  description = 'You have applied changes to the Transaction Overview and/or Commission Waterfall that have not been saved to the database yet. Leave without saving?',
   onStay,
   onDiscard,
   onSave,
@@ -18,7 +20,7 @@ export function UnsavedChangesModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] bg-slate-950/70 backdrop-blur-sm flex justify-center items-center p-4 animate-in fade-in duration-200">
+    <div className="app-modal fixed inset-0 z-[60] bg-slate-950/70 backdrop-blur-sm flex justify-center items-center p-4 animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-900 border border-amber-500/30 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-5 relative">
         <div className="flex items-start gap-3">
           <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl text-xl flex-shrink-0">
@@ -29,7 +31,7 @@ export function UnsavedChangesModal({
               Unsaved Changes
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-              You have applied changes to the Transaction Overview and/or Commission Waterfall that have not been saved to the database yet. Leave without saving?
+              {description}
             </p>
           </div>
         </div>

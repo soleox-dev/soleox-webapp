@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Building2, ChartColumn, ChevronRight, ListFilter, PanelLeftClose, PanelLeftOpen, Settings2, User, Zap, type LucideIcon } from 'lucide-react';
+import { Building2, ChartColumn, ChevronRight, FileSpreadsheet, ListFilter, PanelLeftClose, PanelLeftOpen, Settings2, User, Zap, type LucideIcon } from 'lucide-react';
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -34,6 +34,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
       items: [
         { label: 'Default View', href: '/commission-tracker/settings/transaction-view', icon: ListFilter },
         { label: 'Scorecards', href: '/commission-tracker/settings/scorecards', icon: ChartColumn },
+        { label: 'Integrations', href: '/commission-tracker/settings/integrations', icon: FileSpreadsheet },
       ],
     },
     { kind: 'link', item: { label: 'Agents', href: '/commission-tracker/settings/agents', icon: User } },
