@@ -11,7 +11,7 @@ import { formatPercent, isHiddenRecordId } from '@/lib/fields';
 import { formatPercentRate, formatTablePercent } from '@/lib/percent';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { Highlighter, Link2, ListChecks, ListFilter, Loader2, Plus, RotateCcw, Rows3, Unlink, Zap } from 'lucide-react';
+import { Check, Highlighter, Link2, ListChecks, ListFilter, Loader2, Plus, RefreshCw, RotateCcw, Rows3, Unlink, X, Zap, type LucideIcon } from 'lucide-react';
 import { HoverNote } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/HoverNote';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import {
@@ -77,17 +77,40 @@ function tmsLinkMark(
 
 type TmsLinkFilter = 'connected' | 'disconnected';
 
-const TMS_FILTERS: { value: TmsLinkFilter; label: string; iconClass: string; activeClass: string }[] = [
-  { value: 'connected', label: 'Connected to TMS', iconClass: 'text-emerald-500', activeClass: 'bg-emerald-500/20 border-emerald-500/40' },
-  { value: 'disconnected', label: 'Disconnected from TMS', iconClass: 'text-amber-500', activeClass: 'bg-amber-500/20 border-amber-500/40' },
+const TMS_FILTERS: { value: TmsLinkFilter; label: string; iconClass: string; activeClass: string; buttonClass: string }[] = [
+  { value: 'connected', label: 'Connected to TMS', iconClass: 'text-emerald-500', activeClass: 'bg-emerald-500/20 border-emerald-500/40', buttonClass: 'bg-emerald-500 text-white hover:bg-emerald-600 dark:bg-emerald-500 dark:hover:bg-emerald-400' },
+  { value: 'disconnected', label: 'Disconnected from TMS', iconClass: 'text-rose-500', activeClass: 'bg-rose-500/20 border-rose-500/40', buttonClass: 'bg-rose-500 text-white hover:bg-rose-600 dark:bg-rose-500 dark:hover:bg-rose-400' },
 ];
 
-const BOLT_FILTERS: { tone: BoltTone; label: string; iconClass: string; activeClass: string }[] = [
-  { tone: 'submitted', label: 'Submitted', iconClass: 'text-emerald-500', activeClass: 'bg-emerald-500/20 border-emerald-500/40' },
-  { tone: 'ready', label: 'Ready to submit', iconClass: 'text-amber-400', activeClass: 'bg-amber-500/20 border-amber-500/40' },
-  { tone: 'ineligible', label: 'No longer eligible', iconClass: 'text-rose-500', activeClass: 'bg-rose-500/20 border-rose-500/40' },
-  { tone: 'drift', label: 'Payments would change', iconClass: 'text-violet-400', activeClass: 'bg-violet-500/20 border-violet-500/40' },
+const BOLT_FILTERS: { tone: BoltTone; label: string; icon: LucideIcon; iconClass: string; activeClass: string; buttonClass: string }[] = [
+  { tone: 'submitted', label: 'Submitted', icon: Check, iconClass: 'text-emerald-500', activeClass: 'bg-emerald-500/20 border-emerald-500/40', buttonClass: 'bg-emerald-500 text-white hover:bg-emerald-600 dark:bg-emerald-500 dark:hover:bg-emerald-400' },
+  { tone: 'ready', label: 'Ready to submit', icon: Plus, iconClass: 'text-blue-500', activeClass: 'bg-blue-500/20 border-blue-500/40', buttonClass: 'bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-500 dark:hover:bg-blue-400' },
+  { tone: 'ineligible', label: 'No longer eligible', icon: X, iconClass: 'text-rose-500', activeClass: 'bg-rose-500/20 border-rose-500/40', buttonClass: 'bg-rose-500 text-white hover:bg-rose-600 dark:bg-rose-500 dark:hover:bg-rose-400' },
+  { tone: 'drift', label: 'Payments would change', icon: RefreshCw, iconClass: 'text-violet-400', activeClass: 'bg-violet-500/20 border-violet-500/40', buttonClass: 'bg-violet-500 text-white hover:bg-violet-600 dark:bg-violet-500 dark:hover:bg-violet-400' },
 ];
+
+function BoltStatusIcon({ tone, className }: { tone: BoltTone; className: string }) {
+  const filter = BOLT_FILTERS.find((item) => item.tone === tone)!;
+  const Icon = filter.icon;
+  return <Icon className={`${className} ${filter.iconClass}`} strokeWidth={2.25} aria-hidden />;
+}
+
+function FilterClearButton({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <button
+      type="button"
+      title={`Clear ${label}`}
+      aria-label={`Clear ${label}`}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClear();
+      }}
+      className="absolute -right-1 -top-1 z-10 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-white text-slate-700 opacity-0 shadow-sm ring-1 ring-slate-300 pointer-events-none hover:bg-slate-100 group-hover/filter:pointer-events-auto group-hover/filter:opacity-100 group-focus-within/filter:pointer-events-auto group-focus-within/filter:opacity-100 dark:bg-slate-950 dark:text-white dark:ring-slate-500"
+    >
+      <X className="h-2.5 w-2.5" strokeWidth={3} aria-hidden />
+    </button>
+  );
+}
 
 const AGENT_FORMULA_SKIP = new Set([
   'id', 'agent_id', 'client_id', 'user_id', 'tms_id', 'agent_name', 'name', 'full_name',
@@ -1006,21 +1029,24 @@ export default function TransactionsListPage() {
   const boltCounts = useMemo(() => {
     const counts: Record<BoltTone, number> = { submitted: 0, ready: 0, ineligible: 0, drift: 0 };
     for (const deal of viewedDeals) {
+      if (tmsFilter === 'connected' && markTmsLink(deal)?.disconnected !== false) continue;
+      if (tmsFilter === 'disconnected' && markTmsLink(deal)?.disconnected !== true) continue;
       const tone = templateBolt(deal)?.tone;
       if (tone) counts[tone] += 1;
     }
     return counts;
-  }, [viewedDeals, templateBolt]);
+  }, [viewedDeals, tmsFilter, templateBolt, markTmsLink]);
 
   const tmsCounts = useMemo(() => {
     const counts: Record<TmsLinkFilter, number> = { connected: 0, disconnected: 0 };
     for (const deal of viewedDeals) {
+      if (boltTone && templateBolt(deal)?.tone !== boltTone) continue;
       const mark = markTmsLink(deal);
       if (!mark) continue;
       counts[mark.disconnected ? 'disconnected' : 'connected'] += 1;
     }
     return counts;
-  }, [viewedDeals, markTmsLink]);
+  }, [viewedDeals, boltTone, templateBolt, markTmsLink]);
 
   useLayoutEffect(() => {
     if (!boltMenuOpen) return;
@@ -1945,45 +1971,75 @@ export default function TransactionsListPage() {
                     </span>
                   </th>
                 )}
-                <th className={`${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
-                  <button
-                    ref={tmsMenuButtonRef}
-                    type="button"
-                    aria-expanded={tmsMenuOpen}
-                    aria-haspopup="menu"
-                    aria-pressed={tmsFilter !== null}
-                    title={tmsFilter ? `Filtering: ${TMS_FILTERS.find((filter) => filter.value === tmsFilter)?.label}` : 'Filter by TMS connection'}
-                    onClick={() => {
-                      setBoltMenuOpen(false);
-                      setStatusMenuOpen(false);
-                      setTmsMenuOpen((open) => !open);
-                    }}
-                    className={`inline-flex h-6 w-6 items-center justify-center rounded text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer ${tmsFilter ? 'bg-slate-200 dark:bg-slate-800' : ''}`}
-                  >
-                    {tmsFilter === 'disconnected' ? (
-                      <Unlink className="h-3.5 w-3.5 text-amber-500" strokeWidth={1.75} aria-hidden />
-                    ) : (
-                      <Link2 className={`h-3.5 w-3.5 ${tmsFilter === 'connected' ? 'text-emerald-500' : ''}`} strokeWidth={1.75} aria-hidden />
-                    )}
-                  </button>
+                <th className={`group/filter ${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
+                  <span className="relative inline-flex">
+                    <button
+                      ref={tmsMenuButtonRef}
+                      type="button"
+                      aria-expanded={tmsMenuOpen}
+                      aria-haspopup="menu"
+                      aria-pressed={tmsFilter !== null}
+                      title={tmsFilter ? `Filtering: ${TMS_FILTERS.find((filter) => filter.value === tmsFilter)?.label}` : 'Filter by TMS connection'}
+                      onClick={() => {
+                        setBoltMenuOpen(false);
+                        setStatusMenuOpen(false);
+                        setTmsMenuOpen((open) => !open);
+                      }}
+                      className={`inline-flex h-6 w-6 items-center justify-center rounded cursor-pointer ${
+                        tmsFilter
+                          ? TMS_FILTERS.find((filter) => filter.value === tmsFilter)?.buttonClass
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      {tmsFilter === 'disconnected' ? (
+                        <Unlink className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                      ) : (
+                        <Link2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                      )}
+                    </button>
+                    {tmsFilter ? (
+                      <FilterClearButton
+                        label={TMS_FILTERS.find((filter) => filter.value === tmsFilter)?.label || 'TMS filter'}
+                        onClear={() => {
+                          setTmsFilter(null);
+                          setTmsMenuOpen(false);
+                        }}
+                      />
+                    ) : null}
+                  </span>
                 </th>
-                <th className={`${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
-                  <button
-                    ref={boltMenuButtonRef}
-                    type="button"
-                    aria-expanded={boltMenuOpen}
-                    aria-haspopup="menu"
-                    aria-pressed={boltTone !== null}
-                    title={boltTone ? `Filtering: ${BOLT_FILTERS.find((filter) => filter.tone === boltTone)?.label}` : 'Filter by lightning color'}
-                    onClick={() => {
-                      setTmsMenuOpen(false);
-                      setStatusMenuOpen(false);
-                      setBoltMenuOpen((open) => !open);
-                    }}
-                    className={`inline-flex h-6 w-6 items-center justify-center rounded text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer ${boltTone ? 'bg-slate-200 dark:bg-slate-800' : ''}`}
-                  >
-                    <Zap className={`h-3.5 w-3.5 ${BOLT_FILTERS.find((filter) => filter.tone === boltTone)?.iconClass ?? ''}`} fill={boltTone ? 'currentColor' : 'none'} strokeWidth={1.75} aria-hidden />
-                  </button>
+                <th className={`group/filter ${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
+                  <span className="relative inline-flex">
+                    <button
+                      ref={boltMenuButtonRef}
+                      type="button"
+                      aria-expanded={boltMenuOpen}
+                      aria-haspopup="menu"
+                      aria-pressed={boltTone !== null}
+                      title={boltTone ? `Filtering: ${BOLT_FILTERS.find((filter) => filter.tone === boltTone)?.label}` : 'Filter by lightning color'}
+                      onClick={() => {
+                        setTmsMenuOpen(false);
+                        setStatusMenuOpen(false);
+                        setBoltMenuOpen((open) => !open);
+                      }}
+                      className={`inline-flex h-6 w-6 items-center justify-center rounded cursor-pointer ${
+                        boltTone
+                          ? BOLT_FILTERS.find((filter) => filter.tone === boltTone)?.buttonClass
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      <Zap className="h-3.5 w-3.5" fill={boltTone ? 'currentColor' : 'none'} strokeWidth={1.75} aria-hidden />
+                    </button>
+                    {boltTone ? (
+                      <FilterClearButton
+                        label={BOLT_FILTERS.find((filter) => filter.tone === boltTone)?.label || 'template filter'}
+                        onClear={() => {
+                          setBoltTone(null);
+                          setBoltMenuOpen(false);
+                        }}
+                      />
+                    ) : null}
+                  </span>
                 </th>
                 {schemaFields.map((field) => {
                   const statusColumn = isStatusColumn(field);
@@ -1998,31 +2054,42 @@ export default function TransactionsListPage() {
                     return (
                       <th
                         key={field.field_key}
-                        className={`${compactRows ? 'px-3 py-1.5' : 'px-4 py-3'} bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 whitespace-nowrap border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0`}
+                        className={`group/filter ${compactRows ? 'px-3 py-1.5' : 'px-4 py-3'} bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 whitespace-nowrap border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0`}
                       >
                         <div className="flex items-center gap-1">
-                          <button
-                            ref={field.field_key === 'transaction_status' || !schemaFields.some((item) => item.field_key === 'transaction_status') ? statusMenuButtonRef : undefined}
-                            type="button"
-                            aria-expanded={statusMenuOpen}
-                            aria-haspopup="menu"
-                            aria-pressed={Boolean(statusLookup)}
-                            title={statusLookup ? `Filtering: ${statusLookup.optionLabel}` : 'Filter by status'}
-                            onClick={() => {
-                              setBoltMenuOpen(false);
-                              setTmsMenuOpen(false);
-                              setStatusMenuOpen((open) => !open);
-                            }}
-                            className="inline-flex cursor-pointer items-center rounded font-semibold uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-slate-800"
-                          >
+                          <span className="relative inline-flex">
+                            <button
+                              ref={field.field_key === 'transaction_status' || !schemaFields.some((item) => item.field_key === 'transaction_status') ? statusMenuButtonRef : undefined}
+                              type="button"
+                              aria-expanded={statusMenuOpen}
+                              aria-haspopup="menu"
+                              aria-pressed={Boolean(statusLookup)}
+                              title={statusLookup ? `Filtering: ${statusLookup.optionLabel}` : 'Filter by status'}
+                              onClick={() => {
+                                setBoltMenuOpen(false);
+                                setTmsMenuOpen(false);
+                                setStatusMenuOpen((open) => !open);
+                              }}
+                              className="inline-flex cursor-pointer items-center rounded font-semibold uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-slate-800"
+                            >
+                              {statusLookup ? (
+                                <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusPill}`}>
+                                  {statusLookup.optionLabel}
+                                </span>
+                              ) : (
+                                <span className="px-0.5">{field.field_label}</span>
+                              )}
+                            </button>
                             {statusLookup ? (
-                              <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusPill}`}>
-                                {statusLookup.optionLabel}
-                              </span>
-                            ) : (
-                              <span className="px-0.5">{field.field_label}</span>
-                            )}
-                          </button>
+                              <FilterClearButton
+                                label={statusLookup.optionLabel}
+                                onClear={() => {
+                                  setStatusSelection(null);
+                                  setStatusMenuOpen(false);
+                                }}
+                              />
+                            ) : null}
+                          </span>
                           <button
                             type="button"
                             onClick={() => handleSort(field.field_key)}
@@ -2196,7 +2263,7 @@ export default function TransactionsListPage() {
                         {tmsLink ? (
                           <span title={tmsLink.label} aria-label={tmsLink.label} className="inline-flex items-center justify-center">
                             {tmsLink.disconnected ? (
-                              <Unlink className={`${markClass} text-amber-500`} strokeWidth={1.75} aria-hidden />
+                              <Unlink className={`${markClass} text-rose-500`} strokeWidth={1.75} aria-hidden />
                             ) : (
                               <Link2 className={`${markClass} text-emerald-500`} strokeWidth={1.75} aria-hidden />
                             )}
@@ -2207,11 +2274,7 @@ export default function TransactionsListPage() {
                         {bolt ? (
                           !rowNavigates ? (
                             <span title={bolt.label} aria-label={bolt.label} className="inline-flex rounded p-0.5">
-                              <Zap
-                                className={`${markClass} ${bolt.tone === 'submitted' ? 'text-emerald-500' : bolt.tone === 'drift' ? 'text-violet-400' : bolt.tone === 'ineligible' ? 'text-rose-500' : 'text-amber-400'}`}
-                                fill="currentColor"
-                                strokeWidth={1.75}
-                              />
+                              <BoltStatusIcon tone={bolt.tone} className={markClass} />
                             </span>
                           ) : (
                           <Link
@@ -2227,11 +2290,7 @@ export default function TransactionsListPage() {
                               router.push(`/commission-tracker/transactions/${dealId}`);
                             }}
                           >
-                            <Zap
-                              className={`${markClass} ${bolt.tone === 'submitted' ? 'text-emerald-500' : bolt.tone === 'drift' ? 'text-violet-400' : bolt.tone === 'ineligible' ? 'text-rose-500' : 'text-amber-400'}`}
-                              fill="currentColor"
-                              strokeWidth={1.75}
-                            />
+                            <BoltStatusIcon tone={bolt.tone} className={markClass} />
                           </Link>
                           )
                         ) : templateBoltChecking(deal) ? (
@@ -2389,6 +2448,7 @@ export default function TransactionsListPage() {
         >
           {BOLT_FILTERS.map((filter) => {
             const selected = boltTone === filter.tone;
+            const Icon = filter.icon;
             return (
               <button
                 key={filter.tone}
@@ -2403,7 +2463,7 @@ export default function TransactionsListPage() {
                   selected ? filter.activeClass : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
-                <Zap className={`h-3.5 w-3.5 shrink-0 ${filter.iconClass}`} fill="currentColor" strokeWidth={1.75} aria-hidden />
+                <Icon className={`h-3.5 w-3.5 shrink-0 ${filter.iconClass}`} strokeWidth={2.25} aria-hidden />
                 <span className="flex-1 text-left">{filter.label}</span>
                 <span className={`tabular-nums ${selected ? 'opacity-80' : 'text-slate-500 dark:text-slate-400'}`}>{boltCounts[filter.tone]}</span>
               </button>

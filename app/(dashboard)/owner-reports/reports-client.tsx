@@ -17,7 +17,6 @@ import {
   formatRange,
   fullMoney,
   inRange,
-  isBuyerSide,
   isListingSide,
   listingsTaken,
   metricValue,
@@ -192,7 +191,7 @@ export default function OwnerReportsPage() {
     }
   }, [boardMetric, boardMetrics]);
 
-  const closingBoard = reportId === 'lead-source-leaderboard' || reportId === 'agent-leaderboard-closing' || reportId === 'team-performance';
+  const closingBoard = reportId === 'lead-source-leaderboard' || reportId === 'team-performance';
   const statusFallback = closingBoard ? ['Closed', 'Pending'] : null;
   const filterPicks = {
     statusPicked,
@@ -813,7 +812,7 @@ function ReportView(props: {
         <FilterBar
           {...props}
           dateOnly={props.reportId === 'owner-summary'}
-          hideMetric={props.reportId === 'agent-leaderboard-closing' || props.reportId === 'lead-source-leaderboard' || props.reportId === 'team-performance'}
+          hideMetric={props.reportId === 'lead-source-leaderboard' || props.reportId === 'team-performance'}
           boardMetrics={undefined}
           payeeChoices={props.reportId === 'lead-source-leaderboard' && (props.boardMetric === 'payment:agent' || props.boardMetric === 'payment:entity') ? props.payeeChoices : undefined}
           excludeTeamLeads={(props.reportId === 'team-performance' || (props.reportId === 'lead-source-leaderboard' && props.boardMetric !== 'payment:entity')) ? props.excludeTeamLeads : undefined}
@@ -976,16 +975,11 @@ function dealInReport(deal: ReportDeal, range: DateRange, reportId: string | nul
     case 'lead-source-leaderboard':
     case 'team-performance':
       return (status === 'closed' || status === 'pending') && inRange(dateBasis === 'acceptance' ? deal.acceptanceDate : deal.closingDate, range);
-    case 'agent-leaderboard-closing':
-      return (status === 'closed' || status === 'pending') && inRange(deal.closingDate, range);
-    case 'agent-leaderboard-pended':
-      return pending;
     case 'listings-by-list-date':
       return listed;
     case 'transaction-list':
     case 'transaction-detail':
       return closed || pending;
-    case 'pended-vs-closing':
     case 'daily-management':
       return closed || pending || listed;
     case 'owner-summary':
@@ -1382,8 +1376,6 @@ function ReportBody(props: {
   const { id, closed, pending, taken, closedPrior, pendingPrior, names, range, priorRange, metric, netCommission, priorNetCommission, allDeals, deals, payments, entityNames, teamLeadIds, boardField, payeePicked, excludeTeamLeads, dateBasis, sidePicked, cumulative } = props;
   const closing = seriesBuckets(closed, (deal) => deal.closingDate, range);
   const closingPrior = seriesBuckets(closedPrior, (deal) => deal.closingDate, priorRange);
-  const pendingSeries = seriesBuckets(pending, (deal) => deal.acceptanceDate || deal.closingDate, range);
-  const pendingPriorSeries = seriesBuckets(pendingPrior, (deal) => deal.acceptanceDate || deal.closingDate, priorRange);
   if (id === 'owner-summary') {
     return (
       <OwnerSummary
@@ -1408,23 +1400,11 @@ function ReportBody(props: {
     );
   }
   if (id === 'net-commission-analysis') return <NetAnalysis range={range} priorRange={priorRange} closed={closed} closedPrior={closedPrior} />;
-  if (id === 'pended-vs-closing') return <PendedVsClosing range={range} priorRange={priorRange} metric={metric} closed={closed} pending={pending} taken={taken} closedPrior={closedPrior} pendingPrior={pendingPrior} />;
-  if (id === 'agent-leaderboard-closing') {
-    return <ProductionLeaderboard deals={deals} range={range} priorRange={priorRange} field={{ id: 'agent_id', label: 'Primary agent', type: 'AGENT_PICKER' }} names={names} />;
-  }
   if (id === 'team-productivity') {
     return (
       <div className="space-y-3">
         <LineChart title={METRICS.find((item) => item.id === metric)?.label || 'Metric'} metric={metric} current={closing} previous={closingPrior} />
         <AgentTable rows={byAgent(closed, names)} caption="Closed transactions" />
-      </div>
-    );
-  }
-  if (id === 'agent-leaderboard-pended') {
-    return (
-      <div className="space-y-3">
-        <LineChart title={METRICS.find((item) => item.id === metric)?.label || 'Metric'} metric={metric} current={pendingSeries} previous={pendingPriorSeries} />
-        <AgentTable rows={byAgent(pending, names)} caption="Pending transactions" />
       </div>
     );
   }
@@ -1623,6 +1603,20 @@ function roundedTopBar(x: number, y: number, barWidth: number, barHeight: number
   const curve = Math.min(radius, barWidth / 2, barHeight);
   const bottom = y + barHeight;
   return `M ${x} ${bottom} L ${x} ${y + curve} Q ${x} ${y} ${x + curve} ${y} L ${x + barWidth - curve} ${y} Q ${x + barWidth} ${y} ${x + barWidth} ${y + curve} L ${x + barWidth} ${bottom} Z`;
+}
+
+function linePeaks(points: Array<{ x: number; y: number }>, present: boolean[], values: number[]): Array<{ x: number; y: number }> {
+  const peaks: Array<{ x: number; y: number }> = [];
+  values.forEach((value, index) => {
+    if (!present[index]) return;
+    const left = index > 0 && present[index - 1] ? values[index - 1] : null;
+    const right = index < values.length - 1 && present[index + 1] ? values[index + 1] : null;
+    if (left === null && right === null) return;
+    if (left !== null && value <= left) return;
+    if (right !== null && value <= right) return;
+    peaks.push(points[index]);
+  });
+  return peaks;
 }
 
 function smoothLine(points: Array<{ x: number; y: number }>): string {
@@ -1920,6 +1914,7 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
   const value = hover === null ? 0 : plottedCurrent[hover] || 0;
   const prior = hover === null ? 0 : plottedPrevious[hover] || 0;
   const hoverX = hover === null ? 0 : (xAt(hover) / width) * 100;
+  const peaks = linePeaks(currentPoints, currentPresent, plottedCurrent);
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
       <div className="relative">
@@ -1959,6 +1954,24 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
           ))}
           {smoothRuns(currentPoints, currentPresent).map((run, index) => (
             <path key={`current-${index}`} d={smoothLine(run)} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={currentClass} />
+          ))}
+          <defs>
+            {peaks.map((_, index) => (
+              <radialGradient key={`peak-fade-${index}`} id={`peak-fade-${metric}-${index}`} cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="white" />
+                <stop offset="40%" stopColor="white" />
+                <stop offset="100%" stopColor="black" />
+              </radialGradient>
+            ))}
+            <mask id={`peak-shine-${metric}`}>
+              <rect width={width} height={height} fill="black" />
+              {peaks.map((peak, index) => (
+                <circle key={`peak-mask-${index}`} cx={peak.x} cy={peak.y} r="26" fill={`url(#peak-fade-${metric}-${index})`} />
+              ))}
+            </mask>
+          </defs>
+          {smoothRuns(currentPoints, currentPresent).map((run, index) => (
+            <path key={`current-shine-${index}`} d={smoothLine(run)} fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" strokeOpacity="0.8" mask={`url(#peak-shine-${metric})`} />
           ))}
           {hover !== null ? (
             <g>
@@ -2199,40 +2212,6 @@ function LineChart({ title, metric, current, previous }: { title: string; metric
 
 function emptyTotals(): Totals {
   return { units: 0, volume: 0, gci: 0, commission: 0, agentPaid: 0, net: 0, teamGci: 0 };
-}
-
-function PendedVsClosing(props: {
-  range: DateRange;
-  priorRange: DateRange;
-  metric: MetricId;
-  closed: ReportDeal[];
-  pending: ReportDeal[];
-  taken: ReportDeal[];
-  closedPrior: ReportDeal[];
-  pendingPrior: ReportDeal[];
-}) {
-  const metricLabel = METRICS.find((item) => item.id === props.metric)?.label || 'Metric';
-  const charts = [
-    { title: `Closing ${metricLabel}`, current: seriesBuckets(props.closed, (deal) => deal.closingDate, props.range), previous: seriesBuckets(props.closedPrior, (deal) => deal.closingDate, props.priorRange) },
-    { title: `Pended ${metricLabel}`, current: seriesBuckets(props.pending, (deal) => deal.acceptanceDate || deal.closingDate, props.range), previous: seriesBuckets(props.pendingPrior, (deal) => deal.acceptanceDate || deal.closingDate, props.priorRange) },
-  ];
-  const tables = [
-    { title: 'Buyers closed', rows: seriesBuckets(props.closed.filter((deal) => isBuyerSide(deal.side)), (deal) => deal.closingDate, props.range) },
-    { title: 'Buyers pended', rows: seriesBuckets(props.pending.filter((deal) => isBuyerSide(deal.side)), (deal) => deal.acceptanceDate || deal.closingDate, props.range) },
-    { title: 'Listings closed', rows: seriesBuckets(props.closed.filter((deal) => isListingSide(deal.side)), (deal) => deal.closingDate, props.range) },
-    { title: 'Listings pended', rows: seriesBuckets(props.pending.filter((deal) => isListingSide(deal.side)), (deal) => deal.acceptanceDate || deal.closingDate, props.range) },
-    { title: 'Listings taken', rows: seriesBuckets(props.taken, (deal) => deal.listDate, props.range) },
-  ];
-  return (
-    <div className="space-y-3">
-      <div className="grid xl:grid-cols-2 gap-3">
-        {charts.map((chart) => <LineChart key={chart.title} title={chart.title} metric={props.metric} current={chart.current} previous={chart.previous} />)}
-      </div>
-      <div className="grid xl:grid-cols-2 gap-3">
-        {tables.map((item) => <MonthlyTable key={item.title} title={item.title} rows={item.rows} mode="units" />)}
-      </div>
-    </div>
-  );
 }
 
 function MonthlyTable({ title, rows, mode }: { title: string; rows: MonthRow[]; mode: 'production' | 'net' | 'units' }) {

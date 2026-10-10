@@ -599,9 +599,6 @@ export const OWNER_REPORTS: ReportDefinition[] = [
   { id: 'lead-source-roi', name: 'Lead Source ROI Analysis', group: 'Your Business', ready: false, note: 'Lead spend is not recorded yet. The lead source leaderboard shows production by source.' },
   { id: 'lead-source-leaderboard', name: 'Leaderboard by Date', group: 'Your Business', ready: true },
   { id: 'team-performance', name: 'Team Performance', group: 'Your Agents', ready: true },
-  { id: 'pended-vs-closing', name: 'Pended vs. Closing', group: 'Your Agents', ready: true },
-  { id: 'agent-leaderboard-closing', name: 'Agent Leaderboard - Closing', group: 'Your Agents', ready: true },
-  { id: 'agent-leaderboard-pended', name: 'Agent Leaderboard - Pended', group: 'Your Agents', ready: true },
   { id: 'net-commission-income', name: 'Net Commission Income', group: 'Your Agents', ready: true },
   { id: 'net-commission-analysis', name: 'Net Commission Income Analysis', group: 'Your Agents', ready: true },
   { id: 'agent-post-splits', name: 'Agent Post-splits', group: 'Your Agents', ready: true },
@@ -615,5 +612,4 @@ export const OWNER_REPORTS: ReportDefinition[] = [
   { id: 'net-agent-leaderboard', name: 'NET Agent Leaderboard', group: 'My Custom Reports', ready: true },
   { id: 'listings-by-list-date', name: 'Listings by List Date', group: 'My Custom Reports', ready: true },
   { id: 'price-change', name: 'Price Change Analysis', group: 'My Custom Reports', ready: true },
-  { id: 'lending-leaderboard', name: 'Lending Company Leaderboard', group: 'My Custom Reports', ready: false, note: 'Lender is not stored on transactions yet.' },
 ];
