@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 
-/** Browser tab title for a route, without the Soleox REBT prefix. */
+/** Browser tab title for a route, without the Soleox REBI prefix. */
 export function titleForPath(pathname: string): string | null {
   const path = pathname.split('?')[0].replace(/\/$/, '') || '/';
 
   if (path === '/') return 'Main Menu';
+  if (path.startsWith('/owner-reports')) return 'Owner Reports';
   if (path === '/login') return 'Sign In';
   if (path === '/commission-tracker/transactions') return 'Transactions';
   if (path === '/commission-tracker/transactions/new') return 'New Transaction';

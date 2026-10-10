@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { ChevronUp } from 'lucide-react';
 
-const SHOW_AFTER = 320;
+const TOP_GAP = 48;
+const UP_IDLE_MS = 700;
 
 function railLeft(): number {
   const aside = document.querySelector('aside');
@@ -29,18 +30,35 @@ export function BackToTop() {
     syncMotion();
     media.addEventListener('change', syncMotion);
 
-    let frame = 0;
-    const sync = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        setVisible(window.scrollY > SHOW_AFTER);
-        setLeft(railLeft());
-      });
+    let lastY = window.scrollY;
+    let hideTimer = 0;
+    const show = (next: boolean) => {
+      setVisible((current) => (current === next ? current : next));
+    };
+    const place = () => setLeft(railLeft());
+    const onScroll = () => {
+      const y = window.scrollY;
+      const delta = y - lastY;
+      lastY = y;
+      if (y <= TOP_GAP) {
+        window.clearTimeout(hideTimer);
+        show(false);
+        return;
+      }
+      if (delta < -2) {
+        show(true);
+        window.clearTimeout(hideTimer);
+        hideTimer = window.setTimeout(() => show(false), UP_IDLE_MS);
+      } else if (delta > 2) {
+        window.clearTimeout(hideTimer);
+        show(false);
+      }
     };
 
-    sync();
+    place();
+    onScroll();
     const observed = new Set<Element>();
-    const observer = new ResizeObserver(sync);
+    const observer = new ResizeObserver(place);
     const watch = () => {
       for (const node of [document.querySelector('aside'), document.querySelector('main')]) {
         if (!node || observed.has(node)) continue;
@@ -53,22 +71,25 @@ export function BackToTop() {
       watch();
       if (document.querySelector('aside, main')) window.clearInterval(layoutWatch);
     }, 300);
-    window.addEventListener('scroll', sync, { passive: true });
-    window.addEventListener('resize', sync);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', place);
     return () => {
-      cancelAnimationFrame(frame);
+      window.clearTimeout(hideTimer);
       window.clearInterval(layoutWatch);
       observer.disconnect();
       media.removeEventListener('change', syncMotion);
-      window.removeEventListener('scroll', sync);
-      window.removeEventListener('resize', sync);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', place);
     };
   }, [pathname]);
 
   if (pathname === '/login' || left === null) return null;
 
   const goToTop = () => {
-    window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+    const root = document.scrollingElement || document.documentElement;
+    root.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    root.scrollTop = 0;
+    document.body.scrollTop = 0;
   };
 
   return (

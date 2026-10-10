@@ -6,7 +6,7 @@ import { titleForPath } from '@/lib/page-titles';
 
 function applyTitle(pathname: string) {
   const page = titleForPath(pathname);
-  document.title = page ? `Soleox REBT > ${page}` : 'Soleox REBT';
+  document.title = page ? `Soleox REBI > ${page}` : 'Soleox REBI';
 }
 
 export function PageTitle() {

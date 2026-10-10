@@ -26,6 +26,25 @@ export async function GET(request: Request) {
       query = query.eq('commission_item_id', commissionItemId);
     }
 
+    if (!transactionId && !commissionItemId) {
+      const pageSize = 1000;
+      const payments: unknown[] = [];
+      for (let offset = 0; offset < 50000; offset += pageSize) {
+        const { data, error } = await supabase
+          .from('payments')
+          .select('*')
+          .eq('client_id', clientId)
+          .or('archived.is.null,archived.eq.false')
+          .order('id', { ascending: true })
+          .range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        const batch = data || [];
+        payments.push(...batch);
+        if (batch.length < pageSize) break;
+      }
+      return NextResponse.json({ success: true, payments });
+    }
+
     const { data, error } = await query;
     if (error) throw error;
 

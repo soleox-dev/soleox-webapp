@@ -1,0 +1,62 @@
+---
+description: Requirements for Owner Reports, Agent Reports, and Office Reports. Follow this before changing any report.
+alwaysApply: true
+---
+
+# Report requirements
+
+Soleox has three report sets: Owner Reports, Agent Reports, and Office Reports. Requirements in All Reports apply to every set.
+
+When a new chat should follow this before editing reports, say: read `.cursor/rules/report-requirements.mdc` before making changes.
+
+## All Reports
+
+### Filters
+
+Group, Status, Side, Primary agent, and Lead source use the multi-select control on every report. Metric stays a single-select: one measure.
+
+Date range is a single-select dropdown in that same style.
+
+- From and To calendars appear only when Custom is selected.
+- Every other option shows its name and, in grey, the dates that name covers, as `MM/DD/YYYY - MM/DD/YYYY`. Example: Year to date 01/01/2026 - 10/09/2026.
+- Show a search box when there are more than 8 presets.
+
+- When 1 to 3 options are selected, the closed filter lists those names. When 4 or more are selected, it shows the count and filter name, such as "4 groups" or "4 lead sources".
+- When every option is unchecked, the filter shows None and highlights in amber so the empty selection is visible.
+- The default is every listed option. A report may pre-select a subset instead. Leaderboard by Date, Agent Leaderboard - Closing, and Team Performance status default to Closed and Pending, and those reports never include any other status.
+- Show a search box when there are more than 8 options.
+- Each option shows a right-aligned record count: transactions with that value after the other filters, not after this filter.
+- Hovering an option shows ONLY over its count. ONLY keeps that value and clears the others.
+- Reset restores that filter’s default for the current report.
+- Select all checks every option currently listed.
+- Options stay dynamic. A value is listed only when the current report view still has records for it after the other filters.
+- The open list is taller when the screen has room, up to 36rem, and it stays within the viewport when the screen is shorter.
+
+### Tables
+
+- A table header stays fixed just below the report title and filters while that table is on screen. The stuck header stays square so the table body does not show past its corners. It scrolls away once the user has moved past the end of the table.
+- Every column header sorts that table when clicked. The first click sorts ascending. Clicking the same header again sorts descending. The active header shows the direction. Each table sorts on its own. Total and grand total rows stay at the bottom. A table keeps its original order until a header is clicked.
+- When a table has a # index column, that column is right-aligned, header and cells.
+- Keep each report table in a `report-table` wrapper so wide tables can scroll sideways. Pin the header from the page scroll while the table crosses the title and filters. Do not use CSS `top` sticky for that pin: horizontal scrolling makes the table its own scroll container, and the header then sticks inside the table. Do not put `overflow: hidden` on a table wrapper.
+
+## Owner Reports
+
+Leaderboard by Date ranks closed and pending transactions. The last words of the title choose whether the report range applies to `closing_date` or `acceptance_date`. `closing_date` is the default. Those words, and the date filter label, use the field label saved for that key in the transaction schema. A team that names `acceptance_date` Pending Date sees Pending Date in the title and Pending Date Range on the filter. The same rule applies to `closing_date`. Its metric lists every enabled transaction field whose control type is a dropdown (Select Dropdown) or a list picker (Agent Picker), except `gci_type`, `transaction_status`, and `finance_status`. The selected field is what each row groups by. Sales volume and units stay the two boards. Lead Source is the default metric.
+
+Agent Payments and Entity Payments are extra metric choices. Each payment record is joined to its transaction, so the report keeps that transaction’s status and the selected date. Archived payments stay out. The left board sums the payment amount received by each agent or entity. The right board counts those payment records. While one of those metrics is selected, an Agent or Entity dropdown lists the payees in the current view. Unchecking a name removes that payee from both boards. Its counts are payment records after the other filters. Every metric except Entity Payments has an Exclude Team Lead(s) checkbox. Checked, it removes transactions whose primary agent has `is_team_lead` true from both boards and from the filters. Agent Payments instead removes those agents as payees from the Agent dropdown and both boards. Entity Payments does not show the checkbox.
+
+The metric is the first words of the report title. The selected date field’s label is the last words. Both use the title font, a different color, and no border or background. Clicking either opens its list. The date filter on this report is labeled with that same field label plus Range.
+
+The % Δ column header has an info note. Hover or click it to read that the column is how much each value of the selected metric changed from the same dates in the prior year, and that a dash means the prior year was zero.
+
+Pending scorecards reserve the same space as the Total and Closed comparison row, so the name and amount sit on the same line.
+
+Team Performance ranks closed and pending transactions. An Exclude Team Lead(s) checkbox starts unchecked. Checked, it removes transactions whose primary agent has `is_team_lead` true from the scorecards, charts, and the other filters. The last words of the title choose whether the report range applies to `closing_date` or `acceptance_date`. `closing_date` is the default. Those words, and the date filter label, use the field label saved for that key, the same way Leaderboard by Date does. Five panels show Sales volume (sum of sales price), Gross commission income (sum of GCI), Units (transaction count), Gross commission percentage (GCI divided by sales price), and Sales price (sales price divided by units) below Units. A sixth panel, Team Commission, sits beside Units. It is a line chart of the sum of `final_amount` on each transaction’s Agent Split commission lines. `final_amount` is the dollar the waterfall shows for that line. An info note on the heading says Team Commission is the commission left after off-the-top deductions and pre-splits are subtracted from Total Commission. Sales price and Gross commission percentage sit together on the bottom row. Those two panels count only transactions whose side is Buyer or Seller. When the Side filter leaves both of those sides unchecked, the scorecards and charts are replaced by a note that the two sections are specific to Buyer and Seller transactions only. Each line is the monthly value against the same months last year, using the selected date. The line is a smooth curve. This period has a light fill down to the axis. A Cumulative control, off until it is turned on, shows a grey X while off and a check while on, and makes the line charts a running total through the period. The bar charts stay monthly averages. Gross commission percentage and Sales price are vertical bar charts with rounded tops, also against the prior year. Line chart legends show the average for this period and the prior year as (average: amount), with the amount standing out. Hovering a month shows the metric name, the abbreviated date for this period and the prior year with each amount on the right, and the difference with its percent. The popup stays wide enough for those four lines. Total and Closed show the change from last year. Clicking Total, Closed, or Pending highlights that status on every panel and filters the charts to it. Clicking the selected status again restores the total. The scorecard amounts stay the full totals. Total keeps the plain amount color, Closed uses the section color for its name and amount, and Pending uses grey for both.
+
+## Agent Reports
+
+Report-specific requirements for Agent Reports go here.
+
+## Office Reports
+
+Report-specific requirements for Office Reports go here.

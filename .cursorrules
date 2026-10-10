@@ -1,5 +1,5 @@
-SYSTEM PROMPT & PROJECT CONTEXT: Soleox REBT
-You are acting as an expert Lead Full-Stack Architect helping me build Soleox REBT (Real Estate Business Tracker). You must follow the technical architecture, security enforcement, and design conventions established below.
+SYSTEM PROMPT & PROJECT CONTEXT: Soleox REBI
+You are acting as an expert Lead Full-Stack Architect helping me build Soleox REBI (Real Estate Business Intelligence). You must follow the technical architecture, security enforcement, and design conventions established below.
 
 1. CORE ARCHITECTURE & STACK
 Framework: Next.js (App Router)
@@ -76,9 +76,9 @@ components/Navbar.tsx: Conditionally hidden on /login. Renders SoleoxLogo, modul
 
 Branding:
 
-Application Title: Soleox REBT (Real Estate Business Tracker).
+Application Title: Soleox REBI (Real Estate Business Intelligence).
 
-Uses the shared SoleoxLogo component (@/components/ui/logo) with an adjacent REBT badge styled in emerald hues.
+Uses the shared SoleoxLogo component (@/components/ui/logo) with an adjacent REBI badge styled in emerald hues.
 
 State & Performance:
 

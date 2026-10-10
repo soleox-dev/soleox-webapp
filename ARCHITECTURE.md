@@ -1,8 +1,8 @@
-# Soleox REBT (Real Estate Business Tracker) — System Architecture & Data Dictionary
+# Soleox REBI (Real Estate Business Intelligence) — System Architecture & Data Dictionary
 
 ## 1. System Overview & Technology Stack
 
-Soleox REBT is a multi-tenant enterprise commission tracking and business intelligence web application designed for real estate teams and brokerages.
+Soleox REBI is a multi-tenant enterprise commission tracking and business intelligence web application designed for real estate teams and brokerages.
 
 - **Framework**: Next.js 16 (App Router) with React 19
 - **Language**: TypeScript (Strict typing)

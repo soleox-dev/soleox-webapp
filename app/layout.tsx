@@ -11,10 +11,10 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Soleox REBT > Main Menu',
-    template: 'Soleox REBT > %s',
+    default: 'Soleox REBI > Main Menu',
+    template: 'Soleox REBI > %s',
   },
-  description: 'Soleox Real Estate Business Tracker',
+  description: 'Soleox Real Estate Business Intelligence',
   icons: {
     icon: [
       { url: '/icon.svg', type: 'image/svg+xml' },

@@ -26,6 +26,7 @@ export default function Navbar() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const isMainMenu = pathname === '/';
+  const isOwnerReports = pathname.startsWith('/owner-reports');
   const isCommissionTracker = pathname.startsWith('/commission-tracker');
   const isSettingsActive = pathname.startsWith('/commission-tracker/settings');
   const isTransactionsActive = pathname.startsWith('/commission-tracker/transactions');
@@ -61,14 +62,14 @@ export default function Navbar() {
   }
 
   return (
-    <header className="w-full bg-white dark:bg-[#0b1329] text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800/80 relative z-50">
+    <header className="relative z-50 w-full bg-white dark:bg-[#0b1329] text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800/80">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         
-        {/* Brand Logo Component with REBT Badge */}
+        {/* Brand Logo Component with REBI Badge */}
         <Link href="/" className="flex items-center space-x-2">
           <SoleoxLogo className="h-7 w-auto" />
           <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800/80">
-            REBT
+            REBI
           </span>
         </Link>
 
@@ -83,6 +84,16 @@ export default function Navbar() {
             }`}
           >
             Commission Tracker
+          </Link>
+          <Link
+            href="/owner-reports"
+            className={`px-3 py-1.5 rounded-lg transition ${
+              isOwnerReports
+                ? 'bg-emerald-500/10 dark:bg-emerald-950/80 border border-emerald-500/80 text-emerald-700 dark:text-emerald-400 font-bold'
+                : 'hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
+          >
+            Owner Reports
           </Link>
           <span className="px-3 py-1.5 opacity-50 cursor-not-allowed">Goals</span>
           <span className="px-3 py-1.5 opacity-50 cursor-not-allowed">Leads</span>

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { CircleDollarSign, List, Target, TrendingUp, Wallet } from 'lucide-react';
+import { BarChart3, CircleDollarSign, List, Target, TrendingUp, Wallet } from 'lucide-react';
 
 export default function Home() {
   return (
@@ -15,7 +15,7 @@ export default function Home() {
             Soleox • Main Menu
           </p>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white mt-0.5">
-            Real Estate Business Tracker
+            Real Estate Business Intelligence
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Select a module below to launch your real estate management workflows.
@@ -29,8 +29,8 @@ export default function Home() {
 
       {/* Module Counter Label */}
       <div className="flex justify-between items-center px-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-        <span className="uppercase tracking-wider font-bold">Platform Product Modules (4)</span>
-        <span>1 Active / 3 Scheduled</span>
+        <span className="uppercase tracking-wider font-bold">Platform Product Modules (5)</span>
+        <span>2 Active / 3 Scheduled</span>
       </div>
 
       {/* 4-Module Dashboard Grid */}
@@ -59,6 +59,32 @@ export default function Home() {
             >
               <List className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
               Open Transaction List
+            </Link>
+          </div>
+        </div>
+
+        <div className="p-6 rounded-xl shadow-md border bg-white dark:bg-slate-900 border-emerald-300/80 dark:border-emerald-800/80 hover:border-emerald-500 dark:hover:border-emerald-700 transition flex flex-col justify-between space-y-4">
+          <div className="flex justify-between items-start">
+            <div className="w-10 h-10 rounded-lg border flex items-center justify-center bg-emerald-50 dark:bg-slate-950 border-emerald-200/80 dark:border-slate-800 text-emerald-700 dark:text-emerald-400">
+              <BarChart3 className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+            </div>
+            <span className="px-2.5 py-1 font-bold text-[10px] tracking-wide uppercase rounded-md border bg-emerald-100/80 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-400 border-emerald-300/60 dark:border-emerald-800">
+              Active Rollout
+            </span>
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">Owner Reports</h2>
+            <p className="text-xs leading-relaxed mt-1 text-slate-600 dark:text-slate-400">
+              See production, pipeline, agent leaderboards, and lead sources for the year, calculated from your transactions.
+            </p>
+          </div>
+          <div className="pt-2">
+            <Link
+              href="/owner-reports"
+              className="flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-lg border bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border-slate-300/80 dark:border-slate-700 transition"
+            >
+              <BarChart3 className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+              Open Owner Reports
             </Link>
           </div>
         </div>

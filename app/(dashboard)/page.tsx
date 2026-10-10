@@ -28,6 +28,19 @@ export default function MainMenu() {
       ],
     },
     {
+      id: 'owner-reports',
+      title: 'Owner Reports',
+      icon: '📊',
+      status: 'Active Rollout',
+      statusColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+      description:
+        'See production, pipeline, agent leaderboards, and lead sources for the year, calculated from your transactions.',
+      active: true,
+      links: [
+        { label: '📊 Open Owner Reports', href: '/owner-reports', isPrimary: true },
+      ],
+    },
+    {
       id: 'goals',
       title: 'Goals & Targets',
       icon: '🎯',
@@ -100,10 +113,10 @@ export default function MainMenu() {
       <div className="space-y-4">
         <div className="flex justify-between items-center border-b border-slate-300 dark:border-slate-800 pb-3">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Platform Product Modules (4)
+            Platform Product Modules (5)
           </h2>
           <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
-            1 Active / 3 Scheduled
+            2 Active / 3 Scheduled
           </span>
         </div>
 
