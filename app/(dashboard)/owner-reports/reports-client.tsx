@@ -755,7 +755,7 @@ function ReportView(props: {
   }, []);
   return (
     <div>
-      <div ref={chromeRef} className={`sticky top-0 z-40 -mx-4 border-b border-slate-200/80 px-4 pb-4 md:-mx-6 md:px-6 dark:border-slate-700/80 ${reportCanvas}`}>
+      <div ref={chromeRef} className={`sticky top-0 z-40 border-b border-slate-200/80 px-0 pb-4 dark:border-slate-700/80 ${reportCanvas}`}>
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-6">
           <div className="z-50 min-w-0 justify-self-start">
             <OwnerReportNav reportId={props.reportId} onSelect={props.onSelectReport} />
@@ -1863,7 +1863,7 @@ function TrendScore({ tone, label, amount, toneClass, dollar, percent, current =
       type="button"
       aria-pressed={selected}
       onClick={onSelect}
-      className={`w-full min-w-0 cursor-pointer appearance-none rounded-xl border px-3 py-2 text-center shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? selectedClass : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
+      className={`w-full min-w-0 cursor-pointer appearance-none rounded-xl border px-3 py-2 text-center shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? `ring-inset ${selectedClass}` : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
     >
       <p className={`text-xs font-medium uppercase ${toneClass || 'text-slate-500'}`}>{label}</p>
       <p className={`mt-0.5 text-xl font-extrabold tabular-nums ${toneClass}`}>{amount}</p>
@@ -2657,7 +2657,7 @@ function BoardScore({ tone, label, amount, dollar, percent, toneClass, current =
       type="button"
       aria-pressed={selected}
       onClick={onSelect}
-      className={`flex h-full w-full min-w-0 flex-col justify-start cursor-pointer appearance-none rounded-xl border px-3 py-2 text-center shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? selectedClass : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
+      className={`flex h-full w-full min-w-0 flex-col justify-start cursor-pointer appearance-none rounded-xl border px-3 py-2 text-center shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? `ring-inset ${selectedClass}` : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
     >
         <p className={`text-xs font-medium uppercase ${toneClass || 'text-slate-500'}`}>{label}</p>
         <p className={`mt-0.5 text-xl font-extrabold tabular-nums ${toneClass}`}>{amount}</p>
