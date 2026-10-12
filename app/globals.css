@@ -25,6 +25,31 @@
   color: #fff;
 }
 
+.report-cover-launch {
+  animation: report-cover-fade 0.45s ease forwards;
+}
+
+@keyframes report-cover-fade {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.report-arrive {
+  animation: report-arrive 0.5s ease both;
+}
+
+@keyframes report-arrive {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .report-cover-launch,
+  .report-arrive {
+    animation: none;
+  }
+}
+
 .report-pill-listing {
   background-image: linear-gradient(90deg, #075985 0%, #0284c7 100%);
   color: #fff;
@@ -43,6 +68,38 @@
 .report-table {
   overflow-x: auto;
   overflow-y: clip;
+}
+
+.report-table.report-table-fit {
+  overflow-y: auto;
+}
+
+.report-table.report-table-fit table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.report-table.report-table-fit thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+.report-table thead.report-head-dark th.pivot-total {
+  background: #334155;
+  box-shadow: inset 1px 0 0 #94a3b8;
+}
+
+.report-table td.pivot-total,
+[data-pivot-foot] td.pivot-total {
+  background-image: linear-gradient(rgb(15 23 42 / 0.045), rgb(15 23 42 / 0.045));
+  box-shadow: inset 1px 0 0 rgb(100 116 139 / 0.7);
+}
+
+.dark .report-table td.pivot-total,
+.dark [data-pivot-foot] td.pivot-total {
+  background-image: linear-gradient(rgb(255 255 255 / 0.05), rgb(255 255 255 / 0.05));
+  box-shadow: inset 1px 0 0 rgb(148 163 184 / 0.45);
 }
 
 .report-table thead {

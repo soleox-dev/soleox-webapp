@@ -23,7 +23,9 @@ export default function Navbar() {
   ];
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [reportsNavOpen, setReportsNavOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
 
   const isMainMenu = pathname === '/';
   const isOwnerReports = pathname.startsWith('/owner-reports');
@@ -56,14 +58,53 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!isOwnerReports) return;
+    setReportsNavOpen(headerRef.current?.matches(':hover') ?? false);
+    setIsUserMenuOpen(false);
+  }, [pathname, isOwnerReports]);
+
+  useEffect(() => {
+    if (!isOwnerReports) return;
+    const conceal = () => {
+      setReportsNavOpen(false);
+      setIsUserMenuOpen(false);
+    };
+    const onMove = (event: MouseEvent) => {
+      const overBar = headerRef.current?.contains(event.target as Node) ?? false;
+      if (event.clientY <= 16 || overBar) setReportsNavOpen(true);
+      else conceal();
+    };
+    document.documentElement.addEventListener('mousemove', onMove);
+    document.documentElement.addEventListener('mouseleave', conceal);
+    return () => {
+      document.documentElement.removeEventListener('mousemove', onMove);
+      document.documentElement.removeEventListener('mouseleave', conceal);
+    };
+  }, [isOwnerReports]);
+
+  const concealReportsNav = (next: EventTarget | null) => {
+    if (next instanceof Node && headerRef.current?.contains(next)) return;
+    setReportsNavOpen(false);
+    setIsUserMenuOpen(false);
+  };
+
   // Do not render the top navbar on the login page
   if (pathname === '/login') {
     return null;
   }
 
+  const barClass = 'w-full bg-white text-slate-900 border-b border-slate-200 dark:bg-[#0b1329] dark:text-white dark:border-slate-800/80';
+  const reportsBarClass = `fixed inset-x-0 top-0 z-50 transition-transform duration-200 ease-out motion-reduce:transition-none ${reportsNavOpen ? 'translate-y-0 shadow-lg' : '-translate-y-full pointer-events-none'}`;
+
   return (
-    <header className="relative z-50 w-full bg-white dark:bg-[#0b1329] text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800/80">
-      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+    <header
+      ref={headerRef}
+      onFocusCapture={isOwnerReports ? () => setReportsNavOpen(true) : undefined}
+      onBlur={isOwnerReports ? (event) => concealReportsNav(event.relatedTarget) : undefined}
+      className={isOwnerReports ? `${reportsBarClass} ${barClass}` : `relative z-50 ${barClass}`}
+    >
+      <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 md:px-6">
         
         {/* Brand Logo Component with REBI Badge */}
         <Link href="/" className="flex items-center space-x-2">

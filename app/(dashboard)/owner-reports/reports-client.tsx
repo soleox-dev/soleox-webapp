@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Check, ChevronDown, Info, X } from 'lucide-react';
+import { Calendar, Check, ChevronDown, Info, X } from 'lucide-react';
 import {
   DATE_PRESETS,
   METRICS,
@@ -26,6 +26,8 @@ import {
   percent,
   previousYearRange,
   rangeForPreset,
+  periodColumns,
+  periodKey,
   seriesBuckets,
   sumRows,
   teamGciByTransaction,
@@ -52,7 +54,7 @@ const BOARD_METRIC_EXCLUDED = new Set(['gci_type', 'transaction_status', 'financ
 
 /** Payment rankings sit above the schema fields. They join payments to the transactions in view. */
 const PAYMENT_METRICS: BoardField[] = [
-  { id: 'payment:agent', label: 'Agent Payments', type: 'PAYMENT' },
+  { id: 'payment:agent', label: 'Agent Earnings', type: 'PAYMENT' },
   { id: 'payment:entity', label: 'Entity Payments', type: 'PAYMENT' },
 ];
 
@@ -191,7 +193,7 @@ export default function OwnerReportsPage() {
     }
   }, [boardMetric, boardMetrics]);
 
-  const closingBoard = reportId === 'lead-source-leaderboard' || reportId === 'team-performance';
+  const closingBoard = reportId === 'lead-source-leaderboard' || reportId === 'team-performance' || reportId === 'net-commission-income';
   const statusFallback = closingBoard ? ['Closed', 'Pending'] : null;
   const filterPicks = {
     statusPicked,
@@ -257,15 +259,16 @@ export default function OwnerReportsPage() {
   const groupChoices = groupOptions.map((value) => ({ value, label: value, count: choiceCount(groupPool, value, (deal) => agentGroupById.get(deal.agentId) || '', false) }));
   const paymentKind = reportId === 'lead-source-leaderboard' && boardMetric === 'payment:entity'
     ? 'entity'
-    : reportId === 'lead-source-leaderboard' && boardMetric === 'payment:agent'
+    : (reportId === 'lead-source-leaderboard' && boardMetric === 'payment:agent') || reportId === 'net-commission-income'
       ? 'agent'
       : null;
+  const payeeBasis = reportId === 'net-commission-income' ? 'closing' : boardDate;
   const payeePicked = paymentKind === 'entity' ? entityPayeePicked : agentPayeePicked;
   const setPayeePicked = paymentKind === 'entity' ? setEntityPayeePicked : setAgentPayeePicked;
   const payeeChoices = useMemo(() => {
     if (!paymentKind) return [];
     const lines = withoutTeamLeads(
-      paymentLines(payments, closedOrPendingOnDate(filtered, range, boardDate), paymentKind, names, entityNames),
+      paymentLines(payments, closedOrPendingOnDate(filtered, range, payeeBasis), paymentKind, names, entityNames),
       paymentKind === 'agent' && excludeTeamLeads,
       teamLeadIds,
     );
@@ -278,7 +281,7 @@ export default function OwnerReportsPage() {
     return [...counts.entries()]
       .map(([value, item]) => ({ value, label: item.label, count: item.count }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [boardDate, entityNames, excludeTeamLeads, filtered, names, paymentKind, payments, range, teamLeadIds]);
+  }, [entityNames, excludeTeamLeads, filtered, names, payeeBasis, paymentKind, payments, range, teamLeadIds]);
 
   useEffect(() => {
     if (loading) return;
@@ -314,6 +317,9 @@ export default function OwnerReportsPage() {
   const summaryNetPrior = useMemo(() => teamLeadNet(payments, summaryClosedPrior, teamLeadIds), [payments, summaryClosedPrior, teamLeadIds]);
   const ownerSummary = reportId === 'owner-summary';
   const report = OWNER_REPORTS.find((item) => item.id === reportId) || null;
+  const [launching, setLaunching] = useState(false);
+  const [reveal, setReveal] = useState(false);
+  const launchLock = useRef(false);
   const keptScroll = useRef<number | null>(null);
   const selectReport = (id: string | null) => {
     const href = id ? `/owner-reports/${id}` : '/owner-reports';
@@ -321,6 +327,29 @@ export default function OwnerReportsPage() {
     keptScroll.current = window.scrollY;
     router.push(href, { scroll: false });
   };
+  const launch = () => {
+    if (launchLock.current || reportId) return;
+    launchLock.current = true;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      selectReport('owner-summary');
+      return;
+    }
+    setLaunching(true);
+    window.setTimeout(() => {
+      setReveal(true);
+      selectReport('owner-summary');
+    }, 420);
+  };
+  useEffect(() => {
+    if (reportId) return;
+    launchLock.current = false;
+    setLaunching(false);
+  }, [reportId]);
+  useEffect(() => {
+    if (!reveal) return;
+    const timer = window.setTimeout(() => setReveal(false), 520);
+    return () => window.clearTimeout(timer);
+  }, [reveal]);
 
   useEffect(() => {
     const match = pathname.match(/^\/owner-reports\/([^/]+)/);
@@ -361,7 +390,8 @@ export default function OwnerReportsPage() {
     keptScroll.current = null;
     const hold = () => {
       const root = (document.scrollingElement || document.documentElement) as HTMLElement;
-      const navbar = document.querySelector('header')?.offsetHeight || 65;
+      const header = document.querySelector('header');
+      const navbar = header && getComputedStyle(header).position !== 'fixed' ? header.offsetHeight : 0;
       root.style.minHeight = '';
       let maxScroll = Math.max(0, root.scrollHeight - window.innerHeight);
       let target = Math.min(y, maxScroll);
@@ -385,9 +415,9 @@ export default function OwnerReportsPage() {
   }, [reportId]);
 
   return (
-    <main className={`min-h-[calc(100vh-4rem)] [overflow-anchor:none] text-slate-900 dark:text-slate-100 ${reportCanvas}`}>
+    <main onClick={!report ? launch : undefined} className={`min-h-screen [overflow-anchor:none] text-slate-900 dark:text-slate-100 ${reportCanvas} ${!report ? 'cursor-pointer' : ''}`}>
       <div className="max-w-[1600px] mx-auto px-4 pb-4 md:px-6">
-        <section className="min-w-0 space-y-4">
+        <section className={`min-w-0 space-y-4 ${reveal ? 'report-arrive' : ''}`}>
           {report ? (
             <ReportView
               onSelectReport={selectReport}
@@ -452,10 +482,7 @@ export default function OwnerReportsPage() {
               teamLeadIds={teamLeadIds}
             />
           ) : (
-            <div className="space-y-4 pt-6">
-              <OwnerReportNav reportId={reportId} onSelect={selectReport} />
-              <Cover onEnter={() => selectReport('owner-summary')} />
-            </div>
+            <Cover launching={launching} onEnter={launch} />
           )}
         </section>
       </div>
@@ -482,15 +509,33 @@ function MenuWidth({ choice }: { choice: { number: string; name: string } }) {
 
 function OwnerReportNav({ reportId, onSelect }: { reportId: string | null; onSelect: (id: string | null) => void }) {
   const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
   const choice = reportChoice(reportId);
+  const label = choice.number ? `${choice.number} ${choice.name}` : choice.name;
 
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false);
     };
+    const outside = (event: Event) => {
+      const target = event.target;
+      if (target instanceof Node && rootRef.current?.contains(target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      setOpen(false);
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', outside, true);
+    document.addEventListener('pointerup', outside, true);
+    document.addEventListener('click', outside, true);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', outside, true);
+      document.removeEventListener('pointerup', outside, true);
+      document.removeEventListener('click', outside, true);
+    };
   }, [open]);
 
   const choose = (id: string | null) => {
@@ -499,33 +544,32 @@ function OwnerReportNav({ reportId, onSelect }: { reportId: string | null; onSel
   };
 
   return (
-    <div className="relative min-w-0 max-w-full">
-      <button
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={choice.number ? `${choice.number} ${choice.name}` : choice.name}
-        title={choice.number ? `${choice.number} ${choice.name}` : choice.name}
-        onClick={() => setOpen((value) => !value)}
-        className={`relative z-50 inline-flex h-10 w-max max-w-full cursor-pointer appearance-none items-center gap-2 rounded-xl border bg-white px-3 text-sm font-semibold shadow-sm transition [-webkit-tap-highlight-color:transparent] [outline:none] focus:[outline:none] focus-visible:[outline:none] focus-visible:shadow-[0_1px_2px_rgb(0_0_0/0.05),0_0_0_3px_rgb(16_185_129/0.4)] dark:bg-slate-900 ${
-          open
-            ? 'border-emerald-500 text-slate-900 dark:border-emerald-400 dark:text-white'
-            : 'border-slate-200 text-slate-800 hover:border-emerald-400 dark:border-slate-600 dark:text-slate-100 dark:hover:border-emerald-400'
-        }`}
-      >
-        {choice.number ? <span className="shrink-0 tabular-nums text-slate-400 dark:text-slate-500">{choice.number}</span> : null}
-        <span className="truncate">{choice.name}</span>
-        <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180 text-emerald-600 dark:text-emerald-300' : ''}`} />
-      </button>
-      {open ? (
-        <>
-          <button type="button" aria-label="Close reports menu" className="fixed inset-0 z-40 bg-slate-950/30" onClick={() => setOpen(false)} />
-          <div data-owner-menu className="absolute left-0 top-full z-50 mt-2 max-h-[calc(100vh-8rem)] w-80 min-w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+    <>
+      {open ? <div className="fixed inset-0 z-40 bg-slate-950/30" /> : null}
+      <div ref={rootRef} className="relative min-w-0 max-w-full" onMouseEnter={() => setOpen(true)}>
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={label}
+          title={label}
+          onClick={() => setOpen(true)}
+          className={`relative z-50 inline-flex h-10 w-max max-w-full cursor-pointer appearance-none items-center gap-2 rounded-xl border bg-white px-3 text-sm font-semibold shadow-sm transition [-webkit-tap-highlight-color:transparent] [outline:none] focus:[outline:none] focus-visible:[outline:none] focus-visible:shadow-[0_1px_2px_rgb(0_0_0/0.05),0_0_0_3px_rgb(16_185_129/0.4)] dark:bg-slate-900 ${
+            open
+              ? 'border-emerald-500 text-slate-900 dark:border-emerald-400 dark:text-white'
+              : 'border-slate-200 text-slate-800 hover:border-emerald-400 dark:border-slate-600 dark:text-slate-100 dark:hover:border-emerald-400'
+          }`}
+        >
+          <span className="shrink-0 tabular-nums">{choice.number || choice.name}</span>
+          <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180 text-emerald-600 dark:text-emerald-300' : ''}`} />
+        </button>
+        {open ? (
+          <div data-owner-menu className="absolute left-0 top-full z-50 mt-2 max-h-[calc(100vh-8rem)] w-80 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
             <ReportMenu reportId={reportId} onSelect={choose} />
           </div>
-        </>
-      ) : null}
-    </div>
+        ) : null}
+      </div>
+    </>
   );
 }
 
@@ -573,23 +617,47 @@ function uniqueValues(values: string[]): string[] {
 
 const reportCanvas = 'bg-slate-100 dark:bg-slate-950';
 
-function Cover({ onEnter }: { onEnter: () => void }) {
+function Cover({ launching, onEnter }: { launching: boolean; onEnter: () => void }) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Enter' || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && target.closest('input, textarea, select, button, a, [contenteditable="true"]')) return;
+      event.preventDefault();
+      onEnter();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onEnter]);
+  const marks = [
+    { label: 'Sales volume', className: 'report-turquoise' },
+    { label: 'Gross commission', className: 'report-pill-emerald' },
+    { label: 'Units', className: 'report-purple' },
+    { label: 'Team commission', className: 'bg-rose-700 text-white' },
+  ];
   return (
-    <div className="min-h-[520px] flex flex-col items-center justify-center text-center px-6">
-      <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-sky-700 dark:text-sky-300">Soleox</p>
-      <h2 className="mt-3 text-4xl font-extrabold tracking-tight">
-        <span className="text-rose-600">Owner</span> <span className="text-sky-600 dark:text-sky-300">Reports</span>
-      </h2>
-      <p className="mt-3 max-w-md text-sm text-slate-500 dark:text-slate-400">
-        Production, pipeline, and agent results for the year, calculated from your transactions.
-      </p>
-      <button
-        type="button"
-        onClick={onEnter}
-        className="mt-8 cursor-pointer px-10 py-2.5 rounded-full bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold tracking-[0.25em] [outline:none] focus-visible:[outline:none] focus-visible:shadow-[0_0_0_3px_rgb(14_165_233/0.4)]"
-      >
-        ENTER
-      </button>
+    <div className={`report-cover relative min-h-[calc(100vh-1rem)] overflow-hidden px-6 text-center ${launching ? 'report-cover-launch' : ''}`}>
+      <div aria-hidden="true" className="report-cover-glow pointer-events-none absolute inset-x-0 top-1/2 h-72 -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,rgb(16_185_129/0.22),transparent_68%)]" />
+      <div className="report-cover-copy absolute inset-x-0 top-1/2 -translate-y-1/2 px-6">
+        <p className="absolute inset-x-0 bottom-full px-6 pb-4 text-lg font-light uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">
+          Real Estate Business Intelligence
+        </p>
+        <h2 className="text-6xl font-extrabold tracking-tight text-slate-900 sm:text-7xl dark:text-white">
+          Owner <span className="text-emerald-600 dark:text-emerald-400">Reports</span>
+        </h2>
+        <div className="absolute inset-x-0 top-full px-6 pt-5">
+          <p className="mx-auto max-w-xl text-base leading-relaxed text-slate-600 dark:text-slate-300">
+            Production, pipeline, and agent results for the year, calculated from your transactions.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+            {marks.map((mark) => (
+              <span key={mark.label} className={`rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wide ${mark.className}`}>
+                {mark.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -601,8 +669,8 @@ const pairedScores = 'grid grid-cols-3 gap-3';
 
 type ColumnSort = { key: string; direction: 'asc' | 'desc' };
 
-function useColumnSort() {
-  const [sort, setSort] = useState<ColumnSort | null>(null);
+function useColumnSort(initial: ColumnSort | null = null) {
+  const [sort, setSort] = useState<ColumnSort | null>(initial);
   const toggle = (key: string) => {
     setSort((current) => {
       if (!current || current.key !== key) return { key, direction: 'asc' };
@@ -729,7 +797,7 @@ function ReportView(props: {
         const head = wrap.querySelector('thead');
         if (!head) return;
         const wrapRect = wrap.getBoundingClientRect();
-        const hold = wrapRect.top < bottom && wrapRect.bottom > bottom + head.offsetHeight;
+        const hold = !wrap.classList.contains('report-table-fit') && wrapRect.top < bottom && wrapRect.bottom > bottom + head.offsetHeight;
         head.style.transform = hold ? `translateY(${bottom - wrapRect.top}px)` : '';
       });
     };
@@ -812,13 +880,15 @@ function ReportView(props: {
         <FilterBar
           {...props}
           dateOnly={props.reportId === 'owner-summary'}
-          hideMetric={props.reportId === 'lead-source-leaderboard' || props.reportId === 'team-performance'}
+          hideMetric={props.reportId === 'lead-source-leaderboard' || props.reportId === 'team-performance' || props.reportId === 'net-commission-income'}
           boardMetrics={undefined}
-          payeeChoices={props.reportId === 'lead-source-leaderboard' && (props.boardMetric === 'payment:agent' || props.boardMetric === 'payment:entity') ? props.payeeChoices : undefined}
-          excludeTeamLeads={(props.reportId === 'team-performance' || (props.reportId === 'lead-source-leaderboard' && props.boardMetric !== 'payment:entity')) ? props.excludeTeamLeads : undefined}
+          payeeChoices={(props.reportId === 'net-commission-income' || (props.reportId === 'lead-source-leaderboard' && (props.boardMetric === 'payment:agent' || props.boardMetric === 'payment:entity'))) ? props.payeeChoices : undefined}
+          excludeTeamLeads={(props.reportId === 'team-performance' || props.reportId === 'net-commission-income' || (props.reportId === 'lead-source-leaderboard' && props.boardMetric !== 'payment:entity')) ? props.excludeTeamLeads : undefined}
           dateRangeLabel={props.reportId === 'lead-source-leaderboard' || props.reportId === 'team-performance'
             ? `${props.dateBases.find((field) => field.id === props.boardDate)?.label || 'Closing Date'} Range`
-            : undefined}
+            : props.reportId === 'net-commission-income'
+              ? `${props.dateBases.find((field) => field.id === 'closing')?.label || 'Closing Date'} Range`
+              : undefined}
         />
       </div>
       <div className="space-y-4 pt-4">
@@ -850,6 +920,7 @@ function ReportView(props: {
             dateBasis={props.boardDate}
             sidePicked={props.sidePicked}
             cumulative={props.reportId === 'team-performance' && cumulative}
+            preset={props.preset}
           />
         ) : null}
       </div>
@@ -899,22 +970,8 @@ function FilterBar(props: {
       <DateRangeFilter preset={props.preset} range={props.range} onPreset={props.onPreset} onRange={props.onRange} label={props.dateRangeLabel} />
       {props.preset === 'custom' ? (
         <>
-          <Field label="From">
-            <input
-              type="date"
-              value={props.range.start}
-              onChange={(event) => props.onRange({ ...props.range, start: event.target.value })}
-              className={selectClass}
-            />
-          </Field>
-          <Field label="To">
-            <input
-              type="date"
-              value={props.range.end}
-              onChange={(event) => props.onRange({ ...props.range, end: event.target.value })}
-              className={selectClass}
-            />
-          </Field>
+          <CustomDateField label="From" value={props.range.start} onChange={(start) => props.onRange({ ...props.range, start })} />
+          <CustomDateField label="To" value={props.range.end} onChange={(end) => props.onRange({ ...props.range, end })} />
         </>
       ) : null}
       <MultiFilter label="Group" note="Limits every metric to transactions whose primary agent belongs to the selected groups. All includes every agent." options={props.groupChoices} picked={props.groupPicked} fallback={null} onChange={props.onGroups} />
@@ -975,6 +1032,8 @@ function dealInReport(deal: ReportDeal, range: DateRange, reportId: string | nul
     case 'lead-source-leaderboard':
     case 'team-performance':
       return (status === 'closed' || status === 'pending') && inRange(dateBasis === 'acceptance' ? deal.acceptanceDate : deal.closingDate, range);
+    case 'net-commission-income':
+      return (status === 'closed' || status === 'pending') && inRange(deal.closingDate, range);
     case 'listings-by-list-date':
       return listed;
     case 'transaction-list':
@@ -1028,6 +1087,17 @@ function uniqueFolded(values: string[]): string[] {
     if (!current || (current === current.toLowerCase() && trimmed !== trimmed.toLowerCase())) byKey.set(key, trimmed);
   });
   return [...byKey.values()].sort((a, b) => a.localeCompare(b));
+}
+
+function earningPeriodLabel(periodKey: string | null, preset: RangePreset, range: DateRange): string {
+  if (!periodKey) {
+    const name = DATE_PRESETS.find((item) => item.id === preset)?.label || 'Custom';
+    return `${name} (${formatFilterSpan(range)})`;
+  }
+  const [year, month, day] = periodKey.split('-').map(Number);
+  const date = new Date(year || 1970, (month || 1) - 1, day || 1);
+  if (day) return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
 function formatFilterDate(key: string): string {
@@ -1112,6 +1182,91 @@ function TitleMetric({ value, options, onChange }: { value: string; options: Boa
         </div>
       ) : null}
     </span>
+  );
+}
+
+function maskDate(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  const month = digits.slice(0, 2);
+  const day = digits.slice(2, 4);
+  const year = digits.slice(4, 8);
+  if (digits.length > 4) return `${month}/${day}/${year}`;
+  if (digits.length > 2) return `${month}/${day}`;
+  return month;
+}
+
+function displayToIso(display: string): string | null {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(display);
+  if (!match) return null;
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  const year = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+  return `${match[3]}-${match[1]}-${match[2]}`;
+}
+
+function isoToDisplay(iso: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return match ? `${match[2]}/${match[3]}/${match[1]}` : '';
+}
+
+function CustomDateField({ label, value, onChange }: { label: string; value: string; onChange: (iso: string) => void }) {
+  const [text, setText] = useState(() => isoToDisplay(value));
+  const picker = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    setText(isoToDisplay(value));
+  }, [value]);
+  return (
+    <Field label={label}>
+      <span className={`${selectClass} inline-flex w-[9.5rem] items-center gap-1 pr-1`}>
+        <input
+          value={text}
+          inputMode="numeric"
+          placeholder="MM/DD/YYYY"
+          aria-label={label}
+          maxLength={10}
+          onChange={(event) => {
+            const next = maskDate(event.target.value);
+            setText(next);
+            const iso = displayToIso(next);
+            if (iso) onChange(iso);
+          }}
+          onBlur={() => {
+            if (!displayToIso(text)) setText(isoToDisplay(value));
+          }}
+          className="min-w-0 flex-1 cursor-text bg-transparent outline-none"
+        />
+        <button
+          type="button"
+          aria-label={`${label} calendar`}
+          onClick={() => {
+            const node = picker.current;
+            if (!node) return;
+            try {
+              node.showPicker();
+            } catch {
+              node.click();
+            }
+          }}
+          className="cursor-pointer text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+        >
+          <Calendar className="h-4 w-4" aria-hidden="true" />
+        </button>
+        <input
+          ref={picker}
+          type="date"
+          tabIndex={-1}
+          value={/^\d{4}-\d{2}-\d{2}$/.test(value) ? value : ''}
+          min="1000-01-01"
+          max="9999-12-31"
+          onChange={(event) => {
+            if (event.target.value) onChange(event.target.value);
+          }}
+          className="sr-only"
+        />
+      </span>
+    </Field>
   );
 }
 
@@ -1372,8 +1527,9 @@ function ReportBody(props: {
   dateBasis: LeaderboardDate;
   sidePicked: string[] | null;
   cumulative: boolean;
+  preset: RangePreset;
 }) {
-  const { id, closed, pending, taken, closedPrior, pendingPrior, names, range, priorRange, metric, netCommission, priorNetCommission, allDeals, deals, payments, entityNames, teamLeadIds, boardField, payeePicked, excludeTeamLeads, dateBasis, sidePicked, cumulative } = props;
+  const { id, closed, pending, taken, closedPrior, pendingPrior, names, range, priorRange, metric, netCommission, priorNetCommission, allDeals, deals, payments, entityNames, teamLeadIds, boardField, payeePicked, excludeTeamLeads, dateBasis, sidePicked, cumulative, preset } = props;
   const closing = seriesBuckets(closed, (deal) => deal.closingDate, range);
   const closingPrior = seriesBuckets(closedPrior, (deal) => deal.closingDate, priorRange);
   if (id === 'owner-summary') {
@@ -1391,14 +1547,7 @@ function ReportBody(props: {
     );
   }
   if (id === 'team-performance') return <TeamPerformance deals={deals} range={range} priorRange={priorRange} dateBasis={dateBasis} sidePicked={sidePicked} cumulative={cumulative} />;
-  if (id === 'net-commission-income') {
-    return (
-      <div className="space-y-3">
-        <LineChart title="Net commission income" metric="net" current={closing} previous={closingPrior} />
-        <MonthlyTable title="Net commission income by closing month" rows={closing} mode="net" />
-      </div>
-    );
-  }
+  if (id === 'net-commission-income') return <AgentEarnings deals={deals} payments={payments} names={names} range={range} priorRange={priorRange} excludeTeamLeads={excludeTeamLeads} teamLeadIds={teamLeadIds} payeePicked={payeePicked} preset={preset} />;
   if (id === 'net-commission-analysis') return <NetAnalysis range={range} priorRange={priorRange} closed={closed} closedPrior={closedPrior} />;
   if (id === 'team-productivity') {
     return (
@@ -1622,20 +1771,40 @@ function linePeaks(points: Array<{ x: number; y: number }>, present: boolean[], 
 function smoothLine(points: Array<{ x: number; y: number }>): string {
   if (points.length === 0) return '';
   if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+  const segments = points.length - 1;
+  const secant = points.slice(0, -1).map((point, index) => {
+    const next = points[index + 1];
+    const dx = next.x - point.x;
+    return dx === 0 ? 0 : (next.y - point.y) / dx;
+  });
+  const slope = secant.map((value, index) => {
+    if (index === 0) return value;
+    const previous = secant[index - 1];
+    if (previous === 0 || value === 0 || (previous > 0) !== (value > 0)) return 0;
+    return (previous + value) / 2;
+  });
+  slope.push(secant[segments - 1]);
+  secant.forEach((value, index) => {
+    if (value === 0) {
+      slope[index] = 0;
+      slope[index + 1] = 0;
+      return;
+    }
+    const alpha = slope[index] / value;
+    const beta = slope[index + 1] / value;
+    const size = alpha * alpha + beta * beta;
+    if (size > 9) {
+      const scale = 3 / Math.sqrt(size);
+      slope[index] = scale * alpha * value;
+      slope[index + 1] = scale * beta * value;
+    }
+  });
   let path = `M ${points[0].x} ${points[0].y}`;
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const before = points[index - 1] || points[index];
+  for (let index = 0; index < segments; index += 1) {
     const start = points[index];
     const end = points[index + 1];
-    const after = points[index + 2] || end;
-    const low = Math.min(start.y, end.y);
-    const high = Math.max(start.y, end.y);
-    const clamp = (value: number) => Math.min(high, Math.max(low, value));
-    const c1x = start.x + (end.x - before.x) / 6;
-    const c1y = clamp(start.y + (end.y - before.y) / 6);
-    const c2x = end.x - (after.x - start.x) / 6;
-    const c2y = clamp(end.y - (after.y - start.y) / 6);
-    path += ` C ${c1x} ${c1y} ${c2x} ${c2y} ${end.x} ${end.y}`;
+    const dx = (end.x - start.x) / 3;
+    path += ` C ${start.x + dx} ${start.y + slope[index] * dx} ${end.x - dx} ${end.y - slope[index + 1] * dx} ${end.x} ${end.y}`;
   }
   return path;
 }
@@ -1773,23 +1942,24 @@ function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, cumu
   };
   return (
     <div className={pairedReport}>
-      <TrendPanel metric="volume" title="Sales volume" tone="volume" currentClass="text-teal-700 dark:text-teal-300" previousClass="text-teal-300 dark:text-teal-600" accentClass="text-teal-700 dark:text-teal-200" cumulative={cumulative} {...panel} />
-      <TrendPanel metric="gci" title="Gross commission income" tone="emerald" currentClass="text-emerald-700 dark:text-emerald-300" previousClass="text-emerald-300 dark:text-emerald-700" accentClass="text-emerald-700 dark:text-emerald-200" cumulative={cumulative} {...panel} />
-      <TrendPanel metric="units" title="Units" tone="units" currentClass="text-purple-700 dark:text-purple-300" previousClass="text-purple-300 dark:text-purple-700" accentClass="text-purple-700 dark:text-purple-200" cumulative={cumulative} {...panel} />
-      <TrendPanel metric="team" title="Team Commission" tone="team" currentClass="text-rose-700 dark:text-rose-300" previousClass="text-rose-300 dark:text-rose-600" accentClass="text-rose-700 dark:text-rose-200" cumulative={cumulative} {...panel} />
-      <TrendPanel metric="price" title="Sales price" tone="price" currentClass="text-amber-600 dark:text-amber-300" previousClass="text-amber-300 dark:text-amber-700" accentClass="text-amber-700 dark:text-amber-200" chart="bars" {...salePanel} />
-      <TrendPanel metric="rate" title="Gross commission percentage" tone="rate" currentClass="text-sky-700 dark:text-sky-300" previousClass="text-sky-300 dark:text-sky-600" accentClass="text-sky-700 dark:text-sky-200" chart="bars" {...salePanel} />
+      <TrendPanel metric="volume" title="Sales volume" tone="volume" currentClass="text-teal-600 dark:text-teal-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-teal-700 dark:text-teal-200" pendingClass="text-teal-500 dark:text-teal-400" cumulative={cumulative} {...panel} />
+      <TrendPanel metric="gci" title="Gross commission income" tone="emerald" currentClass="text-emerald-600 dark:text-emerald-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-emerald-700 dark:text-emerald-200" pendingClass="text-emerald-500 dark:text-emerald-400" cumulative={cumulative} {...panel} />
+      <TrendPanel metric="units" title="Units" tone="units" currentClass="text-purple-600 dark:text-purple-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-purple-700 dark:text-purple-200" pendingClass="text-purple-500 dark:text-purple-400" cumulative={cumulative} {...panel} />
+      <TrendPanel metric="team" title="Team Commission" tone="team" currentClass="text-rose-600 dark:text-rose-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-rose-700 dark:text-rose-200" pendingClass="text-rose-500 dark:text-rose-400" cumulative={cumulative} {...panel} />
+      <TrendPanel metric="price" title="Sales price" tone="price" currentClass="text-amber-500 dark:text-amber-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-amber-700 dark:text-amber-200" pendingClass="text-amber-500 dark:text-amber-400" chart="bars" {...salePanel} />
+      <TrendPanel metric="rate" title="Gross commission percentage" tone="rate" currentClass="text-sky-600 dark:text-sky-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-sky-700 dark:text-sky-200" pendingClass="text-sky-500 dark:text-sky-400" chart="bars" {...salePanel} />
     </div>
   );
 }
 
-function TrendPanel({ metric, title, tone, currentClass, previousClass, accentClass, chart = 'line', cumulative = false, months, priorMonths, currentDeals, priorDeals, statusFilter, onSelectStatus, notice }: {
+function TrendPanel({ metric, title, tone, currentClass, previousClass, accentClass, pendingClass, chart = 'line', cumulative = false, months, priorMonths, currentDeals, priorDeals, statusFilter, onSelectStatus, notice }: {
   metric: TrendMetric;
   title: string;
   tone: 'volume' | 'emerald' | 'units' | 'rate' | 'price' | 'team';
   currentClass: string;
   previousClass: string;
   accentClass: string;
+  pendingClass: string;
   chart?: 'line' | 'bars';
   cumulative?: boolean;
   months: MonthRow[];
@@ -1819,7 +1989,7 @@ function TrendPanel({ metric, title, tone, currentClass, previousClass, accentCl
       <div className={pairedScores}>
         <TrendScore tone={tone} label="Total" amount={formatTrend(total, metric)} toneClass="" dollar={signedTrend(total - priorTotal, metric)} percent={signedChangePercent(total, priorTotal)} current={total} prior={priorTotal} selected={statusFilter === 'all'} onSelect={() => onSelectStatus('all')} />
         <TrendScore tone={tone} label="Closed" amount={formatTrend(closed, metric)} toneClass={accentClass} dollar={signedTrend(closed - priorClosed, metric)} percent={signedChangePercent(closed, priorClosed)} current={closed} prior={priorClosed} selected={statusFilter === 'closed'} onSelect={() => onSelectStatus('closed')} />
-        <TrendScore tone={tone} label="Pending" amount={formatTrend(pending, metric)} toneClass="text-slate-400" selected={statusFilter === 'pending'} onSelect={() => onSelectStatus('pending')} />
+        <TrendScore tone={tone} label="Pending" amount={formatTrend(pending, metric)} toneClass={pendingClass} selected={statusFilter === 'pending'} onSelect={() => onSelectStatus('pending')} />
       </div>
       {chart === 'bars' ? <PriceBars {...chartProps} /> : <TrendChart {...chartProps} cumulative={cumulative} />}
         </>
@@ -1859,7 +2029,7 @@ function TrendScore({ tone, label, amount, toneClass, dollar, percent, current =
       onClick={onSelect}
       className={`w-full min-w-0 cursor-pointer appearance-none rounded-xl border px-3 py-2 text-center shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? `ring-inset ${selectedClass}` : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
     >
-      <p className={`text-xs font-medium uppercase ${toneClass || 'text-slate-500'}`}>{label}</p>
+      <p className={`text-xs font-medium uppercase ${toneClass || 'text-slate-500 dark:text-white'}`}>{label}</p>
       <p className={`mt-0.5 text-xl font-extrabold tabular-nums ${toneClass}`}>{amount}</p>
       {dollar && percent ? (
           <div className={`mt-1 flex items-baseline justify-center gap-8 text-xs font-semibold tabular-nums ${changeClass(current, prior)}`}>
@@ -1947,7 +2117,7 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
             </g>
           ))}
           {smoothRuns(currentPoints, currentPresent).map((run, index) => (
-            <path key={`current-fill-${index}`} d={areaUnder(run, yAt(0))} fill="currentColor" fillOpacity="0.2" stroke="none" className={currentClass} />
+            <path key={`current-fill-${index}`} d={areaUnder(run, yAt(0))} fill={`url(#area-fade-${metric})`} stroke="none" />
           ))}
           {smoothRuns(previousPoints, previousPresent).map((run, index) => (
             <path key={`prior-${index}`} d={smoothLine(run)} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={previousClass} />
@@ -1956,6 +2126,10 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
             <path key={`current-${index}`} d={smoothLine(run)} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={currentClass} />
           ))}
           <defs>
+            <linearGradient id={`area-fade-${metric}`} x1="0" y1="0" x2="0" y2="1" className={currentClass}>
+              <stop offset="0%" stopColor="currentColor" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+            </linearGradient>
             {peaks.map((_, index) => (
               <radialGradient key={`peak-fade-${index}`} id={`peak-fade-${metric}-${index}`} cx="50%" cy="50%" r="50%">
                 <stop offset="0%" stopColor="white" />
@@ -1973,6 +2147,8 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
           {smoothRuns(currentPoints, currentPresent).map((run, index) => (
             <path key={`current-shine-${index}`} d={smoothLine(run)} fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" strokeOpacity="0.8" mask={`url(#peak-shine-${metric})`} />
           ))}
+          {average > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(average)} y2={yAt(average)} stroke="currentColor" strokeWidth="1.25" strokeDasharray="14 8" className={currentClass} /> : null}
+          {priorAverage > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(priorAverage)} y2={yAt(priorAverage)} stroke="currentColor" strokeWidth="1.25" strokeDasharray="14 8" className={previousClass} /> : null}
           {hover !== null ? (
             <g>
               <line x1={xAt(hover)} x2={xAt(hover)} y1={pad.top} y2={height - pad.bottom} stroke="currentColor" strokeOpacity="0.35" className={currentClass} />
@@ -2003,24 +2179,16 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
           </div>
         ) : null}
       </div>
-      <div className="mt-2 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-[11px] text-slate-500">
+      <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1 text-[11px] text-slate-500">
         <span className="inline-flex items-baseline gap-1.5">
           <span className={`h-0.5 w-4 self-center rounded-full bg-current ${currentClass}`} />
-          This period
-          <span className="inline-flex items-baseline">
-            <span className="text-[10px] font-normal text-slate-400">(average: </span>
-            <span className={`text-sm font-bold tabular-nums ${currentClass}`}>{formatTrend(average, metric, true)}</span>
-            <span className="text-[10px] font-normal text-slate-400">)</span>
-          </span>
+          Current period. Average:
+          <span className={`text-sm font-bold tabular-nums ${currentClass}`}>{formatTrend(average, metric, true)}</span>
         </span>
         <span className="inline-flex items-baseline gap-1.5">
           <span className={`h-0.5 w-4 self-center rounded-full bg-current ${previousClass}`} />
-          Prior year
-          <span className="inline-flex items-baseline">
-            <span className="text-[10px] font-normal text-slate-400">(average: </span>
-            <span className={`text-sm font-bold tabular-nums ${previousClass}`}>{formatTrend(priorAverage, metric, true)}</span>
-            <span className="text-[10px] font-normal text-slate-400">)</span>
-          </span>
+          Previous year. Average:
+          <span className={`text-sm font-bold tabular-nums ${previousClass}`}>{formatTrend(priorAverage, metric, true)}</span>
         </span>
       </div>
     </div>
@@ -2047,7 +2215,8 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
   const ticks = trendTicks(max);
   const axisMax = ticks[ticks.length - 1] || 1;
   const slot = months.length ? innerW / months.length : innerW;
-  const barWidth = Math.max(4, Math.min(18, slot * 0.32));
+  const gap = 3;
+  const barWidth = Math.max(6, Math.min(32, (slot - gap - 6) / 2));
   const yAt = (value: number) => pad.top + innerH - (value / axisMax) * innerH;
   const baseline = yAt(0);
   const center = (index: number) => pad.left + slot * index + slot / 2;
@@ -2081,17 +2250,23 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
             </g>
           ))}
           {months.map((row, index) => {
-            const priorHeight = Math.max(0, baseline - yAt(previousValues[index] || 0));
-            const currentHeight = Math.max(0, baseline - yAt(currentValues[index] || 0));
-            const priorX = center(index) + 1.5;
-            const currentX = center(index) - barWidth - 1.5;
+            const currentValue = currentValues[index] || 0;
+            const previousValue = previousValues[index] || 0;
+            const priorHeight = Math.max(0, baseline - yAt(previousValue));
+            const currentHeight = Math.max(0, baseline - yAt(currentValue));
+            const currentX = center(index) - barWidth - gap / 2;
+            const priorX = center(index) + gap / 2;
+            const priorBar = roundedTopBar(priorX, baseline - priorHeight, barWidth, priorHeight, 6);
+            const currentBar = roundedTopBar(currentX, baseline - currentHeight, barWidth, currentHeight, 6);
             return (
               <g key={`bars-${row.key}`}>
-                <path d={roundedTopBar(priorX, baseline - priorHeight, barWidth, priorHeight, 6)} fill="currentColor" className={previousClass} />
-                <path d={roundedTopBar(currentX, baseline - currentHeight, barWidth, currentHeight, 6)} fill="currentColor" className={currentClass} />
+                <path d={currentBar} fill="currentColor" className={currentClass} />
+                <path d={priorBar} fill="currentColor" className={previousClass} />
               </g>
             );
           })}
+          {average > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(average)} y2={yAt(average)} stroke="currentColor" strokeWidth="1.25" strokeDasharray="14 8" className={currentClass} /> : null}
+          {priorAverage > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(priorAverage)} y2={yAt(priorAverage)} stroke="currentColor" strokeWidth="1.25" strokeDasharray="14 8" className={previousClass} /> : null}
           {months.map((row, index) => (
             <text key={`label-${row.key}`} x={center(index)} y={height - 8} textAnchor="middle" className="fill-slate-400" fontSize="11">
               {months.length > 14 && index % 2 ? '' : row.label}
@@ -2115,17 +2290,15 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
           </div>
         ) : null}
       </div>
-      <div className="mt-2 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-[11px] text-slate-500">
+      <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1 text-[11px] text-slate-500">
         <span className="inline-flex items-baseline gap-1.5">
           <span className={`h-2 w-3 self-center rounded-t bg-current ${currentClass}`} />
-          This period
-          <span className="text-[10px] font-normal text-slate-400">avg.</span>
+          Current period. Average:
           <span className={`text-sm font-bold tabular-nums ${currentClass}`}>{formatTrend(average, metric, true)}</span>
         </span>
         <span className="inline-flex items-baseline gap-1.5">
           <span className={`h-2 w-3 self-center rounded-t bg-current ${previousClass}`} />
-          Prior year
-          <span className="text-[10px] font-normal text-slate-400">avg.</span>
+          Previous year. Average:
           <span className={`text-sm font-bold tabular-nums ${previousClass}`}>{formatTrend(priorAverage, metric, true)}</span>
         </span>
       </div>
@@ -2147,6 +2320,7 @@ function LineChart({ title, metric, current, previous }: { title: string; metric
   const yAt = (value: number) => pad.top + innerH - (value / max) * innerH;
   const pathFor = (values: number[]) => values.map((value, index) => `${index === 0 ? 'M' : 'L'} ${xAt(index)} ${yAt(value)}`).join(' ');
   const average = currentValues.length ? currentValues.reduce((total, value) => total + value, 0) / currentValues.length : 0;
+  const priorAverage = previous.length ? previousValues.reduce((total, value) => total + value, 0) / previousValues.length : 0;
   const point = hover === null ? null : current[hover];
   const prior = hover === null ? 0 : previousValues[hover] || 0;
   const value = hover === null ? 0 : currentValues[hover] || 0;
@@ -2155,7 +2329,6 @@ function LineChart({ title, metric, current, previous }: { title: string; metric
     <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
       <div className="flex items-center justify-between gap-3 mb-2">
         <h3 className="text-sm font-bold">{title}</h3>
-        <p className="text-[11px] text-slate-500">Avg. {formatMetric(average, metric)}</p>
       </div>
       <div className="relative">
         <svg
@@ -2177,13 +2350,14 @@ function LineChart({ title, metric, current, previous }: { title: string; metric
             setHover(nearest);
           }}
         >
-          <line x1={pad.left} x2={width - pad.right} y1={yAt(average)} y2={yAt(average)} stroke="currentColor" className="text-slate-300 dark:text-slate-600" strokeDasharray="4 4" />
-          {previous.length > 0 ? <path d={pathFor(previousValues)} fill="none" stroke="#94a3b8" strokeWidth="2" /> : null}
-          <path d={pathFor(currentValues)} fill="none" stroke="#10b981" strokeWidth="2.5" />
+          {average > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(average)} y2={yAt(average)} stroke="currentColor" strokeDasharray="14 8" className="text-emerald-400 dark:text-emerald-600" /> : null}
+          {priorAverage > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(priorAverage)} y2={yAt(priorAverage)} stroke="currentColor" strokeDasharray="14 8" className="text-[#d9dde2] dark:text-slate-400" /> : null}
+          {previous.length > 0 ? <path d={pathFor(previousValues)} fill="none" stroke="currentColor" strokeWidth="2" className="text-[#d9dde2] dark:text-slate-400" /> : null}
+          <path d={pathFor(currentValues)} fill="none" stroke="currentColor" strokeWidth="2.5" className="text-emerald-400 dark:text-emerald-600" />
           {current.map((row, index) => (
-            <circle key={row.key} cx={xAt(index)} cy={yAt(currentValues[index])} r={hover === index ? 4.5 : 2.5} fill="#10b981" />
+            <circle key={row.key} cx={xAt(index)} cy={yAt(currentValues[index])} r={hover === index ? 4.5 : 2.5} fill="currentColor" className="text-emerald-400 dark:text-emerald-600" />
           ))}
-          {hover !== null ? <line x1={xAt(hover)} x2={xAt(hover)} y1={pad.top} y2={height - pad.bottom} stroke="#10b981" strokeOpacity="0.35" /> : null}
+          {hover !== null ? <line x1={xAt(hover)} x2={xAt(hover)} y1={pad.top} y2={height - pad.bottom} stroke="currentColor" strokeOpacity="0.35" className="text-emerald-400 dark:text-emerald-600" /> : null}
           {current.map((row, index) => (
             <text key={`${row.key}-label`} x={xAt(index)} y={height - 8} textAnchor="middle" className="fill-slate-400" fontSize="10">
               {current.length > 16 && index % 2 ? '' : row.label}
@@ -2196,15 +2370,15 @@ function LineChart({ title, metric, current, previous }: { title: string; metric
             style={{ left: `${Math.min(78, Math.max(2, (xAt(hover) / width) * 100))}%` }}
           >
             <p className="font-bold">{point.label}</p>
-            <p className="mt-1 text-emerald-600 dark:text-emerald-400">{formatMetric(value, metric)}</p>
+            <p className="mt-1 text-emerald-400 dark:text-emerald-600">{formatMetric(value, metric)}</p>
             <p className="text-slate-500">Previous year {formatMetric(prior, metric)}</p>
             <p className="text-slate-500">{prior ? percent(value - prior, prior) : '—'}</p>
           </div>
         ) : null}
       </div>
-      <div className="mt-2 flex gap-4 text-[11px] text-slate-500">
-        <span className="inline-flex items-center gap-1"><span className="h-0.5 w-4 bg-emerald-500" /> This period</span>
-        <span className="inline-flex items-center gap-1"><span className="h-0.5 w-4 bg-slate-400" /> Previous year</span>
+      <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1 text-[11px] text-slate-500">
+        <span className="inline-flex items-baseline gap-1.5"><span className="h-0.5 w-4 self-center rounded-full bg-emerald-400 dark:bg-emerald-600" /> Current period. Average: <span className="text-sm font-bold tabular-nums text-emerald-400 dark:text-emerald-600">{formatMetric(average, metric)}</span></span>
+        {previous.length > 0 ? <span className="inline-flex items-baseline gap-1.5"><span className="h-0.5 w-4 self-center rounded-full bg-[#d9dde2] dark:bg-slate-400" /> Previous year. Average: <span className="text-sm font-bold tabular-nums text-[#d9dde2] dark:text-slate-400">{formatMetric(priorAverage, metric)}</span></span> : null}
       </div>
     </div>
   );
@@ -2540,6 +2714,7 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
   const priorClosed = scores ? scores.priorClosed : statusTotal(prior, 'closed', metric);
   const pendingValue = scores ? scores.pending : statusTotal(current, 'pending', metric);
   const accent = tone === 'volume' ? 'text-teal-700 dark:text-teal-200' : 'text-purple-700 dark:text-purple-200';
+  const pendingTone = tone === 'volume' ? 'text-teal-500 dark:text-teal-400' : 'text-purple-500 dark:text-purple-400';
   const bar = tone === 'volume' ? 'bg-teal-500/75 dark:bg-teal-400/55' : 'bg-purple-500/75 dark:bg-purple-400/55';
   const tableTotal = rows.reduce((sum, row) => sum + row.value, 0);
   const tablePrior = rows.reduce((sum, row) => sum + row.prior, 0);
@@ -2560,7 +2735,7 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
       <div className={pairedScores}>
         <BoardScore tone={tone} label="Total" amount={formatValue(total)} dollar={formatDelta(total - priorTotal)} percent={signedChangePercent(total, priorTotal)} toneClass="" current={total} prior={priorTotal} selected={statusFilter === 'all'} onSelect={() => onSelectStatus('all')} />
         <BoardScore tone={tone} label="Closed" amount={formatValue(closedValue)} dollar={formatDelta(closedValue - priorClosed)} percent={signedChangePercent(closedValue, priorClosed)} toneClass={accent} current={closedValue} prior={priorClosed} selected={statusFilter === 'closed'} onSelect={() => onSelectStatus('closed')} />
-        <BoardScore tone={tone} label="Pending" amount={formatValue(pendingValue)} toneClass="text-slate-400" selected={statusFilter === 'pending'} onSelect={() => onSelectStatus('pending')} />
+        <BoardScore tone={tone} label="Pending" amount={formatValue(pendingValue)} toneClass={pendingTone} selected={statusFilter === 'pending'} onSelect={() => onSelectStatus('pending')} />
       </div>
       <div className="report-table rounded-xl">
       <table className="w-full text-sm">
@@ -2638,7 +2813,7 @@ function BoardScore({ tone, label, amount, dollar, percent, toneClass, current =
       onClick={onSelect}
       className={`flex h-full w-full min-w-0 flex-col justify-start cursor-pointer appearance-none rounded-xl border px-3 py-2 text-center shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? `ring-inset ${selectedClass}` : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
     >
-        <p className={`text-xs font-medium uppercase ${toneClass || 'text-slate-500'}`}>{label}</p>
+        <p className={`text-xs font-medium uppercase ${toneClass || 'text-slate-500 dark:text-white'}`}>{label}</p>
         <p className={`mt-0.5 text-xl font-extrabold tabular-nums ${toneClass}`}>{amount}</p>
         {dollar && percent ? (
           <div className={`mt-1 flex items-baseline justify-center gap-8 text-xs font-semibold tabular-nums ${deltaClass}`}>
@@ -2678,6 +2853,495 @@ function SourceTable({ rows }: { rows: Array<Totals & { source: string }> }) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function payeeKept(agentId: string, picked: string[] | null): boolean {
+  return picked == null || picked.includes(agentId);
+}
+
+function earningSums(deals: ReportDeal[], payments: ReportPayment[], range: DateRange, excludeTeamLeads: boolean, teamLeadIds: Set<string>, payeePicked: string[] | null) {
+  const dealsById = new Map(deals.map((deal) => [deal.id, deal]));
+  let total = 0;
+  let closed = 0;
+  let pending = 0;
+  payments.forEach((payment) => {
+    const deal = dealsById.get(payment.transactionId);
+    if (!deal || payeeKind(payment) !== 'agent' || !inRange(deal.closingDate, range)) return;
+    const agentId = payment.agentId || 'unspecified';
+    if (excludeTeamLeads && teamLeadIds.has(agentId)) return;
+    if (!payeeKept(agentId, payeePicked)) return;
+    const status = deal.status.trim().toLowerCase();
+    if (status !== 'closed' && status !== 'pending') return;
+    total += payment.amount;
+    if (status === 'closed') closed += payment.amount;
+    else pending += payment.amount;
+  });
+  return { total, closed, pending };
+}
+
+function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamLeads, teamLeadIds, payeePicked, preset }: { deals: ReportDeal[]; payments: ReportPayment[]; names: Map<string, string>; range: DateRange; priorRange: DateRange; excludeTeamLeads: boolean; teamLeadIds: Set<string>; payeePicked: string[] | null; preset: RangePreset }) {
+  const [statusFilter, setStatusFilter] = useState<'all' | 'closed' | 'pending'>('all');
+  useEffect(() => {
+    setStatusFilter('all');
+  }, [range, excludeTeamLeads]);
+  const selectStatus = (status: 'all' | 'closed' | 'pending') => {
+    setStatusFilter((value) => (value === status ? 'all' : status));
+  };
+  const columns = useMemo(() => periodColumns(range), [range]);
+  const lines = useMemo(() => {
+    const dealsById = new Map(deals.map((deal) => [deal.id, deal]));
+    const columnKeys = new Set(columns.map((column) => column.key));
+    const grouped = new Map<string, { key: string; agentId: string; agentName: string; deal: ReportDeal; amount: number; periodKey: string }>();
+    payments.forEach((payment) => {
+      const deal = dealsById.get(payment.transactionId);
+      if (!deal || payeeKind(payment) !== 'agent' || !inRange(deal.closingDate, range)) return;
+      const bucket = periodKey(deal.closingDate, range);
+      if (!columnKeys.has(bucket)) return;
+      const agentId = payment.agentId || 'unspecified';
+      if (excludeTeamLeads && teamLeadIds.has(agentId)) return;
+      if (!payeeKept(agentId, payeePicked)) return;
+      const key = `${agentId}:${deal.id}`;
+      const existing = grouped.get(key);
+      if (existing) {
+        existing.amount += payment.amount;
+        return;
+      }
+      grouped.set(key, {
+        key,
+        agentId,
+        agentName: names.get(payment.agentId) || payment.agentId || 'Unspecified',
+        deal,
+        amount: payment.amount,
+        periodKey: bucket,
+      });
+    });
+    return [...grouped.values()];
+  }, [columns, deals, excludeTeamLeads, names, payments, payeePicked, range, teamLeadIds]);
+  const priorSums = useMemo(
+    () => earningSums(deals, payments, priorRange, excludeTeamLeads, teamLeadIds, payeePicked),
+    [deals, excludeTeamLeads, payments, payeePicked, priorRange, teamLeadIds],
+  );
+  const sums = useMemo(() => {
+    let total = 0;
+    let closed = 0;
+    let pending = 0;
+    lines.forEach((line) => {
+      total += line.amount;
+      const status = line.deal.status.trim().toLowerCase();
+      if (status === 'closed') closed += line.amount;
+      else if (status === 'pending') pending += line.amount;
+    });
+    return { total, closed, pending };
+  }, [lines]);
+  const tableLines = useMemo(
+    () => (statusFilter === 'all' ? lines : lines.filter((line) => line.deal.status.trim().toLowerCase() === statusFilter)),
+    [lines, statusFilter],
+  );
+  const rows = useMemo(() => {
+    const byAgentId = new Map<string, { agentId: string; name: string; amounts: Record<string, number>; total: number }>();
+    tableLines.forEach((line) => {
+      const row = byAgentId.get(line.agentId) || { agentId: line.agentId, name: line.agentName, amounts: {}, total: 0 };
+      row.amounts[line.periodKey] = (row.amounts[line.periodKey] || 0) + line.amount;
+      row.total += line.amount;
+      byAgentId.set(line.agentId, row);
+    });
+    return [...byAgentId.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+  }, [tableLines]);
+  const columnTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+    columns.forEach((column) => {
+      totals[column.key] = tableLines.reduce((sum, line) => (line.periodKey === column.key ? sum + line.amount : sum), 0);
+    });
+    return totals;
+  }, [columns, tableLines]);
+  const grand = tableLines.reduce((sum, line) => sum + line.amount, 0);
+  const columnPeaks = useMemo(() => {
+    const peaks: Record<string, number> = {};
+    columns.forEach((column) => {
+      peaks[column.key] = rows.reduce((max, row) => Math.max(max, row.amounts[column.key] || 0), 0);
+    });
+    return peaks;
+  }, [columns, rows]);
+  const rowPeak = rows.reduce((max, row) => Math.max(max, row.total), 0);
+  const monthPeak = columns.reduce((max, column) => Math.max(max, columnTotals[column.key] || 0), 0);
+  const [pick, setPick] = useState<{ agentId: string | null; periodKey: string | null } | null>(null);
+  const blockRef = useRef<HTMLDivElement>(null);
+  const pivotWrapRef = useRef<HTMLDivElement>(null);
+  const pivotBodyRef = useRef<HTMLTableElement>(null);
+  const pivotFootRef = useRef<HTMLTableElement>(null);
+  const pivotFootScrollRef = useRef<HTMLDivElement>(null);
+  const detailWrapRef = useRef<HTMLDivElement>(null);
+  const syncPivotFoot = () => {
+    const body = pivotBodyRef.current;
+    const foot = pivotFootRef.current;
+    if (!body || !foot) return;
+    const widths = [...body.querySelectorAll('thead th')].map((cell) => cell.getBoundingClientRect().width);
+    foot.style.width = `${body.scrollWidth}px`;
+    [...foot.querySelectorAll('td')].forEach((cell, index) => {
+      const width = `${widths[index] || 0}px`;
+      cell.style.width = width;
+      cell.style.minWidth = width;
+      cell.style.maxWidth = width;
+    });
+  };
+  useEffect(() => {
+    setPick(null);
+  }, [deals, payments, range, excludeTeamLeads, payeePicked, statusFilter]);
+  const choose = (agentId: string | null, bucket: string | null) => {
+    const same = Boolean(pick && pick.agentId === agentId && pick.periodKey === bucket);
+    setPick(same ? null : { agentId, periodKey: bucket });
+  };
+  const selected = (agentId: string | null, bucket: string | null) => Boolean(pick && pick.agentId === agentId && pick.periodKey === bucket);
+  const shown = tableLines.filter((line) => {
+    if (!pick) return false;
+    if (pick.agentId && line.agentId !== pick.agentId) return false;
+    if (pick.periodKey && line.periodKey !== pick.periodKey) return false;
+    return true;
+  });
+  const { sort, toggle } = useColumnSort({ key: 'total', direction: 'desc' });
+  const ordered = sortBy(rows.map((row, index) => ({ ...row, rank: index + 1 })), sort, (row, key) => {
+    if (key === 'rank') return row.rank;
+    if (key === 'agent') return row.name;
+    if (key === 'total') return row.total;
+    return row.amounts[key] || 0;
+  });
+  const visible = pick?.agentId ? ordered.filter((row) => row.agentId === pick.agentId) : pick ? [] : ordered;
+  const showTotal = ordered.length > 0 && !pick?.agentId;
+  const agentName = pick?.agentId ? rows.find((row) => row.agentId === pick.agentId)?.name || 'Agent' : '';
+  const subject = agentName ? `${agentName}'s earnings` : "All agents' earnings";
+  const periodLabel = earningPeriodLabel(pick?.periodKey || null, preset, range);
+  const caption = pick ? `${subject}: ${periodLabel}. Click the same amount again to show all agents.` : '';
+  useLayoutEffect(() => {
+    const fit = (scroll: boolean) => {
+      const pivot = pivotWrapRef.current;
+      const detail = detailWrapRef.current;
+      const chrome = document.querySelector('main .sticky.top-0');
+      if (!pick) {
+        clearReportDetailPad(pivot);
+        if (pivot) {
+          const top = pivot.getBoundingClientRect().top;
+          const fitHeight = Math.max(180, Math.round(window.innerHeight - top - 12));
+          const body = pivot.querySelector<HTMLElement>('.report-table-fit');
+          const foot = pivot.querySelector<HTMLElement>('[data-pivot-foot]');
+          const needed = (body?.scrollHeight ?? 0) + (foot?.scrollHeight ?? 0);
+          const border = pivot.offsetHeight - pivot.clientHeight;
+          pivot.style.maxHeight = `${fitHeight}px`;
+          pivot.style.height = needed > 0 ? `${Math.min(needed + border, fitHeight)}px` : '';
+        }
+      } else if (pivot) {
+        pivot.style.maxHeight = '';
+        pivot.style.height = '';
+      }
+      if (pick && scroll) scrollUnderChrome(blockRef.current);
+      if (detail) {
+        const chromeBottom = chrome?.getBoundingClientRect().bottom ?? 0;
+        const top = Math.max(detail.getBoundingClientRect().top, chromeBottom);
+        const fitHeight = Math.max(160, Math.round(window.innerHeight - top - 12));
+        const body = detail.querySelector<HTMLElement>('.report-table-fit');
+        const foot = detail.querySelector<HTMLElement>('[data-earning-foot]');
+        const needed = (body?.scrollHeight ?? 0) + (foot?.scrollHeight ?? 0);
+        detail.style.maxHeight = `${fitHeight}px`;
+        detail.style.height = needed > fitHeight ? `${fitHeight}px` : 'auto';
+      }
+    };
+    fit(true);
+    syncPivotFoot();
+    const onResize = () => {
+      fit(false);
+      syncPivotFoot();
+    };
+    window.addEventListener('resize', onResize);
+    window.addEventListener('scroll', onResize, { passive: true });
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onResize);
+    };
+  }, [pick, ordered.length, columns.length]);
+  const closedClass = 'text-emerald-700 dark:text-emerald-200';
+  return (
+    <div ref={blockRef} className="space-y-4">
+      <div className={pairedScores}>
+        <TrendScore tone="emerald" label="Total" amount={fullMoney(sums.total)} toneClass="" dollar={signedFull(sums.total - priorSums.total)} percent={signedChangePercent(sums.total, priorSums.total)} current={sums.total} prior={priorSums.total} selected={statusFilter === 'all'} onSelect={() => selectStatus('all')} />
+        <TrendScore tone="emerald" label="Closed" amount={fullMoney(sums.closed)} toneClass={closedClass} dollar={signedFull(sums.closed - priorSums.closed)} percent={signedChangePercent(sums.closed, priorSums.closed)} current={sums.closed} prior={priorSums.closed} selected={statusFilter === 'closed'} onSelect={() => selectStatus('closed')} />
+        <TrendScore tone="emerald" label="Pending" amount={fullMoney(sums.pending)} toneClass="text-emerald-500 dark:text-emerald-400" selected={statusFilter === 'pending'} onSelect={() => selectStatus('pending')} />
+      </div>
+      <div ref={pivotWrapRef} className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <div
+          className="report-table report-table-fit min-h-0 flex-auto rounded-none border-0"
+          onScroll={(event) => {
+            if (pivotFootScrollRef.current) pivotFootScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
+          }}
+        >
+          <table ref={pivotBodyRef} className="w-full text-xs">
+            <thead className={earningHead}>
+              <tr>
+                <SortHead column="rank" label="#" sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
+                <SortHead column="agent" label="Agent" sort={sort} onSort={toggle} className={earningHeadCell} />
+                {columns.map((column) => (
+                  <SortHead key={column.key} column={column.key} label={column.label} sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
+                ))}
+                <SortHead column="total" label="Total" sort={sort} onSort={toggle} align="right" className={`${earningHeadCell} pivot-total`} />
+              </tr>
+            </thead>
+            <tbody>
+              {visible.length === 0 && !showTotal ? (
+                <tr><td className="px-3 py-6 text-slate-500" colSpan={columns.length + 3}>No agent earnings in this date range.</td></tr>
+              ) : visible.map((row, index) => (
+                <tr key={row.agentId} className={earningRowClass(index, Boolean(pick && pick.agentId === row.agentId))}>
+                  <td className="px-2 py-1.5 text-right tabular-nums text-slate-500">{row.rank}</td>
+                  <td className="px-3 py-1.5 font-medium whitespace-nowrap">{row.name}</td>
+                  {columns.map((column) => (
+                    <EarningCell
+                      key={column.key}
+                      amount={row.amounts[column.key] || 0}
+                      scale={columnPeaks[column.key] || 0}
+                      selected={selected(row.agentId, column.key)}
+                      onSelect={() => choose(row.agentId, column.key)}
+                      className="px-2 py-1.5 text-right"
+                    />
+                  ))}
+                  <EarningCell
+                    amount={row.total}
+                    scale={rowPeak}
+                    selected={selected(row.agentId, null)}
+                    onSelect={() => choose(row.agentId, null)}
+                    className="pivot-total px-3 py-1.5 text-right"
+                  />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {showTotal ? (
+          <div ref={pivotFootScrollRef} data-pivot-foot="" className={`shrink-0 overflow-x-hidden border-t border-slate-200 font-bold dark:border-slate-700 ${pick && !pick.agentId ? 'bg-emerald-50 dark:bg-emerald-950/45' : 'bg-slate-200 dark:bg-slate-700'}`}>
+            <table ref={pivotFootRef} className="text-xs font-bold">
+              <tbody>
+                <tr>
+                  <td className="px-2 py-2" />
+                  <td className="px-3 py-2">Total</td>
+                  {columns.map((column) => (
+                    <EarningCell
+                      key={column.key}
+                      amount={columnTotals[column.key] || 0}
+                      scale={monthPeak}
+                      selected={selected(null, column.key)}
+                      onSelect={() => choose(null, column.key)}
+                      className="px-2 py-2 text-right whitespace-nowrap"
+                    />
+                  ))}
+                  <EarningCell
+                    amount={grand}
+                    scale={grand}
+                    selected={selected(null, null)}
+                    onSelect={() => choose(null, null)}
+                    className="pivot-total px-3 py-2 text-right whitespace-nowrap"
+                  />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </div>
+      {pick ? (
+        <div className="space-y-2">
+          <p className="text-sm text-slate-500">{caption}</p>
+          <EarningTransactions lines={shown} names={names} wrapRef={detailWrapRef} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const earningHead = 'report-head-dark text-xs font-medium normal-case text-white';
+const earningHeadCell = 'px-2 py-2 text-xs font-medium';
+
+function earningRowClass(index: number, selected: boolean, total = false): string {
+  if (selected) return 'bg-emerald-50 dark:bg-emerald-950/45';
+  if (total) return 'bg-slate-200 font-bold dark:bg-slate-700';
+  if (index % 2 === 1) return 'bg-slate-100 dark:bg-slate-800';
+  return 'bg-white dark:bg-slate-900';
+}
+
+function scrollUnderChrome(node: HTMLElement | null) {
+  if (!node) return;
+  clearReportDetailPad(node);
+  const chrome = node.closest('main')?.querySelector<HTMLElement>('.sticky.top-0');
+  const offset = (chrome?.getBoundingClientRect().height ?? 0) + 12;
+  const top = node.getBoundingClientRect().top + window.scrollY - offset;
+  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+}
+
+function clearReportDetailPad(node: HTMLElement | null) {
+  const main = node?.closest('main');
+  if (main instanceof HTMLElement) main.style.paddingBottom = '';
+}
+
+function EarningCell({
+  amount,
+  scale,
+  selected,
+  onSelect,
+  className,
+}: {
+  amount: number;
+  scale: number;
+  selected: boolean;
+  onSelect: () => void;
+  className: string;
+}) {
+  const share = amount > 0 && scale > 0 ? Math.min(1, amount / scale) : 0;
+  return (
+    <td className={className}>
+      <span className="inline-flex flex-col items-end">
+        <EarningAmount amount={amount} selected={selected} onSelect={onSelect} />
+        <span className="relative mt-0.5 mr-1 h-1 w-[calc(100%-0.5rem)]" aria-hidden>
+          {share > 0 ? <span className="absolute inset-y-0 right-0 rounded-full bg-emerald-400" style={{ width: `${Math.max(share * 100, 18)}%` }} /> : null}
+        </span>
+      </span>
+    </td>
+  );
+}
+
+function EarningAmount({ amount, selected, onSelect }: { amount: number; selected: boolean; onSelect: () => void }) {
+  if (!amount) return <span className="text-slate-400">—</span>;
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onSelect}
+      className={`cursor-pointer rounded px-1 py-0.5 font-medium tabular-nums whitespace-nowrap [outline:none] hover:underline focus-visible:shadow-[0_0_0_2px_rgb(16_185_129/0.45)] ${selected ? 'bg-emerald-500/15 font-bold text-emerald-700 dark:text-emerald-300' : 'bg-transparent text-inherit'}`}
+    >
+      {fullMoney(amount)}
+    </button>
+  );
+}
+
+function EarningTransactions({ lines, names, wrapRef }: { lines: Array<{ key: string; agentName: string; deal: ReportDeal; amount: number }>; names: Map<string, string>; wrapRef?: React.Ref<HTMLDivElement> }) {
+  const { sort, toggle } = useColumnSort();
+  const ordered = sortBy(lines.map((line, index) => ({ ...line, rank: index + 1 })), sort, (line, key) => {
+    if (key === 'rank') return line.rank;
+    if (key === 'agent') return line.agentName;
+    if (key === 'primary') return names.get(line.deal.agentId) || '';
+    if (key === 'address') return line.deal.address;
+    if (key === 'side') return line.deal.side;
+    if (key === 'client') return line.deal.clientName;
+    if (key === 'status') return line.deal.status;
+    if (key === 'closing') return line.deal.closingDate?.getTime() || 0;
+    if (key === 'price') return line.deal.salesPrice;
+    if (key === 'gci') return line.deal.gciAmount;
+    return line.amount;
+  });
+  const total = lines.reduce((sum, line) => sum + line.amount, 0);
+  const bodyRef = useRef<HTMLTableElement>(null);
+  const footRef = useRef<HTMLTableElement>(null);
+  const footScrollRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const body = bodyRef.current;
+    const foot = footRef.current;
+    if (!body || !foot) return;
+    const headerCells = [...body.querySelectorAll('thead th')] as HTMLElement[];
+    const footCells = [...foot.querySelectorAll('td')] as HTMLElement[];
+    const sync = () => {
+      headerCells.forEach((cell) => { cell.style.minWidth = ''; });
+      footCells.forEach((cell) => {
+        cell.style.width = '';
+        cell.style.minWidth = '';
+        cell.style.maxWidth = '';
+      });
+      foot.style.width = 'max-content';
+      const headerWidths = headerCells.map((cell) => cell.getBoundingClientRect().width);
+      const contentWidths = footCells.map((cell) => cell.getBoundingClientRect().width);
+      headerCells.forEach((cell, index) => {
+        const needed = contentWidths[index] || 0;
+        if (needed > headerWidths[index] + 1) cell.style.minWidth = `${Math.ceil(needed)}px`;
+      });
+      const fitted = headerCells.map((cell) => cell.getBoundingClientRect().width);
+      foot.style.width = `${body.scrollWidth}px`;
+      footCells.forEach((cell, index) => {
+        const width = `${fitted[index] || 0}px`;
+        cell.style.width = width;
+        cell.style.minWidth = width;
+        cell.style.maxWidth = width;
+      });
+    };
+    sync();
+    const scroller = body.parentElement;
+    if (!scroller) return;
+    const observer = new ResizeObserver(sync);
+    observer.observe(scroller);
+    return () => observer.disconnect();
+  }, [ordered, total]);
+  const totalCells = (
+    <>
+      <td className="px-2 py-2" />
+      <td className="px-3 py-2">Total</td>
+      <td className="px-3 py-2" />
+      <td className="px-3 py-2" />
+      <td className="px-3 py-2" />
+      <td className="px-3 py-2" />
+      <td className="px-3 py-2" />
+      <td className="px-3 py-2" />
+      <td className="px-3 py-2" />
+      <td className="px-3 py-2" />
+      <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{ordered.length > 0 ? fullMoney(total) : ''}</td>
+    </>
+  );
+  return (
+    <div ref={wrapRef} className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div
+        className="report-table report-table-fit min-h-0 flex-1 rounded-none border-0"
+        onScroll={(event) => {
+          if (footScrollRef.current) footScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
+        }}
+      >
+        <table ref={bodyRef} className="w-full text-xs">
+          <thead className={earningHead}>
+            <tr>
+              <SortHead column="rank" label="#" sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
+              <SortHead column="agent" label="Agent" sort={sort} onSort={toggle} className={earningHeadCell} />
+              <SortHead column="primary" label="Primary agent" sort={sort} onSort={toggle} className={earningHeadCell} />
+              <SortHead column="address" label="Address" sort={sort} onSort={toggle} className={earningHeadCell} />
+              <SortHead column="side" label="Side" sort={sort} onSort={toggle} className={earningHeadCell} />
+              <SortHead column="client" label="Client" sort={sort} onSort={toggle} className={earningHeadCell} />
+              <SortHead column="status" label="Status" sort={sort} onSort={toggle} className={earningHeadCell} />
+              <SortHead column="closing" label="Closing date" sort={sort} onSort={toggle} className={earningHeadCell} />
+              <SortHead column="price" label="Sales price" sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
+              <SortHead column="gci" label="GCI" sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
+              <SortHead column="earnings" label="Earnings" sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
+            </tr>
+          </thead>
+          <tbody>
+            {ordered.length === 0 ? (
+              <tr><td className="px-3 py-6 text-slate-500" colSpan={11}>No transactions for this amount.</td></tr>
+            ) : ordered.map((line, index) => (
+              <tr key={line.key} className={earningRowClass(index, false)}>
+                <td className="px-2 py-1.5 text-right tabular-nums text-slate-500">{line.rank}</td>
+                <td className="px-3 py-1.5 whitespace-nowrap">{line.agentName}</td>
+                <td className="px-3 py-1.5 whitespace-nowrap">{names.get(line.deal.agentId) || '—'}</td>
+                <td className="px-3 py-1.5 whitespace-nowrap">{line.deal.address || '—'}</td>
+                <td className="px-3 py-1.5 whitespace-nowrap">{line.deal.side || '—'}</td>
+                <td className="px-3 py-1.5 whitespace-nowrap">{line.deal.clientName || '—'}</td>
+                <td className="px-3 py-1.5 whitespace-nowrap">{line.deal.status || '—'}</td>
+                <td className="px-3 py-1.5 whitespace-nowrap">{line.deal.closingDate ? line.deal.closingDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums whitespace-nowrap">{fullMoney(line.deal.salesPrice)}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums whitespace-nowrap">{fullMoney(line.deal.gciAmount)}</td>
+                <td className="px-3 py-1.5 text-right font-medium tabular-nums whitespace-nowrap">{fullMoney(line.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {ordered.length > 0 ? (
+        <div ref={footScrollRef} data-earning-foot="" className="shrink-0 overflow-x-hidden border-t border-slate-200 bg-slate-200 dark:border-slate-700 dark:bg-slate-700">
+          <table ref={footRef} className="text-xs font-bold">
+            <tbody>
+              <tr>{totalCells}</tr>
+            </tbody>
+          </table>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -3119,21 +3783,21 @@ function MonthTable({ rows, selectedMonth, onSelectMonth }: { rows: OwnerMonthRo
               : isTotal
                 ? 'bg-slate-200 font-bold hover:bg-emerald-100 dark:bg-slate-700 dark:hover:bg-emerald-950'
                 : striped
-                  ? 'bg-slate-50 hover:bg-emerald-50 dark:bg-slate-800 dark:hover:bg-emerald-950/60'
+                  ? 'bg-slate-100 hover:bg-emerald-50 dark:bg-slate-800 dark:hover:bg-emerald-950/60'
                   : 'bg-white hover:bg-emerald-50 dark:bg-slate-900 dark:hover:bg-emerald-950/60';
             const stickyClass = isSelected
               ? 'bg-emerald-100 dark:bg-emerald-950'
               : isTotal
                 ? 'bg-slate-200 group-hover/month:bg-emerald-100 dark:bg-slate-700 dark:group-hover/month:bg-emerald-950'
                 : striped
-                  ? 'bg-slate-50 group-hover/month:bg-emerald-50 dark:bg-slate-800 dark:group-hover/month:bg-emerald-950'
+                  ? 'bg-slate-100 group-hover/month:bg-emerald-50 dark:bg-slate-800 dark:group-hover/month:bg-emerald-950'
                   : 'bg-white group-hover/month:bg-emerald-50 dark:bg-slate-900 dark:group-hover/month:bg-emerald-950';
             return (
             <tr
               key={row.key}
               aria-selected={isSelected}
               onClick={() => onSelectMonth(row.key)}
-              className={`group/month cursor-pointer border-t border-slate-100 dark:border-slate-800 ${rowClass}`}
+              className={`group/month cursor-pointer ${rowClass}`}
             >
               <td className={`sticky left-0 z-10 px-3 py-2 whitespace-nowrap ${stickyClass}`}>{row.label}</td>
               <td className="px-3 py-2 text-right tabular-nums">{count(row.closedUnits)}</td>

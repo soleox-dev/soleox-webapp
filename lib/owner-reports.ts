@@ -450,36 +450,50 @@ function blankPoint(key: string, label: string): MonthRow {
   return { key, label, units: 0, volume: 0, gci: 0, commission: 0, agentPaid: 0, net: 0, teamGci: 0 };
 }
 
-export function seriesBuckets(deals: ReportDeal[], dateOfDeal: (deal: ReportDeal) => Date | null, range: DateRange): MonthRow[] {
+function periodSpan(range: DateRange): { start: Date; end: Date; daily: boolean } {
   const start = parseKey(range.start);
   const end = parseKey(range.end);
   const dayCount = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
-  const rows: MonthRow[] = [];
-  const index = new Map<string, MonthRow>();
-  if (dayCount <= 62) {
+  return { start, end, daily: dayCount <= 62 };
+}
+
+export function periodColumns(range: DateRange): { key: string; label: string }[] {
+  const { start, end, daily } = periodSpan(range);
+  if (daily) {
+    const dayCount = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+    const columns: { key: string; label: string }[] = [];
     for (let offset = 0; offset < dayCount; offset += 1) {
       const date = addDays(start, offset);
-      const row = blankPoint(dateKey(date), date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
-      rows.push(row);
-      index.set(row.key, row);
+      columns.push({ key: dateKey(date), label: date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) });
     }
-  } else {
-    let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
-    const last = new Date(end.getFullYear(), end.getMonth(), 1);
-    const spanYears = start.getFullYear() !== end.getFullYear();
-    while (cursor <= last) {
-      const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
-      const row = blankPoint(key, cursor.toLocaleDateString(undefined, { month: 'short', year: spanYears ? 'numeric' : undefined }));
-      rows.push(row);
-      index.set(key, row);
-      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
-    }
+    return columns;
   }
+  const columns: { key: string; label: string }[] = [];
+  let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+  const last = new Date(end.getFullYear(), end.getMonth(), 1);
+  const spanYears = start.getFullYear() !== end.getFullYear();
+  while (cursor <= last) {
+    columns.push({
+      key: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
+      label: cursor.toLocaleDateString(undefined, { month: 'short', year: spanYears ? 'numeric' : undefined }),
+    });
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+  }
+  return columns;
+}
+
+export function periodKey(date: Date, range: DateRange): string {
+  if (periodSpan(range).daily) return dateKey(date);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export function seriesBuckets(deals: ReportDeal[], dateOfDeal: (deal: ReportDeal) => Date | null, range: DateRange): MonthRow[] {
+  const rows = periodColumns(range).map((column) => blankPoint(column.key, column.label));
+  const index = new Map(rows.map((row) => [row.key, row]));
   reportableDeals(deals).forEach((deal) => {
     const date = dateOfDeal(deal);
     if (!date || !inRange(date, range)) return;
-    const key = dayCount <= 62 ? dateKey(date) : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    const row = index.get(key);
+    const row = index.get(periodKey(date, range));
     if (row) addTotals(row, deal);
   });
   return rows;
@@ -599,7 +613,7 @@ export const OWNER_REPORTS: ReportDefinition[] = [
   { id: 'lead-source-roi', name: 'Lead Source ROI Analysis', group: 'Your Business', ready: false, note: 'Lead spend is not recorded yet. The lead source leaderboard shows production by source.' },
   { id: 'lead-source-leaderboard', name: 'Leaderboard by Date', group: 'Your Business', ready: true },
   { id: 'team-performance', name: 'Team Performance', group: 'Your Agents', ready: true },
-  { id: 'net-commission-income', name: 'Net Commission Income', group: 'Your Agents', ready: true },
+  { id: 'net-commission-income', name: 'Agent Earnings', group: 'Your Agents', ready: true },
   { id: 'net-commission-analysis', name: 'Net Commission Income Analysis', group: 'Your Agents', ready: true },
   { id: 'agent-post-splits', name: 'Agent Post-splits', group: 'Your Agents', ready: true },
   { id: 'transaction-list', name: 'Transaction List', group: 'Transactions', ready: true },
