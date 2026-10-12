@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useSoleoxTheme } from '@/app/providers';
 import { SoleoxLogo } from '@/components/ui/logo';
-import { House, List, Monitor, Moon, Settings, Sun, type LucideIcon } from 'lucide-react';
+import { Briefcase, Building2, House, List, Monitor, Moon, Settings, Sun, Users, type LucideIcon } from 'lucide-react';
 import type { ThemePreference } from '@/app/providers';
 
 export default function Navbar() {
@@ -24,15 +24,18 @@ export default function Navbar() {
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [reportsNavOpen, setReportsNavOpen] = useState(false);
+  const [closedMenu, setClosedMenu] = useState<'tracker' | 'reports' | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
 
   const isMainMenu = pathname === '/';
   const isOwnerReports = pathname.startsWith('/owner-reports');
+  const isAgentReports = pathname.startsWith('/agent-reports');
+  const isOfficeReports = pathname.startsWith('/office-reports');
+  const isReports = isOwnerReports || isAgentReports || isOfficeReports;
   const isCommissionTracker = pathname.startsWith('/commission-tracker');
   const isSettingsActive = pathname.startsWith('/commission-tracker/settings');
   const isTransactionsActive = pathname.startsWith('/commission-tracker/transactions');
-  const isModuleActive = isCommissionTracker && !isSettingsActive;
 
   // Calculate user initials dynamically from NextAuth session
   const getUserInitials = () => {
@@ -83,6 +86,17 @@ export default function Navbar() {
     };
   }, [isOwnerReports]);
 
+  const hideMenu = (menu: 'tracker' | 'reports') => {
+    setClosedMenu(menu);
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  };
+  const releaseMenu = (menu: 'tracker' | 'reports') => {
+    setClosedMenu((current) => (current === menu ? null : current));
+  };
+  const menuClass = (menu: 'tracker' | 'reports', openClass: string) => (
+    `absolute left-0 top-full z-50 pt-2 ${closedMenu === menu ? 'hidden' : `hidden ${openClass}`}`
+  );
+
   const concealReportsNav = (next: EventTarget | null) => {
     if (next instanceof Node && headerRef.current?.contains(next)) return;
     setReportsNavOpen(false);
@@ -102,7 +116,7 @@ export default function Navbar() {
       ref={headerRef}
       onFocusCapture={isOwnerReports ? () => setReportsNavOpen(true) : undefined}
       onBlur={isOwnerReports ? (event) => concealReportsNav(event.relatedTarget) : undefined}
-      className={isOwnerReports ? `${reportsBarClass} ${barClass}` : `relative z-50 ${barClass}`}
+      className={isOwnerReports ? `${reportsBarClass} ${barClass}` : `sticky top-0 z-50 ${barClass}`}
     >
       <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 md:px-6">
         
@@ -116,26 +130,67 @@ export default function Navbar() {
 
         {/* Central Nav Container with Pill Outline */}
         <nav className="hidden md:flex items-center space-x-2 bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-1 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400">
-          <Link
-            href="/commission-tracker/transactions"
-            className={`px-3 py-1.5 rounded-lg transition ${
-              isModuleActive
-                ? 'bg-emerald-500/10 dark:bg-emerald-950/80 border border-emerald-500/80 text-emerald-700 dark:text-emerald-400 font-bold'
-                : 'hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            Commission Tracker
-          </Link>
-          <Link
-            href="/owner-reports"
-            className={`px-3 py-1.5 rounded-lg transition ${
-              isOwnerReports
-                ? 'bg-emerald-500/10 dark:bg-emerald-950/80 border border-emerald-500/80 text-emerald-700 dark:text-emerald-400 font-bold'
-                : 'hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            Owner Reports
-          </Link>
+          <div className="group/tracker relative" onMouseLeave={() => releaseMenu('tracker')}>
+            <Link
+              href="/commission-tracker/transactions"
+              className={`block px-3 py-1.5 rounded-lg transition ${
+                isCommissionTracker
+                  ? 'bg-emerald-500/10 dark:bg-emerald-950/80 border border-emerald-500/80 text-emerald-700 dark:text-emerald-400 font-bold'
+                  : 'hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              Commission Tracker
+            </Link>
+            <div className={menuClass('tracker', 'group-hover/tracker:block group-focus-within/tracker:block')} onClick={() => hideMenu('tracker')}>
+              <div className="w-44 rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                <Link
+                  href="/commission-tracker/transactions"
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 ${
+                    isTransactionsActive
+                      ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400'
+                      : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <List className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Transactions
+                </Link>
+                <Link
+                  href="/commission-tracker/settings"
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 ${
+                    isSettingsActive
+                      ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400'
+                      : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <Settings className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Settings
+                </Link>
+              </div>
+            </div>
+          </div>
+          <div className="group/reports relative" onMouseLeave={() => releaseMenu('reports')}>
+            <Link
+              href="/owner-reports"
+              className={`block px-3 py-1.5 rounded-lg transition ${
+                isReports
+                  ? 'bg-emerald-500/10 dark:bg-emerald-950/80 border border-emerald-500/80 text-emerald-700 dark:text-emerald-400 font-bold'
+                  : 'hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              Reports
+            </Link>
+            <div className={menuClass('reports', 'group-hover/reports:block group-focus-within/reports:block')} onClick={() => hideMenu('reports')}>
+              <div className="w-48 rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                <Link href="/owner-reports" className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isOwnerReports ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}>
+                  <Briefcase className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Owner Reports
+                </Link>
+                <Link href="/agent-reports" className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isAgentReports ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}>
+                  <Users className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Agent Reports
+                </Link>
+                <Link href="/office-reports" className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isOfficeReports ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}>
+                  <Building2 className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Office Reports
+                </Link>
+              </div>
+            </div>
+          </div>
           <span className="px-3 py-1.5 opacity-50 cursor-not-allowed">Goals</span>
           <span className="px-3 py-1.5 opacity-50 cursor-not-allowed">Leads</span>
           <span className="px-3 py-1.5 opacity-50 cursor-not-allowed">Operating Expenses</span>
@@ -150,32 +205,6 @@ export default function Navbar() {
             >
               <House className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Main Menu
             </Link>
-          )}
-
-          {isCommissionTracker && (
-            <>
-              <Link
-                href="/commission-tracker/transactions"
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border text-xs font-medium transition ${
-                  isTransactionsActive
-                    ? 'bg-emerald-500/10 dark:bg-emerald-950/80 border-emerald-500/80 text-emerald-700 dark:text-emerald-400 font-bold'
-                    : 'bg-slate-100 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <List className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Transactions
-              </Link>
-
-              <Link
-                href="/commission-tracker/settings"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition ${
-                  isSettingsActive
-                    ? 'bg-emerald-500/10 dark:bg-emerald-950/80 border-emerald-500/80 text-emerald-700 dark:text-emerald-400 font-bold'
-                    : 'border-transparent hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <Settings className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Settings
-              </Link>
-            </>
           )}
 
           {/* Vertical Divider */}

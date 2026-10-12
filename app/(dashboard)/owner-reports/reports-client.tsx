@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Calendar, Check, ChevronDown, Info, X } from 'lucide-react';
+import { ArrowLeft, Calendar, Check, ChevronDown, Info, X } from 'lucide-react';
 import {
   DATE_PRESETS,
   METRICS,
@@ -638,7 +638,7 @@ function Cover({ launching, onEnter }: { launching: boolean; onEnter: () => void
   return (
     <div className={`report-cover relative min-h-[calc(100vh-1rem)] overflow-hidden px-6 text-center ${launching ? 'report-cover-launch' : ''}`}>
       <div aria-hidden="true" className="report-cover-glow pointer-events-none absolute inset-x-0 top-1/2 h-72 -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,rgb(16_185_129/0.22),transparent_68%)]" />
-      <div className="report-cover-copy absolute inset-x-0 top-1/2 -translate-y-1/2 px-6">
+      <div className="report-cover-copy absolute inset-x-0 top-1/2 -translate-y-[calc(50%+2rem)] px-6">
         <p className="absolute inset-x-0 bottom-full px-6 pb-4 text-lg font-light uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">
           Real Estate Business Intelligence
         </p>
@@ -1820,7 +1820,7 @@ function trendTicks(max: number): number[] {
   return ticks;
 }
 
-function monthTitle(row: MonthRow | undefined): string {
+function monthTitle(row: { key: string; label: string } | undefined): string {
   if (!row) return '';
   const month = /^(\d{4})-(\d{2})$/.exec(row.key);
   if (month) return new Date(Number(month[1]), Number(month[2]) - 1, 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
@@ -2861,7 +2861,7 @@ function payeeKept(agentId: string, picked: string[] | null): boolean {
   return picked == null || picked.includes(agentId);
 }
 
-function earningSums(deals: ReportDeal[], payments: ReportPayment[], range: DateRange, excludeTeamLeads: boolean, teamLeadIds: Set<string>, payeePicked: string[] | null) {
+function earningSums(deals: ReportDeal[], payments: ReportPayment[], range: DateRange, excludeTeamLeads: boolean, teamLeadIds: Set<string>, payeePicked: string[] | null, agentId: string | null = null) {
   const dealsById = new Map(deals.map((deal) => [deal.id, deal]));
   let total = 0;
   let closed = 0;
@@ -2869,9 +2869,10 @@ function earningSums(deals: ReportDeal[], payments: ReportPayment[], range: Date
   payments.forEach((payment) => {
     const deal = dealsById.get(payment.transactionId);
     if (!deal || payeeKind(payment) !== 'agent' || !inRange(deal.closingDate, range)) return;
-    const agentId = payment.agentId || 'unspecified';
-    if (excludeTeamLeads && teamLeadIds.has(agentId)) return;
-    if (!payeeKept(agentId, payeePicked)) return;
+    const payeeId = payment.agentId || 'unspecified';
+    if (excludeTeamLeads && teamLeadIds.has(payeeId)) return;
+    if (!payeeKept(payeeId, payeePicked)) return;
+    if (agentId && payeeId !== agentId) return;
     const status = deal.status.trim().toLowerCase();
     if (status !== 'closed' && status !== 'pending') return;
     total += payment.amount;
@@ -2879,6 +2880,204 @@ function earningSums(deals: ReportDeal[], payments: ReportPayment[], range: Date
     else pending += payment.amount;
   });
   return { total, closed, pending };
+}
+
+function earningPeriodTotals(deals: ReportDeal[], payments: ReportPayment[], range: DateRange, excludeTeamLeads: boolean, teamLeadIds: Set<string>, payeePicked: string[] | null, agentId: string | null, statusFilter: 'all' | 'closed' | 'pending') {
+  const columns = periodColumns(range);
+  const totals = columns.map(() => 0);
+  const index = new Map(columns.map((column, slot) => [column.key, slot]));
+  const dealsById = new Map(deals.map((deal) => [deal.id, deal]));
+  payments.forEach((payment) => {
+    const deal = dealsById.get(payment.transactionId);
+    if (!deal || payeeKind(payment) !== 'agent' || !inRange(deal.closingDate, range)) return;
+    const payeeId = payment.agentId || 'unspecified';
+    if (excludeTeamLeads && teamLeadIds.has(payeeId)) return;
+    if (!payeeKept(payeeId, payeePicked)) return;
+    if (agentId && payeeId !== agentId) return;
+    const status = deal.status.trim().toLowerCase();
+    if (status !== 'closed' && status !== 'pending') return;
+    if (statusFilter !== 'all' && status !== statusFilter) return;
+    const slot = index.get(periodKey(deal.closingDate, range));
+    if (slot == null) return;
+    totals[slot] += payment.amount;
+  });
+  return totals;
+}
+
+function EarningsTimeline({ columns, values, priorColumns, priorValues, selectedKey, onSelect, onClear }: {
+  columns: { key: string; label: string }[];
+  values: number[];
+  priorColumns: { key: string; label: string }[];
+  priorValues: number[];
+  selectedKey: string | null;
+  onSelect: (periodKey: string) => void;
+  onClear: () => void;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const width = 640;
+  const height = 250;
+  const pad = { left: 56, right: 16, top: 16, bottom: 32 };
+  const innerW = width - pad.left - pad.right;
+  const innerH = height - pad.top - pad.bottom;
+  const previous = columns.map((_, index) => priorValues[index] || 0);
+  const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+  const priorAverage = previous.length ? previous.reduce((sum, value) => sum + value, 0) / previous.length : 0;
+  const max = Math.max(1, ...values, ...previous, average, priorAverage);
+  const ticks = trendTicks(max);
+  const axisMax = ticks[ticks.length - 1] || 1;
+  const xAt = (index: number) => pad.left + (columns.length <= 1 ? innerW / 2 : (index / (columns.length - 1)) * innerW);
+  const yAt = (value: number) => pad.top + innerH - (value / axisMax) * innerH;
+  const points = values.map((value, index) => ({ x: xAt(index), y: yAt(value) }));
+  const priorPoints = previous.map((value, index) => ({ x: xAt(index), y: yAt(value) }));
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [frame, setFrame] = useState({ scale: 1, offsetX: 0, boxWidth: width });
+  const [reveal, setReveal] = useState<{ index: number; shown: boolean } | null>(null);
+  const selectedIndex = selectedKey ? columns.findIndex((column) => column.key === selectedKey) : -1;
+  const focus = hover !== null ? hover : reveal?.index ?? -1;
+  const popupShown = hover !== null || Boolean(reveal?.shown);
+  const lineClass = 'text-emerald-600 dark:text-emerald-400';
+  const previousClass = 'text-[#b3bbc5] dark:text-slate-400';
+  const focusValue = focus < 0 ? 0 : values[focus] || 0;
+  const focusPrior = focus < 0 ? 0 : previous[focus] || 0;
+  const focusX = focus < 0 || !frame.boxWidth ? 0 : ((frame.offsetX + xAt(focus) * frame.scale) / frame.boxWidth) * 100;
+  useEffect(() => {
+    const index = selectedKey ? columns.findIndex((column) => column.key === selectedKey) : -1;
+    if (index < 0) {
+      setReveal(null);
+      return;
+    }
+    setReveal({ index, shown: false });
+    let hideTimer = 0;
+    let clearTimer = 0;
+    const frameId = requestAnimationFrame(() => {
+      setReveal({ index, shown: true });
+      hideTimer = window.setTimeout(() => {
+        setReveal({ index, shown: false });
+        clearTimer = window.setTimeout(() => setReveal(null), 300);
+      }, 3000);
+    });
+    return () => {
+      cancelAnimationFrame(frameId);
+      window.clearTimeout(hideTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [columns, selectedKey]);
+  useLayoutEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const measure = () => {
+      const rect = svg.getBoundingClientRect();
+      const scale = Math.min(rect.width / width, rect.height / height) || 1;
+      setFrame({ scale, offsetX: (rect.width - width * scale) / 2, boxWidth: rect.width || width });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, [height, width]);
+  const choosePeriod = (index: number) => {
+    const key = columns[index]?.key;
+    if (!key) return;
+    if (key === selectedKey) onClear();
+    else onSelect(key);
+  };
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+      <div className="relative">
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${width} ${height}`}
+          className="h-64 w-full cursor-pointer overflow-hidden"
+          onMouseLeave={() => setHover(null)}
+          onClick={() => { if (hover !== null) choosePeriod(hover); }}
+          onMouseMove={(event) => {
+            if (!columns.length) return;
+            const svg = event.currentTarget;
+            const matrix = svg.getScreenCTM();
+            if (!matrix) return;
+            const point = svg.createSVGPoint();
+            point.x = event.clientX;
+            point.y = event.clientY;
+            const x = point.matrixTransform(matrix.inverse()).x;
+            let nearest = 0;
+            let best = Infinity;
+            columns.forEach((_, index) => {
+              const distance = Math.abs(xAt(index) - x);
+              if (distance < best) {
+                best = distance;
+                nearest = index;
+              }
+            });
+            setHover(nearest);
+          }}
+        >
+          {ticks.map((tick) => (
+            <g key={tick}>
+              <line x1={pad.left} x2={width - pad.right} y1={yAt(tick)} y2={yAt(tick)} className="stroke-slate-100 dark:stroke-slate-800" strokeWidth="1" />
+              <text x={pad.left - 8} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize="11">{compactMoney(tick)}</text>
+            </g>
+          ))}
+          <path d={areaUnder(points, yAt(0))} fill="url(#area-fade-earnings)" stroke="none" />
+          <path d={smoothLine(priorPoints)} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={previousClass} />
+          <path d={smoothLine(points)} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={lineClass} />
+          <defs>
+            <linearGradient id="area-fade-earnings" x1="0" y1="0" x2="0" y2="1" className={lineClass}>
+              <stop offset="0%" stopColor="currentColor" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {average > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(average)} y2={yAt(average)} stroke="currentColor" strokeWidth="1.25" strokeDasharray="14 8" className={lineClass} /> : null}
+          {priorAverage > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(priorAverage)} y2={yAt(priorAverage)} stroke="currentColor" strokeWidth="1.25" strokeDasharray="14 8" className={previousClass} /> : null}
+          {hover !== null ? (
+            <g>
+              <line x1={xAt(hover)} x2={xAt(hover)} y1={pad.top} y2={height - pad.bottom} stroke="currentColor" strokeOpacity="0.35" className={lineClass} />
+              <circle cx={xAt(hover)} cy={yAt(previous[hover] || 0)} r="5.5" fill="currentColor" stroke="white" strokeWidth="2" className={previousClass} />
+              {hover !== selectedIndex ? <circle cx={xAt(hover)} cy={yAt(values[hover] || 0)} r="6" fill="currentColor" stroke="white" strokeWidth="2" className={lineClass} /> : null}
+            </g>
+          ) : null}
+          {selectedIndex >= 0 ? (
+            <g>
+              <circle cx={xAt(selectedIndex)} cy={yAt(values[selectedIndex] || 0)} r="14" fill="transparent" />
+              <circle cx={xAt(selectedIndex)} cy={yAt(values[selectedIndex] || 0)} r="6.5" fill="currentColor" stroke="white" strokeWidth="2" className={lineClass} />
+            </g>
+          ) : null}
+          {columns.map((column, index) => (
+            <text key={column.key} x={xAt(index)} y={height - 8} textAnchor="middle" className="fill-slate-400" fontSize="11">
+              {columns.length > 14 && index % 2 ? '' : column.label}
+            </text>
+          ))}
+        </svg>
+        {focus >= 0 ? (
+          <div
+            className={`pointer-events-none absolute top-3 z-10 w-max whitespace-nowrap rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs shadow-lg transition-opacity dark:border-slate-700 dark:bg-slate-950/95 ${hover !== null ? 'duration-0' : 'duration-300'} ${popupShown ? 'opacity-100' : 'opacity-0'}`}
+            style={{ left: `${focusX}%`, transform: focusX > 50 ? 'translateX(calc(-100% - 12px))' : 'translateX(12px)' }}
+          >
+            <p className="font-bold">Agent Earnings</p>
+            <div className="mt-1.5 grid grid-cols-[auto_auto] items-baseline gap-x-6 gap-y-0.5">
+              <span className={lineClass}>{monthTitle(columns[focus])}:</span>
+              <span className={`text-right font-semibold tabular-nums ${lineClass}`}>{fullMoney(focusValue)}</span>
+              <span className={previousClass}>{monthTitle(priorColumns[focus]) || 'Prior year'}:</span>
+              <span className={`text-right font-semibold tabular-nums ${previousClass}`}>{fullMoney(focusPrior)}</span>
+              <span className={`font-semibold ${changeClass(focusValue, focusPrior)}`}>Diff:</span>
+              <span className={`text-right font-semibold tabular-nums ${changeClass(focusValue, focusPrior)}`}>{signedFull(focusValue - focusPrior)} ({signedChangePercent(focusValue, focusPrior)})</span>
+            </div>
+          </div>
+        ) : null}
+      </div>
+      <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1 text-[11px] text-slate-500">
+        <span className="inline-flex items-baseline gap-1.5">
+          <span className={`h-0.5 w-4 self-center rounded-full bg-current ${lineClass}`} />
+          Current period. Average:
+          <span className={`text-sm font-bold tabular-nums ${lineClass}`}>{compactMoney(average)}</span>
+        </span>
+        <span className="inline-flex items-baseline gap-1.5">
+          <span className={`h-0.5 w-4 self-center rounded-full bg-current ${previousClass}`} />
+          Previous year. Average:
+          <span className={`text-sm font-bold tabular-nums ${previousClass}`}>{compactMoney(priorAverage)}</span>
+        </span>
+      </div>
+    </div>
+  );
 }
 
 function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamLeads, teamLeadIds, payeePicked, preset }: { deals: ReportDeal[]; payments: ReportPayment[]; names: Map<string, string>; range: DateRange; priorRange: DateRange; excludeTeamLeads: boolean; teamLeadIds: Set<string>; payeePicked: string[] | null; preset: RangePreset }) {
@@ -2988,7 +3187,7 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
   };
   useEffect(() => {
     setPick(null);
-  }, [deals, payments, range, excludeTeamLeads, payeePicked, statusFilter]);
+  }, [deals, payments, range, excludeTeamLeads, payeePicked]);
   const choose = (agentId: string | null, bucket: string | null) => {
     const same = Boolean(pick && pick.agentId === agentId && pick.periodKey === bucket);
     setPick(same ? null : { agentId, periodKey: bucket });
@@ -3012,7 +3211,37 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
   const agentName = pick?.agentId ? rows.find((row) => row.agentId === pick.agentId)?.name || 'Agent' : '';
   const subject = agentName ? `${agentName}'s earnings` : "All agents' earnings";
   const periodLabel = earningPeriodLabel(pick?.periodKey || null, preset, range);
-  const caption = pick ? `${subject}: ${periodLabel}. Click the same amount again to show all agents.` : '';
+  const chartAgentId = pick?.agentId ?? null;
+  const chartValues = columns.map((column) => {
+    if (!chartAgentId) return columnTotals[column.key] || 0;
+    return rows.find((row) => row.agentId === chartAgentId)?.amounts[column.key] || 0;
+  });
+  const priorColumns = useMemo(() => periodColumns(priorRange), [priorRange]);
+  const priorChartValues = useMemo(
+    () => earningPeriodTotals(deals, payments, priorRange, excludeTeamLeads, teamLeadIds, payeePicked, chartAgentId, statusFilter),
+    [chartAgentId, deals, excludeTeamLeads, payments, payeePicked, priorRange, statusFilter, teamLeadIds],
+  );
+  const scoreSums = useMemo(() => {
+    if (!chartAgentId) return sums;
+    let total = 0;
+    let closed = 0;
+    let pending = 0;
+    lines.forEach((line) => {
+      if (line.agentId !== chartAgentId) return;
+      total += line.amount;
+      const status = line.deal.status.trim().toLowerCase();
+      if (status === 'closed') closed += line.amount;
+      else if (status === 'pending') pending += line.amount;
+    });
+    return { total, closed, pending };
+  }, [chartAgentId, lines, sums]);
+  const scorePrior = useMemo(
+    () => (chartAgentId ? earningSums(deals, payments, priorRange, excludeTeamLeads, teamLeadIds, payeePicked, chartAgentId) : priorSums),
+    [chartAgentId, deals, excludeTeamLeads, payments, payeePicked, priorRange, priorSums, teamLeadIds],
+  );
+  const selectPeriod = (periodKey: string) => {
+    setPick((current) => (current ? { agentId: current.agentId, periodKey } : { agentId: null, periodKey }));
+  };
   useLayoutEffect(() => {
     const fit = (scroll: boolean) => {
       const pivot = pivotWrapRef.current;
@@ -3062,11 +3291,20 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
   const closedClass = 'text-emerald-700 dark:text-emerald-200';
   return (
     <div ref={blockRef} className="space-y-4">
-      <div className={pairedScores}>
-        <TrendScore tone="emerald" label="Total" amount={fullMoney(sums.total)} toneClass="" dollar={signedFull(sums.total - priorSums.total)} percent={signedChangePercent(sums.total, priorSums.total)} current={sums.total} prior={priorSums.total} selected={statusFilter === 'all'} onSelect={() => selectStatus('all')} />
-        <TrendScore tone="emerald" label="Closed" amount={fullMoney(sums.closed)} toneClass={closedClass} dollar={signedFull(sums.closed - priorSums.closed)} percent={signedChangePercent(sums.closed, priorSums.closed)} current={sums.closed} prior={priorSums.closed} selected={statusFilter === 'closed'} onSelect={() => selectStatus('closed')} />
-        <TrendScore tone="emerald" label="Pending" amount={fullMoney(sums.pending)} toneClass="text-emerald-500 dark:text-emerald-400" selected={statusFilter === 'pending'} onSelect={() => selectStatus('pending')} />
+      <div className="flex flex-col gap-3">
+        <SectionHeading action={pick ? (
+          <button type="button" onClick={() => setPick(null)} className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/20 px-4 text-xs font-semibold normal-case tracking-normal text-white transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950">
+            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+            All Agents
+          </button>
+        ) : undefined}>Agent Earnings</SectionHeading>
+        <div className={`${pairedScores} lg:mx-auto lg:w-[calc(50%-0.5rem)]`}>
+        <TrendScore tone="emerald" label="Total" amount={fullMoney(scoreSums.total)} toneClass="" dollar={signedFull(scoreSums.total - scorePrior.total)} percent={signedChangePercent(scoreSums.total, scorePrior.total)} current={scoreSums.total} prior={scorePrior.total} selected={statusFilter === 'all'} onSelect={() => selectStatus('all')} />
+        <TrendScore tone="emerald" label="Closed" amount={fullMoney(scoreSums.closed)} toneClass={closedClass} dollar={signedFull(scoreSums.closed - scorePrior.closed)} percent={signedChangePercent(scoreSums.closed, scorePrior.closed)} current={scoreSums.closed} prior={scorePrior.closed} selected={statusFilter === 'closed'} onSelect={() => selectStatus('closed')} />
+        <TrendScore tone="emerald" label="Pending" amount={fullMoney(scoreSums.pending)} toneClass="text-emerald-500 dark:text-emerald-400" selected={statusFilter === 'pending'} onSelect={() => selectStatus('pending')} />
+        </div>
       </div>
+      {pick ? <EarningsTimeline columns={columns} values={chartValues} priorColumns={priorColumns} priorValues={priorChartValues} selectedKey={pick.periodKey} onSelect={selectPeriod} onClear={() => setPick(null)} /> : (
       <div ref={pivotWrapRef} className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div
           className="report-table report-table-fit min-h-0 flex-auto rounded-none border-0"
@@ -3144,9 +3382,10 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
           </div>
         ) : null}
       </div>
+      )}
       {pick ? (
         <div className="space-y-2">
-          <p className="text-sm text-slate-500">{caption}</p>
+          <p className="text-sm text-slate-500">{subject}: {periodLabel}.</p>
           <EarningTransactions lines={shown} names={names} wrapRef={detailWrapRef} />
         </div>
       ) : null}
@@ -3573,7 +3812,7 @@ function ScoreNote({ label, text, onOpenChange, className = 'absolute right-1.5 
   );
 }
 
-function SectionHeading({ children, tone = 'emerald', note }: { children: React.ReactNode; tone?: 'emerald' | 'listing' | 'buyer' | 'volume' | 'units' | 'slate' | 'rate' | 'price' | 'team'; note?: string }) {
+function SectionHeading({ children, tone = 'emerald', note, action }: { children: React.ReactNode; tone?: 'emerald' | 'listing' | 'buyer' | 'volume' | 'units' | 'slate' | 'rate' | 'price' | 'team'; note?: string; action?: React.ReactNode }) {
   const fill = tone === 'listing'
     ? 'report-pill-listing'
     : tone === 'buyer'
@@ -3592,8 +3831,9 @@ function SectionHeading({ children, tone = 'emerald', note }: { children: React.
                   ? 'bg-rose-700 text-white'
                   : 'report-pill-emerald';
   return (
-    <h3 className={`relative w-full rounded-full px-4 py-2 text-center text-sm font-bold uppercase tracking-wide ${fill}`}>
-      {children}
+    <h3 className={`relative w-full rounded-full text-center text-sm font-bold uppercase tracking-wide ${fill} ${action ? 'grid grid-cols-[1fr_auto_1fr] items-stretch overflow-hidden' : 'px-4 py-2'}`}>
+      {action ? <div className="justify-self-start">{action}</div> : null}
+      {action ? <span className="flex items-center justify-center px-4 py-2">{children}</span> : children}
       {note ? (
         <ScoreNote
           label={typeof children === 'string' ? children : 'section'}

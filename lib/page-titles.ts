@@ -6,6 +6,8 @@ export function titleForPath(pathname: string): string | null {
 
   if (path === '/') return 'Main Menu';
   if (path.startsWith('/owner-reports')) return 'Owner Reports';
+  if (path.startsWith('/agent-reports')) return 'Agent Reports';
+  if (path.startsWith('/office-reports')) return 'Office Reports';
   if (path === '/login') return 'Sign In';
   if (path === '/commission-tracker/transactions') return 'Transactions';
   if (path === '/commission-tracker/transactions/new') return 'New Transaction';
