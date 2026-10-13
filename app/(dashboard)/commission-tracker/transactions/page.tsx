@@ -13,6 +13,7 @@ import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Check, Highlighter, Link2, ListChecks, ListFilter, Loader2, Plus, RefreshCw, RotateCcw, Rows3, Unlink, X, Zap, type LucideIcon } from 'lucide-react';
 import { HoverNote } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/HoverNote';
+import { useAccess } from '@/components/access-provider';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import {
   compareBySortRules,
@@ -259,6 +260,8 @@ const filterControl =
 
 export default function TransactionsListPage() {
   const router = useRouter();
+  const { access } = useAccess();
+  const canWriteTracker = Boolean(access?.permissions.commissionTrackerWrite);
   const [schemaFields, setSchemaFields] = useState<SchemaField[]>([]);
   const [deals, setDeals] = useState<Record<string, any>[]>([]);
   const [deletedDeals, setDeletedDeals] = useState<Record<string, any>[]>([]);
@@ -1607,6 +1610,7 @@ export default function TransactionsListPage() {
           </p>
         </div>
 
+        {canWriteTracker && (
         <Link
           href="/commission-tracker/transactions/new"
           className="border border-slate-300 bg-white px-4 py-2.5 rounded-lg text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700 flex items-center gap-2 whitespace-nowrap"
@@ -1614,6 +1618,7 @@ export default function TransactionsListPage() {
           <Plus className="h-3.5 w-3.5 text-emerald-500" strokeWidth={1.75} aria-hidden />
           <span>New Transaction</span>
         </Link>
+        )}
         {syncResult && syncErrorsOpen && (
           <SyncErrorsDialog
             details={syncResult.details}
@@ -1747,7 +1752,7 @@ export default function TransactionsListPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0 w-full md:w-auto md:justify-end">
-            {tmsConnectorActive && (
+            {canWriteTracker && tmsConnectorActive && (
             <div className="relative flex flex-wrap items-center gap-2">
               <button
                 type="button"
@@ -1782,7 +1787,7 @@ export default function TransactionsListPage() {
               </HoverNote>
             </div>
             )}
-            {!showingDeleted && (
+            {canWriteTracker && !showingDeleted && (
               <>
                 {tmsConnectorActive && <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />}
                 <div className="flex flex-wrap items-center gap-2">
@@ -1840,7 +1845,7 @@ export default function TransactionsListPage() {
                 </div>
               </>
             )}
-            {(tmsConnectorActive || !showingDeleted) && <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />}
+            {canWriteTracker && (tmsConnectorActive || !showingDeleted) && <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />}
             <HoverNote label="Compact Table View">
               <button
                 type="button"
@@ -1938,8 +1943,8 @@ export default function TransactionsListPage() {
               {/* Section Group Header Row */}
               <tr className="bg-slate-200 dark:bg-slate-950 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
                 {bulkMode && <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />}
-                <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />
-                <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />
+                {canWriteTracker && <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />}
+                {canWriteTracker && <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />}
                 {sectionHeaderGroups.map((group, idx) => (
                   <th
                     key={`${group.name}_${idx}`}
@@ -1952,7 +1957,7 @@ export default function TransactionsListPage() {
                     </div>
                   </th>
                 ))}
-                <th className="py-1.5 px-4 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />
+                {canWriteTracker && <th className="py-1.5 px-4 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />}
               </tr>
 
               {/* Field Label Header Row */}
@@ -1971,6 +1976,7 @@ export default function TransactionsListPage() {
                     </span>
                   </th>
                 )}
+                {canWriteTracker && (
                 <th className={`group/filter ${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
                   <span className="relative inline-flex">
                     <button
@@ -2008,6 +2014,8 @@ export default function TransactionsListPage() {
                     ) : null}
                   </span>
                 </th>
+                )}
+                {canWriteTracker && (
                 <th className={`group/filter ${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
                   <span className="relative inline-flex">
                     <button
@@ -2041,6 +2049,7 @@ export default function TransactionsListPage() {
                     ) : null}
                   </span>
                 </th>
+                )}
                 {schemaFields.map((field) => {
                   const statusColumn = isStatusColumn(field);
                   const statusLookup = statusColumn && statusSelection
@@ -2117,17 +2126,19 @@ export default function TransactionsListPage() {
                   </th>
                   );
                 })}
+                {canWriteTracker && (
                 <th className={`${compactRows ? 'px-3 py-1.5' : 'px-4 py-3'} bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 whitespace-nowrap text-center`}>
                   Actions
                 </th>
+                )}
               </tr>
 
               {/* Dynamic Filter Inputs */}
               {showFilters && (
                 <tr className="bg-slate-100 dark:bg-slate-900">
                   {bulkMode && <th className="w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700" />}
-                  <th className="w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700" />
-                  <th className="w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700" />
+                  {canWriteTracker && <th className="w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700" />}
+                  {canWriteTracker && <th className="w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700" />}
                   {schemaFields.map((field) => (
                     <th key={`filter_${field.field_key}`} className="px-2 py-1.5 min-w-[120px] bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0">
                       {field.field_key === 'agent_id' || field.field_type === 'AGENT_PICKER' ? (
@@ -2180,7 +2191,7 @@ export default function TransactionsListPage() {
                       )}
                     </th>
                   ))}
-                  <th className="px-2 py-1.5 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700" />
+                  {canWriteTracker && <th className="px-2 py-1.5 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700" />}
                 </tr>
               )}
             </thead>
@@ -2189,13 +2200,13 @@ export default function TransactionsListPage() {
             <tbody className="text-slate-800 dark:text-slate-200 font-medium bg-white dark:bg-slate-800">
               {isLoading ? (
                 <tr>
-                  <td colSpan={schemaFields.length + 3 + (bulkMode ? 1 : 0)} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
+                  <td colSpan={schemaFields.length + (canWriteTracker ? 3 : 0) + (bulkMode ? 1 : 0)} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
                     Loading synchronized schema & transaction ledger...
                   </td>
                 </tr>
               ) : processedDeals.length === 0 ? (
                 <tr>
-                  <td colSpan={schemaFields.length + 3 + (bulkMode ? 1 : 0)} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
+                  <td colSpan={schemaFields.length + (canWriteTracker ? 3 : 0) + (bulkMode ? 1 : 0)} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
                     {showingDeleted && deletedDeals.length === 0
                       ? 'No deleted transactions.'
                       : ledgerView === SYNCED_TAB && syncedMatchCount === 0
@@ -2259,6 +2270,7 @@ export default function TransactionsListPage() {
                           </span>
                         </td>
                       )}
+                      {canWriteTracker && (
                       <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 border-b border-slate-200 dark:border-slate-700/60 text-center`}>
                         {tmsLink ? (
                           <span title={tmsLink.label} aria-label={tmsLink.label} className="inline-flex items-center justify-center">
@@ -2270,6 +2282,8 @@ export default function TransactionsListPage() {
                           </span>
                         ) : null}
                       </td>
+                      )}
+                      {canWriteTracker && (
                       <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 border-b border-slate-200 dark:border-slate-700/60 text-center`}>
                         {bolt ? (
                           !rowNavigates ? (
@@ -2308,6 +2322,7 @@ export default function TransactionsListPage() {
                           </span>
                         ) : null}
                       </td>
+                      )}
                       {schemaFields.map((field) => {
                         const changedBySync = syncChangesOn && syncHighlights.get(String(deal.id))?.has(field.field_key);
                         return (
@@ -2348,6 +2363,7 @@ export default function TransactionsListPage() {
                         </td>
                         );
                       })}
+                      {canWriteTracker && (
                       <td className={`${compactRows ? 'px-3 py-0.5' : 'px-4 py-3'} whitespace-nowrap border-b border-slate-200 dark:border-slate-700/60 text-center`}>
                         {showingDeleted ? (
                           <div className="inline-flex items-center justify-center gap-1">
@@ -2390,6 +2406,7 @@ export default function TransactionsListPage() {
                         </button>
                         )}
                       </td>
+                      )}
                     </tr>
                   );
                 })
@@ -2405,7 +2422,7 @@ export default function TransactionsListPage() {
         </div>
       </div>
 
-      {tmsMenuOpen && createPortal(
+      {canWriteTracker && tmsMenuOpen && createPortal(
         <div
           ref={tmsMenuPanelRef}
           role="menu"
@@ -2439,7 +2456,7 @@ export default function TransactionsListPage() {
         document.body,
       )}
 
-      {boltMenuOpen && createPortal(
+      {canWriteTracker && boltMenuOpen && createPortal(
         <div
           ref={boltMenuPanelRef}
           role="menu"

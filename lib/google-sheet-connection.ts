@@ -27,13 +27,25 @@ export interface MappingInput {
 }
 
 export async function callerIsAdmin(sb: SupabaseClient, clientId: string): Promise<boolean> {
+  const roles = await callerRoles(sb, clientId);
+  return roles.some((role) => role === 'ADMIN');
+}
+
+const SYNC_ROLES = new Set(['ADMIN', 'SUPER_ADMIN', 'COMMISSION_TRACKER_WRITE']);
+
+export async function callerCanSyncTransactions(sb: SupabaseClient, clientId: string): Promise<boolean> {
+  const roles = await callerRoles(sb, clientId);
+  return roles.some((role) => SYNC_ROLES.has(role));
+}
+
+async function callerRoles(sb: SupabaseClient, clientId: string): Promise<string[]> {
   const { data, error } = await sb
     .from('client_user_roles')
     .select('role')
     .eq('client_id', clientId)
     .eq('is_active', true);
   if (error) throw new Error(error.message);
-  return (data || []).some((row) => row.role === 'ADMIN');
+  return (data || []).map((row) => String(row.role || ''));
 }
 
 export async function loadGoogleSheetIntegration(sb: SupabaseClient, clientId: string) {

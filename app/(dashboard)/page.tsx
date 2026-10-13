@@ -25,6 +25,7 @@ export default function MainMenu() {
       active: true,
       links: [
         { label: '📋 Transactions List', href: '/commission-tracker/transactions', isPrimary: false },
+        { label: '👤 Agents', href: '/commission-tracker/agents', isPrimary: false },
       ],
     },
     {

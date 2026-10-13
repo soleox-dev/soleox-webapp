@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Building2, ChartColumn, ChevronRight, FileSpreadsheet, ListFilter, PanelLeftClose, PanelLeftOpen, Settings2, User, Zap, type LucideIcon } from 'lucide-react';
+import { Building2, ChartColumn, ChevronRight, FileSpreadsheet, ListFilter, PanelLeftClose, PanelLeftOpen, Settings2, Zap, type LucideIcon } from 'lucide-react';
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -37,7 +37,6 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         { label: 'Integrations', href: '/commission-tracker/settings/integrations', icon: FileSpreadsheet },
       ],
     },
-    { kind: 'link', item: { label: 'Agents', href: '/commission-tracker/settings/agents', icon: User } },
     { kind: 'link', item: { label: 'Commission Entities', href: '/commission-tracker/settings/commission-entities', icon: Building2 } },
     { kind: 'link', item: { label: 'Commission Templates', href: '/commission-tracker/settings/commission-templates', icon: Zap } },
   ];
@@ -66,7 +65,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         </div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">System Configurations</h1>
         <p className="text-slate-600 dark:text-slate-400 text-sm">
-          Manage database field options, agent rosters, group hierarchies, and waterfall templates.
+          Manage database field options, commission entities, and waterfall templates.
         </p>
       </div>
 

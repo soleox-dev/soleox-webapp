@@ -27,7 +27,7 @@ export default function LoginPage() {
   const handleSignIn = async (providerId: string) => {
     setLoadingProvider(providerId);
     try {
-      await signIn(providerId, { callbackUrl: '/commission-tracker/settings/fields' });
+      await signIn(providerId, { callbackUrl: '/' });
     } catch (error) {
       setLoadingProvider(null);
     }

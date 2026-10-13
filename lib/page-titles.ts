@@ -9,14 +9,16 @@ export function titleForPath(pathname: string): string | null {
   if (path.startsWith('/agent-reports')) return 'Agent Reports';
   if (path.startsWith('/office-reports')) return 'Office Reports';
   if (path === '/login') return 'Sign In';
+  if (path === '/select-client') return 'Choose a Client';
+  if (path === '/no-access') return 'No Access';
   if (path === '/commission-tracker/transactions') return 'Transactions';
   if (path === '/commission-tracker/transactions/new') return 'New Transaction';
   if (path.startsWith('/commission-tracker/transactions/')) return 'Transaction Detail';
+  if (path.startsWith('/commission-tracker/agents')) return 'Agents';
   if (path.startsWith('/commission-tracker/settings/fields')) return 'Field Customizations';
   if (path.startsWith('/commission-tracker/settings/transaction-view')) return 'Transactions: Default View';
   if (path.startsWith('/commission-tracker/settings/integrations')) return 'Transactions: Integrations';
   if (path.startsWith('/commission-tracker/settings/scorecards')) return 'Transactions: Scorecards';
-  if (path.startsWith('/commission-tracker/settings/agents')) return 'Agents';
   if (path.startsWith('/commission-tracker/settings/commission-entities')) return 'Commission Entities';
   if (path.startsWith('/commission-tracker/settings/commission-templates/') && path !== '/commission-tracker/settings/commission-templates') {
     return 'Commission Template';

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { resolveRequestTenant, responseStatus } from '@/lib/session';
-import { callerIsAdmin } from '@/lib/google-sheet-connection';
+import { callerCanSyncTransactions } from '@/lib/google-sheet-connection';
 import { GOOGLE_SHEETS_PROVIDER } from '@/lib/transaction-sync';
 import { syncGoogleSheetConnection } from '@/lib/transaction-sync-run';
 
@@ -14,8 +14,8 @@ export async function POST(request: Request) {
     }
     const body = await request.json().catch(() => ({}));
     const { supabase, tenant } = await resolveRequestTenant(request, body.clientId);
-    if (!await callerIsAdmin(supabase, tenant.clientId)) {
-      return NextResponse.json({ success: false, error: 'Only an admin can sync transactions.' }, { status: 403 });
+    if (!await callerCanSyncTransactions(supabase, tenant.clientId)) {
+      return NextResponse.json({ success: false, error: 'You do not have access to sync transactions.' }, { status: 403 });
     }
     const transactionIds = Array.isArray(body.transactionIds)
       ? body.transactionIds.map((id: unknown) => String(id || '').trim()).filter(Boolean).slice(0, 2000)

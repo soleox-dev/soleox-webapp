@@ -26,6 +26,7 @@ import { useSectionEditKeys } from './useSectionEditKeys';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { BooleanField, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { UndoableDateInput } from '@/components/ui/UndoableDateInput';
+import { useAccess } from '@/components/access-provider';
 
 interface TransactionOverviewProps {
   isCollapsed: boolean;
@@ -74,7 +75,8 @@ export function TransactionOverview({
 }: TransactionOverviewProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
-  const editOnDoublePress = useEditOnDoublePress(!isEditing, onStartEdit);
+  const canWrite = Boolean(useAccess().access?.permissions.commissionTrackerWrite);
+  const editOnDoublePress = useEditOnDoublePress(!isEditing && canWrite, onStartEdit);
   const editKeys = useSectionEditKeys(isEditing, onCancelEdit, hasChanges);
 
   const uniqueKnownAgents = React.useMemo(() => {
@@ -157,7 +159,7 @@ export function TransactionOverview({
         </div>
         
         <div className="flex items-center gap-3">
-          {!isEditing ? (
+          {canWrite && !isEditing ? (
             <HoverNote label="Edit Transaction Overview">
               <button
                 onClick={onStartEdit}
@@ -167,7 +169,7 @@ export function TransactionOverview({
                 <EditPencil className="h-5 w-5" />
               </button>
             </HoverNote>
-          ) : (
+          ) : canWrite ? (
             <div className="flex items-center gap-2">
               <button
                 onClick={onCancelEdit}
@@ -184,7 +186,7 @@ export function TransactionOverview({
                 </button>
               )}
             </div>
-          )}
+          ) : null}
 
           <SectionCollapseButton collapsed={isCollapsed} onClick={onToggleSection} />
         </div>

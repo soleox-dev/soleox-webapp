@@ -18,6 +18,7 @@ import { useSectionEditKeys } from './useSectionEditKeys';
 import { CommissionTemplatePanel, type TemplateSubmissionDraft } from './CommissionTemplatePanel';
 import type { AppliedTemplateRules } from './applyTemplateLogic';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { useAccess } from '@/components/access-provider';
 
 interface CommissionWaterfallProps {
   isCollapsed: boolean;
@@ -157,7 +158,8 @@ export function CommissionWaterfall({
   const agentSplitsExceedPool = (dealResult.agentSplitItems || []).some((item: { overAllocated?: boolean }) => item.overAllocated);
   const agentNames = agents.map((a) => a.name);
   const [agentLayout, setAgentLayout] = useState<'table' | 'cards'>('table');
-  const editOnDoublePress = useEditOnDoublePress(!isEditing, onStartEdit);
+  const canWrite = Boolean(useAccess().access?.permissions.commissionTrackerWrite);
+  const editOnDoublePress = useEditOnDoublePress(!isEditing && canWrite, onStartEdit);
 
   useEffect(() => {
     const saved = window.localStorage.getItem('soleox-waterfall-agent-layout');
@@ -457,6 +459,7 @@ export function CommissionWaterfall({
         </div>
 
         <div className="flex items-center gap-3">
+          {canWrite && (
           <CommissionTemplatePanel
             embedded
             clientId={clientId}
@@ -470,7 +473,8 @@ export function CommissionWaterfall({
             onSubmissionDeleted={onSubmissionDeleted}
             submissionRevision={submissionRevision}
           />
-          {onResetWaterfall && (
+          )}
+          {canWrite && onResetWaterfall && (
             <button
               type="button"
               onClick={() => setConfirmReset(true)}
@@ -481,7 +485,7 @@ export function CommissionWaterfall({
             </button>
           )}
           {agentLayoutToggle}
-          {!isEditing ? (
+          {canWrite && !isEditing ? (
             <HoverNote label="Edit Commission Waterfall">
               <button
                 type="button"
@@ -492,7 +496,7 @@ export function CommissionWaterfall({
                 <EditPencil className="h-5 w-5" />
               </button>
             </HoverNote>
-          ) : (
+          ) : canWrite ? (
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -513,7 +517,7 @@ export function CommissionWaterfall({
                 </button>
               )}
             </div>
-          )}
+          ) : null}
 
           <SectionCollapseButton collapsed={isCollapsed} onClick={onToggleSection} />
         </div>

@@ -32,11 +32,19 @@ import type { TemplateSubmissionDraft } from './components/CommissionTemplatePan
 import { isPrimaryAgent, resolvePrimaryAgentId, waterfallFromCommissionItems } from './commissionItemState';
 import { generatePrefixedId } from '@/lib/id';
 import { transactionDealLabel, transactionSearchLabel } from '@/lib/transaction-label';
+import { useAccess } from '@/components/access-provider';
 
 export default function Dashboard() {
   const router = useRouter();
+  const { access, loading: accessLoading } = useAccess();
+  const canWriteTracker = Boolean(access?.permissions.commissionTrackerWrite);
   const routeId = (useParams()?.id as string) || '';
   const isNewTransaction = routeId === 'new';
+
+  useEffect(() => {
+    if (accessLoading || !isNewTransaction || canWriteTracker) return;
+    router.replace('/commission-tracker/transactions');
+  }, [accessLoading, isNewTransaction, canWriteTracker, router]);
 
   const [toast, setToast] = useState<ToastNotification | null>(null);
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => setToast({ message, type });
@@ -1356,7 +1364,7 @@ export default function Dashboard() {
         isSaving={isSaving}
         onSave={() => handleSave()}
         onDiscard={handleDiscardChanges}
-        onDelete={selectedDeal?.id ? () => { setDeleteError(null); setConfirmDeleteOpen(true); } : undefined}
+        onDelete={canWriteTracker && selectedDeal?.id ? () => { setDeleteError(null); setConfirmDeleteOpen(true); } : undefined}
         hasUnsavedChanges={hasUnsavedLocalChanges}
       />
 

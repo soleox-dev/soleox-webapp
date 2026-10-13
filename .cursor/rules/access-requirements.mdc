@@ -1,0 +1,49 @@
+---
+description: Requirements for permissions and multi-client selection. Follow this before changing access, roles, or client switching.
+alwaysApply: true
+---
+
+# Access requirements
+
+Permissions are granted per client. A person can hold several at once. Each permission grants only what it names. A page, menu entry, or API the person does not have stays closed, including when they open its URL directly.
+
+When a new chat should follow this before editing access, say: read `.cursor/rules/access-requirements.mdc` before making changes.
+
+## Permissions
+
+### Commission Tracker Read
+
+View Transactions and Agents. This permission cannot create, edit, or delete any record. On Transactions it does not show New Transaction, Sync with TMS, the sync highlight control, bulk select, the TMS connection column, the commission template column, Delete Transaction, the template control, Reset waterfall, Edit Transaction Overview, or Edit Commission Waterfall. On Agents it does not show New Agent, Edit Agent, or Delete Agent.
+
+### Commission Tracker Write
+
+Full use of Transactions and Agents, including creating, editing, and deleting. This permission includes read access to those two pages. It can read commission templates, parameters, and rules, and it can create, change, and delete commission template submissions. It can run Sync with TMS. It does not open Settings and cannot change template definitions or the spreadsheet connection.
+
+### Commission Tracker Settings
+
+Full use of Commission Tracker Settings, including viewing and changing those pages. It does not open Transactions, Agents, or any report.
+
+### Owner Reports
+
+Full use of Owner Reports, including viewing and filtering. It does not open Commission Tracker or any other report set.
+
+### Super Admin
+
+Every permission, including the deferred ones once those modules exist. A Super Admin does not need the other permissions granted separately.
+
+## Deferred permissions
+
+Do not build these until the module exists. Record them so the names stay reserved.
+
+- **Agent Reports Admin.** View and filter Agent Reports for every agent.
+- **Agent Reports Agent.** View and filter Agent Reports for that person's own agent data.
+- **Office Reports.** View and filter Office Reports.
+- **Goals.** Access to Goals.
+- **Leads.** Access to Leads.
+- **Operating Expenses.** Access to Operating Expenses.
+
+## Clients
+
+A person assigned to one client enters the app on that client.
+
+A person assigned to more than one client must choose a client before any page, menu, or data is available. They can switch client without signing out. The choice lasts until they switch again. After a switch, the app shows that client's records and applies that client's permissions.

@@ -1,6 +1,10 @@
 // lib/session.ts
 
-import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { cookies } from 'next/headers';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { CLIENT_COOKIE, loadAccessForEmail } from '@/lib/access';
+import { getAuthenticatedSupabase, supabaseAdmin } from '@/lib/supabase';
 import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface TenantContext {
@@ -43,47 +47,28 @@ function requestedId(value?: string | null): string | null {
  */
 export async function getTenantContext(
   clientIdHeader?: string | null,
-  client?: SupabaseClient
+  _client?: SupabaseClient
 ): Promise<TenantContext> {
-  const sb = client || (await getAuthenticatedSupabase());
-  const requested = requestedId(clientIdHeader);
+  const session = await getServerSession(authOptions);
+  const email = session?.user?.email;
+  if (!email) throw new TenantAccessError('Unauthorized: No active user session', 401);
 
-  const { data: memberships, error: membershipError } = await sb
-    .from('client_user_roles')
-    .select('client_id, is_primary_team')
-    .eq('is_active', true);
-
-  if (membershipError) {
-    throw new TenantAccessError(membershipError.message, 500);
-  }
-
-  const clientIds = [...new Set((memberships || []).map((row) => String(row.client_id)).filter(Boolean))];
-
-  let activeClientId: string;
-  if (requested) {
-    if (!clientIds.includes(requested)) {
-      throw new TenantAccessError('You do not have access to this brokerage.', 403);
-    }
-    activeClientId = requested;
-  } else if (clientIds.length === 1) {
-    activeClientId = clientIds[0];
-  } else if (clientIds.length === 0) {
+  const jar = await cookies();
+  const access = await loadAccessForEmail(email, jar.get(CLIENT_COOKIE)?.value ?? requestedId(clientIdHeader));
+  if (access.clients.length === 0) {
     throw new TenantAccessError('Unauthorized: No brokerage is assigned to this account.', 403);
-  } else {
-    const primaryIds = [...new Set(
-      (memberships || [])
-        .filter((row) => row.is_primary_team)
-        .map((row) => String(row.client_id))
-        .filter(Boolean)
-    )];
-    if (primaryIds.length === 1) {
-      activeClientId = primaryIds[0];
-    } else {
-      throw new TenantAccessError('This account belongs to more than one brokerage. Choose one before continuing.', 409);
-    }
+  }
+  if (!access.clientId) {
+    throw new TenantAccessError('This account belongs to more than one brokerage. Choose one before continuing.', 409);
   }
 
-  const { data, error } = await sb
+  const requested = requestedId(clientIdHeader);
+  if (requested && requested !== access.clientId) {
+    throw new TenantAccessError('You do not have access to this brokerage.', 403);
+  }
+  const activeClientId = access.clientId;
+
+  const { data, error } = await supabaseAdmin
     .from('clients')
     .select(
       'id, client_name, client_type, track_detailed_payments, require_compliance_approval, default_financial_visibility'

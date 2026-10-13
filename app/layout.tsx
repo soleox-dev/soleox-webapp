@@ -2,6 +2,7 @@
 
 import type { Metadata } from 'next';
 import { AuthProvider } from '@/components/auth-provider';
+import { AccessProvider } from '@/components/access-provider';
 import { Providers } from './providers';
 import Navbar from '@/components/Navbar';
 import { BackToTop } from '@/components/BackToTop';
@@ -63,11 +64,13 @@ export default function RootLayout({
       <body className="min-h-screen bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
         <AuthProvider>
           <Providers>
+            <AccessProvider>
             <Navbar />
             <PageTitle />
             {children}
             <BackToTop />
             <ModalScrollLock />
+            </AccessProvider>
           </Providers>
         </AuthProvider>
       </body>

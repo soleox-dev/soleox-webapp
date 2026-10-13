@@ -8,12 +8,14 @@ import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useSoleoxTheme } from '@/app/providers';
 import { SoleoxLogo } from '@/components/ui/logo';
+import { useAccess } from '@/components/access-provider';
 import { Briefcase, Building2, House, List, Monitor, Moon, Settings, Sun, Users, type LucideIcon } from 'lucide-react';
 import type { ThemePreference } from '@/app/providers';
 
 export default function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { access, chooseClient } = useAccess();
   const { theme, setTheme } = useSoleoxTheme();
 
   const themeOptions: { id: ThemePreference; label: string; icon: LucideIcon }[] = [
@@ -36,6 +38,16 @@ export default function Navbar() {
   const isCommissionTracker = pathname.startsWith('/commission-tracker');
   const isSettingsActive = pathname.startsWith('/commission-tracker/settings');
   const isTransactionsActive = pathname.startsWith('/commission-tracker/transactions');
+  const isAgentsActive = pathname.startsWith('/commission-tracker/agents');
+  const permissions = access?.permissions;
+  const showTransactions = Boolean(permissions?.commissionTrackerRead || permissions?.commissionTrackerWrite || permissions?.superAdmin);
+  const showSettings = Boolean(permissions?.commissionTrackerSettings || permissions?.superAdmin);
+  const showTracker = showTransactions || showSettings;
+  const showOwnerReports = Boolean(permissions?.ownerReports || permissions?.superAdmin);
+  const showDeferred = Boolean(permissions?.superAdmin);
+  const showReports = showOwnerReports || showDeferred;
+  const trackerHref = showTransactions ? '/commission-tracker/transactions' : '/commission-tracker/settings';
+  const reportsHref = showOwnerReports ? '/owner-reports' : '/agent-reports';
 
   // Calculate user initials dynamically from NextAuth session
   const getUserInitials = () => {
@@ -130,9 +142,9 @@ export default function Navbar() {
 
         {/* Central Nav Container with Pill Outline */}
         <nav className="hidden md:flex items-center space-x-2 bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-1 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400">
-          <div className="group/tracker relative" onMouseLeave={() => releaseMenu('tracker')}>
+          {showTracker && <div className="group/tracker relative" onMouseLeave={() => releaseMenu('tracker')}>
             <Link
-              href="/commission-tracker/transactions"
+              href={trackerHref}
               className={`block px-3 py-1.5 rounded-lg transition ${
                 isCommissionTracker
                   ? 'bg-emerald-500/10 dark:bg-emerald-950/80 border border-emerald-500/80 text-emerald-700 dark:text-emerald-400 font-bold'
@@ -143,7 +155,7 @@ export default function Navbar() {
             </Link>
             <div className={menuClass('tracker', 'group-hover/tracker:block group-focus-within/tracker:block')} onClick={() => hideMenu('tracker')}>
               <div className="w-44 rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
-                <Link
+                {showTransactions && <Link
                   href="/commission-tracker/transactions"
                   className={`flex items-center gap-2 rounded-lg px-3 py-2 ${
                     isTransactionsActive
@@ -152,8 +164,18 @@ export default function Navbar() {
                   }`}
                 >
                   <List className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Transactions
-                </Link>
-                <Link
+                </Link>}
+                {showTransactions && <Link
+                  href="/commission-tracker/agents"
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 ${
+                    isAgentsActive
+                      ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400'
+                      : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <Users className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Agents
+                </Link>}
+                {showSettings && <Link
                   href="/commission-tracker/settings"
                   className={`flex items-center gap-2 rounded-lg px-3 py-2 ${
                     isSettingsActive
@@ -162,13 +184,13 @@ export default function Navbar() {
                   }`}
                 >
                   <Settings className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Settings
-                </Link>
+                </Link>}
               </div>
             </div>
-          </div>
-          <div className="group/reports relative" onMouseLeave={() => releaseMenu('reports')}>
+          </div>}
+          {showReports && <div className="group/reports relative" onMouseLeave={() => releaseMenu('reports')}>
             <Link
-              href="/owner-reports"
+              href={reportsHref}
               className={`block px-3 py-1.5 rounded-lg transition ${
                 isReports
                   ? 'bg-emerald-500/10 dark:bg-emerald-950/80 border border-emerald-500/80 text-emerald-700 dark:text-emerald-400 font-bold'
@@ -179,21 +201,21 @@ export default function Navbar() {
             </Link>
             <div className={menuClass('reports', 'group-hover/reports:block group-focus-within/reports:block')} onClick={() => hideMenu('reports')}>
               <div className="w-48 rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
-                <Link href="/owner-reports" className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isOwnerReports ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}>
+                {showOwnerReports && <Link href="/owner-reports" className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isOwnerReports ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}>
                   <Briefcase className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Owner Reports
-                </Link>
-                <Link href="/agent-reports" className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isAgentReports ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}>
+                </Link>}
+                {showDeferred && <Link href="/agent-reports" className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isAgentReports ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}>
                   <Users className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Agent Reports
-                </Link>
-                <Link href="/office-reports" className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isOfficeReports ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}>
+                </Link>}
+                {showDeferred && <Link href="/office-reports" className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isOfficeReports ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}>
                   <Building2 className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Office Reports
-                </Link>
+                </Link>}
               </div>
             </div>
-          </div>
-          <span className="px-3 py-1.5 opacity-50 cursor-not-allowed">Goals</span>
-          <span className="px-3 py-1.5 opacity-50 cursor-not-allowed">Leads</span>
-          <span className="px-3 py-1.5 opacity-50 cursor-not-allowed">Operating Expenses</span>
+          </div>}
+          {showDeferred && <span className="px-3 py-1.5 opacity-50 cursor-not-allowed">Goals</span>}
+          {showDeferred && <span className="px-3 py-1.5 opacity-50 cursor-not-allowed">Leads</span>}
+          {showDeferred && <span className="px-3 py-1.5 opacity-50 cursor-not-allowed">Operating Expenses</span>}
         </nav>
 
         {/* Right Nav Actions */}
@@ -232,7 +254,32 @@ export default function Navbar() {
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
                     {session?.user?.email || 'user@soleox.com'}
                   </p>
+                  {access?.clientName && (
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400 truncate mt-1">{access.clientName}</p>
+                  )}
                 </div>
+                {access && access.clients.length > 1 && (
+                  <div className="py-1 border-b border-slate-100 dark:border-slate-800">
+                    <p className="px-4 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Client</p>
+                    {access.clients.map((client) => (
+                      <button
+                        key={client.id}
+                        type="button"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          void chooseClient(client.id);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-xs font-semibold truncate cursor-pointer ${
+                          client.id === access.clientId
+                            ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-500/10'
+                            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        {client.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 <div className="py-1 border-b border-slate-100 dark:border-slate-800">
                   <p className="px-4 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Theme</p>
