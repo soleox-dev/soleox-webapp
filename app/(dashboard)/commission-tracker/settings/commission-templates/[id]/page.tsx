@@ -13,6 +13,7 @@ import { normalizeFormula, validateFormula } from '../formula-validator';
 import { interpretValidationRule } from '@/lib/parameter-validation';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { Rows3 } from 'lucide-react';
+import { useRegisterSave } from '@/components/save-leave-guard';
 
 type ParameterType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
 
@@ -414,8 +415,10 @@ export default function CommissionTemplateDetailPage() {
     void loadFields();
   }, []);
 
+  const leaveSaveOk = useRef(false);
   const saveParameter = async (event: React.FormEvent) => {
     event.preventDefault();
+    leaveSaveOk.current = false;
     if (!parameterForm || !templateId || isSaving) return;
     const normalizedFormula = normalizeFormula(parameterForm.autofill_formula).text;
     const normalizedValidation = normalizeFormula(parameterForm.validation_rule).text;
@@ -475,6 +478,7 @@ export default function CommissionTemplateDetailPage() {
       setEditingParameterId(null);
       setFormError(null);
       await loadTemplate({ keepPlace: true });
+      leaveSaveOk.current = true;
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to save the parameter.');
     } finally {
@@ -706,6 +710,7 @@ export default function CommissionTemplateDetailPage() {
   };
 
   const saveLogic = async (event: React.FormEvent) => {
+    leaveSaveOk.current = false;
     event.preventDefault();
     if (!logicForm || !templateId || isSaving) return;
     const otherRuleKeys = logicSteps
@@ -811,6 +816,7 @@ export default function CommissionTemplateDetailPage() {
       setLogicForm(null);
       setEditingLogicId(null);
       await loadTemplate({ keepPlace: true });
+      leaveSaveOk.current = true;
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to save the logic step.');
     } finally {
@@ -918,6 +924,7 @@ export default function CommissionTemplateDetailPage() {
 
   const handleSaveTemplate = async (event: React.FormEvent) => {
     event.preventDefault();
+    leaveSaveOk.current = false;
     if (!template || !editName.trim() || isSaving) return;
     const normalizedEligibility = normalizeFormula(editEligibility).text.trim();
     const eligibilityIssue = validateFormula(normalizedEligibility, eligibilityFormulaNames(transactionFields).map((field) => field.name));
@@ -957,6 +964,7 @@ export default function CommissionTemplateDetailPage() {
         eligibility_formula: normalizedEligibility || null,
       });
       setEditTemplateOpen(false);
+      leaveSaveOk.current = true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update the template.');
     } finally {
@@ -1034,6 +1042,81 @@ export default function CommissionTemplateDetailPage() {
     { name: 'total_commission', label: 'Total commission' },
   ];
   const parameterKeyConflict = editingParameterId ? null : describeKeyConflict(draftParameterKey, parameterKeyOwners);
+  const parameterWasOpen = useRef(false);
+  const parameterBaseline = useRef('');
+  const parameterDraft = parameterForm ? JSON.stringify(parameterForm) : '';
+  if (Boolean(parameterForm) !== parameterWasOpen.current) {
+    parameterWasOpen.current = Boolean(parameterForm);
+    if (parameterForm) parameterBaseline.current = parameterDraft;
+  }
+  const parameterDirty = Boolean(parameterForm) && parameterDraft !== parameterBaseline.current;
+  const logicWasOpen = useRef(false);
+  const logicBaseline = useRef('');
+  const logicDraft = logicForm ? JSON.stringify(logicForm) : '';
+  if (Boolean(logicForm) !== logicWasOpen.current) {
+    logicWasOpen.current = Boolean(logicForm);
+    if (logicForm) logicBaseline.current = logicDraft;
+  }
+  const logicDirty = Boolean(logicForm) && logicDraft !== logicBaseline.current;
+  const templateWasOpen = useRef(false);
+  const templateBaseline = useRef('');
+  const templateDraft = JSON.stringify({ editName, editDescription, editEligibility });
+  if (editTemplateOpen !== templateWasOpen.current) {
+    templateWasOpen.current = editTemplateOpen;
+    if (editTemplateOpen) templateBaseline.current = templateDraft;
+  }
+  const templateDirty = editTemplateOpen && templateDraft !== templateBaseline.current;
+  const formEvent = { preventDefault() {} } as React.FormEvent;
+  useRegisterSave({
+    id: 'template-parameter',
+    active: parameterDirty && !parameterKeyConflict,
+    saving: isSaving && Boolean(parameterForm),
+    onSave: async () => {
+      await saveParameter(formEvent);
+      return leaveSaveOk.current;
+    },
+    onDiscard: () => {
+      setParameterForm(null);
+      setEditingParameterId(null);
+      setFormError(null);
+    },
+  });
+  const ruleKeyConflict = logicForm
+    ? describeKeyConflict(logicForm.rule_key, [
+        ...transactionFields,
+        ...agentFields,
+        ...parameterFields,
+        ...logicSteps
+          .filter((step) => step.id !== editingLogicId && step.rule_key?.trim())
+          .map((step) => ({ name: step.rule_key!.trim(), label: step.rule_name })),
+        ...logicContextNames,
+        { name: 'total_commission', label: 'Total commission' },
+      ])
+    : null;
+  useRegisterSave({
+    id: 'template-rule',
+    active: logicDirty && !ruleKeyConflict,
+    saving: isSaving && Boolean(logicForm),
+    onSave: async () => {
+      await saveLogic(formEvent);
+      return leaveSaveOk.current;
+    },
+    onDiscard: () => {
+      setLogicForm(null);
+      setEditingLogicId(null);
+      setFormError(null);
+    },
+  });
+  useRegisterSave({
+    id: 'template-details',
+    active: templateDirty && Boolean(editName.trim()),
+    saving: isSaving && editTemplateOpen,
+    onSave: async () => {
+      await handleSaveTemplate(formEvent);
+      return leaveSaveOk.current;
+    },
+    onDiscard: () => setEditTemplateOpen(false),
+  });
   const validationParameterFields: FormulaName[] = parameters.map((parameter) => ({
     name: parameter.parameter_key,
     label: parameter.id === editingParameterId && parameterForm ? parameterForm.parameter_name : parameter.parameter_name,
@@ -1855,7 +1938,7 @@ export default function CommissionTemplateDetailPage() {
             </div>
             <div className="flex shrink-0 justify-end gap-2 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
               <button type="button" onClick={() => { setParameterForm(null); setEditingParameterId(null); setFormError(null); setShowParameterFields(false); }} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer">Cancel</button>
-              <button type="submit" disabled={isSaving || Boolean(parameterKeyConflict)} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 text-slate-950 cursor-pointer disabled:opacity-50">{isSaving ? 'Saving...' : 'Save parameter'}</button>
+              <button type="submit" disabled={isSaving || Boolean(parameterKeyConflict) || !parameterDirty} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 text-slate-950 cursor-pointer disabled:opacity-50">{isSaving ? 'Saving...' : 'Save parameter'}</button>
             </div>
           </form>
           {sectionMenuOpen && sectionOptions.length > 0 && createPortal(
@@ -1910,6 +1993,7 @@ export default function CommissionTemplateDetailPage() {
           onChange={setLogicForm}
           onCancel={() => { setLogicForm(null); setEditingLogicId(null); setFormError(null); }}
           onSubmit={(event) => void saveLogic(event)}
+          canSave={logicDirty}
         />
       )}
 
@@ -1962,7 +2046,7 @@ export default function CommissionTemplateDetailPage() {
               </button>
               <button
                 type="submit"
-                disabled={isSaving}
+                disabled={isSaving || !templateDirty || !editName.trim()}
                 className="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer disabled:opacity-50"
               >
                 {isSaving ? 'Saving...' : 'Save Template'}

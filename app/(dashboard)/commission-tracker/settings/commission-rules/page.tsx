@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { useRegisterSave } from '@/components/save-leave-guard';
 
 interface CommissionRule {
   id: string;
@@ -91,9 +92,9 @@ export default function CommissionRulesSettingsPage() {
       r.category.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleAddRule = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newRule.name || !newRule.entity) return;
+  const handleAddRule = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!newRule.name || !newRule.entity) return false;
 
     const created: CommissionRule = {
       id: `RULE-${Date.now().toString().slice(-3)}`,
@@ -118,7 +119,16 @@ export default function CommissionRulesSettingsPage() {
       description: '',
       appliesTo: 'All Transactions',
     });
+    return true;
   };
+
+  const ruleReady = Boolean(newRule.name.trim()) && Boolean(newRule.entity);
+  useRegisterSave({
+    id: 'commission-rule',
+    active: isAddModalOpen && ruleReady,
+    onSave: () => handleAddRule(),
+    onDiscard: () => setIsAddModalOpen(false),
+  });
 
   const toggleRuleStatus = (id: string) => {
     setRules((prev) =>
@@ -127,7 +137,7 @@ export default function CommissionRulesSettingsPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="space-y-6">
       
       {/* Header Card */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl flex justify-between items-center transition-colors">
@@ -330,7 +340,8 @@ export default function CommissionRulesSettingsPage() {
               </button>
               <button
                 type="submit"
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold"
+                disabled={!ruleReady}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-50"
               >
                 Save Rule Definition
               </button>

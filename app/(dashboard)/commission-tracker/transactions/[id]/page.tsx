@@ -17,6 +17,7 @@ import { LeftSidebar } from './components/LeftSidebar';
 import { TransactionOverview } from './components/TransactionOverview';
 import { CommissionWaterfall } from './components/CommissionWaterfall';
 import { orderRulesByEntities } from './components/CommissionWaterfallTable';
+import { pageFrame } from '@/lib/page-frame';
 import { FinalDisbursements } from './components/FinalDisbursements';
 import { RequiredFieldsModal } from './components/RequiredFieldsModal';
 import { AgentPickerModal } from './components/AgentPickerModal';
@@ -1339,6 +1340,31 @@ export default function Dashboard() {
     return () => document.removeEventListener('click', onDocumentClick, true);
   }, [hasUnsavedLocalChanges, router]);
 
+  const requestNavigationRef = useRef(requestNavigation);
+  requestNavigationRef.current = requestNavigation;
+
+  useEffect(() => {
+    if (!hasUnsavedLocalChanges) return;
+    let released = false;
+    const pushGuard = () => {
+      window.history.pushState({ soleoxSaveGuard: true }, '');
+    };
+    pushGuard();
+    const onPopState = () => {
+      if (released) return;
+      pushGuard();
+      requestNavigationRef.current(() => {
+        released = true;
+        window.history.go(-2);
+      });
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      released = true;
+      window.removeEventListener('popstate', onPopState);
+    };
+  }, [hasUnsavedLocalChanges]);
+
   if (dealNotFound) {
     return (
       <div className="p-12 text-center space-y-4 max-w-md mx-auto">
@@ -1356,7 +1382,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className={`p-8 mx-auto space-y-6 relative ${sidebarCollapsed ? 'max-w-[100rem]' : 'max-w-7xl'}`}>
+    <div className={`${pageFrame} relative space-y-6 py-8`}>
       {toast && <ToastBanner message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
 
       <HeaderCard

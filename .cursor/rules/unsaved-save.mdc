@@ -1,0 +1,16 @@
+---
+description: Block navigation while a Save button is visible and enabled.
+alwaysApply: true
+---
+
+# Unsaved save
+
+When a Save button is visible and enabled, the user cannot leave that page until they choose Save, Discard, or Stay.
+
+Register it with `useRegisterSave` from `@/components/save-leave-guard`. `active` is true only while that button is visible and enabled, including while its save is running. Save runs the same action as the button and leaves only when that action succeeds. Discard drops the unsaved edits and leaves. Stay closes the prompt. A hidden or disabled Save button does not block navigation, so disable Save when there is nothing to save.
+
+In-app links and the browser Back button use that prompt. Closing or refreshing the tab uses the browser's own leave warning, because the browser does not allow this three-choice dialog there.
+
+The transaction page uses the same three choices through its unsaved-changes dialog.
+
+When a new chat should follow this before editing saves or navigation, say: read `.cursor/rules/unsaved-save.mdc` before making changes.

@@ -3,6 +3,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, Check, ChevronDown, Info, X } from 'lucide-react';
+import { pageFrame } from '@/lib/page-frame';
 import {
   DATE_PRESETS,
   METRICS,
@@ -416,7 +417,7 @@ export default function OwnerReportsPage() {
 
   return (
     <main onClick={!report ? launch : undefined} className={`min-h-screen [overflow-anchor:none] text-slate-900 dark:text-slate-100 ${reportCanvas} ${!report ? 'cursor-pointer' : ''}`}>
-      <div className="max-w-[1600px] mx-auto px-4 pb-4 md:px-6">
+      <div className={`${pageFrame} pb-4`}>
         <section className={`min-w-0 space-y-4 ${reveal ? 'report-arrive' : ''}`}>
           {report ? (
             <ReportView

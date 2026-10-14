@@ -6,6 +6,7 @@ import { FormulaEditor, type FormulaName } from '../commission-templates/Formula
 import { SectionCollapseButton } from '../../transactions/[id]/components/SectionCollapseButton';
 import { toggleFromSectionHeader } from '../../transactions/[id]/components/sectionHeaderClick';
 import { TrashIcon } from '@/components/ui/trash-icon';
+import { useRegisterSave } from '@/components/save-leave-guard';
 import {
   DEMO_TRANSACTION_SCORECARDS,
   SCORECARD_COLOR_LABEL,
@@ -173,12 +174,26 @@ export default function ScorecardsSettingsPage() {
       setScorecards(saved);
       setBaseline(serializeScorecards(saved));
       setMessage('Scorecards saved.');
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save scorecards.');
+      return false;
     } finally {
       setIsSaving(false);
     }
   };
+
+  useRegisterSave({
+    id: 'scorecards',
+    active: serializeScorecards(scorecards) !== baseline,
+    saving: isSaving,
+    onSave: save,
+    onDiscard: () => {
+      setScorecards(JSON.parse(baseline) as TransactionScorecard[]);
+      setMessage(null);
+      setError(null);
+    },
+  });
 
   const isDirty = serializeScorecards(scorecards) !== baseline;
 

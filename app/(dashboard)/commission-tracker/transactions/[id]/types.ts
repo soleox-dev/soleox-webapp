@@ -57,6 +57,7 @@ export interface CommissionEntityOption {
   id: string;
   name: string;
   type?: string;
+  waterfallSortOrder?: number | null;
 }
 
 export interface AgentConfig {

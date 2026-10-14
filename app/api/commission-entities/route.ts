@@ -2,6 +2,48 @@ import { NextResponse } from 'next/server';
 import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+async function reorderPostSplitEntities(supabase: SupabaseClient, user: string, body: { client_id?: string; entity_ids?: unknown }) {
+  const clientId = String(body.client_id || 'DEMO');
+  const requested = Array.isArray(body.entity_ids) ? body.entity_ids.map((id) => String(id)) : [];
+  const { data: existing, error: existingError } = await supabase
+    .from('commission_entities')
+    .select('id')
+    .eq('client_id', clientId)
+    .or('archived.is.null,archived.eq.false');
+  if (existingError) throw existingError;
+
+  const allowed = new Set((existing || []).map((row) => String(row.id)));
+  const ordered: string[] = [];
+  for (const id of requested) {
+    if (!allowed.has(id) || ordered.includes(id)) continue;
+    ordered.push(id);
+  }
+  const orderedSet = new Set(ordered);
+  const now = new Date().toISOString();
+  const clearIds = [...allowed].filter((id) => !orderedSet.has(id));
+
+  if (clearIds.length > 0) {
+    const { error } = await supabase
+      .from('commission_entities')
+      .update({ waterfall_sort_order: null, updated_at: now, updated_by: user })
+      .in('id', clearIds)
+      .eq('client_id', clientId);
+    if (error) throw error;
+  }
+
+  for (let index = 0; index < ordered.length; index += 1) {
+    const { error } = await supabase
+      .from('commission_entities')
+      .update({ waterfall_sort_order: index + 1, updated_at: now, updated_by: user })
+      .eq('id', ordered[index])
+      .eq('client_id', clientId);
+    if (error) throw error;
+  }
+
+  return NextResponse.json({ success: true });
+}
 
 // GET: Fetch all active/non-archived entities from Supabase
 export async function GET(request: Request) {
@@ -54,6 +96,9 @@ export async function POST(request: Request) {
 
     const supabase = await getAuthenticatedSupabase();
     const body = await request.json();
+    if (body.action === 'REORDER') {
+      return reorderPostSplitEntities(supabase, String(session.user.email), body);
+    }
     const entity = body.entity || body;
 
     // 1. Validation: Entity Name is required. ID is optional for new records.

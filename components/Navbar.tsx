@@ -9,6 +9,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useSoleoxTheme } from '@/app/providers';
 import { SoleoxLogo } from '@/components/ui/logo';
 import { useAccess } from '@/components/access-provider';
+import { pageFrame } from '@/lib/page-frame';
 import { Briefcase, Building2, House, List, Monitor, Moon, Settings, Sun, Users, type LucideIcon } from 'lucide-react';
 import type { ThemePreference } from '@/app/providers';
 
@@ -130,7 +131,7 @@ export default function Navbar() {
       onBlur={isOwnerReports ? (event) => concealReportsNav(event.relatedTarget) : undefined}
       className={isOwnerReports ? `${reportsBarClass} ${barClass}` : `sticky top-0 z-50 ${barClass}`}
     >
-      <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 md:px-6">
+      <div className={`${pageFrame} flex h-16 items-center justify-between`}>
         
         {/* Brand Logo Component with REBI Badge */}
         <Link href="/" className="flex items-center space-x-2">

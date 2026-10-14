@@ -356,6 +356,7 @@ export type Database = {
           tax_id: string | null
           updated_at: string | null
           updated_by: string | null
+          waterfall_sort_order: number | null
         }
         Insert: {
           archived?: boolean | null
@@ -371,6 +372,7 @@ export type Database = {
           tax_id?: string | null
           updated_at?: string | null
           updated_by?: string | null
+          waterfall_sort_order?: number | null
         }
         Update: {
           archived?: boolean | null
@@ -386,6 +388,7 @@ export type Database = {
           tax_id?: string | null
           updated_at?: string | null
           updated_by?: string | null
+          waterfall_sort_order?: number | null
         }
         Relationships: []
       }

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Building2, ChartColumn, ChevronRight, FileSpreadsheet, ListFilter, PanelLeftClose, PanelLeftOpen, Settings2, Zap, type LucideIcon } from 'lucide-react';
+import { pageFrame } from '@/lib/page-frame';
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -55,7 +56,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   };
 
   return (
-    <main className="p-6 md:p-8 max-w-[1600px] mx-auto space-y-6">
+    <main className={`${pageFrame} space-y-6 py-6 md:py-8`}>
       {/* Settings Master Banner */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-md transition-colors">
         <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">

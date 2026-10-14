@@ -5,6 +5,8 @@ import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { isHiddenRecordId } from '@/lib/fields';
+import { PostSplitOrder } from './PostSplitOrder';
+import { useRegisterSave } from '@/components/save-leave-guard';
 
 export interface CommissionEntity {
   id: string;
@@ -14,6 +16,7 @@ export interface CommissionEntity {
   contact_name?: string;
   contact_email?: string;
   tax_id?: string;
+  waterfall_sort_order?: number | null;
   is_active: boolean;
   has_payments?: boolean;
   [key: string]: any;
@@ -236,17 +239,18 @@ export default function CommissionEntitiesPage() {
 
       setIsModalOpen(false);
       await loadEntities();
+      return true;
     } catch (err) {
       console.error('Save error:', err);
       showAlert('Save Error', 'Failed to save changes to the database.');
+      return false;
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.entity_name || isSubmitting) return;
+  const saveEntityForm = () => {
+    if (!formData.entity_name || isSubmitting) return Promise.resolve(false);
 
     const isEditing = Boolean(editingEntity);
     const entityFields: Partial<CommissionEntity> = { ...formData };
@@ -272,10 +276,32 @@ export default function CommissionEntitiesPage() {
         'Rename',
         'primary'
       );
-      return;
+      return Promise.resolve(false);
     }
 
-    void persistEntity(targetEntity, isEditing);
+    return persistEntity(targetEntity, isEditing);
+  };
+
+  const entityWasOpen = useRef(false);
+  const entityBaseline = useRef('');
+  const entityDraft = JSON.stringify(formData);
+  if (isModalOpen !== entityWasOpen.current) {
+    entityWasOpen.current = isModalOpen;
+    if (isModalOpen) entityBaseline.current = entityDraft;
+  }
+  const entityDirty = isModalOpen && entityDraft !== entityBaseline.current;
+
+  useRegisterSave({
+    id: 'commission-entity-form',
+    active: entityDirty,
+    saving: isSubmitting,
+    onSave: saveEntityForm,
+    onDiscard: () => setIsModalOpen(false),
+  });
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    void saveEntityForm();
   };
 
   const toggleStatus = (entity: CommissionEntity) => {
@@ -399,6 +425,8 @@ export default function CommissionEntitiesPage() {
           </button>
         </div>
       </div>
+
+      <PostSplitOrder entities={entities} loading={isLoading} onSaved={loadEntities} />
 
       {/* Table */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md overflow-hidden transition-colors">
@@ -671,7 +699,7 @@ export default function CommissionEntitiesPage() {
                 <button
                   type="submit"
                   tabIndex={7}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !entityDirty}
                   className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {isSubmitting ? (

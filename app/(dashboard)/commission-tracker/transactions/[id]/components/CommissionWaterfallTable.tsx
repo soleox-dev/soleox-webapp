@@ -6,6 +6,7 @@ import { SplitPair } from './SplitPair';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { toPercentPoints } from '@/lib/percent';
+import { orderPostSplitNames } from '@/lib/post-split-order';
 
 type SplitType = 'PERCENT' | 'AMOUNT';
 
@@ -58,18 +59,6 @@ function rulesForEntity(rules: DynamicRule[] | undefined, entity: string): Dynam
   return (rules || []).filter((rule) => (rule.entity || rule.name || '').trim() === entity);
 }
 
-function reconcileEntityOrder(prev: string[], live: string[]): string[] {
-  const liveSet = new Set(live);
-  const prevSet = new Set(prev);
-  const removed = prev.filter((entity) => !liveSet.has(entity));
-  const added = live.filter((entity) => !prevSet.has(entity));
-  if (removed.length === 0 && added.length === 0) return prev;
-  if (removed.length === 1 && added.length === 1) {
-    return prev.map((entity) => (entity === removed[0] ? added[0] : entity));
-  }
-  return [...prev.filter((entity) => liveSet.has(entity)), ...added];
-}
-
 function sameOrder(left: string[], right: string[]) {
   return left.length === right.length && left.every((entity, index) => entity === right[index]);
 }
@@ -99,25 +88,28 @@ export function orderRulesByEntities(rulesByAgent: Record<string, DynamicRule[]>
   return next;
 }
 
-function useStableEntityOrder(rulesByAgent: Record<string, DynamicRule[]>, names: string[], isEditing: boolean, pinned: string[]) {
+function useStableEntityOrder(
+  rulesByAgent: Record<string, DynamicRule[]>,
+  names: string[],
+  pinned: string[],
+  preferred: string[],
+) {
   const namesKey = names.join('\u0000');
   const pinnedKey = pinned.join('\u0000');
-  const [order, setOrder] = useState(() => entityOrder(rulesByAgent, names));
+  const preferredKey = preferred.join('\u0000');
+  const [order, setOrder] = useState(() => orderPostSplitNames(entityOrder(rulesByAgent, names), preferred));
 
   useEffect(() => {
     const nameList = namesKey === '' ? [] : namesKey.split('\u0000');
     const pinnedList = pinnedKey === '' ? [] : pinnedKey.split('\u0000');
+    const preferredList = preferredKey === '' ? [] : preferredKey.split('\u0000');
     const live = entityOrder(rulesByAgent, nameList);
     for (const entity of pinnedList) {
       if (entity && !live.includes(entity)) live.push(entity);
     }
-    if (!isEditing) {
-      const saved = entityOrder(rulesByAgent, nameList);
-      setOrder((prev) => (sameOrder(prev, saved) ? prev : saved));
-      return;
-    }
-    setOrder((prev) => reconcileEntityOrder(prev, live));
-  }, [rulesByAgent, namesKey, pinnedKey, isEditing]);
+    const sorted = orderPostSplitNames(live, preferredList);
+    setOrder((prev) => (sameOrder(prev, sorted) ? prev : sorted));
+  }, [rulesByAgent, namesKey, pinnedKey, preferredKey]);
 
   return [order, setOrder] as const;
 }
@@ -156,14 +148,18 @@ export function CommissionWaterfallTable({
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
 
   const names = agents.map((agent) => agent.name);
+  const clientPostSplitOrder = [...knownEntities]
+    .filter((entity) => entity.waterfallSortOrder != null && Number.isFinite(entity.waterfallSortOrder))
+    .sort((left, right) => (left.waterfallSortOrder ?? 0) - (right.waterfallSortOrder ?? 0) || left.name.localeCompare(right.name))
+    .map((entity) => entity.name);
   const [draftLevel1, setDraftLevel1] = useState<string[]>([]);
   const [draftLevel2, setDraftLevel2] = useState<string[]>([]);
   const [addingLevel1Row, setAddingLevel1Row] = useState(false);
   const [addingLevel2Row, setAddingLevel2Row] = useState(false);
   const [newLevel1Entity, setNewLevel1Entity] = useState('');
   const [newLevel2Entity, setNewLevel2Entity] = useState('');
-  const [level1Order, setLevel1Order] = useStableEntityOrder(postSplitRulesByAgent, names, isEditing, draftLevel1);
-  const [level2Order, setLevel2Order] = useStableEntityOrder(postSplit2RulesByAgent, names, isEditing, draftLevel2);
+  const [level1Order, setLevel1Order] = useStableEntityOrder(postSplitRulesByAgent, names, draftLevel1, clientPostSplitOrder);
+  const [level2Order, setLevel2Order] = useStableEntityOrder(postSplit2RulesByAgent, names, draftLevel2, clientPostSplitOrder);
 
   useEffect(() => {
     if (isEditing) return;
@@ -262,75 +258,6 @@ export function CommissionWaterfallTable({
       <span className="ml-auto block w-[6.5rem] pr-2 text-right text-slate-300">—</span>
     )
   );
-
-  const applyMove = (order: string[], setOrder: (next: string[]) => void, onApply: ((next: string[]) => void) | undefined, from: number, to: number) => {
-    if (from === to || from < 0 || to < 0 || from >= order.length || to >= order.length) return;
-    const next = [...order];
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved);
-    setOrder(next);
-    onApply?.(next);
-  };
-
-  const reorderControls = (index: number, total: number, dragType: string, onMove: (from: number, to: number) => void) => {
-    if (!isEditing || total <= 1) return null;
-    return (
-      <div className="flex items-center gap-0.5 shrink-0 select-none">
-        <span
-          draggable
-          onDragStart={(event) => {
-            event.dataTransfer.setData('text/plain', JSON.stringify({ dragType, index }));
-            event.dataTransfer.effectAllowed = 'move';
-          }}
-          className="cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 text-xs px-0.5"
-          title="Drag to reorder"
-        >
-          ⠿
-        </span>
-        <div className="flex flex-col -space-y-0.5">
-          <button
-            type="button"
-            disabled={index === 0}
-            onClick={() => onMove(index, index - 1)}
-            className="p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-20 disabled:hover:text-slate-400 cursor-pointer disabled:cursor-not-allowed transition text-[9px] leading-none"
-            title="Move up"
-          >
-            ▲
-          </button>
-          <button
-            type="button"
-            disabled={index === total - 1}
-            onClick={() => onMove(index, index + 1)}
-            className="p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-20 disabled:hover:text-slate-400 cursor-pointer disabled:cursor-not-allowed transition text-[9px] leading-none"
-            title="Move down"
-          >
-            ▼
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  const dragRowProps = (index: number, dragType: string, onMove: (from: number, to: number) => void) => {
-    if (!isEditing) return {};
-    return {
-      onDragOver: (event: React.DragEvent) => {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'move';
-      },
-      onDrop: (event: React.DragEvent) => {
-        event.preventDefault();
-        try {
-          const data = JSON.parse(event.dataTransfer.getData('text/plain'));
-          if (data?.dragType === dragType && typeof data.index === 'number' && data.index !== index) {
-            onMove(data.index, index);
-          }
-        } catch {
-          // ignore drops that are not a row reorder
-        }
-      },
-    };
-  };
 
   const entityField = (entity: string, onChange: (next: string) => void) => {
     if (!isEditing) return <span>{entity}</span>;
@@ -533,11 +460,10 @@ export function CommissionWaterfallTable({
                   <td key={agent.id} className={`${agentCell} bg-slate-50 dark:bg-slate-800/80`} />
                 ))}
               </tr>
-              {level1Order.map((entity, index) => (
-                <tr key={`l1-${entity}`} {...dragRowProps(index, 'postSplit1', (from, to) => applyMove(level1Order, setLevel1Order, onReorderPostSplitEntities, from, to))}>
+              {level1Order.map((entity) => (
+                <tr key={`l1-${entity}`}>
                   <td className={`${labelCell} font-semibold text-slate-800 dark:text-slate-200`}>
                     <div className="flex items-center gap-1">
-                      {reorderControls(index, level1Order.length, 'postSplit1', (from, to) => applyMove(level1Order, setLevel1Order, onReorderPostSplitEntities, from, to))}
                       {isEditing && (
                         <button type="button" onClick={() => { deleteEntityRow(entity, postSplitRulesByAgent, onDeleteAgentPostSplitRule); setDraftLevel1((prev) => prev.filter((item) => item !== entity)); }} className={trashButton} title={`Remove ${entity}`} aria-label={`Remove ${entity}`}><TrashIcon /></button>
                       )}
@@ -631,11 +557,10 @@ export function CommissionWaterfallTable({
                   <td key={agent.id} className={`${agentCell} bg-slate-50 dark:bg-slate-800/80`} />
                 ))}
               </tr>
-              {level2Order.map((entity, index) => (
-                <tr key={`l2-${entity}`} {...dragRowProps(index, 'postSplit2', (from, to) => applyMove(level2Order, setLevel2Order, onReorderPostSplit2Entities, from, to))}>
+              {level2Order.map((entity) => (
+                <tr key={`l2-${entity}`}>
                   <td className={`${labelCell} font-semibold text-slate-800 dark:text-slate-200`}>
                     <div className="flex items-center gap-1">
-                      {reorderControls(index, level2Order.length, 'postSplit2', (from, to) => applyMove(level2Order, setLevel2Order, onReorderPostSplit2Entities, from, to))}
                       {isEditing && (
                         <button type="button" onClick={() => { if (onDeleteAgentPostSplit2Rule) deleteEntityRow(entity, postSplit2RulesByAgent, onDeleteAgentPostSplit2Rule); setDraftLevel2((prev) => prev.filter((item) => item !== entity)); }} className={trashButton} title={`Remove ${entity}`} aria-label={`Remove ${entity}`}><TrashIcon /></button>
                       )}

@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { BarChart3, CircleDollarSign, List, Settings, Target, TrendingUp, Users, Wallet } from 'lucide-react';
 import { useAccess } from '@/components/access-provider';
+import { pageFrame } from '@/lib/page-frame';
 
 export default function Home() {
   const { access, loading } = useAccess();
@@ -16,7 +17,7 @@ export default function Home() {
   const visibleCount = [showTracker, showOwnerReports, showDeferred, showDeferred, showDeferred].filter(Boolean).length;
 
   return (
-    <main className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-6 md:p-8 max-w-7xl mx-auto space-y-6 transition-colors duration-200">
+    <main className={`${pageFrame} min-h-screen bg-slate-100 py-6 text-slate-900 transition-colors duration-200 space-y-6 dark:bg-slate-950 dark:text-slate-100 md:py-8`}>
       
       {/* Title Banner */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 bg-white dark:bg-slate-900 rounded-xl shadow-md border border-slate-200 dark:border-slate-800 transition-colors">

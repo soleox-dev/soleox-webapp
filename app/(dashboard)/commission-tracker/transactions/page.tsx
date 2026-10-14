@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { normalizeAgentName } from '@/lib/id';
 import { formatPercent, isHiddenRecordId } from '@/lib/fields';
+import { pageFrame } from '@/lib/page-frame';
 import { formatPercentRate, formatTablePercent } from '@/lib/percent';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -1597,7 +1598,7 @@ export default function TransactionsListPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100 p-6 md:p-8 max-w-[1600px] mx-auto space-y-6 transition-colors duration-200">
+    <main className={`${pageFrame} min-h-screen bg-slate-100 py-6 text-slate-900 transition-colors duration-200 space-y-6 dark:bg-slate-900 dark:text-slate-100 md:py-8`}>
       {/* Top Banner */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl flex flex-wrap justify-between items-start sm:items-center gap-4 transition-colors">
         <div>

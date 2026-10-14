@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { SaveLeaveGuard } from '@/components/save-leave-guard';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 export type ResolvedTheme = 'light' | 'dark';
@@ -116,7 +117,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <ThemeContext.Provider value={{ theme, resolvedTheme, toggleTheme, setTheme }}>
-      {children}
+      <SaveLeaveGuard>{children}</SaveLeaveGuard>
     </ThemeContext.Provider>
   );
 }

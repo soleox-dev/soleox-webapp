@@ -1,0 +1,16 @@
+---
+description: Side margins for every page. Match the Owner Reports filters card.
+alwaysApply: true
+---
+
+# Page margins
+
+The left and right edges of page content match the Owner Reports filters card.
+
+Use `pageFrame` from `@/lib/page-frame` on the page column. That class is `mx-auto w-full max-w-[1600px] px-4 md:px-6`: a 1600px column, 16px of side padding, and 24px from the `md` breakpoint up. The top navigation uses the same class.
+
+Keep each page’s own top and bottom padding. Do not add a second max width or extra side padding inside a page that already sits in `pageFrame`, including settings pages. Cards, tables, modals, and form fields keep their own padding.
+
+Sign-in, choose client, and no access stay a narrow centered column. Their only side padding is `px-4 md:px-6`.
+
+When a new chat should follow this before editing layout, say: read `.cursor/rules/page-margins.mdc` before making changes.

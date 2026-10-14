@@ -147,6 +147,7 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
                 id: e.id,
                 name: e.entity_name || e.name || 'Unnamed Entity',
                 type: e.entity_type || e.type,
+                waterfallSortOrder: e.waterfall_sort_order == null ? null : Number(e.waterfall_sort_order),
               }))
             );
           }

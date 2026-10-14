@@ -52,6 +52,7 @@ interface LogicStepFormProps {
   onChange: (draft: LogicStepDraft) => void;
   onCancel: () => void;
   onSubmit: (event: React.FormEvent) => void;
+  canSave?: boolean;
 }
 
 export const LOGIC_SECTIONS = [
@@ -211,6 +212,7 @@ export function LogicStepForm({
   onChange,
   onCancel,
   onSubmit,
+  canSave = true,
 }: LogicStepFormProps) {
   const ruleKeyConflict = describeKeyConflict(draft.rule_key, [
     ...formulaNames,
@@ -586,7 +588,7 @@ export function LogicStepForm({
         </div>
         <div className="shrink-0 flex justify-end gap-2 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
           <button type="button" onClick={onCancel} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer">Cancel</button>
-          <button type="submit" disabled={saving || Boolean(ruleKeyConflict)} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 text-slate-950 cursor-pointer disabled:opacity-50">{saving ? 'Saving...' : 'Save rule'}</button>
+          <button type="submit" disabled={saving || Boolean(ruleKeyConflict) || !canSave} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 text-slate-950 cursor-pointer disabled:opacity-50">{saving ? 'Saving...' : 'Save rule'}</button>
         </div>
       </form>
     </div>

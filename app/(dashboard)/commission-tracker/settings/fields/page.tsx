@@ -11,6 +11,7 @@ import { Folder, List, User } from 'lucide-react';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { ToastBanner } from '@/components/ui/ToastBanner';
 import { DB_TRANSACTION_COLUMNS, DB_AGENT_COLUMNS } from '@/lib/fields';
+import { useRegisterSave } from '@/components/save-leave-guard';
 
 type FieldType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
 
@@ -989,9 +990,9 @@ export default function FieldCustomizationsPage() {
     }
   };
 
-  const handleSaveField = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.field_label) return;
+  const handleSaveField = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!formData.field_label) return false;
 
     try {
       setIsSavingField(true);
@@ -1073,12 +1074,31 @@ export default function FieldCustomizationsPage() {
 
       setIsModalOpen(false);
       showToast(`Field "${savedField.field_label}" saved successfully!`, 'success');
+      return true;
     } catch (err: any) {
       showToast(`Save error: ${err.message}`, 'error');
+      return false;
     } finally {
       setIsSavingField(false);
     }
   };
+
+  const fieldWasOpen = useRef(false);
+  const fieldBaseline = useRef('');
+  const fieldDraft = JSON.stringify({ formData, ruleGroup, hasFormula });
+  if (isModalOpen !== fieldWasOpen.current) {
+    fieldWasOpen.current = isModalOpen;
+    if (isModalOpen) fieldBaseline.current = fieldDraft;
+  }
+  const fieldDirty = isModalOpen && fieldDraft !== fieldBaseline.current;
+
+  useRegisterSave({
+    id: 'field-settings',
+    active: fieldDirty,
+    saving: isSavingField,
+    onSave: () => handleSaveField(),
+    onDiscard: () => setIsModalOpen(false),
+  });
 
   const handleDeleteField = async (id: string) => {
     const target = currentFields.find((f) => f.id === id);
@@ -1974,7 +1994,7 @@ export default function FieldCustomizationsPage() {
                   </button>
                   <button
                     type="submit"
-                    disabled={isSavingField}
+                    disabled={isSavingField || !fieldDirty}
                     className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                   >
                     {isSavingField ? (

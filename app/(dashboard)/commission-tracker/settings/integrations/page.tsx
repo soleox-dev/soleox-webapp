@@ -3,9 +3,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
-import { UnsavedChangesModal } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/UnsavedChangesModal';
+import { useRegisterSave } from '@/components/save-leave-guard';
 import { duplicateTmsIdReason, isDuplicateTmsIdReason, syncFinishedSummary } from '@/lib/sync-finished-summary';
 
 interface FieldOption {
@@ -242,9 +241,6 @@ function formatWhen(value: string | null): string {
 }
 
 export default function TransactionIntegrationsPage() {
-  const router = useRouter();
-  const pendingNavigationRef = useRef<(() => void) | null>(null);
-  const leavePromptOpenRef = useRef(false);
   const [fields, setFields] = useState<FieldOption[]>([]);
   const [spreadsheet, setSpreadsheet] = useState('');
   const [tabName, setTabName] = useState('SOLEOX Integration');
@@ -265,7 +261,6 @@ export default function TransactionIntegrationsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savedDraftKey, setSavedDraftKey] = useState('');
-  const [leavePromptOpen, setLeavePromptOpen] = useState(false);
 
   const applyPayload = (data: Record<string, unknown>) => {
     const connection = data.connection as { spreadsheetId?: string; spreadsheetUrl?: string; tabName?: string; enabled?: boolean } | null;
@@ -319,19 +314,6 @@ export default function TransactionIntegrationsPage() {
   const tmsMapped = mappings.some((mapping) => mapping.fieldKey === 'tms_id');
   const syncReady = Boolean(defaultViewFormula.trim()) && tmsMapped && persistedEnabled && serviceAccountConfigured;
   const isDirty = loaded && savedDraftKey !== draftKey({ spreadsheet, tabName, enabled, mappings }, fields);
-  leavePromptOpenRef.current = leavePromptOpen;
-
-  const stayOnPage = () => {
-    pendingNavigationRef.current = null;
-    setLeavePromptOpen(false);
-  };
-
-  const discardAndLeave = () => {
-    const navigate = pendingNavigationRef.current;
-    pendingNavigationRef.current = null;
-    setLeavePromptOpen(false);
-    navigate?.();
-  };
 
   const fieldOptions = useMemo(() => fields.slice().sort((left, right) => left.fieldLabel.localeCompare(right.fieldLabel)), [fields]);
 
@@ -419,79 +401,12 @@ export default function TransactionIntegrationsPage() {
     }
   };
 
-  const saveAndLeave = async () => {
-    const saved = await save();
-    if (!saved) {
-      setLeavePromptOpen(false);
-      return;
-    }
-    const navigate = pendingNavigationRef.current;
-    pendingNavigationRef.current = null;
-    setLeavePromptOpen(false);
-    navigate?.();
-  };
-
-  useEffect(() => {
-    const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!isDirty) return;
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [isDirty]);
-
-  useEffect(() => {
-    const onDocumentClick = (event: MouseEvent) => {
-      if (!isDirty || event.defaultPrevented || event.button !== 0) return;
-      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      const anchor = (event.target as HTMLElement | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
-      if (!anchor) return;
-      const href = anchor.getAttribute('href');
-      if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
-      if (anchor.target === '_blank' || anchor.hasAttribute('download')) return;
-      let url: URL;
-      try {
-        url = new URL(href, window.location.origin);
-      } catch {
-        return;
-      }
-      if (url.origin !== window.location.origin) return;
-      if (url.pathname === window.location.pathname && url.search === window.location.search) return;
-      event.preventDefault();
-      event.stopPropagation();
-      pendingNavigationRef.current = () => {
-        router.push(`${url.pathname}${url.search}${url.hash}`);
-      };
-      setLeavePromptOpen(true);
-    };
-    document.addEventListener('click', onDocumentClick, true);
-    return () => document.removeEventListener('click', onDocumentClick, true);
-  }, [isDirty, router]);
-
-  useEffect(() => {
-    if (!isDirty) return;
-    let released = false;
-    const pushGuard = () => {
-      window.history.pushState({ soleoxIntegrationsGuard: true }, '');
-    };
-    pushGuard();
-    const onPopState = () => {
-      if (released) return;
-      pushGuard();
-      if (leavePromptOpenRef.current) return;
-      pendingNavigationRef.current = () => {
-        released = true;
-        window.history.go(-2);
-      };
-      setLeavePromptOpen(true);
-    };
-    window.addEventListener('popstate', onPopState);
-    return () => {
-      released = true;
-      window.removeEventListener('popstate', onPopState);
-    };
-  }, [isDirty]);
+  useRegisterSave({
+    id: 'sheet-integration',
+    active: isDirty && canManage,
+    saving: isSaving,
+    onSave: save,
+  });
 
   const syncNow = async () => {
     setIsSyncing(true);
@@ -618,7 +533,7 @@ export default function TransactionIntegrationsPage() {
             <button type="button" onClick={preview} disabled={!canManage || isPreviewing} className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-md transition hover:bg-emerald-400 disabled:opacity-50 cursor-pointer">
               {isPreviewing ? 'Loading columns…' : 'Load columns'}
             </button>
-            <button type="button" onClick={save} disabled={!canManage || isSaving} className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-md transition hover:bg-emerald-400 disabled:opacity-50 cursor-pointer">
+            <button type="button" onClick={save} disabled={!canManage || isSaving || !isDirty} className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-md transition hover:bg-emerald-400 disabled:opacity-50 cursor-pointer">
               {isSaving ? 'Saving…' : 'Save integration'}
             </button>
             {message && <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{message}</span>}
@@ -726,14 +641,6 @@ export default function TransactionIntegrationsPage() {
           )}
         </div>
       )}
-      <UnsavedChangesModal
-        isOpen={leavePromptOpen}
-        isSaving={isSaving}
-        description="These integration changes are not saved. Save them or discard them before leaving this page."
-        onStay={stayOnPage}
-        onDiscard={discardAndLeave}
-        onSave={saveAndLeave}
-      />
     </section>
   );
 }

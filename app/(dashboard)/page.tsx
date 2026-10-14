@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
+import { pageFrame } from '@/lib/page-frame';
 
 export default function MainMenu() {
   const { theme, setTheme } = useTheme();
@@ -77,7 +78,7 @@ export default function MainMenu() {
   ];
 
   return (
-    <main className="p-8 max-w-7xl mx-auto space-y-8">
+    <main className={`${pageFrame} space-y-8 py-8`}>
       {/* Executive Welcome Banner */}
       <div className="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-6 shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-colors">
         <div className="space-y-1">

@@ -3,12 +3,14 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { PERCENT_POINT_DECIMALS, formatPercentPoints, formatTablePercent, fromPercentPoints, toPercentPoints } from '@/lib/percent';
 import { isHiddenRecordId } from '@/lib/fields';
+import { pageFrame } from '@/lib/page-frame';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { BooleanCheckbox, BooleanField, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { useAccess } from '@/components/access-provider';
+import { useRegisterSave } from '@/components/save-leave-guard';
 
 type FieldType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
 
@@ -392,9 +394,9 @@ export default function AgentsPage() {
     setIsModalOpen(true);
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.agent_name || isSubmitting) return;
+  const handleSave = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!formData.agent_name || isSubmitting) return false;
 
     setIsSubmitting(true);
     const isEditing = Boolean(editingAgent);
@@ -423,13 +425,32 @@ export default function AgentsPage() {
 
       setIsModalOpen(false);
       await loadLiveAgents();
+      return true;
     } catch (err) {
       console.error('Save error:', err);
       alert('Failed to save changes to the database.');
+      return false;
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const agentWasOpen = useRef(false);
+  const agentBaseline = useRef('');
+  const agentDraft = JSON.stringify(formData);
+  if (isModalOpen !== agentWasOpen.current) {
+    agentWasOpen.current = isModalOpen;
+    if (isModalOpen) agentBaseline.current = agentDraft;
+  }
+  const agentDirty = isModalOpen && agentDraft !== agentBaseline.current;
+
+  useRegisterSave({
+    id: 'agent-form',
+    active: agentDirty,
+    saving: isSubmitting,
+    onSave: () => handleSave(),
+    onDiscard: () => setIsModalOpen(false),
+  });
 
   const statusOptions = fieldConfigs.find((cfg) => cfg.field_key === 'agent_status')?.dropdown_options?.filter(Boolean) ?? [];
 
@@ -517,7 +538,7 @@ export default function AgentsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100 p-6 md:p-8 max-w-[1600px] mx-auto space-y-6 transition-colors duration-200">
+    <main className={`${pageFrame} min-h-screen bg-slate-100 py-6 text-slate-900 transition-colors duration-200 space-y-6 dark:bg-slate-900 dark:text-slate-100 md:py-8`}>
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl flex flex-wrap justify-between items-start sm:items-center gap-4 transition-colors">
         <div>
           <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
@@ -994,7 +1015,7 @@ export default function AgentsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !agentDirty}
                   className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {isSubmitting ? (
