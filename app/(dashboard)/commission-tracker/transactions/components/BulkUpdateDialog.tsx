@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { FieldChevron, UnderlineField, underlineControl } from '@/components/ui/underline-field';
 import {
   isOverviewFieldVisible,
   readTransactionField,
@@ -36,6 +37,7 @@ export function BulkUpdateDialog({
   selectedCount,
   isPending,
   error,
+  recordNoun = 'transaction',
   onCancel,
   onConfirm,
 }: {
@@ -45,6 +47,7 @@ export function BulkUpdateDialog({
   selectedCount: number;
   isPending: boolean;
   error?: string | null;
+  recordNoun?: 'transaction' | 'agent';
   onCancel: () => void;
   onConfirm: (fieldKey: string, value: string) => void;
 }) {
@@ -66,8 +69,8 @@ export function BulkUpdateDialog({
   const [value, setValue] = useState('');
   const [touched, setTouched] = useState(false);
   const selected = choices.find((choice) => choice.fieldKey === fieldKey) || null;
-  const noun = selectedCount === 1 ? 'transaction' : 'transactions';
-  const isTmsId = selected?.fieldKey === 'tms_id';
+  const noun = selectedCount === 1 ? recordNoun : `${recordNoun}s`;
+  const isTmsId = recordNoun === 'transaction' && selected?.fieldKey === 'tms_id';
   const isText = Boolean(selected && selected.fieldType === 'TEXT' && !isTmsId);
   const choosingClear = value === CLEAR_VALUE;
   const textClear = isText && value.trim() === '';
@@ -88,8 +91,8 @@ export function BulkUpdateDialog({
     : isTmsId
       ? `Clearing TMS ID disconnects these ${selectedCount} ${noun} from the Transaction Management System. Sync will no longer update them. If that ID is still on the sheet, the next sync can add a new transaction for it.`
       : clearing
-        ? `This clears ${selected.fieldLabel} on ${selectedCount} ${noun}. Commission calculations are not rerun.`
-        : `This sets ${selected.fieldLabel} on ${selectedCount} ${noun}. Commission calculations are not rerun.`;
+        ? `This clears ${selected.fieldLabel} on ${selectedCount} ${noun}.${recordNoun === 'transaction' ? ' Commission calculations are not rerun.' : ''}`
+        : `This sets ${selected.fieldLabel} on ${selectedCount} ${noun}.${recordNoun === 'transaction' ? ' Commission calculations are not rerun.' : ''}`;
   const actionLabel = isPending
     ? 'Updating...'
     : isTmsId
@@ -121,8 +124,7 @@ export function BulkUpdateDialog({
           <p className={`mt-1 text-sm ${isTmsId ? 'text-amber-700 dark:text-amber-300' : 'text-slate-600 dark:text-slate-300'}`}>{summary}</p>
         </div>
 
-        <label className="block space-y-1">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Field</span>
+        <UnderlineField label="Field">
           <ClearableSelect
             allowBlank={false}
             value={fieldKey}
@@ -132,18 +134,18 @@ export function BulkUpdateDialog({
               setValue('');
               setTouched(false);
             }}
-            className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+            className={`${underlineControl} overview-field-select`}
           >
             {choices.length === 0 ? <option value="">No editable fields</option> : null}
             {choices.map((choice) => (
               <option key={choice.fieldKey} value={choice.fieldKey}>{choice.fieldLabel}</option>
             ))}
           </ClearableSelect>
-        </label>
+          <FieldChevron />
+        </UnderlineField>
 
         {selected && !isTmsId ? (
-          <label className="block space-y-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Value</span>
+          <div className="space-y-1">
             <BulkValueControl
               field={selected}
               agents={agents}
@@ -154,7 +156,7 @@ export function BulkUpdateDialog({
                 setValue(next);
               }}
             />
-          </label>
+          </div>
         ) : null}
 
         {clearing && requiredCount > 0 ? (
@@ -207,57 +209,66 @@ function BulkValueControl({
   disabled: boolean;
   onChange: (value: string) => void;
 }) {
-  const inputClass = 'w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500';
+  const menuClass = `${underlineControl} overview-field-select`;
+  const wrap = (control: React.ReactNode, menu = false) => (
+    <UnderlineField label="Value">
+      {control}
+      {menu ? <FieldChevron /> : null}
+    </UnderlineField>
+  );
 
   if (field.fieldType === 'AGENT_PICKER' || field.fieldKey === 'agent_id') {
-    return (
-      <ClearableSelect allowBlank={false} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} className={inputClass}>
+    return wrap(
+      <ClearableSelect allowBlank={false} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} className={menuClass}>
         <option value="">Choose an agent</option>
         <option value={CLEAR_VALUE}>Clear</option>
         {agents.map((agent) => {
           const name = agent.agent_name || agent.name || agent.id;
           return <option key={agent.id} value={agent.id}>{name}</option>;
         })}
-      </ClearableSelect>
+      </ClearableSelect>,
+      true,
     );
   }
 
   if (field.fieldType === 'SELECT') {
-    return (
-      <ClearableSelect allowBlank={false} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} className={inputClass}>
+    return wrap(
+      <ClearableSelect allowBlank={false} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} className={menuClass}>
         <option value="">{`Choose ${field.fieldLabel}`}</option>
         <option value={CLEAR_VALUE}>Clear</option>
         {field.options.map((option) => (
           <option key={option} value={option}>{option}</option>
         ))}
-      </ClearableSelect>
+      </ClearableSelect>,
+      true,
     );
   }
 
   if (field.fieldType === 'BOOLEAN') {
-    return (
-      <ClearableSelect allowBlank={false} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} className={inputClass}>
+    return wrap(
+      <ClearableSelect allowBlank={false} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} className={menuClass}>
         <option value="">Choose</option>
         <option value="true">Yes</option>
         <option value="false">No</option>
-      </ClearableSelect>
+      </ClearableSelect>,
+      true,
     );
   }
 
   if (field.fieldType === 'DATE') {
-    return (
+    return wrap(
       <input
         type="date"
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
-        className={inputClass}
-      />
+        className={`${underlineControl} overview-date dark:[color-scheme:dark]`}
+      />,
     );
   }
 
   const numeric = field.fieldType === 'CURRENCY' || field.fieldType === 'NUMBER' || field.fieldType === 'PERCENT';
-  return (
+  return wrap(
     <input
       type={numeric ? 'number' : 'text'}
       inputMode={numeric ? 'decimal' : undefined}
@@ -266,7 +277,7 @@ function BulkValueControl({
       disabled={disabled}
       placeholder={field.fieldType === 'PERCENT' ? '2.5 for 2.5%' : undefined}
       onChange={(event) => onChange(event.target.value)}
-      className={inputClass}
-    />
+      className={underlineControl}
+    />,
   );
 }

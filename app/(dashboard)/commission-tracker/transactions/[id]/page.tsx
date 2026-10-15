@@ -8,6 +8,8 @@ import { AgentConfig, DynamicRule, ToastNotification, roundCurrency, roundPercen
 // Custom Hooks
 import { useTransactionData } from './hooks/useTransactionData';
 import { useTransactionWaterfall } from './hooks/useTransactionWaterfall';
+import { sameAllocationOverrides, useAgentAllocationInput } from './hooks/useAgentAllocationInput';
+import { useSubmittedTemplateReplay } from './hooks/useSubmittedTemplateReplay';
 import { useOverviewForm } from './hooks/useOverviewForm';
 
 // Sub-Components & Modals
@@ -338,12 +340,42 @@ export default function Dashboard() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [pendingTemplateSubmission, setPendingTemplateSubmission] = useState<TemplateSubmissionDraft | null>(null);
+  const [selectedTeamCapIds, setSelectedTeamCapIds] = useState<string[] | null>(null);
   const [templateSubmissionRevision, setTemplateSubmissionRevision] = useState(0);
+  const [templateReplayReset, setTemplateReplayReset] = useState(0);
   const pendingTemplateSubmissionRef = useRef<TemplateSubmissionDraft | null>(null);
   const [isUnsavedModalOpen, setIsUnsavedModalOpen] = useState(false);
   const pendingNavigationRef = useRef<(() => void) | null>(null);
+  type CapOverrideRow = { agentId: string; kind: 'team_cap' | 'sales_volume'; amount: number; teamCapId: string | null };
+  const capOverrideActions = useRef({
+    baseline: null as CapOverrideRow[] | null,
+    current: [] as CapOverrideRow[],
+    replace: (_rows: CapOverrideRow[]) => {},
+    setBaseline: (_rows: CapOverrideRow[] | null) => {},
+  });
 
   const cloneWaterfallRules = (rules: DynamicRule[]) => rules.map((r) => ({ ...r }));
+  const rulesNamed = (map: Record<string, DynamicRule[]> | undefined, name: string) => {
+    if (!map) return [];
+    if (map[name]) return map[name];
+    const key = name.trim().toLowerCase();
+    return Object.entries(map).find(([agent]) => agent.trim().toLowerCase() === key)?.[1] || [];
+  };
+  const withRuleChange = (
+    current: Record<string, DynamicRule[]>,
+    display: Record<string, DynamicRule[]> | undefined,
+    name: string,
+    id: string,
+    change: (rule: DynamicRule) => DynamicRule,
+  ) => {
+    const rules = current[name] || [];
+    if (rules.some((rule) => rule.id === id)) {
+      return { ...current, [name]: rules.map((rule) => rule.id === id ? change(rule) : rule) };
+    }
+    const source = rulesNamed(display, name).find((rule) => rule.id === id);
+    if (!source) return current;
+    return { ...current, [name]: [...rules, change({ ...source })] };
+  };
   const cloneWaterfallRulesByAgent = (map: Record<string, DynamicRule[]>) =>
     Object.fromEntries(Object.entries(map).map(([k, rules]) => [k, cloneWaterfallRules(rules)]));
 
@@ -355,6 +387,7 @@ export default function Dashboard() {
       postSplitRulesByAgent: cloneWaterfallRulesByAgent(postSplitRulesByAgent),
       postSplit2RulesByAgent: cloneWaterfallRulesByAgent(postSplit2RulesByAgent),
     });
+    capOverrideActions.current.setBaseline(capOverrideActions.current.current.map((row) => ({ ...row })));
     setIsEditingWaterfall(true);
   };
 
@@ -366,6 +399,8 @@ export default function Dashboard() {
       setPostSplitRulesByAgent(cloneWaterfallRulesByAgent(waterfallEditSnapshot.postSplitRulesByAgent));
       setPostSplit2RulesByAgent(cloneWaterfallRulesByAgent(waterfallEditSnapshot.postSplit2RulesByAgent));
     }
+    if (capOverrideActions.current.baseline) capOverrideActions.current.replace(capOverrideActions.current.baseline);
+    capOverrideActions.current.setBaseline(null);
     setWaterfallEditSnapshot(null);
     setIsEditingWaterfall(false);
     setIsAddAgentModalOpen(false);
@@ -385,11 +420,14 @@ export default function Dashboard() {
 
   const handleApplyWaterfallEdit = () => {
     const unchanged = !waterfallHasEdits();
+    const baseline = capOverrideActions.current.baseline;
+    const capChanged = baseline != null && !sameAllocationOverrides(capOverrideActions.current.current, baseline);
 
     setWaterfallEditSnapshot(null);
+    capOverrideActions.current.setBaseline(null);
     setIsEditingWaterfall(false);
     setIsAddAgentModalOpen(false);
-    if (unchanged) return;
+    if (unchanged && !capChanged) return;
 
     // Local apply only — DB persistence happens via Save Transaction
     setHasUnsavedLocalChanges(true);
@@ -437,9 +475,27 @@ export default function Dashboard() {
       };
     });
     const primaryIndex = templateAgents.findIndex((agent) => isPrimaryAgent(agent, primaryAgentId));
-    const nextAgents = primaryIndex > 0
+    const orderedAgents = primaryIndex > 0
       ? [templateAgents[primaryIndex], ...templateAgents.filter((_, index) => index !== primaryIndex)]
       : templateAgents;
+    const chosenCapIds = submission?.team_cap_ids ?? null;
+    const nextAgents = chosenCapIds == null ? orderedAgents : [
+      ...orderedAgents,
+      ...(submission?.team_cap_recipients ?? []).flatMap((recipient) => {
+        if (orderedAgents.some((agent) => agent.id === recipient.id)) return [];
+        return [{
+          id: recipient.id,
+          name: recipient.name,
+          isTeamLead: Boolean(recipient.isTeamLead),
+          splitType: 'PERCENT' as const,
+          splitVal: 0,
+          brokerCapLimit: 0,
+          brokerCapPaidYTD: 0,
+          riskCapLimit: 0,
+          riskPaidYTD: 0,
+        }];
+      }),
+    ];
 
     const changed =
       JSON.stringify(nextOff) !== JSON.stringify(offTheTopRules) ||
@@ -459,6 +515,7 @@ export default function Dashboard() {
     if (submission) {
       pendingTemplateSubmissionRef.current = submission;
       setPendingTemplateSubmission(submission);
+      if (submission.team_cap_ids) setSelectedTeamCapIds(submission.team_cap_ids);
       setHasUnsavedLocalChanges(true);
     } else if (changed) {
       setHasUnsavedLocalChanges(true);
@@ -653,6 +710,55 @@ export default function Dashboard() {
     knownAgents,
   );
 
+  const activeClientId = selectedDeal?.client_id || 'DEMO';
+  const allocationFieldTypes = useMemo(
+    () => Object.fromEntries(overviewFields.map((field) => [field.key, field.type])),
+    [overviewFields],
+  );
+  const allocationDeal = { ...(selectedDeal || {}), ...(overviewForm.overviewFormValues || {}) };
+  const allocationDate = String(overviewForm.overviewFormValues?.closing_date || closingDate || '').substring(0, 10) || null;
+  const {
+    ready: allocationReady,
+    input: allocationInput,
+    hasStoredRows: hasStoredAllocations,
+    overrides: capOverrides,
+    setTeamCapOverride,
+    replaceOverrides,
+    restoreLoadedOverrides,
+    commitOverrides,
+  } = useAgentAllocationInput({
+    clientId: activeClientId,
+    transactionId: selectedDeal?.id || (!isNewTransaction ? routeId : ''),
+    agents,
+    knownAgents,
+    deal: allocationDeal,
+    dealDate: allocationDate,
+    salesPrice: overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.sales_price) || salesPrice) : salesPrice,
+    fieldTypes: allocationFieldTypes,
+  });
+  const [capOverrideBaseline, setCapOverrideBaseline] = useState<typeof capOverrides | null>(null);
+  capOverrideActions.current = {
+    baseline: capOverrideBaseline,
+    current: capOverrides,
+    replace: replaceOverrides,
+    setBaseline: setCapOverrideBaseline,
+  };
+
+  const allocationForWaterfall = useMemo(() => {
+    if (!allocationInput) return null;
+    return { ...allocationInput, selectedTeamCapIds };
+  }, [allocationInput, selectedTeamCapIds]);
+
+  const templateReplay = useSubmittedTemplateReplay({
+    clientId: activeClientId,
+    transactionId: selectedDeal?.id || (!isNewTransaction ? routeId : ''),
+    entities: knownEntities,
+    rosterAgents: knownAgents,
+    pendingSubmission: pendingTemplateSubmission,
+    revision: templateSubmissionRevision,
+    reset: templateReplayReset,
+  });
+
   const dealResult = useTransactionWaterfall({
     salesPrice: overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.sales_price) || salesPrice) : salesPrice,
     gciPerc: overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.gci_perc) || gciPerc) : gciPerc,
@@ -666,9 +772,70 @@ export default function Dashboard() {
     selectedDeal,
     overviewFormValues: overviewForm.overviewFormValues,
     clientType,
+    allocation: allocationForWaterfall,
+    templateReplay,
   });
 
-  const activeClientId = selectedDeal?.client_id || 'DEMO';
+  const allocationSaveKey = JSON.stringify((dealResult.allocationLines || [])
+    .filter((line: { tracked?: boolean }) => line.tracked !== false)
+    .map((line: { agent_id: string; kind: string; amount: number; calculated_amount: number; is_override: boolean; period_start: string | null; team_cap_id?: string | null }) => ({
+      agentId: line.agent_id,
+      kind: line.kind,
+      amount: line.amount,
+      calculatedAmount: line.calculated_amount,
+      isOverride: line.is_override,
+      periodStart: line.period_start,
+      teamCapId: line.team_cap_id || null,
+    })));
+  const savedAllocationKey = useRef('');
+  const allocationSaveGeneration = useRef(0);
+
+  useEffect(() => {
+    const transactionId = selectedDeal?.id ? String(selectedDeal.id) : '';
+    const featuresOn = Boolean(allocationInput?.teamCaps.some((cap) => cap.enabled) || allocationInput?.salesVolume?.enabled);
+    if (!allocationReady || !canWriteTracker || !transactionId) return;
+    if (!featuresOn && !hasStoredAllocations) return;
+    if (allocationSaveKey === savedAllocationKey.current) return;
+    const generation = allocationSaveGeneration.current + 1;
+    allocationSaveGeneration.current = generation;
+    const timer = window.setTimeout(() => {
+      const rows = JSON.parse(allocationSaveKey) as {
+        agentId: string;
+        kind: string;
+        amount: number;
+        calculatedAmount: number;
+        isOverride: boolean;
+        periodStart: string | null;
+        teamCapId: string | null;
+      }[];
+      const headers = { 'Content-Type': 'application/json', 'x-client-id': activeClientId };
+      void Promise.all([
+        fetch('/api/transaction-team-caps', {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({
+            clientId: activeClientId,
+            transactionId,
+            teamCaps: rows.filter((row) => row.kind === 'team_cap'),
+          }),
+        }),
+        fetch('/api/transaction-agent-allocations', {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({
+            clientId: activeClientId,
+            transactionId,
+            allocations: rows.filter((row) => row.kind === 'sales_volume'),
+          }),
+        }),
+      ]).then(([capsResponse, allocationsResponse]) => {
+        if (capsResponse.ok && allocationsResponse.ok && generation === allocationSaveGeneration.current) {
+          savedAllocationKey.current = allocationSaveKey;
+        }
+      }).catch(() => undefined);
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [allocationReady, allocationSaveKey, canWriteTracker, selectedDeal?.id, activeClientId]);
 
   useEffect(() => {
     if (isNewTransaction) {
@@ -697,6 +864,7 @@ export default function Dashboard() {
         pendingTemplateSubmissionRef.current = null;
         setPendingTemplateSubmission(null);
         setTemplateSubmissionRevision((current) => current + 1);
+        setTemplateReplayReset((current) => current + 1);
       }
       setHasUnsavedLocalChanges(false);
       setSearchQuery(`[NEW] ${freshId} — Draft Transaction`);
@@ -719,6 +887,7 @@ export default function Dashboard() {
         pendingTemplateSubmissionRef.current = null;
         setPendingTemplateSubmission(null);
         setTemplateSubmissionRevision((current) => current + 1);
+        setTemplateReplayReset((current) => current + 1);
       }
       setHasUnsavedLocalChanges(false);
       
@@ -766,7 +935,14 @@ export default function Dashboard() {
     'updated_at', 'updated_by'
   ]);
 
+  const agentSplitExcess = Number(dealResult.agentSplitExcess) || 0;
+  const agentSplitsExceedCommission = agentSplitExcess > 0.009;
+
   const handleSave = (afterSaveSuccess?: () => void, options?: { decided?: boolean; omitPayments?: boolean }) => {
+    if (agentSplitsExceedCommission) {
+      showToast('Agent splits are more than the remaining commission, so this transaction cannot be saved.', 'error');
+      return;
+    }
     if (!activeClientId && !isNewTransaction) {
       showToast('Cannot save transaction: Missing active Client ID.', 'error');
       return;
@@ -1038,9 +1214,10 @@ export default function Dashboard() {
         setCommissionItems(savedItems);
         setCommissionItemsDealId(savedTxn.id);
       }
+      commitOverrides();
 
       setHasUnsavedLocalChanges(false);
-      discardPendingTemplateSubmission();
+      discardPendingTemplateSubmission('save');
       setSelectedDeal(savedTxn);
       setSavedDeals((current) => {
         const exists = current.some((deal) => deal.id === savedTxn.id);
@@ -1140,14 +1317,17 @@ export default function Dashboard() {
   const handleTemplateSubmissionDeleted = () => {
     pendingTemplateSubmissionRef.current = null;
     setPendingTemplateSubmission(null);
+    setSelectedTeamCapIds(null);
     setTemplateSubmissionRevision((current) => current + 1);
+    setTemplateReplayReset((current) => current + 1);
   };
 
-  const discardPendingTemplateSubmission = () => {
+  const discardPendingTemplateSubmission = (mode: 'save' | 'drop' = 'drop') => {
     if (!pendingTemplateSubmissionRef.current) return;
     pendingTemplateSubmissionRef.current = null;
     setPendingTemplateSubmission(null);
     setTemplateSubmissionRevision((current) => current + 1);
+    if (mode === 'drop') setTemplateReplayReset((current) => current + 1);
   };
 
   const handleDiscardChanges = () => {
@@ -1160,6 +1340,8 @@ export default function Dashboard() {
     setIsUnsavedModalOpen(false);
     pendingNavigationRef.current = null;
     setHasUnsavedLocalChanges(false);
+    setCapOverrideBaseline(null);
+    restoreLoadedOverrides();
     discardPendingTemplateSubmission();
 
     if (isNewTransaction) {
@@ -1239,6 +1421,8 @@ export default function Dashboard() {
     const navigate = pendingNavigationRef.current;
     pendingNavigationRef.current = null;
     setHasUnsavedLocalChanges(false);
+    setCapOverrideBaseline(null);
+    restoreLoadedOverrides();
     discardPendingTemplateSubmission();
     setIsEditingWaterfall(false);
     setWaterfallEditSnapshot(null);
@@ -1372,10 +1556,10 @@ export default function Dashboard() {
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">Transaction Not Found</h2>
         <p className="text-xs text-slate-500 dark:text-slate-400">The requested record ({routeId}) does not exist or you lack permission to view it.</p>
         <button
-          onClick={() => requestNavigation(() => window.history.back())}
+          onClick={() => requestNavigation(() => router.push('/commission-tracker/transactions'))}
           className="px-4 py-2 bg-slate-800 text-white rounded-lg text-xs font-semibold hover:bg-slate-700 transition"
         >
-          Return to Previous Page
+          Back to Transactions
         </button>
       </div>
     );
@@ -1392,8 +1576,8 @@ export default function Dashboard() {
         onDiscard={handleDiscardChanges}
         onDelete={canWriteTracker && selectedDeal?.id ? () => { setDeleteError(null); setConfirmDeleteOpen(true); } : undefined}
         hasUnsavedChanges={hasUnsavedLocalChanges}
-      />
-
+        saveBlocked={agentSplitsExceedCommission}
+      >
       <SearchableTransactionPicker
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -1425,6 +1609,7 @@ export default function Dashboard() {
         }}
         dropdownRef={dropdownRef}
       />
+      </HeaderCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] gap-6 items-start">
         <LeftSidebar
@@ -1465,7 +1650,8 @@ export default function Dashboard() {
             isCollapsed={collapsed.commission}
             onToggleSection={() => toggleSection('commission')}
             isEditing={isEditingWaterfall}
-            hasChanges={waterfallHasEdits()}
+            hasChanges={waterfallHasEdits() || (capOverrideBaseline != null && !sameAllocationOverrides(capOverrides, capOverrideBaseline))}
+            onTeamCapAmountChange={setTeamCapOverride}
             onStartEdit={handleStartWaterfallEdit}
             onCancelEdit={handleCancelWaterfallEdit}
             onApplyEdit={handleApplyWaterfallEdit}
@@ -1599,17 +1785,10 @@ export default function Dashboard() {
             postSplitRulesByAgent={postSplitRulesByAgent}
             onAddAgentPostSplitRule={(name, rule) => setPostSplitRulesByAgent((p) => ({ ...p, [name]: [...(p[name] || []), rule] }))}
             onDeleteAgentPostSplitRule={(name, id) => setPostSplitRulesByAgent((p) => ({ ...p, [name]: (p[name] || []).filter((r) => r.id !== id) }))}
-            onToggleAgentPostSplitType={(name, id) => setPostSplitRulesByAgent((p) => ({
-              ...p,
-              [name]: (p[name] || []).map((r) => {
-                if (r.id !== id) return r;
-                const newType = r.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT';
-                return { ...r, type: newType };
-              })
-            }))}
-            onUpdateAgentPostSplitValue={(name, id, val) => setPostSplitRulesByAgent((p) => ({ ...p, [name]: (p[name] || []).map((r) => r.id === id ? { ...r, value: val } : r) }))}
-            onUpdateAgentPostSplitEntity={(name, id, ent) => setPostSplitRulesByAgent((p) => ({ ...p, [name]: (p[name] || []).map((r) => r.id === id ? { ...r, entity: ent, name: ent } : r) }))}
-            onUpdateAgentPostSplitNote={(name, id, note) => setPostSplitRulesByAgent((p) => ({ ...p, [name]: (p[name] || []).map((r) => r.id === id ? { ...r, note } : r) }))}
+            onToggleAgentPostSplitType={(name, id) => setPostSplitRulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplitRulesByAgent, name, id, (rule) => ({ ...rule, type: rule.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT' })))}
+            onUpdateAgentPostSplitValue={(name, id, val) => setPostSplitRulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplitRulesByAgent, name, id, (rule) => ({ ...rule, value: val })))}
+            onUpdateAgentPostSplitEntity={(name, id, ent) => setPostSplitRulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplitRulesByAgent, name, id, (rule) => ({ ...rule, entity: ent, name: ent })))}
+            onUpdateAgentPostSplitNote={(name, id, note) => setPostSplitRulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplitRulesByAgent, name, id, (rule) => ({ ...rule, note })))}
             onReorderAgentPostSplitRules={(agentName, fromIndex, toIndex) => {
               setPostSplitRulesByAgent((prev) => {
                 const current = prev[agentName] || [];
@@ -1626,17 +1805,10 @@ export default function Dashboard() {
             postSplit2RulesByAgent={postSplit2RulesByAgent}
             onAddAgentPostSplit2Rule={(name, rule) => setPostSplit2RulesByAgent((p) => ({ ...p, [name]: [...(p[name] || []), rule] }))}
             onDeleteAgentPostSplit2Rule={(name, id) => setPostSplit2RulesByAgent((p) => ({ ...p, [name]: (p[name] || []).filter((r) => r.id !== id) }))}
-            onToggleAgentPostSplit2Type={(name, id) => setPostSplit2RulesByAgent((p) => ({
-              ...p,
-              [name]: (p[name] || []).map((r) => {
-                if (r.id !== id) return r;
-                const newType = r.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT';
-                return { ...r, type: newType };
-              })
-            }))}
-            onUpdateAgentPostSplit2Value={(name, id, val) => setPostSplit2RulesByAgent((p) => ({ ...p, [name]: (p[name] || []).map((r) => r.id === id ? { ...r, value: val } : r) }))}
-            onUpdateAgentPostSplit2Entity={(name, id, ent) => setPostSplit2RulesByAgent((p) => ({ ...p, [name]: (p[name] || []).map((r) => r.id === id ? { ...r, entity: ent, name: ent } : r) }))}
-            onUpdateAgentPostSplit2Note={(name, id, note) => setPostSplit2RulesByAgent((p) => ({ ...p, [name]: (p[name] || []).map((r) => r.id === id ? { ...r, note } : r) }))}
+            onToggleAgentPostSplit2Type={(name, id) => setPostSplit2RulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplit2RulesByAgent, name, id, (rule) => ({ ...rule, type: rule.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT' })))}
+            onUpdateAgentPostSplit2Value={(name, id, val) => setPostSplit2RulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplit2RulesByAgent, name, id, (rule) => ({ ...rule, value: val })))}
+            onUpdateAgentPostSplit2Entity={(name, id, ent) => setPostSplit2RulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplit2RulesByAgent, name, id, (rule) => ({ ...rule, entity: ent, name: ent })))}
+            onUpdateAgentPostSplit2Note={(name, id, note) => setPostSplit2RulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplit2RulesByAgent, name, id, (rule) => ({ ...rule, note })))}
             onReorderAgentPostSplit2Rules={(agentName, fromIndex, toIndex) => {
               setPostSplit2RulesByAgent((prev) => {
                 const current = prev[agentName] || [];
@@ -1656,11 +1828,13 @@ export default function Dashboard() {
             formatNumberWithCommas={(v) => String(v)}
             clientId={selectedDeal?.client_id || 'DEMO'}
             transactionId={selectedDeal?.id || dealId || ''}
+            allocations={dealResult.allocationLines || []}
             deal={selectedDeal}
             templateAgents={templateAgentRoster}
             primaryAgentId={primaryAgentId}
             onApplyTemplate={handleApplyTemplateRules}
             onSubmissionDeleted={handleTemplateSubmissionDeleted}
+            onTeamCapSelection={setSelectedTeamCapIds}
             onResetWaterfall={handleResetWaterfall}
             submissionRevision={templateSubmissionRevision}
           />
@@ -1671,6 +1845,9 @@ export default function Dashboard() {
             agentDisbursements={agentDisbursements}
             entityDisbursements={entityDisbursements}
             totalCommission={dealResult.totalCommission}
+            agentSplitTotal={Number(dealResult.agentSplitTotal) || 0}
+            agentSplitExcess={agentSplitExcess}
+            remainingCommission={Number(dealResult.commissionAfterPreSplit) || 0}
           />
         </div>
       </div>
@@ -1726,6 +1903,7 @@ export default function Dashboard() {
         onStay={handleStayOnPage}
         onDiscard={handleDiscardAndLeave}
         onSave={handleSaveAndLeave}
+        saveDisabled={agentSplitsExceedCommission}
       />
 
       {confirmDeleteOpen && (

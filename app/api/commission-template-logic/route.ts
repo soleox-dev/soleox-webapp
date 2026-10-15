@@ -102,7 +102,7 @@ export async function POST(request: Request) {
         .upsert(rowPayload, { onConflict: 'id' })
         .select();
     } else {
-      // Insert new logic step (Postgres will trigger generate_prefixed_id('CTL'))
+      // Insert new rule (Postgres assigns generate_prefixed_id('CTR'))
       query = supabase
         .from('commission_template_rules')
         .insert(rowPayload)

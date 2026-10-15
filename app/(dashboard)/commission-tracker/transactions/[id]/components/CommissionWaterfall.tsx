@@ -18,6 +18,8 @@ import { useSectionEditKeys } from './useSectionEditKeys';
 import { CommissionTemplatePanel, type TemplateSubmissionDraft } from './CommissionTemplatePanel';
 import type { AppliedTemplateRules } from './applyTemplateLogic';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { AgentAllocationNotes, TeamCapAmount, adjustedSplitView, teamCapGroups, type AgentAllocationLine } from './AgentAllocationNotes';
+import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
 import { useAccess } from '@/components/access-provider';
 
 interface CommissionWaterfallProps {
@@ -81,8 +83,40 @@ interface CommissionWaterfallProps {
   primaryAgentId?: string | null;
   onApplyTemplate?: (applied: AppliedTemplateRules, submission: TemplateSubmissionDraft) => void;
   onSubmissionDeleted?: () => void;
+  onTeamCapSelection?: (ids: string[] | null) => void;
   onResetWaterfall?: () => void;
   submissionRevision?: number;
+  allocations?: AgentAllocationLine[];
+  onTeamCapAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
+}
+
+function AgentCapStrips({
+  agentId,
+  allocations,
+  isEditing,
+  onTeamCapAmountChange,
+}: {
+  agentId: string;
+  allocations: AgentAllocationLine[];
+  isEditing: boolean;
+  onTeamCapAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
+}) {
+  const groups = teamCapGroups(allocations);
+  if (groups.length === 0) return null;
+  return (
+    <div className="space-y-1.5">
+      {groups.map((group) => (
+        <div key={group.id} className="flex items-center justify-between gap-3 rounded-md bg-amber-50 px-2.5 py-1.5 dark:bg-amber-950/40">
+          <span className="text-[11px] font-semibold text-amber-900 dark:text-amber-200">{group.name}</span>
+          <TeamCapAmount
+            line={group.lines.find((item) => item.agent_id === agentId)}
+            isEditing={isEditing}
+            onAmountChange={onTeamCapAmountChange}
+          />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function CommissionWaterfall({
@@ -145,8 +179,11 @@ export function CommissionWaterfall({
   primaryAgentId,
   onApplyTemplate,
   onSubmissionDeleted,
+  onTeamCapSelection,
   onResetWaterfall,
   submissionRevision = 0,
+  allocations = [],
+  onTeamCapAmountChange,
 }: CommissionWaterfallProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -155,7 +192,14 @@ export function CommissionWaterfall({
   const [confirmReset, setConfirmReset] = useState(false);
   const commissionAfterOffTop = dealResult.commissionAfterOffTop ?? 0;
   const commissionAfterPreSplit = dealResult.commissionAfterPreSplit ?? commissionAfterOffTop;
-  const agentSplitsExceedPool = (dealResult.agentSplitItems || []).some((item: { overAllocated?: boolean }) => item.overAllocated);
+  const agentSplitsExceedPool = (dealResult.agentSplitItems || []).some((item: { overAllocated?: boolean }) => item.overAllocated)
+    || Number(dealResult.agentSplitExcess) > 0.009;
+  const shownPostSplitRules = !isEditing && dealResult.displayPostSplitRulesByAgent
+    ? dealResult.displayPostSplitRulesByAgent
+    : postSplitRulesByAgent;
+  const shownPostSplit2Rules = !isEditing && dealResult.displayPostSplit2RulesByAgent
+    ? dealResult.displayPostSplit2RulesByAgent
+    : postSplit2RulesByAgent;
   const agentNames = agents.map((a) => a.name);
   const [agentLayout, setAgentLayout] = useState<'table' | 'cards'>('table');
   const canWrite = Boolean(useAccess().access?.permissions.commissionTrackerWrite);
@@ -471,6 +515,7 @@ export function CommissionWaterfall({
             totalCommission={baselineTotalCommission}
             onApplied={onApplyTemplate}
             onSubmissionDeleted={onSubmissionDeleted}
+            onTeamCapSelection={onTeamCapSelection}
             submissionRevision={submissionRevision}
           />
           )}
@@ -868,8 +913,8 @@ export function CommissionWaterfall({
               dealResult={dealResult}
               knownEntities={knownEntities}
               knownAgents={knownAgents}
-              postSplitRulesByAgent={postSplitRulesByAgent}
-              postSplit2RulesByAgent={postSplit2RulesByAgent}
+              postSplitRulesByAgent={shownPostSplitRules}
+              postSplit2RulesByAgent={shownPostSplit2Rules}
               commissionAfterPreSplit={commissionAfterPreSplit}
               preventMinus={preventMinus}
               onOpenAddAgentModal={onOpenAddAgentModal}
@@ -890,6 +935,8 @@ export function CommissionWaterfall({
               onAddLevel1Cell={(agentName, entity) => handleAddPostSplitCell(agentName, entity, 1)}
               onAddLevel2Cell={(agentName, entity) => handleAddPostSplitCell(agentName, entity, 2)}
               onDraftDirty={setTableDraftDirty}
+              allocations={allocations}
+              onTeamCapAmountChange={onTeamCapAmountChange}
             />
           ) : (
           <>
@@ -920,7 +967,12 @@ export function CommissionWaterfall({
                 </span>
               </div>
             </div>
-            {agentSplitsExceedPool && (
+            <AgentSplitExcessNotice
+              total={Number(dealResult.agentSplitTotal) || 0}
+              remaining={commissionAfterPreSplit}
+              excess={Number(dealResult.agentSplitExcess) || 0}
+            />
+            {(dealResult.agentSplitItems || []).some((item: { overAllocated?: boolean }) => item.overAllocated) && (
               <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
                 Agent splits can&apos;t exceed 100% of the remaining commission. Lower the highlighted split before applying.
               </p>
@@ -989,13 +1041,14 @@ export function CommissionWaterfall({
                             locked={isEditing}
                             matchColumns
                             type={agent.splitType}
-                            percentPoints={toPercentPoints(computedSplitItem?.percent || 0)}
-                            dollarAmount={computedSplitItem?.amount || 0}
+                            percentPoints={(adjustedSplitView(computedSplitItem)?.percentPoints) ?? toPercentPoints(computedSplitItem?.percent || 0)}
+                            dollarAmount={(adjustedSplitView(computedSplitItem)?.dollar) ?? (computedSplitItem?.amount || 0)}
                             onPercentChange={() => {}}
                             onAmountChange={() => {}}
                             preventMinus={preventMinus}
                           />
                         </div>
+                        <AgentCapStrips agentId={agent.id} allocations={allocations} isEditing={isEditing} onTeamCapAmountChange={onTeamCapAmountChange} />
                       </div>
                     );
                   }
@@ -1054,8 +1107,8 @@ export function CommissionWaterfall({
                           isEditing={isEditing}
                           matchColumns
                           type={agent.splitType}
-                          percentPoints={agent.splitType === 'PERCENT' ? toPercentPoints(agent.splitVal) : toPercentPoints(computedSplitItem?.percent || 0)}
-                          dollarAmount={agent.splitType === 'AMOUNT' ? agent.splitVal : (computedSplitItem?.amount || 0)}
+                          percentPoints={(adjustedSplitView(computedSplitItem)?.percentPoints) ?? (agent.splitType === 'PERCENT' ? toPercentPoints(agent.splitVal) : toPercentPoints(computedSplitItem?.percent || 0))}
+                          dollarAmount={(adjustedSplitView(computedSplitItem)?.dollar) ?? (agent.splitType === 'AMOUNT' ? agent.splitVal : (computedSplitItem?.amount || 0))}
                           invalid={Boolean(computedSplitItem?.overAllocated)}
                           onPercentChange={(val) => {
                             if (agent.splitType !== 'PERCENT') onToggleAgentSplitType(agent.id);
@@ -1068,6 +1121,8 @@ export function CommissionWaterfall({
                           preventMinus={preventMinus}
                         />
                       </div>
+                      <AgentCapStrips agentId={agent.id} allocations={allocations} isEditing={isEditing} onTeamCapAmountChange={onTeamCapAmountChange} />
+                      <AgentAllocationNotes agentId={agent.id} allocations={allocations} />
                     </div>
                   );
                 })}
@@ -1125,13 +1180,13 @@ export function CommissionWaterfall({
                 const agentGrossSplit = computedSplitItem?.amount || 0;
 
                 // Level 1 rules & items
-                const agentRules1 = postSplitRulesByAgent[agentName] || [];
+                const agentRules1 = shownPostSplitRules[agentName] || [];
                 const items1ForAgent = (dealResult.postSplitItems || []).filter((i: any) => i.agentName === agentName);
                 const isAddingL1 = addingPostSplitForAgent === agentName;
                 const netAfterL1 = dealResult.agentNetAfterLevel1?.[agentName] ?? agentGrossSplit;
 
                 // Level 2 rules & items (Stock / Elective)
-                const agentRules2 = postSplit2RulesByAgent[agentName] || [];
+                const agentRules2 = shownPostSplit2Rules[agentName] || [];
                 const items2ForAgent = (dealResult.postSplit2Items || []).filter((i: any) => i.agentName === agentName);
                 const isAddingL2 = addingPostSplit2ForAgent === agentName;
 
@@ -1248,7 +1303,7 @@ export function CommissionWaterfall({
                         </div>
                       )}
 
-                      {agentRules1.length === 0 && !isAddingL1 && (
+                      {agentRules1.length === 0 && items1ForAgent.length === 0 && !isAddingL1 && (
                         <p className="text-xs text-slate-400 italic py-1">
                           No Level 1 Post-splits applied to {agentName}.
                         </p>
@@ -1324,6 +1379,28 @@ export function CommissionWaterfall({
                             </div>
                           );
                         })}
+                        {items1ForAgent.filter((item: { id?: string; entity?: string }) => !agentRules1.some((rule) => rule.id === item.id || (rule.entity || '').trim() === (item.entity || '').trim())).map((item: { id?: string; entity?: string; type?: 'PERCENT' | 'AMOUNT'; value?: number; amount?: number }) => (
+                          <div key={item.id || item.entity} className="py-2 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300">
+                            <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[170px] truncate" title={item.entity}>{item.entity || '—'}</span>
+                            <SplitPair
+                              isEditing={isEditing}
+                              matchColumns
+                              type={item.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENT'}
+                              percentPoints={item.type === 'AMOUNT' ? (agentGrossSplit > 0 ? ((Number(item.amount) || 0) / agentGrossSplit) * 100 : 0) : toPercentPoints(Number(item.value) || 0)}
+                              dollarAmount={Number(item.amount) || 0}
+                              deduction
+                              onPercentChange={(val) => {
+                                if (item.type === 'AMOUNT' && item.id) onToggleAgentPostSplitType(agentName, item.id);
+                                if (item.id) onUpdateAgentPostSplitValue(agentName, item.id, val);
+                              }}
+                              onAmountChange={(val) => {
+                                if (item.type !== 'AMOUNT' && item.id) onToggleAgentPostSplitType(agentName, item.id);
+                                if (item.id) onUpdateAgentPostSplitValue(agentName, item.id, val);
+                              }}
+                              preventMinus={preventMinus}
+                            />
+                          </div>
+                        ))}
                       </div>
 
                       {/* Level 1 Subtotal */}
@@ -1430,7 +1507,7 @@ export function CommissionWaterfall({
                         </div>
                       )}
 
-                      {agentRules2.length === 0 && !isAddingL2 && (
+                      {agentRules2.length === 0 && items2ForAgent.length === 0 && !isAddingL2 && (
                         <p className="text-xs text-slate-400 italic py-1">
                           No Level 2 Post-splits applied to {agentName}.
                         </p>
@@ -1506,6 +1583,28 @@ export function CommissionWaterfall({
                             </div>
                           );
                         })}
+                        {items2ForAgent.filter((item: { id?: string; entity?: string }) => !agentRules2.some((rule) => rule.id === item.id || (rule.entity || '').trim() === (item.entity || '').trim())).map((item: { id?: string; entity?: string; type?: 'PERCENT' | 'AMOUNT'; value?: number; amount?: number }) => (
+                          <div key={item.id || item.entity} className="py-2 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300">
+                            <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[170px] truncate" title={item.entity}>{item.entity || '—'}</span>
+                            <SplitPair
+                              isEditing={isEditing}
+                              matchColumns
+                              type={item.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENT'}
+                              percentPoints={item.type === 'AMOUNT' ? (netAfterL1 > 0 ? ((Number(item.amount) || 0) / netAfterL1) * 100 : 0) : toPercentPoints(Number(item.value) || 0)}
+                              dollarAmount={Number(item.amount) || 0}
+                              deduction
+                              onPercentChange={(val) => {
+                                if (item.type === 'AMOUNT' && item.id) onToggleAgentPostSplit2Type?.(agentName, item.id);
+                                if (item.id) onUpdateAgentPostSplit2Value?.(agentName, item.id, val);
+                              }}
+                              onAmountChange={(val) => {
+                                if (item.type !== 'AMOUNT' && item.id) onToggleAgentPostSplit2Type?.(agentName, item.id);
+                                if (item.id) onUpdateAgentPostSplit2Value?.(agentName, item.id, val);
+                              }}
+                              preventMinus={preventMinus}
+                            />
+                          </div>
+                        ))}
                       </div>
 
                       {/* Level 2 Subtotal */}

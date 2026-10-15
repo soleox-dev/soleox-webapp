@@ -427,6 +427,36 @@ function criteriaMatches(cell: string, criteria: FormulaValue): boolean {
   return valuesEqual(cell === '' ? { type: 'blank' } : { type: 'text', value: cell }, criteria);
 }
 
+const ledgerColumnIndex = new WeakMap<FormulaLedgerRow[], Map<string, Map<string, FormulaLedgerRow[]>>>();
+
+/** Exact text criteria can use a column index. Comparisons still scan the rows that remain. */
+function plainEqualityText(criteria: FormulaValue): string | null {
+  if (criteria.type === 'blank') return '';
+  if (criteria.type !== 'text') return null;
+  if (/^(<=|>=|<>|<|>|=)/.test(criteria.value)) return null;
+  return criteria.value.toLowerCase();
+}
+
+function rowsMatchingEquality(ledger: FormulaLedgerRow[], key: string, value: string): FormulaLedgerRow[] {
+  let columns = ledgerColumnIndex.get(ledger);
+  if (!columns) {
+    columns = new Map();
+    ledgerColumnIndex.set(ledger, columns);
+  }
+  let column = columns.get(key);
+  if (!column) {
+    column = new Map();
+    for (const row of ledger) {
+      const cell = (row.fields[key] ?? '').toLowerCase();
+      const matches = column.get(cell);
+      if (matches) matches.push(row);
+      else column.set(cell, [row]);
+    }
+    columns.set(key, column);
+  }
+  return column.get(value) ?? [];
+}
+
 function sumIfs(rawArgs: Expr[], visit: (expr: Expr) => FormulaValue, ledger: FormulaLedgerRow[]): FormulaValue {
   if (rawArgs.length < 3 || (rawArgs.length - 1) % 2 !== 0) return { type: 'error' };
   const sumColumn = columnRef(rawArgs[0]);
@@ -441,9 +471,26 @@ function sumIfs(rawArgs: Expr[], visit: (expr: Expr) => FormulaValue, ledger: Fo
     filters.push({ key: `${range.table}.${range.field}`, criteria });
   }
   if (ledger.length > 0 && ledger.every((row) => row.fields[sumKey] === undefined)) return { type: 'error' };
+
+  let rows = ledger;
+  const checks = [...filters];
+  let smallest: { filter: { key: string; criteria: FormulaValue }; rows: FormulaLedgerRow[] } | null = null;
+  for (const filter of filters) {
+    const text = plainEqualityText(filter.criteria);
+    if (text === null) continue;
+    const matches = rowsMatchingEquality(ledger, filter.key, text);
+    if (!smallest || matches.length < smallest.rows.length) smallest = { filter, rows: matches };
+  }
+  if (smallest) {
+    rows = smallest.rows;
+    const chosen = smallest.filter;
+    const index = checks.indexOf(chosen);
+    if (index >= 0) checks.splice(index, 1);
+  }
+
   let total = 0;
-  for (const row of ledger) {
-    if (!filters.every((filter) => criteriaMatches(row.fields[filter.key] ?? '', filter.criteria))) continue;
+  for (const row of rows) {
+    if (!checks.every((filter) => criteriaMatches(row.fields[filter.key] ?? '', filter.criteria))) continue;
     const amount = Number(String(row.fields[sumKey] ?? '').replace(/[$,]/g, ''));
     if (Number.isFinite(amount)) total += amount;
   }

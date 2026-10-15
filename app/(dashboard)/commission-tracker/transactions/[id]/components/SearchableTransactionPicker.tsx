@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search } from 'lucide-react';
+import { underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { transactionDealLabel } from '@/lib/transaction-label';
 
 interface SearchableTransactionPickerProps {
@@ -28,16 +29,16 @@ export function SearchableTransactionPicker({
   dropdownRef,
 }: SearchableTransactionPickerProps) {
   return (
-    <section className="bg-white dark:bg-slate-800 border border-emerald-500/40 dark:border-emerald-500/30 p-4 rounded-xl shadow-xl space-y-2 relative transition-colors" ref={dropdownRef}>
-      <label className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block flex items-center justify-between">
+    <div className="relative flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-5" ref={dropdownRef}>
+      <label className="flex shrink-0 items-center gap-3 text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
         <span className="inline-flex items-center gap-1.5">
           <Search className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
           Search Transactions ({filteredDeals.length < savedDealsCount ? `${filteredDeals.length} of ` : ''}{savedDealsCount} Loaded)
         </span>
-        {isLoadingDeals && <span className="text-slate-500 dark:text-slate-400 font-normal">Loading records...</span>}
+        {isLoadingDeals && <span className="font-normal normal-case tracking-normal text-slate-500 dark:text-slate-400">Loading records...</span>}
       </label>
-      
-      <div className="relative">
+
+      <div className={`relative min-w-0 flex-1 ${underlineShell}`}>
         <input
           type="text"
           value={searchQuery}
@@ -59,7 +60,7 @@ export function SearchableTransactionPicker({
             }
           }}
           placeholder="Type address or ID (e.g. TXN_..., 123 Main St)..."
-          className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3.5 pr-9 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-medium placeholder-slate-400 dark:placeholder-slate-500"
+          className={`${underlineControl} ${searchQuery ? 'pr-7' : 'pr-1'}`}
         />
 
         {searchQuery && (
@@ -107,6 +108,6 @@ export function SearchableTransactionPicker({
           </div>
         )}
       </div>
-    </section>
+    </div>
   );
 }

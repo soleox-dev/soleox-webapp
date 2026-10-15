@@ -10,9 +10,11 @@ import { normalizeAgentName } from '@/lib/id';
 import { formatPercent, isHiddenRecordId } from '@/lib/fields';
 import { pageFrame } from '@/lib/page-frame';
 import { formatPercentRate, formatTablePercent } from '@/lib/percent';
+import { BooleanMark, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { Check, Highlighter, Link2, ListChecks, ListFilter, Loader2, Plus, RefreshCw, RotateCcw, Rows3, Unlink, X, Zap, type LucideIcon } from 'lucide-react';
+import { Archive, Check, Highlighter, Link2, ListChecks, ListFilter, Loader2, Plus, RefreshCw, RotateCcw, Rows3, Unlink, X, Zap, type LucideIcon } from 'lucide-react';
 import { HoverNote } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/HoverNote';
 import { useAccess } from '@/components/access-provider';
 import { TrashIcon } from '@/components/ui/trash-icon';
@@ -25,7 +27,7 @@ import {
   type TransactionDefaultView,
   type TransactionSortRule,
 } from '@/lib/transaction-default-view';
-import { payoutSignature, replayedPaymentSignature, savedPayouts } from '@/lib/template-payment-drift';
+import { allocationForReplay, loadAllocationCatalog, loadAllocationHistory, loadAllocationOverrides, payoutSignature, replayedPaymentSignature, savedPayouts } from '@/lib/template-payment-drift';
 import { formulaDataNeeds, loadCommissionLedger, loadFormulaLookups, templateFormulaSources, type TemplateLogicStep } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/applyTemplateLogic';
 import type { StoredCommissionItem } from '@/app/(dashboard)/commission-tracker/transactions/[id]/commissionItemState';
 import type { CommissionEntityOption, FieldSetting, KnownAgentInfo, VisibilityRulesConfig } from '@/app/(dashboard)/commission-tracker/transactions/[id]/types';
@@ -61,7 +63,7 @@ interface SubmittedTemplate {
   parameters: Record<string, string>;
 }
 
-type BoltTone = TemplateBoltTone;
+type BoltTone = TemplateBoltTone | 'filed';
 
 function tmsLinkMark(
   deal: Record<string, any>,
@@ -89,6 +91,7 @@ const BOLT_FILTERS: { tone: BoltTone; label: string; icon: LucideIcon; iconClass
   { tone: 'ready', label: 'Ready to submit', icon: Plus, iconClass: 'text-blue-500', activeClass: 'bg-blue-500/20 border-blue-500/40', buttonClass: 'bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-500 dark:hover:bg-blue-400' },
   { tone: 'ineligible', label: 'No longer eligible', icon: X, iconClass: 'text-rose-500', activeClass: 'bg-rose-500/20 border-rose-500/40', buttonClass: 'bg-rose-500 text-white hover:bg-rose-600 dark:bg-rose-500 dark:hover:bg-rose-400' },
   { tone: 'drift', label: 'Payments would change', icon: RefreshCw, iconClass: 'text-violet-400', activeClass: 'bg-violet-500/20 border-violet-500/40', buttonClass: 'bg-violet-500 text-white hover:bg-violet-600 dark:bg-violet-500 dark:hover:bg-violet-400' },
+  { tone: 'filed', label: 'Submitted, finished', icon: Archive, iconClass: 'text-slate-500 dark:text-slate-400', activeClass: 'bg-slate-500/20 border-slate-400/40', buttonClass: 'bg-slate-500 text-white hover:bg-slate-600 dark:bg-slate-500 dark:hover:bg-slate-400' },
 ];
 
 function BoltStatusIcon({ tone, className }: { tone: BoltTone; className: string }) {
@@ -137,10 +140,70 @@ function dealMatchesStatus(deal: Record<string, any>, lookup: StatusLookup) {
 }
 
 const ALL_TAB = 'ALL';
+const FINISHED_TAB = 'FINISHED';
 const DEFAULT_TAB = 'DEFAULT';
 const DELETED_TAB = 'DELETED';
 const SYNCED_TAB = 'SYNCED';
-type LedgerView = typeof ALL_TAB | typeof DEFAULT_TAB | typeof DELETED_TAB | typeof SYNCED_TAB;
+type LedgerView = typeof ALL_TAB | typeof FINISHED_TAB | typeof DEFAULT_TAB | typeof DELETED_TAB | typeof SYNCED_TAB;
+
+const LIST_STATE_KEY = 'soleox-transactions-list';
+const LEDGER_VIEWS = new Set<string>([ALL_TAB, FINISHED_TAB, DEFAULT_TAB, DELETED_TAB, SYNCED_TAB]);
+const BOLT_TONES = new Set<string>(['submitted', 'ready', 'ineligible', 'drift', 'filed']);
+
+type TransactionsListState = {
+  searchQuery: string;
+  ledgerView: LedgerView;
+  statusSelection: string | null;
+  activeScorecardId: string | null;
+  boltTone: BoltTone | null;
+  tmsFilter: TmsLinkFilter | null;
+  showFilters: boolean;
+  colFilters: Record<string, string>;
+  sortField: string;
+  sortOrder: 'asc' | 'desc';
+  useDefaultSort: boolean;
+  syncChangesOn: boolean;
+};
+
+function readTransactionsListState(): TransactionsListState | null {
+  try {
+    const raw = window.sessionStorage.getItem(LIST_STATE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as Partial<TransactionsListState>;
+    if (typeof data.ledgerView !== 'string' || !LEDGER_VIEWS.has(data.ledgerView)) return null;
+    const colFilters: Record<string, string> = {};
+    if (data.colFilters && typeof data.colFilters === 'object') {
+      for (const [key, value] of Object.entries(data.colFilters)) {
+        if (typeof value === 'string') colFilters[key] = value;
+      }
+    }
+    const boltTone = typeof data.boltTone === 'string' && BOLT_TONES.has(data.boltTone) ? data.boltTone as BoltTone : null;
+    return {
+      searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : '',
+      ledgerView: data.ledgerView as LedgerView,
+      statusSelection: typeof data.statusSelection === 'string' ? data.statusSelection : null,
+      activeScorecardId: typeof data.activeScorecardId === 'string' ? data.activeScorecardId : null,
+      boltTone,
+      tmsFilter: data.tmsFilter === 'connected' || data.tmsFilter === 'disconnected' ? data.tmsFilter : null,
+      showFilters: data.showFilters === true,
+      colFilters,
+      sortField: typeof data.sortField === 'string' && data.sortField ? data.sortField : 'closing_date',
+      sortOrder: data.sortOrder === 'asc' ? 'asc' : 'desc',
+      useDefaultSort: data.useDefaultSort !== false,
+      syncChangesOn: data.syncChangesOn === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeTransactionsListState(state: TransactionsListState) {
+  try {
+    window.sessionStorage.setItem(LIST_STATE_KEY, JSON.stringify(state));
+  } catch {
+    // The list still works when the browser refuses storage.
+  }
+}
 
 function parseSyncHighlights(raw: unknown): Map<string, Set<string>> {
   const highlights = new Map<string, Set<string>>();
@@ -171,6 +234,10 @@ function isNumericColumn(field: { field_type: string; field_key: string }) {
 
 function isDateColumn(field: { field_type: string }) {
   return field.field_type === 'DATE';
+}
+
+function isBooleanColumn(field: { field_type: string }) {
+  return field.field_type === 'BOOLEAN';
 }
 
 function isStatusColumn(field: { field_key: string }) {
@@ -303,6 +370,7 @@ export default function TransactionsListPage() {
   } | null>(null);
   const [syncResult, setSyncResult] = useState<{ summary: string; note: string | null; details: SyncRunDetail[] } | null>(null);
   const [syncResultOpen, setSyncResultOpen] = useState(false);
+  const [syncResultFocus, setSyncResultFocus] = useState<'added' | 'updated' | null>(null);
   const [syncChangesOn, setSyncChangesOn] = useState(false);
   const [syncHighlights, setSyncHighlights] = useState<Map<string, Set<string>>>(() => new Map());
   const [syncErrorsOpen, setSyncErrorsOpen] = useState(false);
@@ -340,10 +408,51 @@ export default function TransactionsListPage() {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
+  const customSortRef = useRef(false);
+  const [listReady, setListReady] = useState(false);
 
   useLayoutEffect(() => {
     setCompactRows(window.localStorage.getItem('soleox-transactions-row-density') === 'compact');
+    const saved = readTransactionsListState();
+    if (saved) {
+      setSearchQuery(saved.searchQuery);
+      setLedgerView(saved.ledgerView);
+      setStatusSelection(saved.statusSelection);
+      setActiveScorecardId(saved.activeScorecardId);
+      setBoltTone(saved.boltTone);
+      setTmsFilter(saved.tmsFilter);
+      setShowFilters(saved.showFilters);
+      setColFilters(saved.colFilters);
+      setSyncChangesOn(saved.syncChangesOn);
+      if (!saved.useDefaultSort) {
+        customSortRef.current = true;
+        setDefaultSortRules(null);
+        setSortField(saved.sortField);
+        setSortOrder(saved.sortOrder);
+      }
+    }
+    setListReady(true);
   }, []);
+
+  const listSnapshot = (): TransactionsListState => ({
+    searchQuery,
+    ledgerView,
+    statusSelection,
+    activeScorecardId,
+    boltTone,
+    tmsFilter,
+    showFilters,
+    colFilters,
+    sortField,
+    sortOrder,
+    useDefaultSort: !customSortRef.current,
+    syncChangesOn,
+  });
+
+  useEffect(() => {
+    if (!listReady) return;
+    writeTransactionsListState(listSnapshot());
+  }, [listReady, searchQuery, ledgerView, statusSelection, activeScorecardId, boltTone, tmsFilter, showFilters, colFilters, sortField, sortOrder, syncChangesOn]);
 
   const toggleCompactRows = () => {
     setCompactRows((current) => {
@@ -462,10 +571,12 @@ export default function TransactionsListPage() {
             sortRules: Array.isArray(viewData.sortRules) ? viewData.sortRules : [],
           };
           setDefaultView(view);
-          setDefaultSortRules(view.sortRules.length > 0 ? view.sortRules : null);
-          if (view.sortRules[0]) {
-            setSortField(view.sortRules[0].fieldKey);
-            setSortOrder(view.sortRules[0].direction);
+          if (!customSortRef.current) {
+            setDefaultSortRules(view.sortRules.length > 0 ? view.sortRules : null);
+            if (view.sortRules[0]) {
+              setSortField(view.sortRules[0].fieldKey);
+              setSortOrder(view.sortRules[0].direction);
+            }
           }
         }
 
@@ -524,10 +635,12 @@ export default function TransactionsListPage() {
               text: '',
             });
           }
-          if (run && errorCount > 0 && details.some((detail) => detail.outcome === 'error')) {
+          const createdCount = Number(run?.created_count ?? 0);
+          const updatedCount = Number(run?.updated_count ?? 0);
+          if (run && (createdCount > 0 || updatedCount > 0 || (errorCount > 0 && details.some((detail) => detail.outcome === 'error')))) {
             const summary = syncFinishedSummary({
-              createdCount: Number(run.created_count ?? 0),
-              updatedCount: Number(run.updated_count ?? 0),
+              createdCount,
+              updatedCount,
               skippedCount: Number(run.skipped_count ?? 0),
               errorCount,
               connectedCount: Number(run.connected_count ?? 0),
@@ -699,6 +812,7 @@ export default function TransactionsListPage() {
   };
 
   const handleSort = (fieldKey: string) => {
+    customSortRef.current = true;
     setDefaultSortRules(null);
     if (sortField === fieldKey) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -774,6 +888,7 @@ export default function TransactionsListPage() {
         note: run.message ? String(run.message) : null,
         details,
       });
+      setSyncResultFocus(null);
       setSyncResultOpen(true);
       setSyncHighlights(parseSyncHighlights(run.highlights));
       setSyncChangesOn(true);
@@ -829,6 +944,7 @@ export default function TransactionsListPage() {
     }
 
     const candidates = deals.filter((deal) => {
+      if (!dealMatchesDefaultView(deal, defaultView.filterFormula, fieldTypes)) return false;
       const submitted = submittedTemplates.get(String(deal.id || '')) || [];
       if (submitted.length === 0) return false;
       return submitted.every((row) => {
@@ -852,8 +968,8 @@ export default function TransactionsListPage() {
       const templateIds = [...new Set(candidates.flatMap((deal) => (submittedTemplates.get(String(deal.id || '')) || []).map((row) => row.templateId)))];
       const bundles = await Promise.all(templateIds.map(async (templateId) => {
         const [logicResponse, parameterResponse] = await Promise.all([
-          fetch(`/api/commission-template-logic?template_id=${encodeURIComponent(templateId)}`, fetchOptions),
-          fetch(`/api/commission-template-parameters?template_id=${encodeURIComponent(templateId)}`, fetchOptions),
+          fetch(`/api/commission-template-logic?template_id=${encodeURIComponent(templateId)}`, { ...fetchOptions, cache: 'no-store' }),
+          fetch(`/api/commission-template-parameters?template_id=${encodeURIComponent(templateId)}`, { ...fetchOptions, cache: 'no-store' }),
         ]);
         const logicData = await logicResponse.json();
         const parameterData = await parameterResponse.json();
@@ -893,24 +1009,39 @@ export default function TransactionsListPage() {
         ),
       })).filter((agent) => agent.id && agent.name);
 
-      const [ledger, lookups, itemGroups] = await Promise.all([
+      const [ledger, lookups, itemGroups, catalog, history] = await Promise.all([
         needs.needsLedger ? loadCommissionLedger(clientId, entities) : Promise.resolve([]),
         needs.lookupTables.length > 0 ? loadFormulaLookups(clientId, needs.lookupTables) : Promise.resolve({ clientId, tables: {} }),
         Promise.all(candidates.map(async (deal) => {
           const transactionId = String(deal.id || '');
-          const response = await fetch(`/api/transaction-commission-items?client_id=${encodeURIComponent(clientId)}&transaction_id=${encodeURIComponent(transactionId)}`, fetchOptions);
+          const [response, overrides] = await Promise.all([
+            fetch(`/api/transaction-commission-items?client_id=${encodeURIComponent(clientId)}&transaction_id=${encodeURIComponent(transactionId)}`, fetchOptions),
+            loadAllocationOverrides(clientId, transactionId),
+          ]);
           const data = await response.json();
           if (!response.ok || data.success === false) throw new Error(data.error || 'Failed to load commission lines.');
-          return { transactionId, items: (Array.isArray(data.items) ? data.items : []) as StoredCommissionItem[] };
+          return { transactionId, items: (Array.isArray(data.items) ? data.items : []) as StoredCommissionItem[], overrides };
         })),
+        loadAllocationCatalog(clientId),
+        loadAllocationHistory(clientId, agents.map((agent) => agent.id)),
       ]);
       if (cancelled) return;
 
       const drifted = new Set<string>();
       for (const deal of candidates) {
         const transactionId = String(deal.id || '');
-        const items = itemGroups.find((group) => group.transactionId === transactionId)?.items || [];
+        const group = itemGroups.find((item) => item.transactionId === transactionId);
+        const items = group?.items || [];
         const saved = payoutSignature(savedPayouts(items, agents, entities));
+        const allocation = allocationForReplay({
+          catalog,
+          history,
+          overrides: group?.overrides || [],
+          deal,
+          transactionId,
+          agents,
+          fieldTypes,
+        });
         const submitted = submittedTemplates.get(transactionId) || [];
         let changed = false;
         for (const row of submitted) {
@@ -928,6 +1059,7 @@ export default function TransactionsListPage() {
               overviewFields,
               ledger,
               lookups,
+              allocation,
             });
             if (replayed !== saved) changed = true;
           } catch {
@@ -952,22 +1084,35 @@ export default function TransactionsListPage() {
     return () => {
       cancelled = true;
     };
-  }, [isLoading, deals, submittedTemplates, commissionTemplates, fieldTypes, agentsList, overviewFields]);
+  }, [isLoading, deals, submittedTemplates, commissionTemplates, fieldTypes, agentsList, overviewFields, defaultView.filterFormula]);
 
   const templateBolt = useCallback((deal: Record<string, any>): { tone: BoltTone; label: string } | null => {
     const dealId = String(deal.id || '');
     const submittedIds = (submittedTemplates.get(dealId) || []).map((item) => item.templateId);
+    if (!dealMatchesDefaultView(deal, defaultView.filterFormula, fieldTypes)) {
+      if (submittedIds.length === 0) return null;
+      const names = submittedIds
+        .map((id) => commissionTemplates.find((template) => template.id === id)?.template_name)
+        .filter((name): name is string => Boolean(name));
+      return {
+        tone: 'filed',
+        label: names.length > 0
+          ? `Template submitted: ${names.join(', ')}. Finished transactions are not re-checked in this list.`
+          : 'A template was submitted. Finished transactions are not re-checked in this list.',
+      };
+    }
     const bolt = templateBoltTone(deal, commissionTemplates, submittedIds, fieldTypes, paymentDriftIds.has(dealId));
     if (bolt?.tone === 'submitted' && !paymentDriftReady) return null;
     return bolt;
-  }, [submittedTemplates, commissionTemplates, fieldTypes, paymentDriftIds, paymentDriftReady]);
+  }, [submittedTemplates, commissionTemplates, fieldTypes, paymentDriftIds, paymentDriftReady, defaultView.filterFormula]);
 
   const templateBoltChecking = useCallback((deal: Record<string, any>): boolean => {
     if (paymentDriftReady) return false;
+    if (!dealMatchesDefaultView(deal, defaultView.filterFormula, fieldTypes)) return false;
     const dealId = String(deal.id || '');
     const submittedIds = (submittedTemplates.get(dealId) || []).map((item) => item.templateId);
     return templateBoltTone(deal, commissionTemplates, submittedIds, fieldTypes, false)?.tone === 'submitted';
-  }, [submittedTemplates, commissionTemplates, fieldTypes, paymentDriftReady]);
+  }, [submittedTemplates, commissionTemplates, fieldTypes, paymentDriftReady, defaultView.filterFormula]);
 
   // 2. Process Filters & Sorting
   const showingDeleted = ledgerView === DELETED_TAB && !activeScorecardId;
@@ -980,6 +1125,8 @@ export default function TransactionsListPage() {
       if (!syncHighlights.has(String(deal.id))) return false;
     } else if (ledgerView === DEFAULT_TAB && defaultView.filterFormula.trim()) {
       if (!dealMatchesDefaultView(deal, defaultView.filterFormula, fieldTypes)) return false;
+    } else if (ledgerView === FINISHED_TAB) {
+      if (dealMatchesDefaultView(deal, defaultView.filterFormula, fieldTypes)) return false;
     }
 
     if (!ignoreStatus && statusSelection) {
@@ -1031,7 +1178,7 @@ export default function TransactionsListPage() {
   }, [deals, deletedDeals, searchQuery, ledgerView, statusSelection, activeScorecardId, showingDeleted, statusLookups, colFilters, schemaFields, defaultView, fieldTypes, scorecards, syncHighlights]);
 
   const boltCounts = useMemo(() => {
-    const counts: Record<BoltTone, number> = { submitted: 0, ready: 0, ineligible: 0, drift: 0 };
+    const counts: Record<BoltTone, number> = { submitted: 0, ready: 0, ineligible: 0, drift: 0, filed: 0 };
     for (const deal of viewedDeals) {
       if (tmsFilter === 'connected' && markTmsLink(deal)?.disconnected !== false) continue;
       if (tmsFilter === 'disconnected' && markTmsLink(deal)?.disconnected !== true) continue;
@@ -1168,7 +1315,7 @@ export default function TransactionsListPage() {
       return true;
     });
     return [...rows].sort((a, b) => {
-        if (ledgerView === DEFAULT_TAB && !activeScorecardId && defaultSortRules && defaultSortRules.length > 0) {
+        if ((ledgerView === DEFAULT_TAB || ledgerView === FINISHED_TAB) && !activeScorecardId && defaultSortRules && defaultSortRules.length > 0) {
           return compareBySortRules(a, b, defaultSortRules, (deal, fieldKey) => {
             if (fieldKey === 'agent_id' || fieldKey === 'primary_agent') return getAgentName(deal.agent_id, deal);
             const raw = deal[fieldKey];
@@ -1428,6 +1575,10 @@ export default function TransactionsListPage() {
     return deals.filter((deal) => dealMatchesDefaultView(deal, defaultView.filterFormula, fieldTypes)).length;
   }, [deals, defaultView, fieldTypes]);
 
+  const finishedMatchCount = useMemo(() => {
+    return deals.filter((deal) => !dealMatchesDefaultView(deal, defaultView.filterFormula, fieldTypes)).length;
+  }, [deals, defaultView, fieldTypes]);
+
   const syncedMatchCount = useMemo(() => {
     return deals.filter((deal) => syncHighlights.has(String(deal.id))).length;
   }, [deals, syncHighlights]);
@@ -1496,10 +1647,10 @@ export default function TransactionsListPage() {
   }, [deals, deletedDeals, showingDeleted, ledgerView, statusSelection, activeScorecardId, visibleStatusLookups, boltTone, tmsFilter, templateBolt, markTmsLink, searchQuery, colFilters, schemaFields, defaultView, fieldTypes, scorecards, statusLookups, syncHighlights]);
 
   useEffect(() => {
-    if (!statusSelection) return;
+    if (isLoading || !statusSelection) return;
     const stillVisible = visibleStatusLookups.some((lookup) => lookup.optionLabel === statusSelection);
     if (!stillVisible) setStatusSelection(null);
-  }, [statusSelection, visibleStatusLookups]);
+  }, [isLoading, statusSelection, visibleStatusLookups]);
 
   const scorecardRows = useMemo(() => {
     return scorecards.map((card) => ({
@@ -1508,14 +1659,29 @@ export default function TransactionsListPage() {
     }));
   }, [scorecards, deals, fieldTypes]);
 
-  const selectDefaultView = () => {
-    setLedgerView(DEFAULT_TAB);
+  const clearListFilters = () => {
+    setSearchQuery('');
+    setStatusSelection(null);
     setActiveScorecardId(null);
+    setBoltTone(null);
+    setTmsFilter(null);
+    setShowFilters(false);
+    setColFilters({});
+  };
+
+  const selectSavedView = (view: typeof DEFAULT_TAB | typeof FINISHED_TAB) => {
+    customSortRef.current = false;
+    clearListFilters();
+    setLedgerView(view);
     setDefaultSortRules(defaultView.sortRules.length > 0 ? defaultView.sortRules : null);
     if (defaultView.sortRules[0]) {
       setSortField(defaultView.sortRules[0].fieldKey);
       setSortOrder(defaultView.sortRules[0].direction);
     }
+  };
+
+  const selectDefaultView = () => {
+    selectSavedView(DEFAULT_TAB);
   };
 
   useEffect(() => {
@@ -1529,17 +1695,14 @@ export default function TransactionsListPage() {
   }, [syncChangesOn, ledgerView, defaultView]);
 
   const resetAllFilters = () => {
-    setSearchQuery('');
+    clearListFilters();
     setLedgerView(ALL_TAB);
-    setActiveScorecardId(null);
-    setColFilters({});
   };
 
   const selectScorecard = (card: TransactionScorecard, count: number) => {
     if (count === 0) return;
     if (activeScorecardId === card.id) {
       resetAllFilters();
-      setStatusSelection(null);
       return;
     }
     setActiveScorecardId(card.id);
@@ -1556,6 +1719,10 @@ export default function TransactionsListPage() {
   // Helper cell formatter based on schema field definition
   const renderCellContent = (deal: Record<string, any>, field: SchemaField) => {
     const rawVal = deal[field.field_key];
+
+    if (field.field_type === 'BOOLEAN') {
+      return <BooleanMark checked={isBooleanChecked(rawVal)} compact={compactRows} />;
+    }
 
     if (rawVal === undefined || rawVal === null) {
       return <span className="text-slate-400 italic">-</span>;
@@ -1635,6 +1802,7 @@ export default function TransactionsListPage() {
             details={syncResult.details}
             fieldLabels={fieldLabels}
             identityByTmsId={syncErrorIdentity}
+            focus={syncResultFocus}
             onClose={() => setSyncResultOpen(false)}
           />
         )}
@@ -1650,7 +1818,7 @@ export default function TransactionsListPage() {
               key={card.id}
               type="button"
               onClick={() => selectScorecard(card, rows.length)}
-              className={`text-left bg-white dark:bg-slate-800 border border-slate-200 dark:border-y-slate-700 dark:border-r-slate-700 border-l-4 ${styles.border} rounded-xl px-5 py-4 shadow-xl transition-colors cursor-pointer ${styles.hover} ${selected ? styles.ring : ''}`}
+              className={`text-left bg-white dark:bg-slate-800 border border-l-4 ${styles.border} rounded-xl px-5 py-4 shadow-xl transition-colors cursor-pointer ${styles.hover} ${selected ? `ring-inset ${styles.ring} ${styles.selectedBorder}` : 'border-slate-200 dark:border-y-slate-700 dark:border-r-slate-700'}`}
             >
               <p className={`text-[11px] ${styles.title} font-bold uppercase tracking-wider mb-3`}>{card.name}</p>
               <div className={card.metrics.length > 1 ? 'grid grid-cols-[35fr_65fr] gap-4' : ''}>
@@ -1691,8 +1859,9 @@ export default function TransactionsListPage() {
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-700 pb-4">
           <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
               {[
-                { key: DEFAULT_TAB, label: 'Unfinished' },
                 { key: ALL_TAB, label: 'All' },
+                { key: FINISHED_TAB, label: 'Finished' },
+                { key: DEFAULT_TAB, label: 'Unfinished' },
                 ...(syncChangesOn ? [{ key: SYNCED_TAB, label: 'Just Synced' }] : []),
                 ...(deletedDeals.length > 0 ? [{ key: DELETED_TAB, label: 'Deleted' }] : []),
               ].map((tab) => {
@@ -1721,11 +1890,13 @@ export default function TransactionsListPage() {
                       : 'text-slate-500 dark:text-slate-400';
                 const count = tab.key === DEFAULT_TAB
                   ? defaultMatchCount
-                  : tab.key === SYNCED_TAB
-                    ? syncedMatchCount
-                    : tab.key === ALL_TAB
-                      ? deals.length
-                      : deletedDeals.length;
+                  : tab.key === FINISHED_TAB
+                    ? finishedMatchCount
+                    : tab.key === SYNCED_TAB
+                      ? syncedMatchCount
+                      : tab.key === ALL_TAB
+                        ? deals.length
+                        : deletedDeals.length;
 
                 return (
                   <button
@@ -1733,6 +1904,7 @@ export default function TransactionsListPage() {
                     onClick={() => {
                       if (tab.key === ALL_TAB) resetAllFilters();
                       else if (tab.key === DEFAULT_TAB) selectDefaultView();
+                      else if (tab.key === FINISHED_TAB) selectSavedView(FINISHED_TAB);
                       else if (tab.key === SYNCED_TAB) {
                         setLedgerView(SYNCED_TAB);
                         setActiveScorecardId(null);
@@ -1881,13 +2053,13 @@ export default function TransactionsListPage() {
             </HoverNote>
 
             {/* Quick Search */}
-            <div className="relative w-[20rem] max-w-full">
+            <div className={`relative w-[20rem] max-w-full ${underlineShell}`}>
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search all fields..."
-                className="h-9 w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-medium"
+                className={`${underlineControl} pr-4`}
               />
               {searchQuery && (
                 <button
@@ -1902,28 +2074,38 @@ export default function TransactionsListPage() {
           </div>
         </div>
 
-        {syncNotice && (syncNotice.tone === 'error' || syncChangesOn) && (
-          <p className={`text-left text-xs ${syncNotice.tone === 'error' ? 'text-rose-600 dark:text-rose-300' : 'text-slate-600 dark:text-slate-300'}`}>
-            <SyncSummaryLine
-              text={syncNotice.tone === 'ok' && syncNotice.finishedAt
-                ? lastSyncResultsNote({
-                  finishedAt: syncNotice.finishedAt,
-                  createdCount: syncNotice.createdCount ?? 0,
-                  updatedCount: syncNotice.updatedCount ?? 0,
-                  connectedCount: tmsLinkTotals.connected,
-                  disconnectedCount: tmsLinkTotals.disconnected,
-                  errorCount: syncNotice.errorCount ?? 0,
-                })
-                : syncNotice.text}
-              errorCount={syncNotice.tone === 'ok' ? syncNotice.errorCount ?? 0 : syncErrorCount}
-              connectedCount={syncNotice.tone === 'ok' ? tmsLinkTotals.connected : undefined}
-              disconnectedCount={syncNotice.tone === 'ok' ? tmsLinkTotals.disconnected : undefined}
-              onShowErrors={() => setSyncErrorsOpen(true)}
-              onShowConnected={() => showTmsConnection('connected')}
-              onShowDisconnected={() => showTmsConnection('disconnected')}
-            />
-          </p>
-        )}
+        <p className="text-left text-xs text-slate-500 dark:text-slate-400">
+          Displaying {processedDeals.length} of {showingDeleted ? deletedDeals.length : deals.length} records
+          {syncNotice && (syncNotice.tone === 'error' || syncChangesOn) && (
+            <>
+              <span className="mx-2 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 align-middle" aria-hidden />
+              <span className={syncNotice.tone === 'error' ? 'text-rose-600 dark:text-rose-300' : 'text-slate-600 dark:text-slate-300'}>
+                <SyncSummaryLine
+                  text={syncNotice.tone === 'ok' && syncNotice.finishedAt
+                    ? lastSyncResultsNote({
+                      finishedAt: syncNotice.finishedAt,
+                      createdCount: syncNotice.createdCount ?? 0,
+                      updatedCount: syncNotice.updatedCount ?? 0,
+                      connectedCount: tmsLinkTotals.connected,
+                      disconnectedCount: tmsLinkTotals.disconnected,
+                      errorCount: syncNotice.errorCount ?? 0,
+                    })
+                    : syncNotice.text}
+                  errorCount={syncNotice.tone === 'ok' ? syncNotice.errorCount ?? 0 : syncErrorCount}
+                  createdCount={syncNotice.tone === 'ok' ? syncNotice.createdCount ?? 0 : 0}
+                  updatedCount={syncNotice.tone === 'ok' ? syncNotice.updatedCount ?? 0 : 0}
+                  connectedCount={syncNotice.tone === 'ok' ? tmsLinkTotals.connected : undefined}
+                  disconnectedCount={syncNotice.tone === 'ok' ? tmsLinkTotals.disconnected : undefined}
+                  onShowAdded={syncResult ? () => { setSyncResultFocus('added'); setSyncResultOpen(true); } : undefined}
+                  onShowUpdated={syncResult ? () => { setSyncResultFocus('updated'); setSyncResultOpen(true); } : undefined}
+                  onShowErrors={() => setSyncErrorsOpen(true)}
+                  onShowConnected={() => showTmsConnection('connected')}
+                  onShowDisconnected={() => showTmsConnection('disconnected')}
+                />
+              </span>
+            </>
+          )}
+        </p>
 
         {/* Scrollable Table */}
         <div
@@ -2025,7 +2207,7 @@ export default function TransactionsListPage() {
                       aria-expanded={boltMenuOpen}
                       aria-haspopup="menu"
                       aria-pressed={boltTone !== null}
-                      title={boltTone ? `Filtering: ${BOLT_FILTERS.find((filter) => filter.tone === boltTone)?.label}` : 'Filter by lightning color'}
+                      title={boltTone ? `Filtering: ${BOLT_FILTERS.find((filter) => filter.tone === boltTone)?.label}` : 'Filter by commission template status'}
                       onClick={() => {
                         setTmsMenuOpen(false);
                         setStatusMenuOpen(false);
@@ -2116,9 +2298,9 @@ export default function TransactionsListPage() {
                   <th
                     key={field.field_key}
                     onClick={() => handleSort(field.field_key)}
-                    className={`${compactRows ? 'px-3 py-1.5' : 'px-4 py-3'} bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 cursor-pointer hover:text-slate-900 dark:hover:text-white transition group whitespace-nowrap border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0 ${isNumericColumn(field) ? 'text-right' : ''} ${isDateColumn(field) ? 'text-center' : ''}`}
+                    className={`${compactRows ? 'px-3 py-1.5' : 'px-4 py-3'} bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 cursor-pointer hover:text-slate-900 dark:hover:text-white transition group whitespace-nowrap border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0 ${isNumericColumn(field) ? 'text-right' : ''} ${isDateColumn(field) || isBooleanColumn(field) ? 'text-center' : ''}`}
                   >
-                    <div className={`flex items-center gap-1 ${isNumericColumn(field) ? 'justify-end' : ''} ${isDateColumn(field) ? 'justify-center' : ''}`}>
+                    <div className={`flex items-center gap-1 ${isNumericColumn(field) ? 'justify-end' : ''} ${isDateColumn(field) || isBooleanColumn(field) ? 'justify-center' : ''}`}>
                       <span>{field.field_label}</span>
                       <span className="text-slate-400 dark:text-slate-600 group-hover:opacity-100 transition">
                         {sortField === field.field_key ? (sortOrder === 'asc' ? '↑' : '↓') : '↕'}
@@ -2212,7 +2394,9 @@ export default function TransactionsListPage() {
                       ? 'No deleted transactions.'
                       : ledgerView === SYNCED_TAB && syncedMatchCount === 0
                         ? 'No transactions were added or updated in the last TMS sync.'
-                        : 'No matching transaction records found for active filters.'}
+                        : ledgerView === FINISHED_TAB && finishedMatchCount === 0
+                          ? 'No finished transactions.'
+                          : 'No matching transaction records found for active filters.'}
                   </td>
                 </tr>
               ) : (
@@ -2330,7 +2514,7 @@ export default function TransactionsListPage() {
                         <td
                           key={field.field_key}
                           title={changedBySync ? 'Changed in the last TMS sync' : undefined}
-                          className={`${compactRows ? 'px-3 py-0.5 leading-4' : 'px-4 py-3'} whitespace-nowrap border-b border-slate-200 dark:border-slate-700/60 ${isNumericColumn(field) ? 'text-right tabular-nums' : ''} ${isDateColumn(field) ? 'text-center tabular-nums' : ''} ${changedBySync ? 'bg-amber-100 text-amber-950 dark:bg-amber-400/20 dark:text-amber-100' : ''}`}
+                          className={`${compactRows ? 'px-3 py-0.5 leading-4' : 'px-4 py-3'} whitespace-nowrap border-b border-slate-200 dark:border-slate-700/60 ${isNumericColumn(field) ? 'text-right tabular-nums' : ''} ${isDateColumn(field) ? 'text-center tabular-nums' : ''} ${isBooleanColumn(field) ? 'text-center' : ''} ${changedBySync ? 'bg-amber-100 text-amber-950 dark:bg-amber-400/20 dark:text-amber-100' : ''}`}
                         >
                           {field.field_key === 'id' ? (
                             !rowNavigates ? (
@@ -2414,12 +2598,6 @@ export default function TransactionsListPage() {
               )}
             </tbody>
           </table>
-        </div>
-
-        {/* Footer */}
-        <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 pt-2">
-          <span>Displaying {processedDeals.length} of {showingDeleted ? deletedDeals.length : deals.length} records</span>
-          <span className="text-[11px] italic">Columns synchronized dynamically with client schema configuration</span>
         </div>
       </div>
 

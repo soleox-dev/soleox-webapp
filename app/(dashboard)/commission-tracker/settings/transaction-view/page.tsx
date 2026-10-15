@@ -3,7 +3,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import { FormulaEditor, type FormulaName } from '../commission-templates/FormulaEditor';
+import { OptionMenu } from '@/components/ui/option-menu';
 import { TrashIcon } from '@/components/ui/trash-icon';
+import { FieldChevron, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import {
   DEMO_TRANSACTION_DEFAULT_VIEW,
   type TransactionDefaultView,
@@ -187,23 +189,24 @@ export default function TransactionDefaultViewPage() {
                 {view.sortRules.map((rule, index) => (
                   <div key={`${rule.fieldKey}-${index}`} className="flex flex-wrap items-center gap-2">
                     <span className="w-5 text-xs font-semibold text-slate-400">{index + 1}</span>
-                    <select
-                      value={rule.fieldKey}
-                      onChange={(event) => updateRule(index, { fieldKey: event.target.value })}
-                      className="min-w-48 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                    >
-                      {sortFields.map((field) => (
-                        <option key={field.name} value={field.name}>{field.label}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={rule.direction}
-                      onChange={(event) => updateRule(index, { direction: event.target.value === 'desc' ? 'desc' : 'asc' })}
-                      className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                    >
-                      <option value="asc">Ascending</option>
-                      <option value="desc">Descending</option>
-                    </select>
+                    <div className={`${underlineShell} min-w-48`}>
+                      <OptionMenu
+                        className={`${underlineControl} overview-field-select`}
+                        value={rule.fieldKey}
+                        options={sortFields.map((field) => ({ value: field.name, label: field.label }))}
+                        onChange={(fieldKey) => updateRule(index, { fieldKey })}
+                      />
+                      <FieldChevron />
+                    </div>
+                    <div className={`${underlineShell} w-36`}>
+                      <OptionMenu
+                        className={`${underlineControl} overview-field-select`}
+                        value={rule.direction}
+                        options={[{ value: 'asc', label: 'Ascending' }, { value: 'desc', label: 'Descending' }]}
+                        onChange={(direction) => updateRule(index, { direction: direction === 'desc' ? 'desc' : 'asc' })}
+                      />
+                      <FieldChevron />
+                    </div>
                     <button type="button" onClick={() => moveRule(index, -1)} disabled={index === 0} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:hover:bg-slate-700 dark:hover:text-slate-200 cursor-pointer disabled:cursor-not-allowed" aria-label="Move sort earlier">
                       <ChevronUp className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                     </button>

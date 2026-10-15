@@ -108,6 +108,12 @@ function FormulaFunctionsButton({ onInsert }: { onInsert: (text: string) => void
       {open && createPortal(
         <div
           ref={panelRef}
+          data-app-layer=""
+          onMouseDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onClick={(event) => event.stopPropagation()}
           style={{ top: position.top, left: position.left, maxHeight: position.maxHeight }}
           className="fixed z-[200] flex w-[380px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800"
         >
@@ -356,6 +362,7 @@ export function FormulaExplain({
       {open && createPortal(
         <span
           role="tooltip"
+          data-app-layer=""
           onMouseEnter={show}
           onMouseLeave={hide}
           style={{
@@ -407,6 +414,7 @@ export function FormulaHint({ text }: { text: string }) {
       {open && createPortal(
         <span
           role="tooltip"
+          data-app-layer=""
           style={{ top: position.top, left: position.left }}
           className="fixed z-[200] w-max max-w-72 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] leading-relaxed text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
         >
@@ -785,6 +793,12 @@ export function FormulaEditor({
 
       {suggestions.length > 0 && createPortal(
         <ul
+          data-app-layer=""
+          onMouseDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onClick={(event) => event.stopPropagation()}
           style={{
             top: suggestionBox.top,
             left: suggestionBox.left,
@@ -800,6 +814,11 @@ export function FormulaEditor({
                 type="button"
                 onMouseDown={(event) => {
                   event.preventDefault();
+                  event.stopPropagation();
+                }}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
                   applySuggestion(suggestion.insert);
                 }}
                 className={`w-full px-3 py-1.5 flex items-center justify-between gap-3 text-left text-xs cursor-pointer ${

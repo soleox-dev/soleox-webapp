@@ -7,6 +7,8 @@ import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { toPercentPoints } from '@/lib/percent';
 import { orderPostSplitNames } from '@/lib/post-split-order';
+import { AgentAllocationNotes, TeamCapAmount, adjustedSplitView, teamCapGroups, type AgentAllocationLine } from './AgentAllocationNotes';
+import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
 
 type SplitType = 'PERCENT' | 'AMOUNT';
 
@@ -39,6 +41,8 @@ interface CommissionWaterfallTableProps {
   onAddLevel1Cell: (agentName: string, entity: string) => void;
   onAddLevel2Cell: (agentName: string, entity: string) => void;
   onDraftDirty?: (dirty: boolean) => void;
+  allocations?: AgentAllocationLine[];
+  onTeamCapAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
 }
 
 function entityOrder(rulesByAgent: Record<string, DynamicRule[]>, names: string[]): string[] {
@@ -143,6 +147,8 @@ export function CommissionWaterfallTable({
   onAddLevel1Cell,
   onAddLevel2Cell,
   onDraftDirty,
+  allocations = [],
+  onTeamCapAmountChange,
 }: CommissionWaterfallTableProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -308,6 +314,10 @@ export function CommissionWaterfallTable({
     }
   };
 
+  const calculatedLines = (items: Array<{ id?: string; entity?: string; type?: string; value?: number; amount?: number }>, entity: string) => (
+    items.filter((item) => (item.entity || '').trim() === entity)
+  );
+
   const splitPair = (
     type: SplitType,
     percentPoints: number,
@@ -356,6 +366,11 @@ export function CommissionWaterfallTable({
           </span>
         </div>
       </div>
+      <AgentSplitExcessNotice
+        total={Number(dealResult.agentSplitTotal) || 0}
+        remaining={commissionAfterPreSplit}
+        excess={Number(dealResult.agentSplitExcess) || 0}
+      />
       {(dealResult.agentSplitItems || []).some((item: { overAllocated?: boolean }) => item.overAllocated) && (
         <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
           Agent splits can&apos;t exceed 100% of the remaining commission. Lower the highlighted split before applying.
@@ -421,25 +436,47 @@ export function CommissionWaterfallTable({
                 <td className={`${labelCell} font-semibold text-slate-500 dark:text-slate-400`} />
                 {agents.map((agent, index) => {
                   const agentIsPrimary = primaryAgentId ? isPrimaryAgent(agent, primaryAgentId) : index === 0;
-                  const computed = (dealResult.agentSplitItems || []).find((item: { agentId?: string; agentName?: string; percent?: number; amount?: number; overAllocated?: boolean }) => item.agentId === agent.id || item.agentName === agent.name);
-                  const dollar = !agentIsPrimary && agent.splitType === 'AMOUNT'
-                    ? agent.splitVal
-                    : (computed?.amount || 0);
-                  const percentPoints = agent.splitType === 'PERCENT' ? toPercentPoints(agent.splitVal) : toPercentPoints(computed?.percent || 0);
+                  const computed = (dealResult.agentSplitItems || []).find((item: { agentId?: string; agentName?: string; percent?: number; amount?: number; overAllocated?: boolean; capAdjusted?: boolean; displayPercent?: number }) => item.agentId === agent.id || item.agentName === agent.name);
+                  const adjusted = adjustedSplitView(computed);
+                  const dollar = adjusted
+                    ? adjusted.dollar
+                    : (!agentIsPrimary && agent.splitType === 'AMOUNT' ? agent.splitVal : (computed?.amount || 0));
+                  const percentPoints = adjusted
+                    ? adjusted.percentPoints
+                    : (agent.splitType === 'PERCENT' ? toPercentPoints(agent.splitVal) : toPercentPoints(computed?.percent || 0));
                   return (
                     <td key={agent.id} className={agentCell}>
                       {splitPair(
                         agent.splitType,
-                        agentIsPrimary && agent.splitType === 'PERCENT' ? toPercentPoints(computed?.percent || 0) : percentPoints,
+                        adjusted ? adjusted.percentPoints : (agentIsPrimary && agent.splitType === 'PERCENT' ? toPercentPoints(computed?.percent || 0) : percentPoints),
                         dollar,
                         () => onToggleAgentSplitType(agent.id),
                         (val) => onSplitValueChange(agent.id, val),
                         { editable: isEditing && !agentIsPrimary, locked: isEditing && agentIsPrimary, invalid: Boolean(computed?.overAllocated) },
                       )}
+                      <AgentAllocationNotes agentId={agent.id} allocations={allocations} />
                     </td>
                   );
                 })}
               </tr>
+              {teamCapGroups(allocations).map((group) => (
+                <tr key={group.id}>
+                  <td className="sticky left-0 z-10 border-b border-amber-200/80 bg-amber-50 px-3 py-2 text-left align-middle dark:border-amber-800/50 dark:bg-amber-950/50">
+                    <span className="text-[11px] font-semibold normal-case tracking-normal text-amber-900 dark:text-amber-200">{group.name}</span>
+                  </td>
+                  {agents.map((agent) => (
+                    <td key={agent.id} className="min-w-[14.5rem] border-b border-amber-200/80 bg-amber-50 px-2 py-2 text-center align-middle dark:border-amber-800/50 dark:bg-amber-950/40">
+                      <div className="flex w-full justify-end">
+                        <TeamCapAmount
+                          line={group.lines.find((item) => item.agent_id === agent.id)}
+                          isEditing={isEditing}
+                          onAmountChange={onTeamCapAmountChange}
+                        />
+                      </div>
+                    </td>
+                  ))}
+                </tr>
+              ))}
 
               <tr>
                 <td className={`${sectionLabel} bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200`}>
@@ -473,6 +510,32 @@ export function CommissionWaterfallTable({
                   {agents.map((agent) => {
                     const rules = rulesForEntity(postSplitRulesByAgent[agent.name], entity);
                     const items = (dealResult.postSplitItems || []).filter((item: { agentName?: string }) => item.agentName === agent.name);
+                    const calculated = rules.length === 0 ? calculatedLines(items, entity) : [];
+                    if (calculated.length > 0) {
+                      const gross = (dealResult.agentSplitItems || []).find((item: { agentName?: string; amount?: number }) => item.agentName === agent.name)?.amount || 0;
+                      return (
+                        <td key={agent.id} className={agentCell}>
+                          <div className="flex flex-col items-stretch gap-1">
+                            {calculated.map((item) => {
+                              const type: SplitType = item.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENT';
+                              const amount = Number(item.amount) || 0;
+                              return (
+                                <div key={item.id || entity}>
+                                  {splitPair(
+                                    type,
+                                    type === 'PERCENT' ? toPercentPoints(Number(item.value) || 0) : (gross > 0 ? (amount / gross) * 100 : 0),
+                                    amount,
+                                    () => { if (item.id) onToggleAgentPostSplitType(agent.name, item.id); },
+                                    (val) => { if (item.id) onUpdateAgentPostSplitValue(agent.name, item.id, val); },
+                                    { deduction: true },
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </td>
+                      );
+                    }
                     if (rules.length === 0) {
                       return (
                         <td key={agent.id} className={agentCell}>
@@ -570,6 +633,33 @@ export function CommissionWaterfallTable({
                   {agents.map((agent) => {
                     const rules = rulesForEntity(postSplit2RulesByAgent[agent.name], entity);
                     const items = (dealResult.postSplit2Items || []).filter((item: { agentName?: string }) => item.agentName === agent.name);
+                    const calculated = rules.length === 0 ? calculatedLines(items, entity) : [];
+                    if (calculated.length > 0) {
+                      const gross = (dealResult.agentSplitItems || []).find((item: { agentName?: string; amount?: number }) => item.agentName === agent.name)?.amount || 0;
+                      const netAfterL1 = dealResult.agentNetAfterLevel1?.[agent.name] ?? gross;
+                      return (
+                        <td key={agent.id} className={agentCell}>
+                          <div className="flex flex-col items-stretch gap-1">
+                            {calculated.map((item) => {
+                              const type: SplitType = item.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENT';
+                              const amount = Number(item.amount) || 0;
+                              return (
+                                <div key={item.id || entity}>
+                                  {splitPair(
+                                    type,
+                                    type === 'PERCENT' ? toPercentPoints(Number(item.value) || 0) : (netAfterL1 > 0 ? (amount / netAfterL1) * 100 : 0),
+                                    amount,
+                                    () => { if (item.id) onToggleAgentPostSplit2Type?.(agent.name, item.id); },
+                                    (val) => { if (item.id) onUpdateAgentPostSplit2Value?.(agent.name, item.id, val); },
+                                    { deduction: true },
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </td>
+                      );
+                    }
                     if (rules.length === 0) {
                       return (
                         <td key={agent.id} className={agentCell}>

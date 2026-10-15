@@ -5,7 +5,9 @@ import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import { FormulaEditor, type FormulaName } from '../commission-templates/FormulaEditor';
 import { SectionCollapseButton } from '../../transactions/[id]/components/SectionCollapseButton';
 import { toggleFromSectionHeader } from '../../transactions/[id]/components/sectionHeaderClick';
+import { OptionMenu } from '@/components/ui/option-menu';
 import { TrashIcon } from '@/components/ui/trash-icon';
+import { FieldChevron, UnderlineField, underlineControl } from '@/components/ui/underline-field';
 import { useRegisterSave } from '@/components/save-leave-guard';
 import {
   DEMO_TRANSACTION_SCORECARDS,
@@ -32,8 +34,6 @@ const METRIC_KINDS: { value: ScorecardMetricKind; label: string }[] = [
   { value: 'average', label: 'Average of a field' },
 ];
 
-const inputClass = 'rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white';
-const labelClass = 'text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400';
 
 function newId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -357,49 +357,39 @@ export default function ScorecardsSettingsPage() {
                   </div>
                   {card.metrics.map((metric, metricIndex) => (
                     <div key={`${card.id}-metric-${metricIndex}`} className="grid gap-2 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
-                      <label className="space-y-1">
-                        <span className={labelClass}>Metric name</span>
+                      <UnderlineField label="Metric name">
                         <input
                           value={metric.name}
                           onChange={(event) => updateMetric(card.id, metricIndex, { name: event.target.value })}
-                          className={`${inputClass} w-full`}
+                          className={underlineControl}
                           placeholder={metricIndex === 0 ? 'Units' : 'Volume'}
                         />
-                      </label>
-                      <label className="space-y-1">
-                        <span className={labelClass}>Calculation</span>
-                        <select
+                      </UnderlineField>
+                      <UnderlineField label="Calculation">
+                        <OptionMenu
+                          className={`${underlineControl} overview-field-select`}
                           value={metric.kind}
-                          onChange={(event) => {
-                            const kind = event.target.value as ScorecardMetricKind;
-                            updateMetric(card.id, metricIndex, {
-                              kind,
-                              fieldKey: kind === 'count' ? undefined : metric.fieldKey || metricFields[0]?.field_key || '',
-                            });
-                          }}
-                          className={`${inputClass} w-full`}
-                        >
-                          {METRIC_KINDS.map((kind) => (
-                            <option key={kind.value} value={kind.value}>{kind.label}</option>
-                          ))}
-                        </select>
-                      </label>
+                          options={METRIC_KINDS}
+                          onChange={(kind) => updateMetric(card.id, metricIndex, {
+                            kind: kind as ScorecardMetricKind,
+                            fieldKey: kind === 'count' ? undefined : metric.fieldKey || metricFields[0]?.field_key || '',
+                          })}
+                        />
+                        <FieldChevron />
+                      </UnderlineField>
                       {metric.kind === 'count' ? (
                         <div />
                       ) : (
-                        <label className="space-y-1">
-                          <span className={labelClass}>Field</span>
-                          <select
+                        <UnderlineField label="Field">
+                          <OptionMenu
+                            className={`${underlineControl} overview-field-select`}
                             value={metric.fieldKey || ''}
-                            onChange={(event) => updateMetric(card.id, metricIndex, { fieldKey: event.target.value })}
-                            className={`${inputClass} w-full`}
-                          >
-                            <option value="">Choose a field</option>
-                            {metricFields.map((field) => (
-                              <option key={field.field_key} value={field.field_key}>{field.field_label || field.field_key}</option>
-                            ))}
-                          </select>
-                        </label>
+                            placeholder="Choose a field"
+                            options={[{ value: '', label: 'Choose a field' }, ...metricFields.map((field) => ({ value: field.field_key, label: field.field_label || field.field_key }))]}
+                            onChange={(fieldKey) => updateMetric(card.id, metricIndex, { fieldKey })}
+                          />
+                          <FieldChevron />
+                        </UnderlineField>
                       )}
                       <button
                         type="button"

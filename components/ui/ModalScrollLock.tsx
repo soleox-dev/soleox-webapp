@@ -2,6 +2,11 @@
 
 import { useEffect } from 'react';
 
+/** A menu portaled onto the page stays usable while a popup is open. */
+function isAppLayer(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest('[data-app-layer]'));
+}
+
 /** Freezes the page behind any `.app-modal` overlay: no scroll, click, or typing. */
 export function ModalScrollLock() {
   useEffect(() => {
@@ -53,7 +58,7 @@ export function ModalScrollLock() {
       node = active;
       while (node?.parentElement) {
         for (const child of node.parentElement.children) {
-          if (!(child instanceof HTMLElement) || child === node || keep.has(child)) continue;
+          if (!(child instanceof HTMLElement) || child === node || keep.has(child) || child.hasAttribute('data-app-layer')) continue;
           child.inert = true;
           inerted.add(child);
         }
@@ -61,7 +66,7 @@ export function ModalScrollLock() {
       }
 
       document.querySelectorAll<HTMLElement>('body *').forEach((element) => {
-        if (active.contains(element) || element.contains(active) || keep.has(element)) return;
+        if (active.contains(element) || element.contains(active) || keep.has(element) || element.closest('[data-app-layer]')) return;
         const style = getComputedStyle(element);
         const scrolls = style.overflowY === 'auto' || style.overflowY === 'scroll' || style.overflow === 'auto' || style.overflow === 'scroll';
         if (!scrolls || element.scrollHeight <= element.clientHeight + 1) return;
@@ -70,7 +75,7 @@ export function ModalScrollLock() {
       });
 
       const focused = document.activeElement;
-      if (focused instanceof HTMLElement && !active.contains(focused)) focused.blur();
+      if (focused instanceof HTMLElement && !active.contains(focused) && !focused.closest('[data-app-layer]')) focused.blur();
     };
 
     const schedule = () => {
@@ -83,10 +88,8 @@ export function ModalScrollLock() {
       const active = modals[modals.length - 1];
       if (!active) return;
       const target = event.target;
-      if (target instanceof Node && active.contains(target)) {
-        const panel = active.querySelector('[role="dialog"]');
-        if (panel && target instanceof Node && panel.contains(target)) return;
-      }
+      if (isAppLayer(target)) return;
+      if (target instanceof Node && active.contains(target)) return;
       event.preventDefault();
     };
 
@@ -97,6 +100,7 @@ export function ModalScrollLock() {
       const active = modals[modals.length - 1];
       if (!active) return;
       const target = event.target;
+      if (isAppLayer(target)) return;
       if (target instanceof HTMLElement && active.contains(target)) {
         const tag = target.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) return;

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { FieldChevron, UnderlineField, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { useRegisterSave } from '@/components/save-leave-guard';
 
 interface CommissionRule {
@@ -161,13 +162,15 @@ export default function CommissionRulesSettingsPage() {
       {/* Rules Table Section */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl space-y-4 transition-colors">
         <div className="flex justify-between items-center gap-4">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search rules by name, category, or entity..."
-            className="w-full md:w-80 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
-          />
+          <div className={`w-full md:w-80 ${underlineShell}`}>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search rules by name, category, or entity..."
+              className={underlineControl}
+            />
+          </div>
           <span className="text-xs text-slate-500 dark:text-slate-400 font-bold">
             {filteredRules.length} System Rules Configured
           </span>
@@ -252,82 +255,76 @@ export default function CommissionRulesSettingsPage() {
             </div>
 
             <div className="space-y-3">
-              <div>
-                <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">Rule Name (*)</label>
+              <UnderlineField label="Rule Name (*)">
                 <input
                   type="text"
                   required
                   value={newRule.name}
                   onChange={(e) => setNewRule({ ...newRule, name: e.target.value })}
                   placeholder="e.g. Franchise Royalty Fee"
-                  className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                  className={underlineControl}
                 />
-              </div>
+              </UnderlineField>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">Waterfall Stage</label>
+                <UnderlineField label="Waterfall Stage">
                   <ClearableSelect
                     value={newRule.category}
                     onChange={(e) => setNewRule({ ...newRule, category: e.target.value as any })}
-                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                    className={`${underlineControl} overview-field-select`}
                   >
                     <option value="Off-The-Top">Off-The-Top</option>
                     <option value="Post-Split">Post-Split</option>
                   </ClearableSelect>
-                </div>
+                  <FieldChevron />
+                </UnderlineField>
 
-                <div>
-                  <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">Target Entity (*)</label>
+                <UnderlineField label="Target Entity (*)">
                   <input
                     type="text"
                     required
                     value={newRule.entity}
                     onChange={(e) => setNewRule({ ...newRule, entity: e.target.value })}
                     placeholder="e.g. Corporate HQ"
-                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                    className={underlineControl}
                   />
-                </div>
+                </UnderlineField>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">Calculation Type</label>
+                <UnderlineField label="Calculation Type">
                   <ClearableSelect
                     value={newRule.type}
                     onChange={(e) => setNewRule({ ...newRule, type: e.target.value as any })}
-                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                    className={`${underlineControl} overview-field-select`}
                   >
                     <option value="PERCENT">Percentage (%)</option>
                     <option value="AMOUNT">Flat Amount ($)</option>
                   </ClearableSelect>
-                </div>
+                  <FieldChevron />
+                </UnderlineField>
 
-                <div>
-                  <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
-                    Default Value ({newRule.type === 'PERCENT' ? '%' : '$'})
-                  </label>
+                <UnderlineField label={`Default Value (${newRule.type === 'PERCENT' ? '%' : '$'})`}>
                   <input
                     type="number"
                     step="any"
                     required
                     value={newRule.defaultValue}
                     onChange={(e) => setNewRule({ ...newRule, defaultValue: Number(e.target.value) })}
-                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                    className={underlineControl}
                   />
-                </div>
+                </UnderlineField>
               </div>
 
-              <div>
-                <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">Description</label>
+              <UnderlineField label="Description">
                 <textarea
                   rows={2}
                   value={newRule.description}
                   onChange={(e) => setNewRule({ ...newRule, description: e.target.value })}
                   placeholder="Explain when and how this rule applies..."
-                  className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 resize-none"
+                  className={`${underlineControl} min-h-10 resize-none py-1`}
                 />
-              </div>
+              </UnderlineField>
             </div>
 
             <div className="pt-3 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2">

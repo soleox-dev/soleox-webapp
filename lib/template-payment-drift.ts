@@ -1,4 +1,5 @@
-import { applyTemplateLogic, type AppliedTemplateRules, type TemplateLogicStep } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/applyTemplateLogic';
+import { applyTemplateLogic, type AppliedTemplateRules, type NamedParty, type TemplateLogicStep } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/applyTemplateLogic';
+import { readTeamCapSelection, TEAM_CAP_SELECTION_KEY, type DealAllocationContext } from '@/lib/agent-allocations';
 import {
   isPrimaryAgent,
   resolvePrimaryAgentId,
@@ -66,6 +67,12 @@ function waterfallAfterTemplate(
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
+  });
+  previousAgents.forEach((agent) => {
+    const key = agent.name.trim().toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    agentNames.push(agent.name);
   });
 
   const templateAgents: AgentConfig[] = agentNames.map((name) => {
@@ -171,6 +178,7 @@ export function replayedPaymentSignature({
   overviewFields,
   ledger = [],
   lookups,
+  allocation = null,
 }: {
   deal: Record<string, unknown>;
   steps: TemplateLogicStep[];
@@ -182,6 +190,8 @@ export function replayedPaymentSignature({
   overviewFields: FieldSetting[];
   ledger?: FormulaLedgerRow[];
   lookups?: FormulaLookups;
+  /** Team caps, the saved checkbox, and any typed cap amount. The replay applies these the same way a resubmit does. */
+  allocation?: DealAllocationContext | null;
 }): string {
   const salesPrice = Math.abs(Number(deal.sales_price) || 0);
   const gciPerc = Number(deal.gci_perc) || 0;
@@ -207,19 +217,179 @@ export function replayedPaymentSignature({
     agents: [],
   }).totalCommission;
 
+  const selectedTeamCapIds = readTeamCapSelection(parameters);
+  const { [TEAM_CAP_SELECTION_KEY]: omittedCapSelection, ...formulaParameters } = parameters;
+  void omittedCapSelection;
+  const rosterAgents: NamedParty[] = agents.map((agent) => ({
+    id: agent.id,
+    name: agent.name,
+    isTeamLead: agent.isTeamLead,
+    clientId: agent.clientId,
+    fields: agent.fields,
+  }));
   const applied = applyTemplateLogic({
     steps,
-    parameters,
+    parameters: formulaParameters,
     parameterTypes,
     deal,
     entities,
-    rosterAgents: agents,
+    rosterAgents,
     dealAgents: saved.agents,
     totalCommission: baseline,
     ledger,
     lookups,
   });
   const next = waterfallAfterTemplate(applied, saved.agents, agents, primaryAgentId);
-  const result = computeTransactionWaterfall({ ...shared, ...next });
+  const allocationForReplay = allocation ? { ...allocation, selectedTeamCapIds } : null;
+  const result = computeTransactionWaterfall({
+    ...shared,
+    ...next,
+    allocation: allocationForReplay,
+    templateReplay: allocationForReplay ? {
+      steps,
+      parameters: formulaParameters,
+      parameterTypes,
+      entities,
+      rosterAgents,
+      ledger,
+      lookups,
+    } : null,
+  });
   return payoutSignature(result.netPayouts);
+}
+
+type AllocationHistoryRow = DealAllocationContext['history'][number] & { transactionId?: string | null };
+
+function teamCapFrom(row: {
+  id?: string;
+  name?: string | null;
+  key?: string | null;
+  enabled?: boolean;
+  qualifying_formula?: string | null;
+  split_percent_field_key?: string | null;
+  cap_amount_field_key?: string | null;
+  reset_date_field_key?: string | null;
+  recipient_agent_id?: string | null;
+}): DealAllocationContext['teamCaps'][number] | null {
+  const id = String(row.id || '');
+  if (!id) return null;
+  return {
+    id,
+    name: String(row.name || 'Team Cap'),
+    key: row.key ? String(row.key) : null,
+    enabled: Boolean(row.enabled),
+    qualifyingFormula: row.qualifying_formula || null,
+    splitPercentFieldKey: row.split_percent_field_key || null,
+    capAmountFieldKey: row.cap_amount_field_key || null,
+    resetDateFieldKey: row.reset_date_field_key || null,
+    recipientAgentId: row.recipient_agent_id || null,
+  };
+}
+
+function volumeFrom(row: {
+  enabled?: boolean;
+  qualifying_formula?: string | null;
+  anchor?: string | null;
+  assignment?: string | null;
+} | null): DealAllocationContext['salesVolume'] {
+  if (!row) return null;
+  return {
+    enabled: Boolean(row.enabled),
+    qualifyingFormula: row.qualifying_formula || null,
+    anchor: row.anchor === 'sales_price_x_units' ? 'sales_price_x_units' : 'sales_price',
+    assignment: row.assignment === 'primary_agent' ? 'primary_agent' : 'agent_share',
+  };
+}
+
+export async function loadAllocationCatalog(clientId: string): Promise<{
+  teamCaps: DealAllocationContext['teamCaps'];
+  salesVolume: DealAllocationContext['salesVolume'];
+}> {
+  const response = await fetch(`/api/agent-allocations?client_id=${encodeURIComponent(clientId)}`, {
+    headers: { 'x-client-id': clientId },
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || body.success === false) throw new Error(body.error || 'Failed to load team caps.');
+  return {
+    teamCaps: (Array.isArray(body.teamCaps) ? body.teamCaps : []).flatMap((row: Parameters<typeof teamCapFrom>[0]) => {
+      const cap = teamCapFrom(row);
+      return cap ? [cap] : [];
+    }),
+    salesVolume: volumeFrom(body.salesVolume || null),
+  };
+}
+
+export async function loadAllocationHistory(clientId: string, agentIds: string[]): Promise<AllocationHistoryRow[]> {
+  if (agentIds.length === 0) return [];
+  const response = await fetch(
+    `/api/transaction-team-caps?history=1&client_id=${encodeURIComponent(clientId)}&agent_ids=${encodeURIComponent(agentIds.join(','))}`,
+    { headers: { 'x-client-id': clientId } },
+  );
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || body.success === false) throw new Error(body.error || 'Failed to load team cap history.');
+  return Array.isArray(body.history) ? body.history : [];
+}
+
+export async function loadAllocationOverrides(clientId: string, transactionId: string): Promise<DealAllocationContext['overrides']> {
+  if (!transactionId) return [];
+  const headers = { 'x-client-id': clientId };
+  const [capsResponse, allocationsResponse] = await Promise.all([
+    fetch(`/api/transaction-team-caps?client_id=${encodeURIComponent(clientId)}&transaction_id=${encodeURIComponent(transactionId)}`, { headers }),
+    fetch(`/api/transaction-agent-allocations?client_id=${encodeURIComponent(clientId)}&transaction_id=${encodeURIComponent(transactionId)}`, { headers }),
+  ]);
+  const capsBody = await capsResponse.json().catch(() => ({}));
+  const allocationsBody = await allocationsResponse.json().catch(() => ({}));
+  if (!capsResponse.ok || capsBody.success === false) throw new Error(capsBody.error || 'Failed to load team cap amounts.');
+  if (!allocationsResponse.ok || allocationsBody.success === false) throw new Error(allocationsBody.error || 'Failed to load agent allocations.');
+  const caps = Array.isArray(capsBody.teamCaps) ? capsBody.teamCaps : [];
+  const allocations = Array.isArray(allocationsBody.allocations) ? allocationsBody.allocations : [];
+  return [
+    ...caps.flatMap((row: { is_override?: boolean; agent_id?: string; amount?: number; team_cap_id?: string | null }) => {
+      if (!row.is_override || !row.agent_id) return [];
+      return [{ agentId: row.agent_id, kind: 'team_cap' as const, amount: Number(row.amount) || 0, teamCapId: row.team_cap_id || null }];
+    }),
+    ...allocations.flatMap((row: { is_override?: boolean; agent_id?: string; amount?: number }) => {
+      if (!row.is_override || !row.agent_id) return [];
+      return [{ agentId: row.agent_id, kind: 'sales_volume' as const, amount: Number(row.amount) || 0, teamCapId: null }];
+    }),
+  ];
+}
+
+export function allocationForReplay({
+  catalog,
+  history,
+  overrides,
+  deal,
+  transactionId,
+  agents,
+  fieldTypes,
+}: {
+  catalog: { teamCaps: DealAllocationContext['teamCaps']; salesVolume: DealAllocationContext['salesVolume'] };
+  history: AllocationHistoryRow[];
+  overrides: DealAllocationContext['overrides'];
+  deal: Record<string, unknown>;
+  transactionId: string;
+  agents: KnownAgentInfo[];
+  fieldTypes: Record<string, string>;
+}): DealAllocationContext {
+  const closing = deal.closing_date == null ? '' : String(deal.closing_date);
+  const unitsRaw = deal.units;
+  const units = unitsRaw === undefined || unitsRaw === null || String(unitsRaw).trim() === ''
+    ? 1
+    : Math.max(0, Number(unitsRaw) || 0);
+  return {
+    teamCaps: catalog.teamCaps,
+    salesVolume: catalog.salesVolume,
+    profiles: agents.map((agent) => ({ agentId: agent.id, fields: agent.fields || {} })),
+    history: history.flatMap((row) => {
+      if (row.transactionId && row.transactionId === transactionId) return [];
+      return [{ agentId: row.agentId, amount: Number(row.amount) || 0, periodStart: row.periodStart, teamCapId: row.teamCapId }];
+    }),
+    overrides,
+    deal,
+    dealDate: closing.length >= 10 ? closing.slice(0, 10) : null,
+    salesPrice: Math.abs(Number(deal.sales_price) || 0),
+    units,
+    fieldTypes,
+  };
 }

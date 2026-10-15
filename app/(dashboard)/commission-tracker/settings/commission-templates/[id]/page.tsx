@@ -271,8 +271,8 @@ export default function CommissionTemplateDetailPage() {
   const [isReordering, setIsReordering] = useState(false);
   const [dropTarget, setDropTarget] = useState<null | { parameterId: string; placement: 'before' | 'after' } | { sectionName: string }>(null);
   const [logicDropTarget, setLogicDropTarget] = useState<null | { stepId: string; placement: 'before' | 'after' } | { sectionName: string }>(null);
-  const [parametersCollapsed, setParametersCollapsed] = useState(false);
-  const [logicCollapsed, setLogicCollapsed] = useState(false);
+  const [parametersCollapsed, setParametersCollapsed] = useState(true);
+  const [logicCollapsed, setLogicCollapsed] = useState(true);
   const [compactRows, setCompactRows] = useState(false);
   const [parameterSearch, setParameterSearch] = useState('');
   const [logicSearch, setLogicSearch] = useState('');
@@ -1243,11 +1243,9 @@ export default function CommissionTemplateDetailPage() {
                 <span>
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
                     Parameters
-                    {parameterSearch.trim() && (
-                      <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 normal-case ml-1.5">
-                        ({filteredParameters.length} of {parameters.length})
-                      </span>
-                    )}
+                    <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 normal-case ml-1.5">
+                      ({parameterSearch.trim() ? `${filteredParameters.length} of ${parameters.length}` : parameters.length})
+                    </span>
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                     Values the user fills in when this template is applied to a transaction.
@@ -1255,7 +1253,7 @@ export default function CommissionTemplateDetailPage() {
                 </span>
               </button>
               <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0">
-                <div className="relative w-full sm:w-64">
+                <div className={`relative w-full sm:w-64 ${underlineShell}`}>
                   <input
                     type="text"
                     value={parameterSearch}
@@ -1266,7 +1264,7 @@ export default function CommissionTemplateDetailPage() {
                       }
                     }}
                     placeholder="Search parameters..."
-                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg pl-3 pr-7 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-medium"
+                    className={`${underlineControl} pr-4`}
                   />
                   {parameterSearch && (
                     <button
@@ -1408,7 +1406,6 @@ export default function CommissionTemplateDetailPage() {
                             </span>
                             <ReorderControls
                               size="sm"
-                              orientation="vertical"
                               onMoveUp={() => void moveParameter(parameter.id, 'UP')}
                               onMoveDown={() => void moveParameter(parameter.id, 'DOWN')}
                               isFirst={itemIndex === 0 || isReordering || Boolean(parameterSearch.trim())}
@@ -1445,11 +1442,9 @@ export default function CommissionTemplateDetailPage() {
                 <span>
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
                     Rules
-                    {logicSearch.trim() && (
-                      <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 normal-case ml-1.5">
-                        ({filteredLogicSteps.length} of {logicSteps.length})
-                      </span>
-                    )}
+                    <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 normal-case ml-1.5">
+                      ({logicSearch.trim() ? `${filteredLogicSteps.length} of ${logicSteps.length}` : logicSteps.length})
+                    </span>
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                     Each rule decides when it applies, who gets paid, and how the amount is calculated.
@@ -1457,7 +1452,7 @@ export default function CommissionTemplateDetailPage() {
                 </span>
               </button>
               <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0">
-                <div className="relative w-full sm:w-64">
+                <div className={`relative w-full sm:w-64 ${underlineShell}`}>
                   <input
                     type="text"
                     value={logicSearch}
@@ -1468,7 +1463,7 @@ export default function CommissionTemplateDetailPage() {
                       }
                     }}
                     placeholder="Search rules..."
-                    className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg pl-3 pr-7 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-medium"
+                    className={`${underlineControl} pr-4`}
                   />
                   {logicSearch && (
                     <button
@@ -1631,7 +1626,6 @@ export default function CommissionTemplateDetailPage() {
                             </span>
                             <ReorderControls
                               size="sm"
-                              orientation="vertical"
                               onMoveUp={() => void moveLogic(step.id, 'UP')}
                               onMoveDown={() => void moveLogic(step.id, 'DOWN')}
                               isFirst={itemIndex === 0 || isReordering || Boolean(logicSearch.trim())}
@@ -1707,7 +1701,13 @@ export default function CommissionTemplateDetailPage() {
                   onChange={(event) => setParameterForm({ ...parameterForm, section: event.target.value })}
                   onFocus={() => openSectionMenu()}
                   onClick={() => openSectionMenu()}
-                  onBlur={() => setSectionMenuOpen(false)}
+                  onBlur={() => {
+                    window.setTimeout(() => {
+                      const menu = document.querySelector('[data-section-menu]');
+                      if (menu?.matches(':hover') || menu?.contains(document.activeElement)) return;
+                      setSectionMenuOpen(false);
+                    }, 0);
+                  }}
                   placeholder="Example: Off the top"
                   className={`${underlineControl} pr-4`}
                 />
@@ -1943,6 +1943,12 @@ export default function CommissionTemplateDetailPage() {
           </form>
           {sectionMenuOpen && sectionOptions.length > 0 && createPortal(
             <ul
+              data-app-layer=""
+              data-section-menu=""
+              onMouseDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
               className="fixed z-[90] max-h-60 overflow-y-auto rounded-lg border border-black/10 bg-white/95 py-1 text-[13px] text-slate-900 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-[#3a3a3c]/95 dark:text-white"
               style={{ top: sectionMenuBox.top, left: sectionMenuBox.left, width: sectionMenuBox.width }}
             >
@@ -1954,6 +1960,11 @@ export default function CommissionTemplateDetailPage() {
                       type="button"
                       onMouseDown={(event) => {
                         event.preventDefault();
+                        event.stopPropagation();
+                      }}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
                         setParameterForm({ ...parameterForm, section });
                         setSectionMenuOpen(false);
                       }}

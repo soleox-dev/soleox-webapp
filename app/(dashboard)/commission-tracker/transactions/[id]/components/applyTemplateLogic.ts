@@ -2,6 +2,64 @@ import { evaluateFormula, formulaDataNeeds, type FormulaLedgerRow, type FormulaL
 import { FORMULA_LOOKUP_TABLES, formulaLookupSource } from '@/lib/formula-lookup-tables';
 import { DynamicRule, roundCurrency, roundPercentRate } from '../types';
 
+export interface TemplateParameterRecord {
+  id: string;
+  parameter_name: string;
+  parameter_key: string;
+  data_type?: string | null;
+  autofill_formula?: string | null;
+  validation_rule?: string | null;
+  is_required?: boolean | null;
+  is_user_editable?: boolean | null;
+  sort_order?: number | null;
+  section?: string | null;
+  dropdown_options?: string[] | null;
+}
+
+export interface TemplateBundle {
+  parameters: TemplateParameterRecord[];
+  steps: TemplateLogicStep[];
+}
+
+const templateBundles = new Map<string, { promise: Promise<TemplateBundle> | null; bundle: TemplateBundle | null }>();
+
+export function peekTemplateBundle(templateId: string): TemplateBundle | null {
+  return templateBundles.get(templateId)?.bundle ?? null;
+}
+
+/** Rules and parameters for one template. Later reads reuse the first request. */
+export function loadTemplateBundle(templateId: string): Promise<TemplateBundle> {
+  const existing = templateBundles.get(templateId);
+  if (existing?.promise) return existing.promise;
+  const promise = (async () => {
+    const [parametersResponse, logicResponse] = await Promise.all([
+      fetch(`/api/commission-template-parameters?template_id=${encodeURIComponent(templateId)}`, { cache: 'no-store' }),
+      fetch(`/api/commission-template-logic?template_id=${encodeURIComponent(templateId)}`, { cache: 'no-store' }),
+    ]);
+    const data = await parametersResponse.json();
+    const logicData = await logicResponse.json();
+    if (!parametersResponse.ok || !data.success) throw new Error(data.error || 'Failed to load parameters.');
+    if (!logicResponse.ok || !logicData.success) throw new Error(logicData.error || 'Failed to load rules.');
+    return {
+      parameters: (data.parameters || []) as TemplateParameterRecord[],
+      steps: (logicData.logic_steps || []) as TemplateLogicStep[],
+    };
+  })().then((bundle) => {
+    const current = templateBundles.get(templateId);
+    if (current?.promise === promise) current.bundle = bundle;
+    return bundle;
+  }).catch((error) => {
+    const current = templateBundles.get(templateId);
+    if (current?.promise === promise) {
+      current.promise = null;
+      if (!current.bundle) templateBundles.delete(templateId);
+    }
+    throw error;
+  });
+  templateBundles.set(templateId, { promise, bundle: null });
+  return promise;
+}
+
 export interface TemplateLogicStep {
   id: string;
   step_number?: number | null;
@@ -33,6 +91,7 @@ export interface AppliedAgentSplit {
   name: string;
   splitType: 'PERCENT' | 'AMOUNT';
   splitVal: number;
+  amount: number;
   remainder?: boolean;
 }
 
@@ -145,6 +204,28 @@ function readDeal(deal: Record<string, unknown> | null, key: string): unknown {
  * Runs a template's logic in step order and returns every waterfall split it produces.
  * Empty sections are included so the caller can replace the deal's splits entirely.
  */
+/** Dollars a team cap moved on this deal, keyed by the cap's formula key. */
+export type TeamCapCreditMap = Record<string, { total: number; byAgent: Record<string, number> }>;
+
+const TEAM_CAP_CREDIT = /^([a-z_][a-z0-9_]*)\.(agent|total)$/i;
+const TEAM_CAP_CREDIT_IN_FORMULA = /\b[a-z_][a-z0-9_]*\.(agent|total)\b/i;
+
+function teamCapCreditValue(
+  name: string,
+  agentName: string,
+  credits: TeamCapCreditMap | undefined,
+  ignoreAgentCredit = false,
+): FormulaValue | null {
+  if (!credits) return null;
+  const match = TEAM_CAP_CREDIT.exec(name.trim());
+  if (!match) return null;
+  const cap = credits[match[1].toLowerCase()];
+  if (!cap) return null;
+  if (match[2].toLowerCase() === 'total') return { type: 'number', value: cap.total };
+  if (ignoreAgentCredit) return { type: 'number', value: 0 };
+  return { type: 'number', value: cap.byAgent[agentName.trim().toLowerCase()] || 0 };
+}
+
 export function applyTemplateLogic({
   steps,
   parameters,
@@ -157,6 +238,8 @@ export function applyTemplateLogic({
   ledger = [],
   lookups,
   continueOnError = false,
+  teamCapCredits,
+  waterfallPool,
 }: {
   steps: TemplateLogicStep[];
   parameters: Record<string, string>;
@@ -169,6 +252,11 @@ export function applyTemplateLogic({
   ledger?: FormulaLedgerRow[];
   lookups?: FormulaLookups;
   continueOnError?: boolean;
+  teamCapCredits?: TeamCapCreditMap;
+  // The waterfall's current off-the-top and pre-split deductions. Agent-split
+  // baselines follow this pool, including when those deductions were edited
+  // on the deal and no longer match the template.
+  waterfallPool?: { afterOffTheTop: number; afterPreSplits: number };
 }): AppliedTemplateRules {
   const ordered = [...steps].sort((a, b) => (a.step_number ?? 0) - (b.step_number ?? 0));
   const offTheTopRules: DynamicRule[] = [];
@@ -180,6 +268,8 @@ export function applyTemplateLogic({
   let preSplitSum = 0;
   let agentSplitDollars = 0;
   const agentAmounts: Record<string, number> = {};
+  const agentSplitNets = new Map<string, number>();
+  let agentSplitNetsFlushed = false;
   const postSums: Record<string, number> = {};
   const post2Sums: Record<string, number> = {};
 
@@ -198,8 +288,12 @@ export function applyTemplateLogic({
     afterPreSplits: 0,
     afterAgentSplits: 0,
     afterL1PostSplits: 0,
+    agentName: '',
+    ignoreAgentCapCredit: false,
   };
   const resolve = (name: string): FormulaValue => {
+    const capCredit = teamCapCreditValue(name, context.agentName, teamCapCredits, context.ignoreAgentCapCredit);
+    if (capCredit) return capCredit;
     const key = name.toLowerCase();
     if (key === 'baseline') return { type: 'number', value: context.baseline };
     if (key === 'baseline_after_off_the_top') return { type: 'number', value: context.afterOffTheTop };
@@ -229,6 +323,11 @@ export function applyTemplateLogic({
   };
   const rememberRule = (ruleKey: string | null | undefined, amount: number) => {
     rememberValue(ruleKey, { type: 'number', value: amount });
+  };
+  const flushAgentSplitNets = () => {
+    if (agentSplitNetsFlushed) return;
+    agentSplitNetsFlushed = true;
+    agentSplitNets.forEach((net, key) => rememberRule(key, net));
   };
   const namedParty = (value: FormulaValue | null, list: NamedParty[]) => {
     const text = readText(value);
@@ -301,6 +400,7 @@ export function applyTemplateLogic({
       const result = resolve(agentKey);
       agentName = !result || result.type === 'error' ? '' : agentNameFrom(result);
     }
+    context.agentName = agentName;
     const prior = bucket === 'offTheTop'
       ? offTopSum
       : bucket === 'preSplit'
@@ -311,6 +411,10 @@ export function applyTemplateLogic({
     const agentSplitAmount = recorded(agentAmounts, agentName);
     context.afterOffTheTop = roundCurrency(totalCommission - offTopSum);
     context.afterPreSplits = roundCurrency(context.afterOffTheTop - preSplitSum);
+    if (waterfallPool) {
+      context.afterOffTheTop = roundCurrency(waterfallPool.afterOffTheTop);
+      context.afterPreSplits = roundCurrency(waterfallPool.afterPreSplits);
+    }
     context.afterAgentSplits = agentSplitAmount;
     context.afterL1PostSplits = roundCurrency(agentSplitAmount - recorded(postSums, agentName));
     context.prior = prior;
@@ -372,7 +476,27 @@ export function applyTemplateLogic({
       return;
     }
     const amount = roundCurrency(evaluateNumber(formula, `Amount for "${ruleName}"`));
-    rememberRule(step.rule_key, amount);
+    // A later agent split, such as a team-lead remainder, needs the share
+    // before this cap is taken off. Post-splits need the net share, so that
+    // amount is stored and written back once every agent split has run.
+    let remembered = amount;
+    if (bucket === 'agentSplit' && /\.agent\b/i.test(`${custom}\n${formula}`)) {
+      context.ignoreAgentCapCredit = true;
+      try {
+        const grossBaseline = custom
+          ? evaluateNumber(custom, `Baseline for "${ruleName}"`)
+          : defaultBaseline;
+        context.baseline = grossBaseline;
+        remembered = roundCurrency(evaluateNumber(formula, `Amount for "${ruleName}"`));
+      } finally {
+        context.ignoreAgentCapCredit = false;
+        context.baseline = baseline;
+      }
+    }
+    if (bucket === 'agentSplit' && step.rule_key?.trim()) {
+      agentSplitNets.set(step.rule_key.trim(), amount);
+    }
+    rememberRule(step.rule_key, remembered);
     if (amount === 0) return;
 
     const payeeFormula = (step.payee_formula || '').trim();
@@ -403,7 +527,9 @@ export function applyTemplateLogic({
     }
 
     const splitType = splitKind(step.split_type);
-    const agentPool = roundCurrency(totalCommission - offTopSum - preSplitSum);
+    const agentPool = waterfallPool
+      ? roundCurrency(waterfallPool.afterPreSplits)
+      : roundCurrency(totalCommission - offTopSum - preSplitSum);
     const pool = bucket === 'offTheTop'
       ? totalCommission
       : bucket === 'preSplit'
@@ -444,6 +570,7 @@ export function applyTemplateLogic({
         name: agentName,
         splitType,
         splitVal: appliedSplitValue(splitType, amount, agentPool),
+        amount,
         remainder,
       });
       return;
@@ -452,11 +579,15 @@ export function applyTemplateLogic({
     if (!entityName) throw new Error(`"${ruleName}" needs an entity.`);
     const map = bucket === 'postSplit' ? postSplitRulesByAgent : postSplit2RulesByAgent;
     const sums = bucket === 'postSplit' ? postSums : post2Sums;
-    map[agentName] = [...(map[agentName] || []), { ...rule, entity: entityName }];
+    const fromTeamCapBaseline = TEAM_CAP_CREDIT_IN_FORMULA.test(`${custom}\n${formula}`);
+    map[agentName] = [...(map[agentName] || []), { ...rule, entity: entityName, fromTeamCapBaseline }];
     sums[agentName] = roundCurrency((sums[agentName] || 0) + amount);
   };
 
-  for (const step of ordered) {
+  for (let index = 0; index < ordered.length; index += 1) {
+    const step = ordered[index];
+    const agentSplitsRemain = ordered.slice(index).some((later) => bucketFor(later.section) === 'agentSplit');
+    if (!agentSplitsRemain) flushAgentSplitNets();
     flushShown();
     previousShown = { step };
     touchedSuppressed = false;
@@ -497,12 +628,22 @@ function closingDay(value: unknown): string {
   return text.length >= 10 ? text.slice(0, 10) : text;
 }
 
-/** Commission lines joined to their transaction, for SUMIFS in calculation rules. */
-export async function loadCommissionLedger(
-  clientId: string,
-  entities: { id: string; name: string }[],
-): Promise<FormulaLedgerRow[]> {
-  const response = await fetch(`/api/transaction-commission-items?client_id=${encodeURIComponent(clientId)}&view=ledger`);
+type LedgerParty = { id: string; name: string };
+
+type LedgerCacheEntry = {
+  entitiesKey: string;
+  rows: FormulaLedgerRow[] | null;
+  promise: Promise<FormulaLedgerRow[]> | null;
+};
+
+const ledgerCache = new Map<string, LedgerCacheEntry>();
+
+function ledgerEntitiesKey(entities: LedgerParty[]): string {
+  return entities.map((entity) => `${entity.id}\t${entity.name}`).join('\n');
+}
+
+async function fetchCommissionLedger(clientId: string, entities: LedgerParty[]): Promise<FormulaLedgerRow[]> {
+  const response = await fetch(`/api/transaction-commission-items?client_id=${encodeURIComponent(clientId)}&view=ledger`, { cache: 'no-store' });
   const data = await response.json();
   if (!response.ok || data.success === false) throw new Error(data.error || 'Failed to load commission lines.');
   const items = Array.isArray(data.items) ? data.items as Record<string, unknown>[] : [];
@@ -521,6 +662,44 @@ export async function loadCommissionLedger(
     };
     return { fields };
   });
+}
+
+/** Rows already loaded for this client. The popup can calculate while a refresh is still running. */
+export function peekCommissionLedger(clientId: string, entities: LedgerParty[]): FormulaLedgerRow[] | null {
+  const entry = ledgerCache.get(clientId);
+  if (!entry || entry.entitiesKey !== ledgerEntitiesKey(entities)) return null;
+  return entry.rows;
+}
+
+/** Commission lines joined to their transaction, for SUMIFS in calculation rules. */
+export function loadCommissionLedger(
+  clientId: string,
+  entities: LedgerParty[],
+  options?: { refresh?: boolean },
+): Promise<FormulaLedgerRow[]> {
+  const entitiesKey = ledgerEntitiesKey(entities);
+  const existing = ledgerCache.get(clientId);
+  const sameEntities = existing?.entitiesKey === entitiesKey;
+  if (sameEntities && existing?.promise && (!options?.refresh || !existing.rows)) return existing.promise;
+
+  const promise = fetchCommissionLedger(clientId, entities).then((rows) => {
+    const current = ledgerCache.get(clientId);
+    if (current?.promise === promise) current.rows = rows;
+    return rows;
+  }).catch((error) => {
+    const current = ledgerCache.get(clientId);
+    if (current?.promise === promise) {
+      current.promise = null;
+      if (!current.rows) ledgerCache.delete(clientId);
+    }
+    throw error;
+  });
+  ledgerCache.set(clientId, {
+    entitiesKey,
+    rows: sameEntities ? existing?.rows ?? null : null,
+    promise,
+  });
+  return promise;
 }
 
 export function templateFormulaSources(
@@ -568,11 +747,13 @@ export function formulaLookupRow(clientId: string, record: Record<string, unknow
   return { clientId: rowClient, fields };
 }
 
-async function loadFormulaLookupTable(clientId: string, table: string): Promise<FormulaLookupRow[]> {
+const lookupTableCache = new Map<string, { promise: Promise<FormulaLookupRow[]>; rows: FormulaLookupRow[] | null }>();
+
+async function fetchFormulaLookupTable(clientId: string, table: string): Promise<FormulaLookupRow[]> {
   const pageSize = 1000;
   const rows: FormulaLookupRow[] = [];
   for (let offset = 0; offset < 50000; offset += pageSize) {
-    const response = await fetch(`/api/formula-lookups?table=${encodeURIComponent(table)}&client_id=${encodeURIComponent(clientId)}&offset=${offset}&limit=${pageSize}`);
+    const response = await fetch(`/api/formula-lookups?table=${encodeURIComponent(table)}&client_id=${encodeURIComponent(clientId)}&offset=${offset}&limit=${pageSize}`, { cache: 'no-store' });
     const data = await response.json();
     if (!response.ok || data.success === false) throw new Error(data.error || `Failed to load ${table}.`);
     if (String(data.client_id || '') !== clientId) throw new Error('Formula lookup returned a different client.');
@@ -584,6 +765,34 @@ async function loadFormulaLookupTable(clientId: string, table: string): Promise<
     if (batch.length < pageSize) break;
   }
   return rows;
+}
+
+function loadFormulaLookupTable(clientId: string, table: string): Promise<FormulaLookupRow[]> {
+  const cacheKey = `${clientId}:${table}`;
+  const existing = lookupTableCache.get(cacheKey);
+  if (existing) return existing.promise;
+  const promise = fetchFormulaLookupTable(clientId, table).then((rows) => {
+    const current = lookupTableCache.get(cacheKey);
+    if (current?.promise === promise) current.rows = rows;
+    return rows;
+  }).catch((error) => {
+    const current = lookupTableCache.get(cacheKey);
+    if (current?.promise === promise) lookupTableCache.delete(cacheKey);
+    throw error;
+  });
+  lookupTableCache.set(cacheKey, { promise, rows: null });
+  return promise;
+}
+
+/** Lookup rows already loaded for these tables. */
+export function peekFormulaLookups(clientId: string, tables: readonly string[]): FormulaLookups | null {
+  const loaded: FormulaLookups['tables'] = {};
+  for (const table of tables) {
+    const entry = lookupTableCache.get(`${clientId}:${table}`);
+    if (!entry?.rows) return null;
+    loaded[table] = entry.rows;
+  }
+  return { clientId, tables: loaded };
 }
 
 /** Client-scoped rows for the tables a formula's XLOOKUP actually reads. */

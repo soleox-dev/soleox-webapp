@@ -1,11 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
+import { ListChecks, ListFilter, Plus, Rows3 } from 'lucide-react';
+import { BulkUpdateDialog } from '@/app/(dashboard)/commission-tracker/transactions/components/BulkUpdateDialog';
+import { HoverNote } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/HoverNote';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { PERCENT_POINT_DECIMALS, formatPercentPoints, formatTablePercent, fromPercentPoints, toPercentPoints } from '@/lib/percent';
+import { isAgentBulkEditableField } from '@/lib/agent-bulk';
 import { isHiddenRecordId } from '@/lib/fields';
 import { pageFrame } from '@/lib/page-frame';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
-import { BooleanCheckbox, BooleanField, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
+import { BooleanField, BooleanMark, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { TrashIcon } from '@/components/ui/trash-icon';
@@ -70,6 +75,33 @@ const underlineLabel =
   'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
 const underlineControl =
   'w-full border-0 bg-transparent p-0 h-5 text-xs leading-4 font-medium text-slate-900 focus:outline-none focus:ring-0 disabled:cursor-not-allowed dark:text-white';
+const filterShell =
+  'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 px-2 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600';
+const filterControl =
+  'w-full border-0 bg-transparent p-0 h-5 text-[11px] leading-4 font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 dark:text-white dark:placeholder:text-slate-500';
+
+function agentGroupValue(agent: AgentRecord): string {
+  const direct = agent.group_id ?? agent.group;
+  const custom = agent.custom_attributes?.group_id ?? agent.custom_attributes?.group;
+  const value = direct ?? custom;
+  return value == null ? '' : String(value);
+}
+
+function agentFieldValue(agent: AgentRecord, key: string): unknown {
+  if (key === 'group_id' || key === 'group') {
+    const group = agentGroupValue(agent);
+    return group === '' ? undefined : group;
+  }
+  const direct = agent[key];
+  if (direct !== undefined && direct !== null && direct !== '') return direct;
+  if (key === 'id') return agent.id;
+  if (key === 'agent_id') return agent.agent_id || agent.id;
+  if (key === 'agent_name' || key === 'full_name') return agent.agent_name || agent.full_name || undefined;
+  if (key === 'agent_status') return agent.agent_status || undefined;
+  const custom = agent.custom_attributes?.[key];
+  if (custom !== undefined && custom !== null && custom !== '') return custom;
+  return direct;
+}
 
 function FieldChevron() {
   return (
@@ -171,42 +203,81 @@ function AgentAmountInput({
   );
 }
 
-const GROUP_COLOR_STYLES: Record<string, string> = {
-  'group a': 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/30',
-  'group b': 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30',
-  'group c': 'bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-500/30',
-  'group d': 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30',
-  'orange county': 'bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30',
+type GroupTone = { pill: string; selected: string };
+
+const GROUP_TONES: Record<string, GroupTone> = {
+  'group a': {
+    pill: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/30',
+    selected: 'bg-indigo-600 text-white border-indigo-600 dark:bg-indigo-500 dark:border-indigo-500',
+  },
+  'group b': {
+    pill: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30',
+    selected: 'bg-amber-500 text-amber-950 border-amber-500',
+  },
+  'group c': {
+    pill: 'bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-500/30',
+    selected: 'bg-teal-600 text-white border-teal-600 dark:bg-teal-500 dark:border-teal-500',
+  },
+  'group d': {
+    pill: 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30',
+    selected: 'bg-rose-600 text-white border-rose-600 dark:bg-rose-500 dark:border-rose-500',
+  },
+  'orange county': {
+    pill: 'bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30',
+    selected: 'bg-orange-500 text-white border-orange-500',
+  },
 };
 
-const DYNAMIC_GROUP_PALETTES = [
-  'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/30',
-  'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30',
-  'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30',
-  'bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-500/30',
-  'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30',
-  'bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30',
-  'bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30',
-  'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30',
-  'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-400 border-fuchsia-500/30',
-  'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/30',
-  'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30',
-  'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/30',
+const DYNAMIC_GROUP_TONES: GroupTone[] = [
+  GROUP_TONES['group a'],
+  GROUP_TONES['group b'],
+  {
+    pill: 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30',
+    selected: 'bg-purple-600 text-white border-purple-600 dark:bg-purple-500 dark:border-purple-500',
+  },
+  GROUP_TONES['group c'],
+  GROUP_TONES['group d'],
+  {
+    pill: 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30',
+    selected: 'bg-sky-600 text-white border-sky-600 dark:bg-sky-500 dark:border-sky-500',
+  },
+  GROUP_TONES['orange county'],
+  {
+    pill: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30',
+    selected: 'bg-emerald-600 text-white border-emerald-600 dark:bg-emerald-500 dark:border-emerald-500',
+  },
+  {
+    pill: 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-400 border-fuchsia-500/30',
+    selected: 'bg-fuchsia-600 text-white border-fuchsia-600 dark:bg-fuchsia-500 dark:border-fuchsia-500',
+  },
+  {
+    pill: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/30',
+    selected: 'bg-cyan-600 text-cyan-950 border-cyan-600 dark:bg-cyan-500 dark:border-cyan-500',
+  },
+  {
+    pill: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30',
+    selected: 'bg-blue-600 text-white border-blue-600 dark:bg-blue-500 dark:border-blue-500',
+  },
+  {
+    pill: 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/30',
+    selected: 'bg-violet-600 text-white border-violet-600 dark:bg-violet-500 dark:border-violet-500',
+  },
 ];
 
-function getGroupBadgeStyle(groupName: string): string {
-  if (!groupName) return 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700';
+function groupTone(groupName: string): GroupTone {
   const clean = groupName.trim().toLowerCase();
-  if (GROUP_COLOR_STYLES[clean]) {
-    return GROUP_COLOR_STYLES[clean];
-  }
+  if (GROUP_TONES[clean]) return GROUP_TONES[clean];
   let hash = 0;
   for (let i = 0; i < clean.length; i++) {
     hash = (hash << 5) - hash + clean.charCodeAt(i);
     hash |= 0;
   }
-  const idx = Math.abs(hash) % DYNAMIC_GROUP_PALETTES.length;
-  return DYNAMIC_GROUP_PALETTES[idx];
+  return DYNAMIC_GROUP_TONES[Math.abs(hash) % DYNAMIC_GROUP_TONES.length];
+}
+
+function getGroupBadgeStyle(groupName: string): string {
+  if (!groupName) return 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700';
+  return groupTone(groupName).pill;
 }
 
 export default function AgentsPage() {
@@ -222,11 +293,37 @@ export default function AgentsPage() {
 
   // Client-side viewing: Quick search & column sorting
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeGroup, setActiveGroup] = useState('ALL');
+  const [showFilters, setShowFilters] = useState(false);
+  const [compactRows, setCompactRows] = useState(false);
+  const [colFilters, setColFilters] = useState<Record<string, string>>({});
   const [sortField, setSortField] = useState('agent_name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkNotice, setBulkNotice] = useState<string | null>(null);
+  const [pendingBulkDelete, setPendingBulkDelete] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
 
   // Ref to target Agent Name input for auto-focusing
   const agentNameInputRef = useRef<HTMLInputElement>(null);
+
+  useLayoutEffect(() => {
+    setCompactRows(window.localStorage.getItem('soleox-agents-row-density') === 'compact');
+  }, []);
+
+  const toggleCompactRows = () => {
+    setCompactRows((current) => {
+      const next = !current;
+      window.localStorage.setItem('soleox-agents-row-density', next ? 'compact' : 'comfortable');
+      return next;
+    });
+  };
 
   const loadLiveSchema = async () => {
     try {
@@ -289,14 +386,63 @@ export default function AgentsPage() {
     }
   }, [isModalOpen]);
 
-  const activeConfigs = fieldConfigs
+  const activeConfigs = useMemo(() => fieldConfigs
     .filter((f) => f.is_enabled && !isHiddenRecordId('agents', f.field_key))
     .sort((a, b) => {
       if (a.section_sort_order !== b.section_sort_order) {
         return a.section_sort_order - b.section_sort_order;
       }
       return a.sort_order - b.sort_order;
+    }), [fieldConfigs]);
+
+  const sectionHeaderGroups = useMemo(() => {
+    if (activeConfigs.length === 0) return [];
+    const groups: { name: string; span: number }[] = [];
+    let currentSection = activeConfigs[0].section_name || 'Identity & Status';
+    let currentSpan = 0;
+    activeConfigs.forEach((field) => {
+      const sectionName = field.section_name || 'Identity & Status';
+      if (sectionName === currentSection) {
+        currentSpan += 1;
+      } else {
+        groups.push({ name: currentSection, span: currentSpan });
+        currentSection = sectionName;
+        currentSpan = 1;
+      }
     });
+    if (currentSpan > 0) groups.push({ name: currentSection, span: currentSpan });
+    return groups;
+  }, [activeConfigs]);
+
+  const groupOptions = useMemo(() => {
+    const field = activeConfigs.find((cfg) => cfg.field_key === 'group_id')
+      ?? activeConfigs.find((cfg) => cfg.field_key === 'group');
+    const seen = new Set<string>();
+    return (field?.dropdown_options ?? []).map((option) => String(option).trim()).filter((option) => {
+      if (!option) return false;
+      const key = option.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [activeConfigs]);
+
+  const groupCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    groupOptions.forEach((option) => counts.set(option, 0));
+    agents.forEach((agent) => {
+      const value = agentGroupValue(agent).trim().toLowerCase();
+      const match = groupOptions.find((option) => option.toLowerCase() === value);
+      if (match) counts.set(match, (counts.get(match) || 0) + 1);
+    });
+    return counts;
+  }, [agents, groupOptions]);
+
+  useEffect(() => {
+    if (activeGroup !== 'ALL' && !groupOptions.some((option) => option.toLowerCase() === activeGroup.toLowerCase())) {
+      setActiveGroup('ALL');
+    }
+  }, [activeGroup, groupOptions]);
 
   const handleSort = (fieldKey: string) => {
     if (sortField === fieldKey) {
@@ -307,8 +453,17 @@ export default function AgentsPage() {
     }
   };
 
+  const handleFilterChange = (fieldKey: string, value: string) => {
+    setColFilters((prev) => ({ ...prev, [fieldKey]: value }));
+  };
+
   const processedAgents = useMemo(() => {
     let result = [...agents];
+
+    if (activeGroup !== 'ALL') {
+      const target = activeGroup.trim().toLowerCase();
+      result = result.filter((agent) => agentGroupValue(agent).trim().toLowerCase() === target);
+    }
 
     // Global quick search across all agent fields (in-memory viewing)
     if (searchQuery.trim()) {
@@ -323,6 +478,31 @@ export default function AgentsPage() {
           }
           return String(val).toLowerCase().includes(q);
         });
+      });
+    }
+
+    const activeColumnFilters = Object.entries(colFilters).filter(([, value]) => value && value !== 'All');
+    if (activeColumnFilters.length > 0) {
+      result = result.filter((agent) => {
+        for (const [key, filterVal] of activeColumnFilters) {
+          const field = fieldConfigs.find((item) => item.field_key === key);
+          const raw = agentFieldValue(agent, key);
+          if (field?.field_type === 'BOOLEAN') {
+            const checked = isBooleanChecked(raw);
+            if (filterVal === 'Yes' && !checked) return false;
+            if (filterVal === 'No' && checked) return false;
+            continue;
+          }
+          const cell = String(raw ?? '').toLowerCase();
+          const target = filterVal.toLowerCase();
+          if (field?.field_type === 'PERCENT') {
+            const shown = formatTablePercent(raw).toLowerCase();
+            if (!cell.includes(target) && !shown.includes(target)) return false;
+          } else if (!cell.includes(target)) {
+            return false;
+          }
+        }
+        return true;
       });
     }
 
@@ -370,7 +550,215 @@ export default function AgentsPage() {
     });
 
     return result;
-  }, [agents, searchQuery, sortField, sortOrder]);
+  }, [agents, searchQuery, activeGroup, colFilters, fieldConfigs, sortField, sortOrder]);
+
+  const visibleIds = useMemo(
+    () => processedAgents.map((agent) => String(agent.id || '')).filter(Boolean),
+    [processedAgents],
+  );
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+
+  useEffect(() => {
+    if (!bulkMode) return;
+    const visible = new Set(visibleIds);
+    setSelectedIds((current) => {
+      const next = new Set([...current].filter((id) => visible.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [bulkMode, visibleIds]);
+
+  useEffect(() => {
+    const box = selectAllRef.current;
+    if (!box) return;
+    const count = visibleIds.filter((id) => selectedIds.has(id)).length;
+    box.indeterminate = count > 0 && count < visibleIds.length;
+  }, [visibleIds, selectedIds, bulkMode]);
+
+  const toggleVisibleSelection = () => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (visibleIds.every((id) => next.has(id))) visibleIds.forEach((id) => next.delete(id));
+      else visibleIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+  const toggleRowSelection = (id: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const visibleIdsRef = useRef(visibleIds);
+  visibleIdsRef.current = visibleIds;
+  const dragSelectRef = useRef<{
+    startId: string;
+    originX: number;
+    originY: number;
+    clientX: number;
+    clientY: number;
+    dragging: boolean;
+    base: Set<string>;
+  } | null>(null);
+  const suppressRowClickRef = useRef(false);
+
+  const applyDragSelection = useCallback((startId: string, currentId: string, base: Set<string>) => {
+    const ids = visibleIdsRef.current;
+    const start = ids.indexOf(startId);
+    const current = ids.indexOf(currentId);
+    if (start < 0 || current < 0) return;
+    const from = Math.min(start, current);
+    const to = Math.max(start, current);
+    const next = new Set(base);
+    for (let index = from; index <= to; index += 1) next.add(ids[index]);
+    setSelectedIds((existing) => {
+      if (existing.size === next.size && [...next].every((id) => existing.has(id))) return existing;
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!bulkMode) {
+      dragSelectRef.current = null;
+      return;
+    }
+    let frame = 0;
+    const rowIdAt = (x: number, y: number) => {
+      const scroller = tableScrollRef.current;
+      let pointY = y;
+      const head = scroller?.querySelector('thead');
+      const headBottom = head?.getBoundingClientRect().bottom;
+      if (headBottom !== undefined && pointY <= headBottom) pointY = headBottom + 8;
+      const target = document.elementFromPoint(x, pointY);
+      const row = target instanceof Element ? target.closest('tr[data-bulk-id]') : null;
+      return row?.getAttribute('data-bulk-id') || '';
+    };
+    const extendSelection = () => {
+      const drag = dragSelectRef.current;
+      if (!drag?.dragging) return;
+      const scroller = tableScrollRef.current;
+      if (scroller) {
+        const bounds = scroller.getBoundingClientRect();
+        if (drag.clientY < bounds.top + 36) scroller.scrollTop -= 18;
+        else if (drag.clientY > bounds.bottom - 36) scroller.scrollTop += 18;
+      }
+      const id = rowIdAt(drag.clientX, drag.clientY);
+      if (id) applyDragSelection(drag.startId, id, drag.base);
+    };
+    const onMove = (event: PointerEvent) => {
+      const drag = dragSelectRef.current;
+      if (!drag) return;
+      drag.clientX = event.clientX;
+      drag.clientY = event.clientY;
+      const distance = Math.hypot(event.clientX - drag.originX, event.clientY - drag.originY);
+      if (!drag.dragging && distance < 4) return;
+      if (!drag.dragging) {
+        drag.dragging = true;
+        document.body.classList.add('select-none');
+      }
+      const id = rowIdAt(event.clientX, event.clientY);
+      if (id) applyDragSelection(drag.startId, id, drag.base);
+      if (!frame) frame = requestAnimationFrame(function loop() {
+        extendSelection();
+        frame = dragSelectRef.current?.dragging ? requestAnimationFrame(loop) : 0;
+      });
+    };
+    const stop = () => {
+      if (dragSelectRef.current?.dragging) suppressRowClickRef.current = true;
+      dragSelectRef.current = null;
+      document.body.classList.remove('select-none');
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', stop);
+    window.addEventListener('pointercancel', stop);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', stop);
+      window.removeEventListener('pointercancel', stop);
+      document.body.classList.remove('select-none');
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [applyDragSelection, bulkMode]);
+
+  const confirmBulkUpdate = async (fieldKey: string, value: string) => {
+    setIsBulkUpdating(true);
+    setBulkError(null);
+    try {
+      const response = await fetch('/api/agents/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-client-id': 'DEMO' },
+        body: JSON.stringify({ clientId: 'DEMO', ids: [...selectedIds], fieldKey, value }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.success) throw new Error(payload.error || 'Could not update those agents.');
+      await loadLiveAgents();
+      const updated = Number(payload.updated) || 0;
+      const unchanged = Number(payload.unchanged) || 0;
+      const skipped = Number(payload.skipped) || 0;
+      const failed = Array.isArray(payload.errors) ? payload.errors.length : 0;
+      const parts = [`Updated ${updated} ${updated === 1 ? 'agent' : 'agents'}.`];
+      if (unchanged) parts.push(`${unchanged} already had that value.`);
+      if (skipped) parts.push(`${skipped} were skipped.`);
+      if (failed) parts.push(`${failed} could not be updated.`);
+      setBulkNotice(parts.join(' '));
+      setSelectedIds(new Set());
+      setBulkDialogOpen(false);
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : 'Could not update those agents.');
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  const confirmBulkDelete = async () => {
+    if (isBulkDeleting || selectedIds.size === 0) return;
+    setIsBulkDeleting(true);
+    setBulkDeleteError(null);
+    try {
+      const response = await fetch('/api/agents/bulk', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'x-client-id': 'DEMO' },
+        body: JSON.stringify({ clientId: 'DEMO', ids: [...selectedIds] }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      const deletedIds = new Set<string>(Array.isArray(payload.deleted) ? payload.deleted.map((id: unknown) => String(id)) : []);
+      if (deletedIds.size > 0) {
+        setAgents((current) => current.filter((agent) => !deletedIds.has(String(agent.id))));
+        setSelectedIds((current) => {
+          const next = new Set(current);
+          deletedIds.forEach((id) => next.delete(id));
+          return next;
+        });
+      }
+      const problems = Array.isArray(payload.errors) ? payload.errors : [];
+      const kept = problems.filter((item: { message?: string }) => String(item.message || '').includes('transaction')).length;
+      const failed = problems.length - kept;
+      if (!response.ok && deletedIds.size === 0) {
+        throw new Error(payload.error || problems[0]?.message || 'Could not delete those agents.');
+      }
+      const noun = deletedIds.size === 1 ? 'agent' : 'agents';
+      const notes = [`Deleted ${deletedIds.size} ${noun}.`];
+      if (kept) notes.push(`${kept} ${kept === 1 ? 'agent stays' : 'agents stay'} because they are on a transaction.`);
+      if (failed) notes.push(`${failed} could not be deleted.`);
+      if (kept === 0 && failed === 0) {
+        setBulkNotice(notes[0]);
+        setPendingBulkDelete(false);
+      } else {
+        setBulkDeleteError(notes.slice(1).join(' ') || notes[0]);
+        if (deletedIds.size > 0) setBulkNotice(notes.join(' '));
+      }
+    } catch (error) {
+      setBulkDeleteError(error instanceof Error ? error.message : 'Could not delete those agents.');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
 
   const sections = Array.from(new Set(activeConfigs.map((f) => f.section_name || 'Identity & Status')));
 
@@ -537,6 +925,16 @@ export default function AgentsPage() {
     return operator === 'AND' ? results.every(Boolean) : results.some(Boolean);
   };
 
+  const cellPad = `${compactRows ? 'px-3 py-0.5 leading-4' : 'px-4 py-3'} border-b border-slate-200 dark:border-slate-700/60`;
+  const badgeSize = compactRows ? 'inline-flex h-4 items-center px-1.5 leading-none' : 'inline-block px-2.5 py-0.5';
+  const pinEdge = 'shadow-[8px_0_12px_-12px_rgba(15,23,42,0.55)]';
+  const pinLeft = bulkMode ? 'left-8' : 'left-0';
+  const pinHead = `sticky ${pinLeft} z-30 ${pinEdge}`;
+  const pinCell = `sticky ${pinLeft} z-10 bg-white group-hover:bg-slate-50 dark:bg-slate-800 dark:group-hover:bg-slate-700 ${pinEdge}`;
+  const pinCheckHead = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-slate-100 dark:bg-slate-900';
+  const pinCheckSection = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-slate-200 dark:bg-slate-950';
+  const pinCheckCell = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-white group-hover:bg-slate-50 dark:bg-slate-800 dark:group-hover:bg-slate-700';
+
   return (
     <main className={`${pageFrame} min-h-screen bg-slate-100 py-6 text-slate-900 transition-colors duration-200 space-y-6 dark:bg-slate-900 dark:text-slate-100 md:py-8`}>
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl flex flex-wrap justify-between items-start sm:items-center gap-4 transition-colors">
@@ -555,49 +953,230 @@ export default function AgentsPage() {
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-          {/* Quick Search */}
-          <div className="relative w-full sm:w-72">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search all fields..."
-              className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3.5 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-medium"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
-          {canWriteTracker && (
+        {canWriteTracker && (
           <button
+            type="button"
             onClick={handleOpenAdd}
-            className="border border-slate-300 bg-white px-4 py-2.5 rounded-lg text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700 flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer"
+            className="border border-slate-300 bg-white px-4 py-2.5 rounded-lg text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700 flex items-center gap-2 whitespace-nowrap cursor-pointer"
           >
-            <span className="text-emerald-500">+</span>
-            <span>Add New Agent</span>
+            <Plus className="h-3.5 w-3.5 text-emerald-500" strokeWidth={1.75} aria-hidden />
+            <span>New Agent</span>
           </button>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* Agents Roster Table */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md overflow-hidden transition-colors">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold uppercase border-b border-slate-200 dark:border-slate-700 select-none">
-              <tr>
-                {activeConfigs.map((cfg) => (
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden p-5 space-y-4 transition-colors">
+        {bulkNotice && (
+          <p className="text-xs text-slate-600 dark:text-slate-300">{bulkNotice}</p>
+        )}
+
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-700 pb-4">
+          <div className="flex flex-wrap items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+            {[{ key: 'ALL', label: 'All', count: agents.length }, ...groupOptions.map((option) => ({
+              key: option,
+              label: option,
+              count: groupCounts.get(option) || 0,
+            }))].map((tab) => {
+              const selected = activeGroup.toLowerCase() === tab.key.toLowerCase();
+              const tone = tab.key === 'ALL' ? null : groupTone(tab.key);
+              const tabClass = !tone
+                ? selected
+                  ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-transparent'
+                  : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-slate-300 dark:border-slate-600'
+                : selected
+                  ? tone.selected
+                  : tone.pill;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveGroup(tab.key)}
+                  className={`inline-flex items-center px-3.5 py-1.5 rounded-md border text-xs font-bold uppercase tracking-wider transition whitespace-nowrap cursor-pointer ${tabClass}`}
+                >
+                  {tab.label}
+                  <span className="ml-1.5 tabular-nums opacity-70">
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2 shrink-0">
+            {canWriteTracker && (
+              <div className="flex flex-wrap items-center gap-2">
+                <HoverNote label="Select agents to update or delete at once">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (bulkMode) {
+                        setBulkMode(false);
+                        setSelectedIds(new Set());
+                        setBulkDialogOpen(false);
+                        setBulkError(null);
+                        setPendingBulkDelete(false);
+                        setBulkDeleteError(null);
+                        return;
+                      }
+                      setBulkNotice(null);
+                      setBulkMode(true);
+                    }}
+                    aria-label="Select agents to update or delete at once"
+                    aria-pressed={bulkMode}
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition cursor-pointer ${
+                      bulkMode
+                        ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
+                        : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <ListChecks className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                  </button>
+                </HoverNote>
+                {bulkMode && selectedIds.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkError(null);
+                      setBulkDialogOpen(true);
+                    }}
+                    className="h-9 px-3 rounded-lg text-xs font-bold border border-emerald-500/40 bg-emerald-500 text-white hover:bg-emerald-600 transition inline-flex items-center whitespace-nowrap cursor-pointer"
+                  >
+                    Update {selectedIds.size}
+                  </button>
+                )}
+                {bulkMode && selectedIds.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkDeleteError(null);
+                      setPendingBulkDelete(true);
+                    }}
+                    className="h-9 px-3 rounded-lg text-xs font-bold border border-rose-500/40 bg-rose-600 text-white hover:bg-rose-500 transition inline-flex items-center whitespace-nowrap cursor-pointer"
+                  >
+                    Delete {selectedIds.size}
+                  </button>
+                )}
+              </div>
+            )}
+            {canWriteTracker && <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />}
+            <HoverNote label="Compact Table View">
+              <button
+                type="button"
+                onClick={toggleCompactRows}
+                aria-label="Compact Table View"
+                aria-pressed={compactRows}
+                className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition cursor-pointer ${
+                  compactRows
+                    ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
+                    : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
+              >
+                <Rows3 className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+              </button>
+            </HoverNote>
+            <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />
+            <div className="flex items-center gap-2">
+              <HoverNote label="Advanced Filters">
+                <button
+                  type="button"
+                  onClick={() => setShowFilters(!showFilters)}
+                  aria-label="Advanced Filters"
+                  aria-pressed={showFilters}
+                  className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition cursor-pointer ${
+                    showFilters
+                      ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
+                      : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <ListFilter className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                </button>
+              </HoverNote>
+              <div className={`relative w-[20rem] max-w-full ${underlineShell}`}>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search all fields..."
+                  className={`${underlineControl} pr-4`}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          ref={tableScrollRef}
+          onClickCapture={(event) => {
+            if (!suppressRowClickRef.current) return;
+            suppressRowClickRef.current = false;
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          className={`overflow-x-auto overflow-y-auto border border-slate-200 dark:border-slate-700/80 rounded-lg scrollbar-thin ${compactRows ? 'max-h-[calc(100dvh-11rem)]' : 'max-h-[640px]'}`}
+        >
+          <table className="w-full text-left text-xs border-separate border-spacing-0">
+            <thead className="sticky top-0 z-20 shadow-md select-none bg-slate-100 dark:bg-slate-900">
+              <tr className="bg-slate-200 dark:bg-slate-950 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                {bulkMode && <th className={`${pinCheckSection} border-b border-slate-300 dark:border-slate-800`} />}
+                {sectionHeaderGroups.map((group, index) => {
+                  const span = index === 0 ? group.span - 1 : group.span;
+                  return (
+                    <React.Fragment key={`${group.name}_${index}`}>
+                      {index === 0 && (
+                        <th className={`${pinHead} bg-slate-200 p-0 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800 border-r border-slate-300/60 dark:border-slate-800/80`}>
+                          <div className="absolute inset-0 flex items-center gap-1.5 px-4">
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                            <span className="truncate">{group.name}</span>
+                          </div>
+                        </th>
+                      )}
+                      {span > 0 && (
+                        <th
+                          colSpan={span}
+                          className="py-1.5 px-4 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800 border-r border-slate-300/60 dark:border-slate-800/80"
+                        >
+                          {index === 0 ? null : (
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              <span>{group.name}</span>
+                            </div>
+                          )}
+                        </th>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+                {canWriteTracker && <th className="py-1.5 px-4 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />}
+              </tr>
+              <tr className="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 uppercase tracking-wider font-semibold">
+                {bulkMode && (
+                  <th className={`${pinCheckHead} ${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} align-middle border-b border-slate-200 dark:border-slate-700 text-center`}>
+                    <span className="inline-flex items-center justify-center">
+                      <input
+                        ref={selectAllRef}
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        onChange={toggleVisibleSelection}
+                        aria-label="Select all agents in this view"
+                        className="block h-3.5 w-3.5 accent-emerald-500 cursor-pointer"
+                      />
+                    </span>
+                  </th>
+                )}
+                {activeConfigs.map((cfg, index) => (
                   <th
                     key={cfg.field_key}
                     onClick={() => handleSort(cfg.field_key)}
-                    className={`p-3.5 whitespace-nowrap cursor-pointer hover:text-slate-900 dark:hover:text-white transition group ${cfg.field_type === 'BOOLEAN' || cfg.field_type === 'DATE' ? 'text-center' : ''} ${cfg.field_type === 'CURRENCY' || cfg.field_type === 'PERCENT' ? 'text-right' : ''}`}
+                    className={`${index === 0 ? pinHead : ''} ${compactRows ? 'px-3 py-1.5' : 'px-4 py-3'} bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 whitespace-nowrap cursor-pointer hover:text-slate-900 dark:hover:text-white transition group border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0 ${cfg.field_type === 'BOOLEAN' || cfg.field_type === 'DATE' ? 'text-center' : ''} ${cfg.field_type === 'CURRENCY' || cfg.field_type === 'PERCENT' ? 'text-right' : ''}`}
                   >
                     <div className={`flex items-center gap-1.5 ${cfg.field_type === 'BOOLEAN' || cfg.field_type === 'DATE' ? 'justify-center' : ''} ${cfg.field_type === 'CURRENCY' || cfg.field_type === 'PERCENT' ? 'justify-end' : ''}`}>
                       <span>{cfg.field_label}</span>
@@ -607,32 +1186,130 @@ export default function AgentsPage() {
                     </div>
                   </th>
                 ))}
-                {canWriteTracker && <th className="p-3.5 text-center whitespace-nowrap">Actions</th>}
+                {canWriteTracker && (
+                  <th className={`${compactRows ? 'px-3 py-1.5' : 'px-4 py-3'} bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 whitespace-nowrap text-center`}>
+                    Actions
+                  </th>
+                )}
               </tr>
+              {showFilters && (
+                <tr className="bg-slate-100 dark:bg-slate-900">
+                  {bulkMode && <th className={`${pinCheckHead} border-b border-slate-200 dark:border-slate-700`} />}
+                  {activeConfigs.map((cfg, index) => (
+                    <th key={`filter_${cfg.field_key}`} className={`${index === 0 ? pinHead : ''} px-2 py-1.5 min-w-[120px] bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0`}>
+                      {cfg.field_type === 'SELECT' && Array.isArray(cfg.dropdown_options) ? (
+                        <label className={filterShell}>
+                          <ClearableSelect
+                            allowBlank={false}
+                            clearValue="All"
+                            value={colFilters[cfg.field_key] || 'All'}
+                            onChange={(e) => handleFilterChange(cfg.field_key, e.target.value)}
+                            className={`${filterControl} cursor-pointer pr-5`}
+                          >
+                            <option value="All">All {cfg.field_label}</option>
+                            {cfg.dropdown_options.filter(Boolean).map((opt) => (
+                              <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                          </ClearableSelect>
+                        </label>
+                      ) : cfg.field_type === 'BOOLEAN' ? (
+                        <label className={filterShell}>
+                          <ClearableSelect
+                            allowBlank={false}
+                            clearValue="All"
+                            value={colFilters[cfg.field_key] || 'All'}
+                            onChange={(e) => handleFilterChange(cfg.field_key, e.target.value)}
+                            className={`${filterControl} cursor-pointer pr-5`}
+                          >
+                            <option value="All">All {cfg.field_label}</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                          </ClearableSelect>
+                        </label>
+                      ) : (
+                        <label className={filterShell}>
+                          <input
+                            type={cfg.field_type === 'DATE' ? 'date' : 'text'}
+                            placeholder={`Filter ${cfg.field_label}...`}
+                            value={colFilters[cfg.field_key] || ''}
+                            onChange={(e) => handleFilterChange(cfg.field_key, e.target.value)}
+                            className={`${filterControl} ${cfg.field_type === 'DATE' ? 'dark:[color-scheme:dark]' : ''}`}
+                          />
+                        </label>
+                      )}
+                    </th>
+                  ))}
+                  {canWriteTracker && <th className="px-2 py-1.5 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700" />}
+                </tr>
+              )}
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-700/60 font-medium text-slate-800 dark:text-slate-200">
+            <tbody className="font-medium text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800">
               {isLoading ? (
                 <tr>
-                  <td colSpan={activeConfigs.length + (canWriteTracker ? 1 : 0)} className="p-5 text-center text-slate-400">
+                  <td colSpan={activeConfigs.length + (canWriteTracker ? 1 : 0) + (bulkMode ? 1 : 0)} className="p-5 text-center text-slate-400">
                     Loading agent roster...
                   </td>
                 </tr>
               ) : processedAgents.length === 0 ? (
                 <tr>
-                  <td colSpan={activeConfigs.length + (canWriteTracker ? 1 : 0)} className="p-5 text-center text-slate-400 italic">
-                    {searchQuery ? `No matching agents found for "${searchQuery}".` : 'No agents found.'}
+                  <td colSpan={activeConfigs.length + (canWriteTracker ? 1 : 0) + (bulkMode ? 1 : 0)} className="p-5 text-center text-slate-400 italic">
+                    {searchQuery || activeGroup !== 'ALL' || Object.values(colFilters).some((value) => value && value !== 'All')
+                      ? 'No matching agents found for the current filters.'
+                      : 'No agents found.'}
                   </td>
                 </tr>
               ) : (
                 processedAgents.map((ag) => (
-                  <tr key={ag.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+                  <tr
+                    key={ag.id}
+                    data-bulk-id={bulkMode ? String(ag.id || '') : undefined}
+                    onPointerDown={(event) => {
+                      if (!bulkMode || event.button !== 0) return;
+                      const target = event.target as HTMLElement | null;
+                      if (target?.closest('a, button')) return;
+                      if (!target?.closest('input')) event.preventDefault();
+                      dragSelectRef.current = {
+                        startId: String(ag.id || ''),
+                        originX: event.clientX,
+                        originY: event.clientY,
+                        clientX: event.clientX,
+                        clientY: event.clientY,
+                        dragging: false,
+                        base: new Set(selectedIds),
+                      };
+                    }}
+                    onClick={(event) => {
+                      if (suppressRowClickRef.current) {
+                        suppressRowClickRef.current = false;
+                        return;
+                      }
+                      const target = event.target as HTMLElement | null;
+                      if (target?.closest('a, button, input, select, textarea, label')) return;
+                      if (bulkMode) toggleRowSelection(String(ag.id || ''));
+                    }}
+                    className={`group hover:bg-slate-50 dark:hover:bg-slate-700/30 transition ${bulkMode ? 'cursor-pointer' : ''}`}
+                  >
+                    {bulkMode && (
+                      <td className={`${pinCheckCell} ${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} text-center align-middle border-b border-slate-200 dark:border-slate-700/60`}>
+                        <span className="inline-flex items-center justify-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(String(ag.id || ''))}
+                            onChange={() => toggleRowSelection(String(ag.id || ''))}
+                            aria-label={`Select ${ag.agent_name || ag.id}`}
+                            className="block h-3.5 w-3.5 accent-emerald-500 cursor-pointer"
+                          />
+                        </span>
+                      </td>
+                    )}
                     {activeConfigs.map((cfg, idx) => {
                       const rawVal = ag[cfg.field_key] ?? (cfg.field_key === 'id' ? ag.id : undefined);
+                      const lead = idx === 0 ? pinCell : '';
 
                       // Column: ID Column
                       if (cfg.field_key === 'id' || cfg.field_key === 'agent_id') {
                         return (
-                          <td key={cfg.field_key} className="p-3.5 whitespace-nowrap font-bold">
+                          <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap font-bold`}>
                             {canWriteTracker ? (
                             <button
                               onClick={() => handleOpenEdit(ag)}
@@ -650,7 +1327,7 @@ export default function AgentsPage() {
                       // Column: Agent Name Column
                       if (cfg.field_key === 'agent_name' || cfg.field_key === 'full_name') {
                         return (
-                          <td key={cfg.field_key} className="p-3.5 whitespace-nowrap">
+                          <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap`}>
                             {canWriteTracker ? (
                             <button
                               onClick={() => handleOpenEdit(ag)}
@@ -679,18 +1356,18 @@ export default function AgentsPage() {
                         }
                         const canToggle = statusOptions.length >= 2;
                         return (
-                          <td key={cfg.field_key} className="p-3.5 text-center whitespace-nowrap">
+                          <td key={cfg.field_key} className={`${lead} ${cellPad} text-center whitespace-nowrap`}>
                             {canWriteTracker ? (
                             <button
                               type="button"
                               onClick={() => toggleStatus(ag)}
                               disabled={!canToggle}
-                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider transition ${canToggle ? 'cursor-pointer' : 'cursor-default'} ${badgeStyle}`}
+                              className={`${badgeSize} rounded-full text-[10px] font-bold border uppercase tracking-wider transition ${canToggle ? 'cursor-pointer' : 'cursor-default'} ${badgeStyle}`}
                             >
                               {st || '—'}
                             </button>
                             ) : (
-                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider inline-block ${badgeStyle}`}>
+                            <span className={`${badgeSize} rounded-full text-[10px] font-bold border uppercase tracking-wider ${badgeStyle}`}>
                               {st || '—'}
                             </span>
                             )}
@@ -702,7 +1379,7 @@ export default function AgentsPage() {
                       if (cfg.field_key === 'group_id' || cfg.field_key === 'group') {
                         if (!rawVal) {
                           return (
-                            <td key={cfg.field_key} className="p-3.5 whitespace-nowrap text-slate-400 italic">
+                            <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap text-slate-400 italic`}>
                               —
                             </td>
                           );
@@ -712,9 +1389,9 @@ export default function AgentsPage() {
                         const badgeStyle = getGroupBadgeStyle(groupStr);
 
                         return (
-                          <td key={cfg.field_key} className="p-3.5 whitespace-nowrap">
+                          <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap`}>
                             <span
-                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider inline-block ${badgeStyle}`}
+                              className={`${badgeSize} rounded-full text-[10px] font-bold border uppercase tracking-wider ${badgeStyle}`}
                             >
                               {groupStr}
                             </span>
@@ -725,8 +1402,8 @@ export default function AgentsPage() {
                       // Boolean Cell
                       if (cfg.field_type === 'BOOLEAN') {
                         return (
-                          <td key={cfg.field_key} className="p-3.5 text-center align-middle whitespace-nowrap">
-                            <BooleanCheckbox checked={isBooleanChecked(rawVal)} disabled />
+                          <td key={cfg.field_key} className={`${lead} ${cellPad} text-center align-middle whitespace-nowrap`}>
+                            <BooleanMark checked={isBooleanChecked(rawVal)} compact={compactRows} />
                           </td>
                         );
                       }
@@ -734,7 +1411,7 @@ export default function AgentsPage() {
                       // Currency Cell
                       if (cfg.field_type === 'CURRENCY') {
                         return (
-                          <td key={cfg.field_key} className="p-3.5 whitespace-nowrap text-right tabular-nums">
+                          <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap text-right tabular-nums`}>
                             {formatCurrency(Number(rawVal) || 0)}
                           </td>
                         );
@@ -743,7 +1420,7 @@ export default function AgentsPage() {
                       // Percent Cell
                       if (cfg.field_type === 'PERCENT') {
                         return (
-                          <td key={cfg.field_key} className="p-3.5 whitespace-nowrap text-right tabular-nums">
+                          <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap text-right tabular-nums`}>
                             {formatTablePercent(rawVal)}
                           </td>
                         );
@@ -752,7 +1429,7 @@ export default function AgentsPage() {
                       // Number Cell
                       if (cfg.field_type === 'NUMBER') {
                         return (
-                          <td key={cfg.field_key} className="p-3.5 whitespace-nowrap">
+                          <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap`}>
                             {rawVal !== undefined && rawVal !== null ? String(rawVal) : '—'}
                           </td>
                         );
@@ -761,7 +1438,7 @@ export default function AgentsPage() {
                       // Date Cell
                       if (cfg.field_type === 'DATE') {
                         return (
-                          <td key={cfg.field_key} className="p-3.5 text-center tabular-nums text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                          <td key={cfg.field_key} className={`${lead} ${cellPad} text-center tabular-nums text-slate-500 dark:text-slate-400 whitespace-nowrap`}>
                             {rawVal ? String(rawVal) : '—'}
                           </td>
                         );
@@ -769,7 +1446,7 @@ export default function AgentsPage() {
 
                       // Standard Text Cell
                       return (
-                        <td key={cfg.field_key} className="p-3.5 whitespace-nowrap">
+                        <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap`}>
                           <span className="text-slate-700 dark:text-slate-300">
                             {rawVal !== undefined && rawVal !== null ? String(rawVal) : '—'}
                           </span>
@@ -779,24 +1456,26 @@ export default function AgentsPage() {
 
                     {/* Actions Column */}
                     {canWriteTracker && (
-                    <td className="p-3.5 text-center whitespace-nowrap">
+                    <td className={`${cellPad} text-center whitespace-nowrap`}>
                       <div className="flex items-center justify-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(ag)}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
+                          className={`inline-flex items-center justify-center rounded text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer ${compactRows ? 'h-4 w-4' : 'h-7 w-7'}`}
                           title="Edit"
                           aria-label={`Edit ${ag.agent_name || 'agent'}`}
                         >
-                          <EditPencil className="h-[18px] w-[18px]" />
+                          <EditPencil className={compactRows ? 'h-3.5 w-3.5' : 'h-[18px] w-[18px]'} />
                         </button>
 
                         <button
+                          type="button"
                           onClick={() => handleDelete(ag)}
-                          className="text-rose-500 hover:text-rose-600 font-bold p-1 rounded hover:bg-rose-500/10 cursor-pointer"
+                          className={`inline-flex items-center justify-center rounded text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer ${compactRows ? 'h-4 w-4' : 'h-7 w-7'}`}
                           title="Delete agent"
+                          aria-label={`Delete ${ag.agent_name || 'agent'}`}
                         >
-                          <TrashIcon />
+                          <TrashIcon className={compactRows ? 'h-3.5 w-3.5' : undefined} />
                         </button>
                       </div>
                     </td>
@@ -1031,6 +1710,43 @@ export default function AgentsPage() {
             </form>
           </div>
         </div>
+      )}
+      {pendingBulkDelete && (
+        <ConfirmDialog
+          title={`Delete ${selectedIds.size} ${selectedIds.size === 1 ? 'agent' : 'agents'}?`}
+          message={selectedIds.size === 1
+            ? 'This removes the agent. An agent who is on a transaction stays on the roster.'
+            : `This removes these ${selectedIds.size} agents. An agent who is on a transaction stays on the roster.`}
+          error={bulkDeleteError}
+          isPending={isBulkDeleting}
+          onCancel={() => {
+            if (!isBulkDeleting) setPendingBulkDelete(false);
+          }}
+          onConfirm={() => void confirmBulkDelete()}
+        />
+      )}
+      {bulkDialogOpen && (
+        <BulkUpdateDialog
+          fields={fieldConfigs.filter((field) => isAgentBulkEditableField(field)).map((field) => ({
+            field_key: field.field_key,
+            field_label: field.field_label,
+            field_type: field.field_type,
+            storage_type: field.storage_type,
+            is_enabled: field.is_enabled,
+            is_required: field.is_required,
+            dropdown_options: field.dropdown_options,
+          }))}
+          agents={agents.filter((agent) => agent.id).map((agent) => ({ id: String(agent.id), agent_name: agent.agent_name }))}
+          selectedDeals={agents.filter((agent) => selectedIds.has(String(agent.id)))}
+          selectedCount={selectedIds.size}
+          isPending={isBulkUpdating}
+          error={bulkError}
+          recordNoun="agent"
+          onCancel={() => {
+            if (!isBulkUpdating) setBulkDialogOpen(false);
+          }}
+          onConfirm={(fieldKey, value) => void confirmBulkUpdate(fieldKey, value)}
+        />
       )}
     </main>
   );

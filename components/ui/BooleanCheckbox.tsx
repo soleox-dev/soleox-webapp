@@ -1,10 +1,25 @@
 import React from 'react';
+import { Check } from 'lucide-react';
 
 export function isBooleanChecked(value: unknown): boolean {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'number') return value === 1;
   const key = String(value ?? '').trim().toLowerCase();
   return key === 'true' || key === 'yes' || key === '1';
+}
+
+/** A table cell: a check when the toggle is on, and nothing when it is off. */
+export function BooleanMark({ checked, compact = false }: { checked: boolean; compact?: boolean }) {
+  if (!checked) return null;
+  return (
+    <span className="inline-flex items-center justify-center" role="img" aria-label="Yes">
+      <Check
+        className={`text-emerald-500 ${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}`}
+        strokeWidth={2.5}
+        aria-hidden
+      />
+    </span>
+  );
 }
 
 export function BooleanCheckbox({

@@ -17,7 +17,7 @@ export function titleForPath(pathname: string): string | null {
   if (path.startsWith('/commission-tracker/agents')) return 'Agents';
   if (path.startsWith('/commission-tracker/settings/fields')) return 'Field Customizations';
   if (path.startsWith('/commission-tracker/settings/transaction-view')) return 'Transactions: Default View';
-  if (path.startsWith('/commission-tracker/settings/integrations')) return 'Transactions: Integrations';
+  if (path.startsWith('/commission-tracker/settings/integrations')) return 'Transactions: TMS Integrations';
   if (path.startsWith('/commission-tracker/settings/scorecards')) return 'Transactions: Scorecards';
   if (path.startsWith('/commission-tracker/settings/commission-entities')) return 'Commission Entities';
   if (path.startsWith('/commission-tracker/settings/commission-templates/') && path !== '/commission-tracker/settings/commission-templates') {

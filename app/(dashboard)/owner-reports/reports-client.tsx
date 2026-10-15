@@ -4,6 +4,8 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, Check, ChevronDown, Info, X } from 'lucide-react';
 import { pageFrame } from '@/lib/page-frame';
+import { OptionMenu } from '@/components/ui/option-menu';
+import { FieldChevron, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import {
   DATE_PRESETS,
   METRICS,
@@ -998,18 +1000,18 @@ function FilterBar(props: {
       ) : null}
       {props.hideMetric ? null : (
       <Field label="Metric">
-        <select
-          value={props.boardMetrics ? props.boardMetric : props.metric}
-          onChange={(event) => {
-            if (props.boardMetrics && props.onBoardMetric) props.onBoardMetric(event.target.value);
-            else props.onMetric(event.target.value as MetricId);
-          }}
-          className={selectClass}
-        >
-          {(props.boardMetrics ?? METRICS.map((item) => ({ id: item.id, label: item.label }))).map((item) => (
-            <option key={item.id} value={item.id}>{item.label}</option>
-          ))}
-        </select>
+        <div className={underlineShell}>
+          <OptionMenu
+            className={`${underlineControl} overview-field-select`}
+            value={props.boardMetrics ? props.boardMetric : props.metric}
+            options={(props.boardMetrics ?? METRICS.map((item) => ({ id: item.id, label: item.label }))).map((item) => ({ value: item.id, label: item.label }))}
+            onChange={(next) => {
+              if (props.boardMetrics && props.onBoardMetric) props.onBoardMetric(next);
+              else props.onMetric(next as MetricId);
+            }}
+          />
+          <FieldChevron />
+        </div>
       </Field>
       )}
         </>

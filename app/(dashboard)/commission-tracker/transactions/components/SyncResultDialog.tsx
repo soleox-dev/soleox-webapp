@@ -27,22 +27,30 @@ export interface SyncRunDetail {
 export function SyncSummaryLine({
   text,
   errorCount,
+  createdCount = 0,
+  updatedCount = 0,
   connectedCount,
   disconnectedCount,
   onShowErrors,
+  onShowAdded,
+  onShowUpdated,
   onShowConnected,
   onShowDisconnected,
 }: {
   text: string;
   errorCount: number;
+  createdCount?: number;
+  updatedCount?: number;
   connectedCount?: number;
   disconnectedCount?: number;
   onShowErrors: () => void;
+  onShowAdded?: () => void;
+  onShowUpdated?: () => void;
   onShowConnected?: () => void;
   onShowDisconnected?: () => void;
 }) {
-  const pieces: Array<{ type: 'text' | 'errors' | 'connected' | 'disconnected'; value: string }> = [{ type: 'text', value: text }];
-  const mark = (marker: string, type: 'errors' | 'connected' | 'disconnected') => {
+  const pieces: Array<{ type: 'text' | 'errors' | 'added' | 'updated' | 'connected' | 'disconnected'; value: string }> = [{ type: 'text', value: text }];
+  const mark = (marker: string, type: 'errors' | 'added' | 'updated' | 'connected' | 'disconnected') => {
     const next: typeof pieces = [];
     pieces.forEach((piece) => {
       if (piece.type !== 'text') {
@@ -61,6 +69,8 @@ export function SyncSummaryLine({
     });
     pieces.splice(0, pieces.length, ...next);
   };
+  if (createdCount > 0 && onShowAdded) mark(`${createdCount} added`, 'added');
+  if (updatedCount > 0 && onShowUpdated) mark(`${updatedCount} updated`, 'updated');
   if (connectedCount !== undefined && onShowConnected) {
     mark(`${connectedCount} connected to TMS`, 'connected');
   }
@@ -73,16 +83,22 @@ export function SyncSummaryLine({
     <>
       {pieces.map((piece, index) => {
         if (piece.type === 'text') return <React.Fragment key={index}>{piece.value}</React.Fragment>;
-        const className = piece.type === 'connected'
+        const className = piece.type === 'connected' || piece.type === 'added'
           ? 'cursor-pointer font-semibold text-emerald-600 underline decoration-emerald-600/40 underline-offset-2 hover:text-emerald-500 dark:text-emerald-400 dark:decoration-emerald-400/40'
-          : piece.type === 'disconnected'
-            ? 'cursor-pointer font-semibold text-amber-600 underline decoration-amber-600/40 underline-offset-2 hover:text-amber-500 dark:text-amber-300 dark:decoration-amber-300/40'
-            : 'cursor-pointer font-semibold text-rose-600 underline decoration-rose-600/40 underline-offset-2 hover:text-rose-500 dark:text-rose-300 dark:decoration-rose-300/40';
+          : piece.type === 'updated'
+            ? 'cursor-pointer font-semibold text-sky-600 underline decoration-sky-600/40 underline-offset-2 hover:text-sky-500 dark:text-sky-400 dark:decoration-sky-400/40'
+            : piece.type === 'disconnected'
+              ? 'cursor-pointer font-semibold text-amber-600 underline decoration-amber-600/40 underline-offset-2 hover:text-amber-500 dark:text-amber-300 dark:decoration-amber-300/40'
+              : 'cursor-pointer font-semibold text-rose-600 underline decoration-rose-600/40 underline-offset-2 hover:text-rose-500 dark:text-rose-300 dark:decoration-rose-300/40';
         const onClick = piece.type === 'connected'
           ? onShowConnected
           : piece.type === 'disconnected'
             ? onShowDisconnected
-            : onShowErrors;
+            : piece.type === 'added'
+              ? onShowAdded
+              : piece.type === 'updated'
+                ? onShowUpdated
+                : onShowErrors;
         return (
           <button
             key={index}
@@ -326,6 +342,7 @@ export function SyncResultDialog({
   details,
   fieldLabels,
   identityByTmsId,
+  focus = null,
   onClose,
 }: {
   summary: string;
@@ -333,12 +350,16 @@ export function SyncResultDialog({
   details: SyncRunDetail[];
   fieldLabels: Record<string, string>;
   identityByTmsId?: Map<string, SyncErrorIdentity>;
+  focus?: 'added' | 'updated' | null;
   onClose: () => void;
 }) {
   const added = details.filter((detail) => detail.outcome === 'create');
   const updated = details.filter((detail) => detail.outcome === 'update' && (detail.changes?.length || 0) > 0);
   const notAdded = details.filter((detail) => detail.outcome === 'skip' && !detail.transactionId);
   const failed = details.filter((detail) => detail.outcome === 'error');
+  const showAdded = focus !== 'updated' && added.length > 0;
+  const showUpdated = focus !== 'added' && updated.length > 0;
+  const showRest = focus === null;
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -366,12 +387,12 @@ export function SyncResultDialog({
           {note && <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{note}</p>}
         </div>
         <div className="space-y-6 overflow-y-auto px-5 py-4">
-          {added.length === 0 && updated.length === 0 && notAdded.length === 0 && failed.length === 0 && (
+          {showRest && added.length === 0 && updated.length === 0 && notAdded.length === 0 && failed.length === 0 && (
             <p className="text-sm text-slate-600 dark:text-slate-300">No transactions were added, and no TMS fields changed.</p>
           )}
-          {added.length > 0 && (
+          {showAdded && (
             <section>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Added</h4>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Added from TMS</h4>
               <ul className="mt-2 space-y-1">
                 {added.map((detail) => (
                   <li key={`add-${detail.transactionId || detail.tmsId}`}>
@@ -391,7 +412,7 @@ export function SyncResultDialog({
               </ul>
             </section>
           )}
-          {updated.length > 0 && (
+          {showUpdated && (
             <section>
               <h4 className="text-xs font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">Updated from TMS</h4>
               <div className="mt-2 space-y-4">
@@ -431,7 +452,7 @@ export function SyncResultDialog({
               </div>
             </section>
           )}
-          {notAdded.length > 0 && (
+          {showRest && notAdded.length > 0 && (
             <section>
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Not added</h4>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">These sheet rows are outside the Default View, so Soleox did not create them.</p>
@@ -445,7 +466,7 @@ export function SyncResultDialog({
               </ul>
             </section>
           )}
-          {failed.length > 0 && (
+          {showRest && failed.length > 0 && (
             <section>
               <h4 className="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">Could not sync</h4>
               <div className="mt-2">

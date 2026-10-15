@@ -4,7 +4,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
+import { OptionMenu } from '@/components/ui/option-menu';
 import { useRegisterSave } from '@/components/save-leave-guard';
+import { FieldChevron, UnderlineField, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { duplicateTmsIdReason, isDuplicateTmsIdReason, syncFinishedSummary } from '@/lib/sync-finished-summary';
 
 interface FieldOption {
@@ -466,13 +468,11 @@ export default function TransactionIntegrationsPage() {
     }
   };
 
-  const inputClass = 'w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white';
-
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Transactions: Integrations</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Transactions: TMS Integrations</h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
             Soleox reads the SOLEOX Integration tab and adds every sheet row that has a TMS ID. It updates transactions that are in the Default View. Commission calculations and payments stay in Soleox.
           </p>
@@ -514,14 +514,12 @@ export default function TransactionIntegrationsPage() {
           )}
 
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_16rem]">
-            <label className="block space-y-1">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Spreadsheet</span>
-              <input value={spreadsheet} onChange={(event) => setSpreadsheet(event.target.value)} placeholder="Paste the Google Sheets link" className={inputClass} disabled={!canManage} />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Tab</span>
-              <input value={tabName} onChange={(event) => setTabName(event.target.value)} className={inputClass} disabled={!canManage} />
-            </label>
+            <UnderlineField label="Spreadsheet">
+              <input value={spreadsheet} onChange={(event) => setSpreadsheet(event.target.value)} placeholder="Paste the Google Sheets link" className={underlineControl} disabled={!canManage} />
+            </UnderlineField>
+            <UnderlineField label="Tab">
+              <input value={tabName} onChange={(event) => setTabName(event.target.value)} className={underlineControl} disabled={!canManage} />
+            </UnderlineField>
           </div>
 
           <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
@@ -561,21 +559,24 @@ export default function TransactionIntegrationsPage() {
                     <tr key={`${mapping.sourceHeader}-${index}`} className={disconnected ? 'border-b border-amber-200 bg-amber-50/80 dark:border-amber-500/20 dark:bg-amber-950/30' : 'border-b border-slate-100 dark:border-slate-700/60'}>
                       <td className={`py-2 pr-3 font-medium ${disconnected ? 'text-amber-800 dark:text-amber-200' : 'text-slate-900 dark:text-white'}`}>{mapping.sourceHeader}</td>
                       <td className="py-2 pr-3">
-                        <select
-                          value={fieldKey}
-                          onChange={(event) => updateMapping(index, { fieldKey: event.target.value })}
-                          disabled={!canManage}
-                          className={disconnected
-                            ? 'w-full rounded-lg border border-amber-400 bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-900 dark:border-amber-500/60 dark:bg-amber-950/60 dark:text-amber-100'
-                            : 'w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white'}
-                        >
-                          <option value="">Disconnected</option>
-                          {fieldOptions.map((field) => (
-                            <option key={field.fieldKey} value={field.fieldKey} disabled={mappings.some((item, itemIndex) => itemIndex !== index && item.fieldKey === field.fieldKey)}>
-                              {field.fieldLabel}
-                            </option>
-                          ))}
-                        </select>
+                        <div className={`${underlineShell} ${disconnected ? 'border-b-amber-500' : ''}`}>
+                          <OptionMenu
+                            value={fieldKey}
+                            disabled={!canManage}
+                            placeholder="Disconnected"
+                            className={`${underlineControl} overview-field-select`}
+                            options={[
+                              { value: '', label: 'Disconnected' },
+                              ...fieldOptions.map((field) => ({
+                                value: field.fieldKey,
+                                label: field.fieldLabel,
+                                disabled: mappings.some((item, itemIndex) => itemIndex !== index && item.fieldKey === field.fieldKey),
+                              })),
+                            ]}
+                            onChange={(next) => updateMapping(index, { fieldKey: next })}
+                          />
+                          <FieldChevron />
+                        </div>
                       </td>
                       <td className="py-2">
                         <PolicySelect

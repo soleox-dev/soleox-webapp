@@ -97,6 +97,10 @@ function permissionsFor(roles: string[], fullAccess: boolean): AccessPermissions
 type RoleRow = { client_id: string; role: string | null; is_active: boolean | null };
 type ClientRow = { id: string; client_name: string | null; status: string | null; archived?: boolean | null };
 
+const ACCESS_CACHE_MS = 60_000;
+const accessCache = new Map<string, { expires: number; profile: AccessProfile }>();
+const accessInflight = new Map<string, Promise<AccessProfile>>();
+
 async function loadUser(email: string): Promise<{ id: string | null; isSuperAdmin: boolean }> {
   const normalized = email.toLowerCase();
   const withFlag = await supabaseAdmin
@@ -122,38 +126,55 @@ async function loadUser(email: string): Promise<{ id: string | null; isSuperAdmi
   return { id: String(plain.data.id), isSuperAdmin: PLATFORM_SUPER_ADMINS.has(normalized) };
 }
 
-export async function loadAccessForEmail(email: string, selectedCookie?: string | null): Promise<AccessProfile> {
-  const normalized = email.toLowerCase();
-  const user = await loadUser(normalized);
-
+async function loadActiveClients(): Promise<ClientChoice[]> {
   const { data: clientRows, error: clientError } = await supabaseAdmin
     .from('clients')
     .select('id, client_name, status, archived')
     .eq('status', 'ACTIVE');
   if (clientError) throw new Error(clientError.message);
 
-  const activeClients = ((clientRows || []) as ClientRow[])
+  return ((clientRows || []) as ClientRow[])
     .filter((row) => row.archived !== true)
     .map((row) => ({ id: String(row.id), name: row.client_name || String(row.id) }))
     .sort((a, b) => a.name.localeCompare(b.name));
+}
 
-  let roles: RoleRow[] = [];
-  if (user.id) {
-    const { data, error } = await supabaseAdmin
-      .from('client_user_roles')
-      .select('client_id, role, is_active')
-      .eq('user_id', user.id)
-      .eq('is_active', true);
-    if (error) throw new Error(error.message);
-    roles = (data || []) as RoleRow[];
-  }
+async function loadRoles(userId: string): Promise<RoleRow[]> {
+  const { data, error } = await supabaseAdmin
+    .from('client_user_roles')
+    .select('client_id, role, is_active')
+    .eq('user_id', userId)
+    .eq('is_active', true);
+  if (error) throw new Error(error.message);
+  return (data || []) as RoleRow[];
+}
+
+export async function loadAccessForEmail(email: string, selectedCookie?: string | null): Promise<AccessProfile> {
+  const normalized = email.toLowerCase();
+  const cookie = selectedCookie?.trim() || '';
+  const cacheKey = `${normalized}\0${cookie}`;
+  const now = Date.now();
+  const cached = accessCache.get(cacheKey);
+  if (cached && cached.expires > now) return cached.profile;
+  const pending = accessInflight.get(cacheKey);
+  if (pending) return pending;
+
+  const loading = loadAccessUncached(normalized, cookie, cacheKey, now).finally(() => {
+    accessInflight.delete(cacheKey);
+  });
+  accessInflight.set(cacheKey, loading);
+  return loading;
+}
+
+async function loadAccessUncached(normalized: string, cookie: string, cacheKey: string, now: number): Promise<AccessProfile> {
+  const [user, activeClients] = await Promise.all([loadUser(normalized), loadActiveClients()]);
+  const roles = user.id ? await loadRoles(user.id) : [];
 
   const roleClientIds = new Set(roles.map((row) => String(row.client_id)));
   const clients = user.isSuperAdmin
     ? activeClients
     : activeClients.filter((client) => roleClientIds.has(client.id));
 
-  const cookie = selectedCookie?.trim() || '';
   const cookieMatch = cookie && clients.some((client) => client.id === cookie) ? cookie : '';
   const clientId = cookieMatch || (clients.length === 1 ? clients[0].id : null);
   const clientName = clients.find((client) => client.id === clientId)?.name ?? null;
@@ -162,7 +183,7 @@ export async function loadAccessForEmail(email: string, selectedCookie?: string 
     .map((row) => String(row.role || ''));
   const fullOnClient = user.isSuperAdmin || clientRoles.some((role) => FULL_ACCESS_ROLES.has(role));
 
-  return {
+  const profile: AccessProfile = {
     email: normalized,
     isSuperAdmin: user.isSuperAdmin,
     clients,
@@ -171,6 +192,8 @@ export async function loadAccessForEmail(email: string, selectedCookie?: string 
     needsSelection: clients.length > 1 && !cookieMatch,
     permissions: clientId ? permissionsFor(clientRoles, fullOnClient) : NONE,
   };
+  accessCache.set(cacheKey, { expires: now + ACCESS_CACHE_MS, profile });
+  return profile;
 }
 
 function isSettingsApi(pathname: string): boolean {

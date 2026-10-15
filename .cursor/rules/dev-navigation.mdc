@@ -1,0 +1,14 @@
+---
+description: Keep navigation off the Compiling and Rendering stall.
+alwaysApply: true
+---
+
+# Dev navigation
+
+Every page and API request passes through `proxy.ts`, which calls `loadAccessForEmail`. Next.js holds the screen on Compiling, then Rendering, until that request returns. A fresh database read on each request makes every click wait.
+
+`loadAccessForEmail` in `lib/access.ts` keeps the profile for the signed-in email and selected client for about a minute. Requests that start together share the lookup already in flight. The user and the client list load together, and roles load after that. Leave that cache and that sharing in place. Do not query the database again inside `proxy.ts` on the way through. A new access check belongs in that cached load.
+
+`next.config.ts` keeps `devIndicators` off and holds compiled pages in memory. The dev script listens only on `127.0.0.1` port `3000`. Do not turn the indicator back on, shrink that page buffer, or start another dev server on another port.
+
+When a new chat should follow this before editing the proxy, access loading, or the dev server, say: read `.cursor/rules/dev-navigation.mdc` before making changes.

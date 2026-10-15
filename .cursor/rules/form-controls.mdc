@@ -1,0 +1,20 @@
+---
+description: Underline inputs and the shared dropdown menu for every form control.
+alwaysApply: true
+---
+
+# Form controls
+
+Read `.cursor/rules/form-controls.mdc` before adding or restyling an input or dropdown.
+
+Use `underlineShell`, `underlineLabel`, `underlineControl`, and `UnderlineField` from `@/components/ui/underline-field`. A field is a faint underline with the label inside it. The line turns emerald on focus. Text inputs, numbers, dates, textareas, and search boxes use that shell.
+
+Use `OptionMenu` from `@/components/ui/option-menu` for a single-choice dropdown. `ClearableSelect` is that same menu. The closed control is an underline field with a chevron. The open list is a rounded panel, and the row under the pointer is emerald. The list is created only while the menu is open. `FieldChevron` sits in the shell when the control uses `overview-field-select`, which hides the extra chevron.
+
+A dropdown that must accept a new typed value uses `allowCustom`, the way Section does on Field Customizations.
+
+Commission waterfall text inputs keep their own compact underline. Do not restyle them.
+
+Owner Reports filters stay the multi-select, date-range, and metric controls specified in `.cursor/rules/report-requirements.mdc`. Do not replace those with `OptionMenu`. The formula editor’s suggestion list stays part of the formula field.
+
+The spreadsheet sync policy control stays a colored status button. Its color is the policy. It is not a form dropdown.

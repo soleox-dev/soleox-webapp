@@ -24,6 +24,7 @@ export const SCORECARD_COLOR_STYLES: Record<ScorecardColor, {
   border: string;
   hover: string;
   ring: string;
+  selectedBorder: string;
   tabIdle: string;
   tabActive: string;
   countIdle: string;
@@ -36,6 +37,7 @@ export const SCORECARD_COLOR_STYLES: Record<ScorecardColor, {
     border: 'border-l-blue-500',
     hover: 'hover:bg-blue-50/60 dark:hover:bg-blue-500/5',
     ring: 'ring-2 ring-blue-500/70',
+    selectedBorder: 'border-blue-500/70',
     tabIdle: 'text-blue-700 dark:text-blue-300 border border-transparent hover:bg-blue-500/10',
     tabActive: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/40',
     countIdle: 'text-blue-600/70 dark:text-blue-300/70',
@@ -48,6 +50,7 @@ export const SCORECARD_COLOR_STYLES: Record<ScorecardColor, {
     border: 'border-l-sky-500',
     hover: 'hover:bg-sky-50/60 dark:hover:bg-sky-500/5',
     ring: 'ring-2 ring-sky-500/70',
+    selectedBorder: 'border-sky-500/70',
     tabIdle: 'text-sky-700 dark:text-sky-300 border border-transparent hover:bg-sky-500/10',
     tabActive: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/40',
     countIdle: 'text-sky-600/70 dark:text-sky-300/70',
@@ -60,6 +63,7 @@ export const SCORECARD_COLOR_STYLES: Record<ScorecardColor, {
     border: 'border-l-indigo-500',
     hover: 'hover:bg-indigo-50/60 dark:hover:bg-indigo-500/5',
     ring: 'ring-2 ring-indigo-500/70',
+    selectedBorder: 'border-indigo-500/70',
     tabIdle: 'text-indigo-700 dark:text-indigo-300 border border-transparent hover:bg-indigo-500/10',
     tabActive: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/40',
     countIdle: 'text-indigo-600/70 dark:text-indigo-300/70',
@@ -72,6 +76,7 @@ export const SCORECARD_COLOR_STYLES: Record<ScorecardColor, {
     border: 'border-l-violet-500',
     hover: 'hover:bg-violet-50/60 dark:hover:bg-violet-500/5',
     ring: 'ring-2 ring-violet-500/70',
+    selectedBorder: 'border-violet-500/70',
     tabIdle: 'text-violet-700 dark:text-violet-300 border border-transparent hover:bg-violet-500/10',
     tabActive: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/40',
     countIdle: 'text-violet-600/70 dark:text-violet-300/70',
@@ -84,6 +89,7 @@ export const SCORECARD_COLOR_STYLES: Record<ScorecardColor, {
     border: 'border-l-teal-500',
     hover: 'hover:bg-teal-50/60 dark:hover:bg-teal-500/5',
     ring: 'ring-2 ring-teal-500/70',
+    selectedBorder: 'border-teal-500/70',
     tabIdle: 'text-teal-700 dark:text-teal-300 border border-transparent hover:bg-teal-500/10',
     tabActive: 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/40',
     countIdle: 'text-teal-600/70 dark:text-teal-300/70',
@@ -96,6 +102,7 @@ export const SCORECARD_COLOR_STYLES: Record<ScorecardColor, {
     border: 'border-l-emerald-500',
     hover: 'hover:bg-emerald-50/60 dark:hover:bg-emerald-500/5',
     ring: 'ring-2 ring-emerald-500/70',
+    selectedBorder: 'border-emerald-500/70',
     tabIdle: 'text-emerald-700 dark:text-emerald-300 border border-transparent hover:bg-emerald-500/10',
     tabActive: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40',
     countIdle: 'text-emerald-600/70 dark:text-emerald-300/70',
@@ -108,6 +115,7 @@ export const SCORECARD_COLOR_STYLES: Record<ScorecardColor, {
     border: 'border-l-amber-500',
     hover: 'hover:bg-amber-50/60 dark:hover:bg-amber-500/5',
     ring: 'ring-2 ring-amber-500/70',
+    selectedBorder: 'border-amber-500/70',
     tabIdle: 'text-amber-700 dark:text-amber-300 border border-transparent hover:bg-amber-500/10',
     tabActive: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/40',
     countIdle: 'text-amber-600/70 dark:text-amber-300/70',
@@ -120,6 +128,7 @@ export const SCORECARD_COLOR_STYLES: Record<ScorecardColor, {
     border: 'border-l-orange-500',
     hover: 'hover:bg-orange-50/60 dark:hover:bg-orange-500/5',
     ring: 'ring-2 ring-orange-500/70',
+    selectedBorder: 'border-orange-500/70',
     tabIdle: 'text-orange-700 dark:text-orange-300 border border-transparent hover:bg-orange-500/10',
     tabActive: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border border-orange-500/40',
     countIdle: 'text-orange-600/70 dark:text-orange-300/70',
@@ -132,6 +141,7 @@ export const SCORECARD_COLOR_STYLES: Record<ScorecardColor, {
     border: 'border-l-rose-500',
     hover: 'hover:bg-rose-50/60 dark:hover:bg-rose-500/5',
     ring: 'ring-2 ring-rose-500/70',
+    selectedBorder: 'border-rose-500/70',
     tabIdle: 'text-rose-700 dark:text-rose-300 border border-transparent hover:bg-rose-500/10',
     tabActive: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/40',
     countIdle: 'text-rose-600/70 dark:text-rose-300/70',
@@ -144,6 +154,7 @@ export const SCORECARD_COLOR_STYLES: Record<ScorecardColor, {
     border: 'border-l-pink-500',
     hover: 'hover:bg-pink-50/60 dark:hover:bg-pink-500/5',
     ring: 'ring-2 ring-pink-500/70',
+    selectedBorder: 'border-pink-500/70',
     tabIdle: 'text-pink-700 dark:text-pink-300 border border-transparent hover:bg-pink-500/10',
     tabActive: 'bg-pink-500/15 text-pink-700 dark:text-pink-300 border border-pink-500/40',
     countIdle: 'text-pink-600/70 dark:text-pink-300/70',
@@ -156,6 +167,7 @@ export const SCORECARD_COLOR_STYLES: Record<ScorecardColor, {
     border: 'border-l-slate-400',
     hover: 'hover:bg-slate-50 dark:hover:bg-slate-700/40',
     ring: 'ring-2 ring-slate-400/70',
+    selectedBorder: 'border-slate-400/70',
     tabIdle: 'text-slate-600 dark:text-slate-300 border border-transparent hover:bg-slate-500/10',
     tabActive: 'bg-slate-500/15 text-slate-700 dark:text-slate-200 border border-slate-400/40',
     countIdle: 'text-slate-500/70 dark:text-slate-300/70',

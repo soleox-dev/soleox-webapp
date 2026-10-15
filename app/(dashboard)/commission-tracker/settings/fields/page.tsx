@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ReorderControls } from '@/components/ui/reorder-controls';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { OptionMenu } from '@/components/ui/option-menu';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { Folder, List, User } from 'lucide-react';
@@ -138,93 +139,17 @@ function SectionCombobox({
   sections: string[];
   onChange: (value: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [narrowing, setNarrowing] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const listId = 'field-section-options';
-  const query = value.trim().toLowerCase();
-  const options = narrowing
-    ? sections.filter((name) => name.toLowerCase().includes(query))
-    : sections;
-
-  const choose = (name: string) => {
-    onChange(name);
-    setNarrowing(false);
-    setOpen(false);
-  };
-
   return (
-    <div className={`relative ${open ? 'z-30' : ''}`}>
-      <input
-        type="text"
-        required
-        tabIndex={2}
-        role="combobox"
-        aria-expanded={open}
-        aria-controls={listId}
-        aria-autocomplete="list"
-        value={value}
-        onChange={(event) => {
-          onChange(event.target.value);
-          setNarrowing(true);
-          setActiveIndex(0);
-          setOpen(true);
-        }}
-        onFocus={() => {
-          setNarrowing(false);
-          setActiveIndex(Math.max(0, sections.findIndex((name) => name.toLowerCase() === query)));
-          setOpen(true);
-        }}
-        onBlur={() => {
-          const exact = sections.find((name) => name.toLowerCase() === query);
-          if (exact && exact !== value) onChange(exact);
-          setNarrowing(false);
-          setOpen(false);
-        }}
-        onKeyDown={(event) => {
-          if (event.key === 'ArrowDown') {
-            event.preventDefault();
-            setOpen(true);
-            setActiveIndex((index) => Math.min(index + 1, Math.max(options.length - 1, 0)));
-          } else if (event.key === 'ArrowUp') {
-            event.preventDefault();
-            setOpen(true);
-            setActiveIndex((index) => Math.max(index - 1, 0));
-          } else if (event.key === 'Enter' && open && options[activeIndex]) {
-            event.preventDefault();
-            choose(options[activeIndex]);
-          } else if (event.key === 'Escape') {
-            setOpen(false);
-          }
-        }}
-        placeholder="Select or type a section"
-        className={`${underlineControl} pr-4`}
-      />
-      {open && options.length > 0 && (
-        <ul id={listId} role="listbox" className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-800">
-          {options.map((name, index) => (
-            <li key={name} role="option" aria-selected={name === value}>
-              <button
-                type="button"
-                tabIndex={-1}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  choose(name);
-                }}
-                onMouseEnter={() => setActiveIndex(index)}
-                className={`w-full cursor-pointer px-2.5 py-1.5 text-left text-xs font-medium ${
-                  index === activeIndex
-                    ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200'
-                    : 'text-slate-900 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700'
-                }`}
-              >
-                {name}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <OptionMenu
+      allowCustom
+      required
+      tabIndex={2}
+      value={value}
+      options={sections.map((name) => ({ value: name, label: name }))}
+      onChange={onChange}
+      placeholder="Select or type a section"
+      className={`${underlineControl} overview-field-select pr-4`}
+    />
   );
 }
 
@@ -2054,28 +1979,30 @@ export default function FieldCustomizationsPage() {
                 <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1">
                   New Value *
                 </label>
-                <input
-                  type="text"
-                  autoFocus
-                  value={renameModal.newValue}
-                  onChange={(e) =>
-                    setRenameModal((prev) => ({ ...prev, newValue: e.target.value, error: undefined }))
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      if (
-                        renameModal.hasConfirmedUnderstanding &&
-                        renameModal.newValue.trim() &&
-                        renameModal.newValue.trim() !== renameModal.oldValue
-                      ) {
-                        handleConfirmRename();
-                      }
+                <div className={underlineShell}>
+                  <input
+                    type="text"
+                    autoFocus
+                    value={renameModal.newValue}
+                    onChange={(e) =>
+                      setRenameModal((prev) => ({ ...prev, newValue: e.target.value, error: undefined }))
                     }
-                  }}
-                  placeholder="Enter new value..."
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (
+                          renameModal.hasConfirmedUnderstanding &&
+                          renameModal.newValue.trim() &&
+                          renameModal.newValue.trim() !== renameModal.oldValue
+                        ) {
+                          handleConfirmRename();
+                        }
+                      }
+                    }}
+                    placeholder="Enter new value..."
+                    className={underlineControl}
+                  />
+                </div>
                 {renameModal.error && (
                   <p className="text-xs font-semibold text-rose-500 mt-1.5 flex items-center gap-1">
                     <span>⚠️</span> {renameModal.error}

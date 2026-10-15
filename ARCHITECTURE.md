@@ -35,7 +35,7 @@ Example: `TXN_6C59DB33ADE8` (Length: 16 characters total).
 | `commission_entities` | `ENT_` | `ENT_2C8AEE9D0B8B` | Payee entities (Brokerage, Vendors, Deductions, Teams). |
 | `commission_templates` | `TPL_` | `TPL_3A4B5C6D7E8F` | Calculation rule sets for commission distribution. |
 | `commission_template_parameters` | `CTP_` | `CTP_1A2B3C4D5E6F` | Dynamic parameters defined for commission templates. |
-| `commission_template_logic` | `CTL_` | `CTL_9A8B7C6D5E4F` | Step-by-step logic nodes in a commission template. |
+| `commission_template_rules` | `CTR_` | `CTR_9A8B7C6D5E4F` | Calculation rules in a commission template. |
 | `commission_template_submissions`| `CTS_` | `CTS_5E6F7A8B9C0D` | Audit snapshots of calculated commission runs. |
 | `transactions` | `TXN_` | `TXN_6C59DB33ADE8` | Real estate transactions/deals. External IDs live in `tms_id`. |
 | `transaction_commission_items` | `TCI_` | `TCI_7DE0AA0AD2AB` | Granular waterfall ledger entries linked to a `transaction_id`. |

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { underlineControl, underlineShell } from '@/components/ui/underline-field';
 
 interface ListCategory {
   id: string;
@@ -74,13 +75,15 @@ export default function ListsSettingsPage() {
       {/* Lists Table Section */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl space-y-4 transition-colors">
         <div className="flex justify-between items-center gap-4">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search system lists..."
-            className="w-full md:w-80 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
-          />
+          <div className={`w-full md:w-80 ${underlineShell}`}>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search system lists..."
+              className={underlineControl}
+            />
+          </div>
           <span className="text-xs text-slate-500 dark:text-slate-400 font-bold">
             {filteredLists.length} Configuration Lists
           </span>

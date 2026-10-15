@@ -10,7 +10,7 @@ import { useSoleoxTheme } from '@/app/providers';
 import { SoleoxLogo } from '@/components/ui/logo';
 import { useAccess } from '@/components/access-provider';
 import { pageFrame } from '@/lib/page-frame';
-import { Briefcase, Building2, House, List, Monitor, Moon, Settings, Sun, Users, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, Briefcase, Building2, House, List, Monitor, Moon, Settings, Sun, Users, type LucideIcon } from 'lucide-react';
 import type { ThemePreference } from '@/app/providers';
 
 export default function Navbar() {
@@ -39,6 +39,7 @@ export default function Navbar() {
   const isCommissionTracker = pathname.startsWith('/commission-tracker');
   const isSettingsActive = pathname.startsWith('/commission-tracker/settings');
   const isTransactionsActive = pathname.startsWith('/commission-tracker/transactions');
+  const isTransactionDetail = /^\/commission-tracker\/transactions\/[^/]+/.test(pathname);
   const isAgentsActive = pathname.startsWith('/commission-tracker/agents');
   const permissions = access?.permissions;
   const showTransactions = Boolean(permissions?.commissionTrackerRead || permissions?.commissionTrackerWrite || permissions?.superAdmin);
@@ -134,25 +135,45 @@ export default function Navbar() {
       <div className={`${pageFrame} flex h-16 items-center justify-between`}>
         
         {/* Brand Logo Component with REBI Badge */}
-        <Link href="/" className="flex items-center space-x-2">
-          <SoleoxLogo className="h-7 w-auto" />
-          <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800/80">
-            REBI
-          </span>
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/" className="flex items-center space-x-2">
+            <SoleoxLogo className="h-7 w-auto" />
+            <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800/80">
+              REBI
+            </span>
+          </Link>
+          {isTransactionDetail && (
+            <Link
+              href="/commission-tracker/transactions"
+              aria-label="Back to Transactions"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 transition hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300 md:hidden"
+            >
+              <ArrowLeft className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+              Transactions
+            </Link>
+          )}
+        </div>
 
         {/* Central Nav Container with Pill Outline */}
         <nav className="hidden md:flex items-center space-x-2 bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-1 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400">
           {showTracker && <div className="group/tracker relative" onMouseLeave={() => releaseMenu('tracker')}>
             <Link
-              href={trackerHref}
-              className={`block px-3 py-1.5 rounded-lg transition ${
+              href={isTransactionDetail ? '/commission-tracker/transactions' : trackerHref}
+              aria-label={isTransactionDetail ? 'Back to Transactions' : undefined}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
                 isCommissionTracker
                   ? 'bg-emerald-500/10 dark:bg-emerald-950/80 border border-emerald-500/80 text-emerald-700 dark:text-emerald-400 font-bold'
                   : 'hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
-              Commission Tracker
+              {isTransactionDetail ? (
+                <>
+                  <ArrowLeft className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+                  Transactions
+                </>
+              ) : (
+                'Commission Tracker'
+              )}
             </Link>
             <div className={menuClass('tracker', 'group-hover/tracker:block group-focus-within/tracker:block')} onClick={() => hideMenu('tracker')}>
               <div className="w-44 rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">

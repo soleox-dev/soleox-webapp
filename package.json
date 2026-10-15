@@ -5,7 +5,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "NODE_OPTIONS='--max-old-space-size=12288' next dev",
+    "dev": "NODE_OPTIONS='--max-old-space-size=12288' next dev -H 127.0.0.1 -p 3000",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

@@ -79,6 +79,8 @@ export interface DynamicRule {
   note?: string;
   type: 'PERCENT' | 'AMOUNT';
   value: number;
+  /** This rule's formula reads a team cap amount, so the waterfall recalculates it after the cap. */
+  fromTeamCapBaseline?: boolean;
 }
 
 /** A required field counts only while its visibility rules leave it on the form. */

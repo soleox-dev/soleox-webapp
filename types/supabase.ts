@@ -341,6 +341,195 @@ export type Database = {
         }
         Relationships: []
       }
+      client_team_caps: {
+        Row: {
+          archived: boolean | null
+          cap_amount_field_key: string | null
+          client_id: string
+          created_at: string | null
+          created_by: string | null
+          enabled: boolean
+          id: string
+          key: string | null
+          name: string
+          qualifying_formula: string | null
+          recipient_agent_id: string | null
+          reset_date_field_key: string | null
+          split_percent_field_key: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          archived?: boolean | null
+          cap_amount_field_key?: string | null
+          client_id: string
+          created_at?: string | null
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          key?: string | null
+          name?: string
+          qualifying_formula?: string | null
+          recipient_agent_id?: string | null
+          reset_date_field_key?: string | null
+          split_percent_field_key?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          archived?: boolean | null
+          cap_amount_field_key?: string | null
+          client_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          key?: string | null
+          name?: string
+          qualifying_formula?: string | null
+          recipient_agent_id?: string | null
+          reset_date_field_key?: string | null
+          split_percent_field_key?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      client_sales_volume_assignments: {
+        Row: {
+          anchor: string
+          archived: boolean | null
+          assignment: string
+          client_id: string
+          created_at: string | null
+          created_by: string | null
+          enabled: boolean
+          id: string
+          name: string
+          qualifying_formula: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          anchor?: string
+          archived?: boolean | null
+          assignment?: string
+          client_id: string
+          created_at?: string | null
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          name?: string
+          qualifying_formula?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          anchor?: string
+          archived?: boolean | null
+          assignment?: string
+          client_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          name?: string
+          qualifying_formula?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      transaction_agent_allocations: {
+        Row: {
+          agent_id: string
+          amount: number
+          calculated_amount: number
+          client_id: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_override: boolean
+          transaction_id: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          agent_id: string
+          amount?: number
+          calculated_amount?: number
+          client_id: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_override?: boolean
+          transaction_id: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          agent_id?: string
+          amount?: number
+          calculated_amount?: number
+          client_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_override?: boolean
+          transaction_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      transaction_team_caps: {
+        Row: {
+          agent_id: string
+          amount: number
+          calculated_amount: number
+          client_id: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_override: boolean
+          period_start: string | null
+          team_cap_id: string | null
+          transaction_id: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          agent_id: string
+          amount?: number
+          calculated_amount?: number
+          client_id: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_override?: boolean
+          period_start?: string | null
+          team_cap_id?: string | null
+          transaction_id: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          agent_id?: string
+          amount?: number
+          calculated_amount?: number
+          client_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_override?: boolean
+          period_start?: string | null
+          team_cap_id?: string | null
+          transaction_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       commission_entities: {
         Row: {
           archived: boolean | null

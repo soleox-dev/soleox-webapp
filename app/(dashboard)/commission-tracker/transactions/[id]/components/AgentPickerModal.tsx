@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { KnownAgentInfo } from '../types';
 import { formatPercentPoints, fromPercentPoints } from '@/lib/percent';
+import { underlineControl, underlineShell } from '@/components/ui/underline-field';
 
 interface AgentPickerModalProps {
   isOpen: boolean;
@@ -96,13 +97,15 @@ export function AgentPickerModal({
           <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
             1. Select Agent
           </label>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search roster by agent name..."
-            className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-medium placeholder-slate-400"
-          />
+          <div className={underlineShell}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search roster by agent name..."
+              className={underlineControl}
+            />
+          </div>
 
           <div className="max-h-40 overflow-y-auto divide-y divide-slate-200 dark:divide-slate-700/60 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900/60">
             {availableAgents.length === 0 ? (

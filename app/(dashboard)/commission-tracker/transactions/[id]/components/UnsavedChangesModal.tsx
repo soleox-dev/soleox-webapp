@@ -3,6 +3,7 @@ import React from 'react';
 interface UnsavedChangesModalProps {
   isOpen: boolean;
   isSaving?: boolean;
+  saveDisabled?: boolean;
   description?: string;
   onStay: () => void;
   onDiscard: () => void;
@@ -12,6 +13,7 @@ interface UnsavedChangesModalProps {
 export function UnsavedChangesModal({
   isOpen,
   isSaving = false,
+  saveDisabled = false,
   description = 'You have applied changes to the Transaction Overview and/or Commission Waterfall that have not been saved to the database yet. Leave without saving?',
   onStay,
   onDiscard,
@@ -56,7 +58,8 @@ export function UnsavedChangesModal({
           <button
             type="button"
             onClick={onSave}
-            disabled={isSaving}
+            disabled={isSaving || saveDisabled}
+            title={saveDisabled ? 'Agent splits are more than the remaining commission.' : undefined}
             className="text-xs px-3 py-2 rounded-lg font-bold bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-md transition cursor-pointer disabled:opacity-50"
           >
             {isSaving ? 'Saving...' : 'Save & Leave'}

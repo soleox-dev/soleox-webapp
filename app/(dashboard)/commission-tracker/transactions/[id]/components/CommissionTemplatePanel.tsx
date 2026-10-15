@@ -5,9 +5,10 @@ import { createPortal } from 'react-dom';
 import { Lock, RotateCcw, Trash2, Zap } from 'lucide-react';
 import { evaluateFormula, formulaValueToInput, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { normalizeAgentName } from '@/lib/id';
+import { qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection, type TeamCapRule } from '@/lib/agent-allocations';
 import { templateBoltTone, type TemplateBoltTone } from '@/lib/transaction-default-view';
-import { payoutSignature, replayedPaymentSignature, savedPayouts } from '@/lib/template-payment-drift';
-import { applyTemplateLogic, formulaDataNeeds, loadCommissionLedger, loadFormulaLookups, templateFormulaSources, type AppliedCalculation, type AppliedTemplateRules, type TemplateLogicStep } from './applyTemplateLogic';
+import { allocationForReplay, loadAllocationCatalog, loadAllocationHistory, loadAllocationOverrides, payoutSignature, replayedPaymentSignature, savedPayouts } from '@/lib/template-payment-drift';
+import { applyTemplateLogic, formulaDataNeeds, loadCommissionLedger, loadFormulaLookups, loadTemplateBundle, peekCommissionLedger, peekFormulaLookups, peekTemplateBundle, templateFormulaSources, type AppliedCalculation, type AppliedTemplateRules, type TemplateLogicStep, type TemplateParameterRecord } from './applyTemplateLogic';
 import type { FormulaLedgerRow, FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import type { StoredCommissionItem } from '../commissionItemState';
 import type { CommissionEntityOption, FieldSetting, KnownAgentInfo } from '../types';
@@ -35,19 +36,7 @@ const TEMPLATE_BUTTON_CLASS: Record<TemplateBoltTone, string> = {
   drift: 'bg-violet-400 text-slate-950 hover:bg-violet-500',
 };
 
-interface TemplateParameter {
-  id: string;
-  parameter_name: string;
-  parameter_key: string;
-  data_type?: string | null;
-  autofill_formula?: string | null;
-  validation_rule?: string | null;
-  is_required?: boolean | null;
-  is_user_editable?: boolean | null;
-  sort_order?: number | null;
-  section?: string | null;
-  dropdown_options?: string[] | null;
-}
+type TemplateParameter = TemplateParameterRecord;
 
 interface AgentOption {
   id: string;
@@ -664,6 +653,8 @@ export interface TemplateSubmissionDraft {
   template_id: string;
   submitted_parameters: Record<string, string>;
   status: 'SUBMITTED';
+  team_cap_ids?: string[];
+  team_cap_recipients?: { id: string; name: string; isTeamLead: boolean }[];
 }
 
 export function CommissionTemplatePanel({
@@ -676,6 +667,7 @@ export function CommissionTemplatePanel({
   totalCommission = 0,
   onApplied,
   onSubmissionDeleted,
+  onTeamCapSelection,
   submissionRevision = 0,
   embedded = false,
 }: {
@@ -689,6 +681,8 @@ export function CommissionTemplatePanel({
   onApplied?: (applied: AppliedTemplateRules, submission: TemplateSubmissionDraft) => void;
   /** Saved submission was removed. The waterfall is left as it is. */
   onSubmissionDeleted?: () => void;
+  /** Null means this submission did not record which team caps to apply. */
+  onTeamCapSelection?: (ids: string[] | null) => void;
   /** Bumped when an unsaved template submission is discarded, so the panel reloads the stored one. */
   submissionRevision?: number;
   embedded?: boolean;
@@ -712,6 +706,12 @@ export function CommissionTemplatePanel({
   const [deleteError, setDeleteError] = useState('');
   const [draftTemplateId, setDraftTemplateId] = useState('');
   const [popupOpen, setPopupOpen] = useState(false);
+  const [teamCaps, setTeamCaps] = useState<TeamCapRule[]>([]);
+  const [capsLoaded, setCapsLoaded] = useState(false);
+  const [checkedCapIds, setCheckedCapIds] = useState<string[]>([]);
+  const capChoiceSet = useRef(false);
+  const onTeamCapSelectionRef = useRef(onTeamCapSelection);
+  onTeamCapSelectionRef.current = onTeamCapSelection;
   const [parameters, setParameters] = useState<TemplateParameter[]>([]);
   const [logicSteps, setLogicSteps] = useState<TemplateLogicStep[]>([]);
   const [ledger, setLedger] = useState<FormulaLedgerRow[] | null>(null);
@@ -813,6 +813,7 @@ export function CommissionTemplatePanel({
       setSubmittedTemplateId('');
       setSubmittedParameters({});
       setSubmittedRows([]);
+      onTeamCapSelectionRef.current?.(null);
     };
     const loadSubmission = async () => {
       try {
@@ -832,8 +833,10 @@ export function CommissionTemplatePanel({
         setCommittedTemplateId(submitted?.template_id || '');
         setSubmissionId(submitted?.id || null);
         setSubmissionIds(ids);
+        const savedParameters = parameterRecord(submitted?.submitted_parameters);
         setSubmittedTemplateId(submitted?.template_id || '');
-        setSubmittedParameters(parameterRecord(submitted?.submitted_parameters));
+        setSubmittedParameters(savedParameters);
+        onTeamCapSelectionRef.current?.(submitted ? readTeamCapSelection(savedParameters) : null);
         setSubmittedRows(submissions.flatMap((row: { template_id?: string; submitted_parameters?: unknown }) => {
           const templateId = String(row?.template_id || '').trim();
           return templateId ? [{ templateId, parameters: parameterRecord(row?.submitted_parameters) }] : [];
@@ -875,22 +878,11 @@ export function CommissionTemplatePanel({
     const checkDrift = async () => {
       const fetchOptions = { headers: { 'x-client-id': clientId } };
       const bundles = await Promise.all(submittedRows.map(async (row) => {
-        const [logicResponse, parameterResponse] = await Promise.all([
-          fetch(`/api/commission-template-logic?template_id=${encodeURIComponent(row.templateId)}`, fetchOptions),
-          fetch(`/api/commission-template-parameters?template_id=${encodeURIComponent(row.templateId)}`, fetchOptions),
-        ]);
-        const logicData = await logicResponse.json();
-        const parameterData = await parameterResponse.json();
-        if (!logicResponse.ok || logicData.success === false) throw new Error(logicData.error || 'Failed to load rules.');
-        if (!parameterResponse.ok || parameterData.success === false) throw new Error(parameterData.error || 'Failed to load parameters.');
-        const steps = (logicData.logic_steps || []) as TemplateLogicStep[];
+        const loaded = await loadTemplateBundle(row.templateId);
         const parameterTypes = Object.fromEntries(
-          (Array.isArray(parameterData.parameters) ? parameterData.parameters : []).map((parameter: { parameter_key?: string; data_type?: string | null }) => [
-            String(parameter.parameter_key || ''),
-            parameter.data_type || '',
-          ]),
+          loaded.parameters.map((parameter) => [parameter.parameter_key, parameter.data_type || '']),
         );
-        return { templateId: row.templateId, steps, parameterTypes };
+        return { templateId: row.templateId, steps: loaded.steps, parameterTypes };
       }));
       if (cancelled) return;
 
@@ -915,6 +907,21 @@ export function CommissionTemplatePanel({
       if (cancelled) return;
 
       const saved = payoutSignature(savedPayouts(items, knownAgents, entityOptions));
+      const [catalog, history, overrides] = await Promise.all([
+        loadAllocationCatalog(clientId),
+        loadAllocationHistory(clientId, knownAgents.map((agent) => agent.id)),
+        loadAllocationOverrides(clientId, transactionId),
+      ]);
+      if (cancelled) return;
+      const allocation = allocationForReplay({
+        catalog,
+        history,
+        overrides,
+        deal,
+        transactionId,
+        agents: knownAgents,
+        fieldTypes,
+      });
       let changed = false;
       for (const row of submittedRows) {
         const bundle = bundleById.get(row.templateId);
@@ -931,6 +938,7 @@ export function CommissionTemplatePanel({
             overviewFields,
             ledger: ledgerRows,
             lookups: lookupRows,
+            allocation,
           });
           if (replayed !== saved) changed = true;
         } catch {
@@ -955,6 +963,31 @@ export function CommissionTemplatePanel({
     };
   }, [deal, submissionReady, schemaReady, isLoadingTemplates, submittedRows, templates, fieldTypes, agents, entities, overviewFields, clientId, transactionId]);
 
+  const ledgerEntitiesKey = entities.map((entity) => `${entity.id}\t${entity.name}`).join('\n');
+
+  useEffect(() => {
+    if (!clientId || !ledgerEntitiesKey) return;
+    void loadCommissionLedger(clientId, entities).catch(() => {});
+  }, [clientId, ledgerEntitiesKey, entities]);
+
+  useEffect(() => {
+    if (!clientId || !submittedTemplateId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const bundle = await loadTemplateBundle(submittedTemplateId);
+        if (cancelled) return;
+        const needs = formulaDataNeeds(templateFormulaSources(bundle.steps, bundle.parameters));
+        if (needs.lookupTables.length > 0) await loadFormulaLookups(clientId, needs.lookupTables);
+      } catch {
+        // Opening the popup reports a failed load.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId, submittedTemplateId]);
+
   useEffect(() => {
     if (!popupOpen || !draftTemplateId) {
       setParameters([]);
@@ -966,25 +999,35 @@ export function CommissionTemplatePanel({
     }
     let cancelled = false;
     const loadParameters = async () => {
-      setIsLoadingParameters(true);
       setLoadError('');
-      setLedger(null);
-      setLookups(null);
       setLedgerError('');
+      const cachedLedger = peekCommissionLedger(clientId, entities);
+      const cachedBundle = peekTemplateBundle(draftTemplateId);
+      setLedger(cachedLedger);
+      setIsLoadingParameters(!cachedBundle);
+      if (cachedBundle) {
+        setParameters(cachedBundle.parameters);
+        setLogicSteps(cachedBundle.steps);
+        const cachedNeeds = formulaDataNeeds(templateFormulaSources(cachedBundle.steps, cachedBundle.parameters));
+        const showCached = cachedBundle.steps.some((step) => step.show_in_popup);
+        if (!showCached || !cachedNeeds.needsLedger) setLedger([]);
+        const cachedLookups = cachedNeeds.lookupTables.length === 0
+          ? { clientId, tables: {} }
+          : peekFormulaLookups(clientId, cachedNeeds.lookupTables);
+        setLookups(cachedLookups);
+      } else {
+        setLookups(null);
+      }
+      const ledgerPromise = loadCommissionLedger(clientId, entities, { refresh: Boolean(cachedLedger) });
       try {
-        const [parametersResponse, logicResponse] = await Promise.all([
-          fetch(`/api/commission-template-parameters?template_id=${encodeURIComponent(draftTemplateId)}`),
-          fetch(`/api/commission-template-logic?template_id=${encodeURIComponent(draftTemplateId)}`),
-        ]);
-        const data = await parametersResponse.json();
-        const logicData = await logicResponse.json();
-        if (!parametersResponse.ok || !data.success) throw new Error(data.error || 'Failed to load parameters.');
-        if (!logicResponse.ok || !logicData.success) throw new Error(logicData.error || 'Failed to load rules.');
-        const steps = (logicData.logic_steps || []) as TemplateLogicStep[];
-        const parameterRows = (data.parameters || []) as TemplateParameter[];
+        const bundle = cachedBundle ?? await loadTemplateBundle(draftTemplateId);
         if (cancelled) return;
-        setParameters(parameterRows);
-        setLogicSteps(steps);
+        const steps = bundle.steps;
+        const parameterRows = bundle.parameters;
+        if (!cachedBundle) {
+          setParameters(parameterRows);
+          setLogicSteps(steps);
+        }
         setIsLoadingParameters(false);
 
         const needs = formulaDataNeeds(templateFormulaSources(steps, parameterRows));
@@ -1006,10 +1049,10 @@ export function CommissionTemplatePanel({
               return;
             }
             try {
-              const nextLedger = await loadCommissionLedger(clientId, entities);
+              const nextLedger = await ledgerPromise;
               if (!cancelled) setLedger(nextLedger);
             } catch (err) {
-              if (!cancelled) setLedgerError(err instanceof Error ? err.message : 'Failed to calculate template results.');
+              if (!cancelled && !cachedLedger) setLedgerError(err instanceof Error ? err.message : 'Failed to calculate template results.');
             }
           })(),
         ]);
@@ -1045,6 +1088,60 @@ export function CommissionTemplatePanel({
   const [activeGroup, setActiveGroup] = useState('');
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [collapsedLogicSections, setCollapsedLogicSections] = useState<Record<string, boolean>>({});
+  const qualifyingCaps = useMemo(
+    () => qualifyingTeamCaps(teamCaps, deal, fieldTypes),
+    [teamCaps, deal, fieldTypes],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadCaps = async () => {
+      try {
+        const response = await fetch(`/api/agent-allocations?client_id=${encodeURIComponent(clientId)}`, {
+          headers: { 'x-client-id': clientId },
+        });
+        const data = await response.json();
+        if (!response.ok || data.success === false || cancelled) return;
+        const caps = (Array.isArray(data.teamCaps) ? data.teamCaps : []).flatMap((row: Record<string, unknown>) => {
+          const id = String(row.id || '').trim();
+          if (!id) return [];
+          return [{
+            id,
+            name: String(row.name || 'Team Cap'),
+            key: row.key ? String(row.key) : null,
+            enabled: Boolean(row.enabled),
+            qualifyingFormula: row.qualifying_formula ? String(row.qualifying_formula) : null,
+            splitPercentFieldKey: row.split_percent_field_key ? String(row.split_percent_field_key) : null,
+            capAmountFieldKey: row.cap_amount_field_key ? String(row.cap_amount_field_key) : null,
+            resetDateFieldKey: row.reset_date_field_key ? String(row.reset_date_field_key) : null,
+            recipientAgentId: row.recipient_agent_id ? String(row.recipient_agent_id) : null,
+          } satisfies TeamCapRule];
+        });
+        setTeamCaps(caps);
+      } catch {
+        if (!cancelled) setTeamCaps([]);
+      } finally {
+        if (!cancelled) setCapsLoaded(true);
+      }
+    };
+    void loadCaps();
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId]);
+
+  useEffect(() => {
+    if (!popupOpen) {
+      capChoiceSet.current = false;
+      return;
+    }
+    if (!capsLoaded || !schemaReady || capChoiceSet.current) return;
+    const qualifyingIds = qualifyingCaps.map((cap) => cap.id);
+    const stored = draftTemplateId === submittedTemplateId ? readTeamCapSelection(submittedParameters) : null;
+    setCheckedCapIds(stored == null ? qualifyingIds : stored.filter((id) => qualifyingIds.includes(id)));
+    capChoiceSet.current = true;
+  }, [popupOpen, capsLoaded, schemaReady, qualifyingCaps, draftTemplateId, submittedTemplateId, submittedParameters]);
+
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
   useEffect(() => {
@@ -1208,11 +1305,18 @@ export function CommissionTemplatePanel({
       for (const parameter of parameters) {
         parameterValues[parameter.parameter_key] = liveValues.current[parameter.id] ?? '';
       }
+      const teamCapIds = checkedCapIds.filter((id) => qualifyingCaps.some((cap) => cap.id === id));
+      const seenRecipients = new Set<string>();
+      const teamCapRecipients = qualifyingCaps.flatMap((cap) => {
+        if (!teamCapIds.includes(cap.id) || !cap.recipientAgentId || seenRecipients.has(cap.recipientAgentId)) return [];
+        const recipient = agents.find((agent) => agent.id === cap.recipientAgentId);
+        if (!recipient) return [];
+        seenRecipients.add(recipient.id);
+        return [{ id: recipient.id, name: recipient.name, isTeamLead: Boolean(recipient.isTeamLead) }];
+      });
+      const submittedParametersWithCaps = writeTeamCapSelection(parameterValues, teamCapIds);
 
-      const logicResponse = await fetch(`/api/commission-template-logic?template_id=${encodeURIComponent(draftTemplateId)}`);
-      const logicData = await logicResponse.json();
-      if (!logicResponse.ok || !logicData.success) throw new Error(logicData.error || 'Failed to load rules.');
-      const steps = (logicData.logic_steps || []) as TemplateLogicStep[];
+      const steps = (await loadTemplateBundle(draftTemplateId)).steps;
       const needs = formulaDataNeeds(templateFormulaSources(steps, parameters));
       const [submitLedger, lookupsForSubmit] = await Promise.all([
         needs.needsLedger ? (ledger ?? loadCommissionLedger(clientId, entities)) : Promise.resolve([]),
@@ -1234,15 +1338,18 @@ export function CommissionTemplatePanel({
       localSubmitRef.current = true;
       setCommittedTemplateId(draftTemplateId);
       setSubmittedTemplateId(draftTemplateId);
-      setSubmittedParameters(parameterValues);
-      setSubmittedRows([{ templateId: draftTemplateId, parameters: parameterValues }]);
+      setSubmittedParameters(submittedParametersWithCaps);
+      setSubmittedRows([{ templateId: draftTemplateId, parameters: submittedParametersWithCaps }]);
       setPaymentsWouldChange(false);
       setPaymentDriftReady(true);
+      onTeamCapSelection?.(teamCapIds);
       onApplied?.(applied, {
         id: submissionId,
         template_id: draftTemplateId,
-        submitted_parameters: parameterValues,
+        submitted_parameters: submittedParametersWithCaps,
         status: 'SUBMITTED',
+        team_cap_ids: teamCapIds,
+        team_cap_recipients: teamCapRecipients,
       });
       setPopupOpen(false);
       setDraftTemplateId('');
@@ -1374,13 +1481,13 @@ export function CommissionTemplatePanel({
         </button>
         )}
         {templateMenuOpen && templates.length > 1 && createPortal(
-          <ul ref={templateMenuRef} role="listbox" aria-label="Template" style={{ top: templateMenuBox.top, left: templateMenuBox.left, width: templateMenuBox.width }} className="fixed z-50 max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-xs shadow-lg dark:border-slate-600 dark:bg-slate-800">
+          <ul ref={templateMenuRef} role="listbox" aria-label="Template" style={{ top: templateMenuBox.top, left: templateMenuBox.left, width: templateMenuBox.width, zIndex: 200 }} className="fixed max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-xs shadow-lg dark:border-slate-600 dark:bg-slate-800">
             {templates.map((template) => (
               <li key={template.id} role="option" aria-selected={template.id === shownTemplateId}>
                 <button
                   type="button"
                   onClick={() => openTemplate(template.id)}
-                  className={`block w-full cursor-pointer px-2.5 py-1.5 text-left font-medium text-slate-900 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700 ${template.id === shownTemplateId ? 'bg-slate-100 dark:bg-slate-700' : ''}`}
+                  className={`block w-full cursor-pointer px-2.5 py-1.5 text-left text-xs font-medium ${template.id === shownTemplateId ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200' : 'text-slate-800 hover:bg-emerald-500/15 hover:text-emerald-800 dark:text-slate-100 dark:hover:text-emerald-200'}`}
                 >
                   {template.template_name}
                 </button>
@@ -1493,6 +1600,28 @@ export function CommissionTemplatePanel({
                 </div>
               )}
               </section>
+              {qualifyingCaps.length > 0 && (
+                <section className="rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800">
+                  <div className="flex w-full items-center gap-2 px-3 py-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Team Caps</span>
+                  </div>
+                  <div className="space-y-2 border-t border-slate-200 px-3 py-3 dark:border-slate-700">
+                    {qualifyingCaps.map((cap) => (
+                      <BooleanField
+                        key={cap.id}
+                        id={`team-cap-${cap.id}`}
+                        label={cap.name.trim() || 'Team Cap'}
+                        checked={checkedCapIds.includes(cap.id)}
+                        onChange={(checked) => {
+                          setCheckedCapIds((current) => checked
+                            ? [...current, cap.id]
+                            : current.filter((id) => id !== cap.id));
+                        }}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
               {(ledgerError || logicGroups.length > 0 || (logicSteps.some((step) => step.show_in_popup) && (!ledger || !lookups))) && (
                 <section className="rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800">
                   <button

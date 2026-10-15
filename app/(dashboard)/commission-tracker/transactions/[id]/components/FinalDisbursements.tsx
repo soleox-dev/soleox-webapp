@@ -2,9 +2,11 @@
 import React from 'react';
 import { Building2, UserRound } from 'lucide-react';
 import { formatPercentRate } from '@/lib/percent';
+import { roundCurrency } from '../types';
 import { SectionIcon } from './SectionIcon';
 import { toggleFromSectionHeader } from './sectionHeaderClick';
 import { SectionCollapseButton } from './SectionCollapseButton';
+import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
 
 export interface AgentDisbursement {
   name: string;
@@ -19,6 +21,9 @@ interface FinalDisbursementsProps {
   agentDisbursements: AgentDisbursement[];
   entityDisbursements: [string, number][];
   totalCommission: number;
+  agentSplitTotal?: number;
+  agentSplitExcess?: number;
+  remainingCommission?: number;
 }
 
 function formatCurrency(val: number) {
@@ -139,9 +144,16 @@ export function FinalDisbursements({
   agentDisbursements,
   entityDisbursements,
   totalCommission,
+  agentSplitTotal = 0,
+  agentSplitExcess = 0,
+  remainingCommission = 0,
 }: FinalDisbursementsProps) {
   const agentTotal = agentDisbursements.reduce((sum, agent) => sum + agent.amount, 0);
   const entityTotal = entityDisbursements.reduce((sum, [, amount]) => sum + amount, 0);
+  const totalPayments = roundCurrency(agentTotal + entityTotal);
+  const paymentsShare = totalCommission > 0 ? totalPayments / totalCommission : 0;
+  const paymentsExceedCommission = totalPayments > totalCommission + 0.009;
+  const showSplitWarning = agentSplitExcess > 0.009;
 
   return (
     <section id="disbursements" className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-8 transition-colors">
@@ -157,8 +169,18 @@ export function FinalDisbursements({
         <SectionCollapseButton collapsed={isCollapsed} onClick={onToggleSection} />
       </div>
 
+      {!isCollapsed && showSplitWarning && (
+        <div className="px-6 py-5">
+          <AgentSplitExcessNotice
+            total={agentSplitTotal}
+            remaining={remainingCommission}
+            excess={agentSplitExcess}
+          />
+        </div>
+      )}
+
       {!isCollapsed && (
-        <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-2 md:gap-0">
+        <div className={`grid grid-cols-1 gap-6 px-6 pb-6 md:grid-cols-2 md:gap-0 ${showSplitWarning ? 'pt-0' : 'pt-6'}`}>
           <div className="flex h-full flex-col gap-3 md:pr-6">
             <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
               Payments to Agents
@@ -222,14 +244,20 @@ export function FinalDisbursements({
       )}
 
       {!isCollapsed && (
-        <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-4 dark:border-slate-700 dark:bg-slate-800">
-          <span className="text-lg font-semibold text-slate-900 dark:text-white">Total Commission</span>
+        <div className={`flex items-center justify-between border-t px-6 py-4 ${
+          paymentsExceedCommission
+            ? 'border-rose-300 bg-rose-50 dark:border-rose-500/40 dark:bg-rose-950/40'
+            : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800'
+        }`}>
+          <span className={`text-lg font-semibold ${paymentsExceedCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-900 dark:text-white'}`}>
+            Total Payments
+          </span>
           <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              {totalCommission > 0 ? formatPercentRate(1) : '—'}
+            <span className={`text-sm font-medium ${paymentsExceedCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-500 dark:text-slate-400'}`}>
+              {totalCommission > 0 ? formatPercentRate(paymentsShare) : '—'}
             </span>
-            <span className="text-lg font-semibold whitespace-nowrap text-slate-900 dark:text-white">
-              {formatCurrency(totalCommission)}
+            <span className={`text-lg font-semibold whitespace-nowrap ${paymentsExceedCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-900 dark:text-white'}`}>
+              {formatCurrency(totalPayments)}
             </span>
           </div>
         </div>
