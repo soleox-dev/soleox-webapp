@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { requireSessionClient, apiError } from '@/lib/session';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -17,8 +17,7 @@ export async function GET(request: Request) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const url = new URL(request.url);
-    const clientId = url.searchParams.get('client_id') || request.headers.get('x-client-id') || 'DEMO';
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     if (url.searchParams.get('history') === '1') {
       const agentIds = (url.searchParams.get('agent_ids') || '').split(',').map((id) => id.trim()).filter(Boolean);
       const excludeId = url.searchParams.get('exclude_transaction_id') || '';
@@ -42,6 +41,23 @@ export async function GET(request: Request) {
         })),
       });
     }
+    if (url.searchParams.get('scope') === 'client') {
+      const { data, error } = await supabase
+        .from('transaction_team_caps')
+        .select('agent_id, amount, period_start, transaction_id, team_cap_id')
+        .eq('client_id', clientId);
+      if (error) throw error;
+      return NextResponse.json({
+        success: true,
+        contributions: (data || []).map((row) => ({
+          agentId: row.agent_id,
+          amount: Number(row.amount) || 0,
+          periodStart: row.period_start,
+          teamCapId: row.team_cap_id,
+          transactionId: row.transaction_id,
+        })),
+      });
+    }
     const transactionId = url.searchParams.get('transaction_id') || '';
     if (!transactionId) return NextResponse.json({ error: 'A transaction is required.' }, { status: 400 });
     const { data, error } = await supabase
@@ -52,8 +68,7 @@ export async function GET(request: Request) {
     if (error) throw error;
     return NextResponse.json({ success: true, teamCaps: data || [] });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'The team caps could not be loaded.';
-    return NextResponse.json({ error: message }, { status: message.includes('Unauthorized') ? 401 : 500 });
+    return apiError(error, 'The team caps could not be loaded.');
   }
 }
 
@@ -62,11 +77,10 @@ export async function PUT(request: Request) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await request.json();
-    const clientId = String(body.clientId || request.headers.get('x-client-id') || 'DEMO');
+    const { clientId, supabase } = await requireSessionClient();
     const transactionId = String(body.transactionId || '');
     const rows = Array.isArray(body.teamCaps) ? body.teamCaps as TeamCapBody[] : [];
     if (!transactionId) return NextResponse.json({ error: 'A transaction is required.' }, { status: 400 });
-    const supabase = await getAuthenticatedSupabase();
     const user = session.user.email;
     const now = new Date().toISOString();
     const keep = new Set<string>();
@@ -122,7 +136,6 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'The team caps could not be saved.';
-    return NextResponse.json({ error: message }, { status: message.includes('Unauthorized') ? 401 : 500 });
+    return apiError(error, 'The team caps could not be saved.');
   }
 }

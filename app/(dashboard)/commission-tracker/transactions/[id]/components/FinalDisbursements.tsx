@@ -153,6 +153,9 @@ export function FinalDisbursements({
   const totalPayments = roundCurrency(agentTotal + entityTotal);
   const paymentsShare = totalCommission > 0 ? totalPayments / totalCommission : 0;
   const paymentsExceedCommission = totalPayments > totalCommission + 0.009;
+  const unallocatedCommission = roundCurrency(totalCommission - totalPayments);
+  const paymentsShortOfCommission = totalCommission > 0.009 && unallocatedCommission > 0.009;
+  const paymentsOffCommission = paymentsExceedCommission || paymentsShortOfCommission;
   const showSplitWarning = agentSplitExcess > 0.009;
 
   return (
@@ -243,20 +246,31 @@ export function FinalDisbursements({
         </div>
       )}
 
+      {!isCollapsed && paymentsShortOfCommission && (
+        <div className="px-6 pb-4">
+          <p
+            role="alert"
+            className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2.5 text-[13px] font-semibold leading-relaxed text-rose-700 dark:border-rose-500/40 dark:bg-rose-950/40 dark:text-rose-300"
+          >
+            Total Payments are {formatCurrency(totalPayments)}, which leaves {formatCurrency(unallocatedCommission)} of the {formatCurrency(totalCommission)} commission unallocated. This transaction cannot be saved until the entire commission is allocated among agents and entities.
+          </p>
+        </div>
+      )}
+
       {!isCollapsed && (
         <div className={`flex items-center justify-between border-t px-6 py-4 ${
-          paymentsExceedCommission
+          paymentsOffCommission
             ? 'border-rose-300 bg-rose-50 dark:border-rose-500/40 dark:bg-rose-950/40'
             : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800'
         }`}>
-          <span className={`text-lg font-semibold ${paymentsExceedCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-900 dark:text-white'}`}>
+          <span className={`text-lg font-semibold ${paymentsOffCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-900 dark:text-white'}`}>
             Total Payments
           </span>
           <div className="flex items-center gap-3">
-            <span className={`text-sm font-medium ${paymentsExceedCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-500 dark:text-slate-400'}`}>
+            <span className={`text-sm font-medium ${paymentsOffCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-500 dark:text-slate-400'}`}>
               {totalCommission > 0 ? formatPercentRate(paymentsShare) : '—'}
             </span>
-            <span className={`text-lg font-semibold whitespace-nowrap ${paymentsExceedCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-900 dark:text-white'}`}>
+            <span className={`text-lg font-semibold whitespace-nowrap ${paymentsOffCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-900 dark:text-white'}`}>
               {formatCurrency(totalPayments)}
             </span>
           </div>

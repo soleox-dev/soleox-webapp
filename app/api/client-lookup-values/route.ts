@@ -3,7 +3,7 @@ import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getClientLookupValues } from '@/lib/fields';
-import { getTenantContext } from '@/lib/session';
+import { getTenantContext, requireSessionClient, apiError } from '@/lib/session';
 
 // GET: Active lookup values for a category, ordered by sort_order
 export async function GET(request: Request) {
@@ -26,9 +26,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ lookup_values: lookupValues });
   } catch (error: any) {
-    console.error('Supabase Client Lookup Value Fetch Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -40,7 +38,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const body = await request.json();
     const lookup = body.lookup_value || body;
 
@@ -58,7 +56,7 @@ export async function POST(request: Request) {
 
     // 2. Format row payload
     const rowPayload: Record<string, any> = {
-      client_id: String(lookup.client_id || 'DEMO'),
+      client_id: clientId,
       category: String(lookup.category),
       lookup_code: String(lookup.lookup_code),
       lookup_label: String(lookup.lookup_label),
@@ -100,8 +98,6 @@ export async function POST(request: Request) {
       lookup_value: returnedRow,
     });
   } catch (error: any) {
-    console.error('Supabase Client Lookup Value Save Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }

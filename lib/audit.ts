@@ -1,32 +1,60 @@
-export interface AuditLogInput {
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+export interface AuditEvent {
   clientId: string;
-  actorId: string;
-  actorRole?: string;
+  actorEmail: string;
   action: string;
-  targetEntity: string;
-  entityId: string;
-  changesPayload?: Record<string, any>;
-  ipAddress?: string;
+  entity: 'permission' | 'template' | 'transaction' | 'sync' | 'client';
+  entityId?: string | null;
+  summary: string;
+  detail?: Record<string, unknown>;
 }
 
-export async function createAuditLog({
-  clientId,
-  actorId,
-  actorRole = 'USER',
-  action,
-  targetEntity,
-  entityId,
-  changesPayload = {},
-  ipAddress = '127.0.0.1',
-}: AuditLogInput): Promise<string> {
-  const auditId = `AUD_${Date.now()}`;
+function missingTable(message: string): boolean {
+  return message.includes('does not exist') || message.includes('schema cache');
+}
 
-  // Log to server console; can be piped to external audit service or dedicated Supabase audit table
-  console.log(`[AUDIT] ${auditId} | Tenant: ${clientId} | Actor: ${actorId} (${actorRole}) | Action: ${action} | Target: ${targetEntity}:${entityId}`, {
-    changesPayload,
-    ipAddress,
-    timestamp: new Date().toISOString(),
+/** Append one audit row. A failed write is logged and does not undo the change that already succeeded. */
+export async function recordAudit(supabase: SupabaseClient, event: AuditEvent): Promise<void> {
+  const detail = event.detail ?? {};
+  let stored: Record<string, unknown> = detail;
+  try {
+    if (JSON.stringify(detail).length > 8000) stored = { note: 'Detail omitted because it was too large.' };
+  } catch {
+    stored = {};
+  }
+
+  const { error } = await supabase.from('audit_events').insert({
+    client_id: event.clientId,
+    actor_email: event.actorEmail.trim().toLowerCase(),
+    action: event.action,
+    entity: event.entity,
+    entity_id: event.entityId || null,
+    summary: event.summary.slice(0, 500),
+    detail: stored,
   });
+  if (!error) return;
+  const message = error.message || 'The audit event could not be saved.';
+  if (missingTable(message)) {
+    console.warn('Audit events are not available until migration 046 is applied.');
+    return;
+  }
+  console.error('Audit event failed:', message);
+}
 
-  return auditId;
+/** Item 9 calls this when a brokerage's data is exported. */
+export async function recordClientExport(
+  supabase: SupabaseClient,
+  clientId: string,
+  actorEmail: string,
+  summary: string,
+): Promise<void> {
+  await recordAudit(supabase, {
+    clientId,
+    actorEmail,
+    action: 'export',
+    entity: 'client',
+    entityId: clientId,
+    summary,
+  });
 }

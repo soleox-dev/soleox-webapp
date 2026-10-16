@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { requireSessionClient, apiError } from '@/lib/session';
+import { recordAudit } from '@/lib/audit';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -8,31 +9,24 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('user_id');
-    const clientId = searchParams.get('client_id');
-
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     let query = supabase
       .from('client_user_roles')
       .select('*')
+      .eq('client_id', clientId)
       .eq('is_active', true)
       .order('is_primary_team', { ascending: false });
 
     if (userId) {
       query = query.eq('user_id', userId);
     }
-    if (clientId) {
-      query = query.eq('client_id', clientId);
-    }
-
     const { data, error } = await query;
 
     if (error) throw error;
 
     return NextResponse.json({ success: true, roles: data || [] });
   } catch (error: any) {
-    console.error('Error fetching client user roles:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -44,14 +38,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const body = await request.json();
     const roleMapping = body.role_mapping || body.role || body;
 
-    // 1. Validation: user_id and client_id are strictly required. ID is optional for new records.
-    if (!roleMapping || !roleMapping.user_id || !roleMapping.client_id) {
+    if (!roleMapping || !roleMapping.user_id) {
       return NextResponse.json(
-        { error: 'User ID and Client ID are required' },
+        { error: 'User ID is required' },
         { status: 400 }
       );
     }
@@ -71,7 +64,7 @@ export async function POST(request: Request) {
     // 3. Format row payload
     const rowPayload: Record<string, any> = {
       user_id: String(roleMapping.user_id),
-      client_id: String(roleMapping.client_id),
+      client_id: clientId,
       role: String(roleMapping.role || 'AGENT'),
       agent_access_scope: String(roleMapping.agent_access_scope || 'OWN_TRANSACTIONS'),
       is_primary_team: roleMapping.is_primary_team !== undefined ? Boolean(roleMapping.is_primary_team) : true,
@@ -95,6 +88,15 @@ export async function POST(request: Request) {
     if (error) throw error;
 
     const returnedRow = data ? data[0] : rowPayload;
+    await recordAudit(supabase, {
+      clientId,
+      actorEmail: session.user.email,
+      action: isUpdate ? 'update' : 'create',
+      entity: 'permission',
+      entityId: returnedRow.id ? String(returnedRow.id) : null,
+      summary: `${isUpdate ? 'Changed' : 'Granted'} ${returnedRow.role || 'a permission'} for user ${returnedRow.user_id}`,
+      detail: { role: returnedRow.role, userId: returnedRow.user_id, active: returnedRow.is_active },
+    });
 
     return NextResponse.json({
       success: true,
@@ -102,9 +104,7 @@ export async function POST(request: Request) {
       role_mapping: returnedRow,
     });
   } catch (error: any) {
-    console.error('Supabase Client User Role Save Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -123,7 +123,13 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Role Mapping ID is required' }, { status: 400 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
+    const { data: existing } = await supabase
+      .from('client_user_roles')
+      .select('id, role, user_id')
+      .eq('id', id)
+      .eq('client_id', clientId)
+      .maybeSingle();
     const { error } = await supabase
       .from('client_user_roles')
       .update({
@@ -131,14 +137,21 @@ export async function DELETE(request: Request) {
         is_primary_team: false,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('client_id', clientId);
 
     if (error) throw error;
+    await recordAudit(supabase, {
+      clientId,
+      actorEmail: session.user.email,
+      action: 'delete',
+      entity: 'permission',
+      entityId: id,
+      summary: existing ? `Revoked ${existing.role} for user ${existing.user_id}` : 'Revoked a permission',
+    });
 
     return NextResponse.json({ success: true, message: 'User role access revoked successfully' });
   } catch (error: any) {
-    console.error('Supabase Client User Role Delete Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }

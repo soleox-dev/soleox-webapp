@@ -189,9 +189,9 @@ async function insertRun(
 
 function blockMessage(formula: string, formulaError: string | null, tmsMapped: boolean): string | null {
   if (!formula.trim()) {
-    return 'Save a Default View filter before syncing. A blank filter would include every transaction, including ones that are already reconciled.';
+    return 'Save a default view before syncing. A blank filter would include every transaction, including ones that are already reconciled.';
   }
-  if (formulaError) return `The Default View formula could not be used: ${formulaError}`;
+  if (formulaError) return `The default view formula could not be used: ${formulaError}`;
   if (!tmsMapped) return 'Map a column to TMS ID before syncing.';
   return null;
 }

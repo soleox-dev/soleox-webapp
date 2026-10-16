@@ -604,13 +604,13 @@ function finish(rows: PlannedSyncRow[]): Omit<SyncPlan, 'ignored' | 'sourceTmsId
 }
 
 function outsideViewReason(): string {
-  return 'This transaction is outside the Default View, so it was left unchanged.';
+  return 'This transaction is outside the default view, so it was left unchanged.';
 }
 
 /**
  * Decides inserts and updates for one sheet. A sheet row that is not already in
- * Soleox is added even when it is outside the Default View. An existing
- * transaction outside the Default View is left unchanged.
+ * Soleox is added even when it is outside the default view. An existing
+ * transaction outside the default view is left unchanged.
  */
 export function planTransactionSync(input: {
   formula: string;
@@ -800,9 +800,9 @@ export function planTransactionSync(input: {
 }
 
 /**
- * Flags Default View deals whose TMS ID is missing from the source.
+ * Flags default-view deals whose TMS ID is missing from the source.
  * Deals with no TMS ID are left alone. Nothing here deletes a transaction.
- * A deal outside the Default View is marked connected when its ID is present, and is not marked disconnected when the ID is absent.
+ * A deal outside the default view is marked connected when its ID is present, and is not marked disconnected when the ID is absent.
  */
 export function planTmsLinkUpdates(input: {
   formula: string;

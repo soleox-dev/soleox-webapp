@@ -332,7 +332,10 @@ export default function Navbar() {
 
                 {/* Sign Out Trigger */}
                 <button
-                  onClick={() => signOut({ callbackUrl: '/login' })}
+                  onClick={() => {
+                    window.sessionStorage.removeItem('soleox-transactions-list');
+                    void signOut({ callbackUrl: '/login' });
+                  }}
                   className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 flex items-center gap-2 transition cursor-pointer"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

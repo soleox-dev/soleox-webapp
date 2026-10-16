@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateWaterfallForTransaction } from '@/lib/services/waterfall-service';
-import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { requireSessionClient, apiError } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
   try {
-    const clientId = request.headers.get('x-client-id') || 'DEMO';
+    const { clientId, supabase } = await requireSessionClient();
     const body = await request.json();
     const { transactionId, gci, transactionFee, agentSplitRate, templateId } = body;
 
@@ -15,7 +15,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await getAuthenticatedSupabase();
     const result = await calculateWaterfallForTransaction(
       clientId,
       String(transactionId),
@@ -28,8 +27,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, waterfall: result });
   } catch (error: any) {
-    console.error('Error running waterfall calculation:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ success: false, error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.', 'success');
   }
 }

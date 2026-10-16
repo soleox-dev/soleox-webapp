@@ -65,10 +65,30 @@
   animation: all-agents-enter 0.7s ease;
 }
 
+@keyframes earnings-chart-enter {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes earnings-period-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.earnings-chart-enter {
+  animation: earnings-chart-enter 0.5s ease;
+}
+
+.earnings-period-enter {
+  animation: earnings-period-enter 0.45s ease;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .report-cover-launch,
   .report-arrive,
-  .all-agents-enter {
+  .all-agents-enter,
+  .earnings-chart-enter,
+  .earnings-period-enter {
     animation: none;
   }
 }

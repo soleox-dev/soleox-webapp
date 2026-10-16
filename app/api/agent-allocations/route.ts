@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { requireSessionClient, apiError } from '@/lib/session';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { validateFormula } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-validator';
@@ -94,8 +95,7 @@ export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const clientId = new URL(request.url).searchParams.get('client_id') || request.headers.get('x-client-id') || 'DEMO';
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const [teamCaps, salesVolume] = await Promise.all([
       supabase.from('client_team_caps').select('*').eq('client_id', clientId).or('archived.is.null,archived.eq.false').order('created_at', { ascending: true }),
       supabase.from('client_sales_volume_assignments').select('*').eq('client_id', clientId).or('archived.is.null,archived.eq.false').limit(1).maybeSingle(),
@@ -104,8 +104,7 @@ export async function GET(request: Request) {
     if (salesVolume.error) throw salesVolume.error;
     return NextResponse.json({ success: true, teamCaps: teamCaps.data || [], salesVolume: salesVolume.data });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'The allocation settings could not be loaded.';
-    return NextResponse.json({ error: message }, { status: message.includes('Unauthorized') ? 401 : 500 });
+    return apiError(error, 'The allocation settings could not be loaded.');
   }
 }
 
@@ -114,8 +113,7 @@ export async function PUT(request: Request) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await request.json();
-    const clientId = String(body.clientId || request.headers.get('x-client-id') || 'DEMO');
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const user = session.user.email;
     const { data: fields, error: fieldsError } = await supabase
       .from('client_field_configurations')
@@ -229,11 +227,13 @@ export async function PUT(request: Request) {
         ? String((error as { message?: unknown }).message || '')
         : '';
     const code = error && typeof error === 'object' && 'code' in error ? String((error as { code?: unknown }).code || '') : '';
-    const message = code === '23505'
-      ? 'That key is already used by another team cap.'
-      : /key/.test(raw) && (/schema cache/i.test(raw) || /does not exist/i.test(raw))
-        ? 'Run migration 043 before saving a team cap key.'
-        : raw || 'The allocation settings could not be saved.';
-    return NextResponse.json({ error: message }, { status: message.includes('Unauthorized') ? 401 : 500 });
+    if (code === '23505') {
+      return NextResponse.json({ error: 'That key is already used by another team cap.' }, { status: 400 });
+    }
+    if (/key/.test(raw) && (/schema cache/i.test(raw) || /does not exist/i.test(raw))) {
+      console.error(error);
+      return NextResponse.json({ error: 'Run migration 043 before saving a team cap key.' }, { status: 500 });
+    }
+    return apiError(error, 'The allocation settings could not be saved.');
   }
 }

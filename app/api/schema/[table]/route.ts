@@ -225,9 +225,9 @@ export async function GET(
       source: savedConfigs.length > 0 ? 'saved_configs' : 'default_schema',
     });
   } catch (error: any) {
-    console.error(`❌ Schema fetch failed for table "${table}":`, error.message);
+    console.error(`Schema fetch failed for table "${table}":`, error);
     return NextResponse.json(
-      { catalog: [], db_columns: [], error: `Failed to load dynamic schema for ${table}: ${error.message}` },
+      { catalog: [], db_columns: [], error: 'The schema could not be loaded.' },
       { status: 500 }
     );
   }

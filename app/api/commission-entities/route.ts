@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { requireSessionClient, apiError } from '@/lib/session';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-async function reorderPostSplitEntities(supabase: SupabaseClient, user: string, body: { client_id?: string; entity_ids?: unknown }) {
-  const clientId = String(body.client_id || 'DEMO');
+async function reorderPostSplitEntities(supabase: SupabaseClient, user: string, clientId: string, body: { entity_ids?: unknown }) {
   const requested = Array.isArray(body.entity_ids) ? body.entity_ids.map((id) => String(id)) : [];
   const { data: existing, error: existingError } = await supabase
     .from('commission_entities')
@@ -48,10 +47,7 @@ async function reorderPostSplitEntities(supabase: SupabaseClient, user: string, 
 // GET: Fetch all active/non-archived entities from Supabase
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const clientId = request.headers.get('x-client-id') || request.headers.get('client_id') || searchParams.get('client_id') || 'DEMO';
-
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const [{ data, error }, { data: paymentRows, error: paymentsError }] = await Promise.all([
       supabase
         .from('commission_entities')
@@ -80,9 +76,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, entities });
   } catch (error: any) {
-    console.error('Error fetching commission entities:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -94,10 +88,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase, email } = await requireSessionClient();
     const body = await request.json();
     if (body.action === 'REORDER') {
-      return reorderPostSplitEntities(supabase, String(session.user.email), body);
+      return reorderPostSplitEntities(supabase, email, clientId, body);
     }
     const entity = body.entity || body;
 
@@ -108,8 +102,7 @@ export async function POST(request: Request) {
 
     const existingId = entity.id ? String(entity.id) : null;
     const isUpdate = body.action === 'CREATE' ? false : Boolean(existingId);
-    const clientId = String(entity.client_id || 'DEMO');
-    const user = session.user.email || entity.updated_by || entity.created_by || 'system_admin';
+    const user = email || entity.updated_by || entity.created_by || 'system_admin';
     const nextName = String(entity.entity_name).trim();
 
     // 2. Format row payload matching schema
@@ -158,9 +151,7 @@ export async function POST(request: Request) {
       entity: returnedRow,
     });
   } catch (error: any) {
-    console.error('Supabase Commission Entities Save Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -169,13 +160,12 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    const clientId = searchParams.get('client_id') || 'DEMO';
 
     if (!id) {
       return NextResponse.json({ error: 'Entity ID is required' }, { status: 400 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const { count, error: paymentsError } = await supabase
       .from('payments')
       .select('id', { count: 'exact', head: true })
@@ -203,8 +193,6 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ success: true, message: 'Entity archived successfully' });
   } catch (error: any) {
-    console.error('Supabase Commission Entity Delete Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }

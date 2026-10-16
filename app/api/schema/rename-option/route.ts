@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getAuthenticatedSupabase } from '@/lib/supabase';
-import { getTenantContext } from '@/lib/session';
+import { getTenantContext, apiError } from '@/lib/session';
 import { getDbTableColumns, clearSchemaCache } from '@/lib/fields';
 
 export async function POST(request: Request) {
@@ -183,8 +183,6 @@ export async function POST(request: Request) {
       message: `Successfully renamed "${trimmedOldValue}" to "${trimmedNewValue}". ${updatedRowCount} record(s) have been updated.`,
     });
   } catch (error: any) {
-    console.error('Error in /api/schema/rename-option:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message || 'Failed to rename option' }, { status });
+    return apiError(error, 'The option could not be renamed.');
   }
 }

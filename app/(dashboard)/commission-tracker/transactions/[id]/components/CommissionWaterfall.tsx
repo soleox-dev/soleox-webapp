@@ -107,7 +107,7 @@ function AgentCapStrips({
     <div className="space-y-1.5">
       {groups.map((group) => (
         <div key={group.id} className="flex items-center justify-between gap-3 rounded-md bg-amber-50 px-2.5 py-1.5 dark:bg-amber-950/40">
-          <span className="text-[11px] font-semibold text-amber-900 dark:text-amber-200">{group.name}</span>
+          <span className="text-xs font-semibold text-amber-900 dark:text-amber-200">{group.name}</span>
           <TeamCapAmount
             line={group.lines.find((item) => item.agent_id === agentId)}
             isEditing={isEditing}
@@ -216,13 +216,13 @@ export function CommissionWaterfall({
   };
 
   const agentLayoutToggle = (
-    <div role="group" aria-label="Agent splits layout" className="inline-flex shrink-0 rounded-lg border border-slate-200 dark:border-slate-700 p-0.5">
+    <div role="group" aria-label="Agent splits layout" className="inline-flex h-9 shrink-0 items-stretch rounded-lg border border-slate-200 dark:border-slate-700 p-0.5">
       <button
         type="button"
         onClick={() => chooseAgentLayout('table')}
         title="Table"
         aria-label="Table"
-        className={`inline-flex h-7 w-7 items-center justify-center rounded-md cursor-pointer ${agentLayout === 'table' ? 'bg-emerald-500 text-slate-950' : 'text-slate-500 dark:text-slate-400'}`}
+        className={`inline-flex h-full w-8 items-center justify-center rounded-md cursor-pointer ${agentLayout === 'table' ? 'bg-emerald-500 text-slate-950' : 'text-slate-500 dark:text-slate-400'}`}
       >
         <Table2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
       </button>
@@ -231,7 +231,7 @@ export function CommissionWaterfall({
         onClick={() => chooseAgentLayout('cards')}
         title="Cards"
         aria-label="Cards"
-        className={`inline-flex h-7 w-7 items-center justify-center rounded-md cursor-pointer ${agentLayout === 'cards' ? 'bg-emerald-500 text-slate-950' : 'text-slate-500 dark:text-slate-400'}`}
+        className={`inline-flex h-full w-8 items-center justify-center rounded-md cursor-pointer ${agentLayout === 'cards' ? 'bg-emerald-500 text-slate-950' : 'text-slate-500 dark:text-slate-400'}`}
       >
         <LayoutGrid className="h-4 w-4" strokeWidth={1.75} aria-hidden />
       </button>
@@ -523,7 +523,7 @@ export function CommissionWaterfall({
             <button
               type="button"
               onClick={() => setConfirmReset(true)}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 cursor-pointer dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-950/70"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 cursor-pointer dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-950/70"
             >
               <Eraser className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
               Reset waterfall

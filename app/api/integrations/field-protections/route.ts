@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { resolveRequestTenant, responseStatus } from '@/lib/session';
+import { resolveRequestTenant, apiError } from '@/lib/session';
 import { callerIsAdmin } from '@/lib/google-sheet-connection';
 
 export async function DELETE(request: Request) {
@@ -27,7 +27,6 @@ export async function DELETE(request: Request) {
     if (error) throw new Error(error.message);
     return NextResponse.json({ success: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'The field lock could not be cleared.';
-    return NextResponse.json({ success: false, error: message }, { status: responseStatus(error) });
+    return apiError(error, 'The field lock could not be cleared.', 'success');
   }
 }

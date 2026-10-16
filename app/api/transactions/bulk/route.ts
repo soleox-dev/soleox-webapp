@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { requireSessionClient, apiError } from '@/lib/session';
 import { bulkUpdateTransactions } from '@/lib/transaction-bulk';
 import { deleteTransactions } from '@/lib/transactions';
+import { recordAudit } from '@/lib/audit';
 
 export async function POST(request: Request) {
   try {
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const clientId = String(body.clientId || request.headers.get('x-client-id') || request.headers.get('client_id') || 'DEMO');
+    const { clientId, supabase } = await requireSessionClient();
     const fieldKey = String(body.fieldKey || '').trim();
     const rawValue = body.value === undefined || body.value === null ? '' : String(body.value);
     const ids = Array.isArray(body.ids) ? body.ids.map((id: unknown) => String(id)) : [];
@@ -21,7 +22,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Choose a field to update.' }, { status: 400 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
     const result = await bulkUpdateTransactions(supabase, {
       clientId,
       userId: session.user.email,
@@ -29,13 +29,21 @@ export async function POST(request: Request) {
       fieldKey,
       rawValue,
     });
+    if (result.updated > 0) {
+      await recordAudit(supabase, {
+        clientId,
+        actorEmail: session.user.email,
+        action: 'update',
+        entity: 'transaction',
+        summary: `Updated ${fieldKey} on ${result.updated} transaction${result.updated === 1 ? '' : 's'}`,
+        detail: { fieldKey, updated: result.updated },
+      });
+    }
 
     return NextResponse.json({ success: true, ...result });
   } catch (error: unknown) {
     console.error('Error in POST /api/transactions/bulk:', error);
-    const message = error instanceof Error ? error.message : 'Server error';
-    const status = message.includes('Unauthorized') ? 401 : 400;
-    return NextResponse.json({ success: false, error: message }, { status });
+    return apiError(error, 'Server error', 'success');
   }
 }
 
@@ -47,9 +55,8 @@ export async function DELETE(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const clientId = String(body.clientId || request.headers.get('x-client-id') || request.headers.get('client_id') || 'DEMO');
+    const { clientId, supabase } = await requireSessionClient();
     const ids = Array.isArray(body.ids) ? body.ids.map((id: unknown) => String(id)) : [];
-    const supabase = await getAuthenticatedSupabase();
     const result = await deleteTransactions(clientId, ids, session.user.email, supabase);
     const failed = result.deleted.length === 0 && result.errors.length > 0;
     return NextResponse.json(
@@ -58,8 +65,6 @@ export async function DELETE(request: Request) {
     );
   } catch (error: unknown) {
     console.error('Error in DELETE /api/transactions/bulk:', error);
-    const message = error instanceof Error ? error.message : 'Server error';
-    const status = message.includes('Unauthorized') ? 401 : 400;
-    return NextResponse.json({ success: false, error: message }, { status });
+    return apiError(error, 'Server error', 'success');
   }
 }

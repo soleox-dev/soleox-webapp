@@ -1,10 +1,8 @@
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export const CLIENT_COOKIE = 'soleox-client';
 
 /** Accounts that can open every client. Stored here so access works before the database column exists. */
-const PLATFORM_SUPER_ADMINS = new Set(['carlos.bes@soleox.org']);
-
 const FULL_ACCESS_ROLES = new Set(['ADMIN', 'SUPER_ADMIN']);
 
 export type ClientChoice = {
@@ -44,6 +42,26 @@ const NONE: AccessPermissions = {
   ownerReports: false,
   superAdmin: false,
 };
+
+export const ACTIVITY_COOKIE = 'soleox-active';
+/** A session ends after this long with no request. */
+export const SESSION_IDLE_MS = 12 * 60 * 60 * 1000;
+
+export function activityCookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 60 * 60 * 24,
+  };
+}
+
+export function sessionIsIdle(lastSeen: string | undefined, now = Date.now()): boolean {
+  const seen = Number(lastSeen);
+  if (!Number.isFinite(seen) || seen <= 0) return false;
+  return now - seen > SESSION_IDLE_MS;
+}
 
 export function clientCookieOptions() {
   return {
@@ -110,8 +128,10 @@ async function loadUser(email: string): Promise<{ id: string | null; isSuperAdmi
     .maybeSingle();
 
   if (!withFlag.error && withFlag.data) {
-    const flag = Boolean((withFlag.data as { is_super_admin?: boolean }).is_super_admin);
-    return { id: String(withFlag.data.id), isSuperAdmin: flag || PLATFORM_SUPER_ADMINS.has(normalized) };
+    return {
+      id: String(withFlag.data.id),
+      isSuperAdmin: Boolean((withFlag.data as { is_super_admin?: boolean }).is_super_admin),
+    };
   }
 
   const plain = await supabaseAdmin
@@ -120,10 +140,8 @@ async function loadUser(email: string): Promise<{ id: string | null; isSuperAdmi
     .eq('email', normalized)
     .maybeSingle();
 
-  if (plain.error || !plain.data) {
-    return { id: null, isSuperAdmin: PLATFORM_SUPER_ADMINS.has(normalized) };
-  }
-  return { id: String(plain.data.id), isSuperAdmin: PLATFORM_SUPER_ADMINS.has(normalized) };
+  if (plain.error || !plain.data) return { id: null, isSuperAdmin: false };
+  return { id: String(plain.data.id), isSuperAdmin: false };
 }
 
 async function loadActiveClients(): Promise<ClientChoice[]> {
@@ -210,6 +228,7 @@ function isSettingsApi(pathname: string): boolean {
     '/api/transaction-scorecards',
     '/api/transaction-default-view',
     '/api/integrations',
+    '/api/audit-events',
   ].some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
@@ -282,7 +301,12 @@ export function allowsRequest(access: AccessProfile, pathname: string, method: s
     return allows(access, 'tracker_write') || allows(access, 'settings');
   }
   if (gate === 'tracker_read' && access.permissions.ownerReports && (method === 'GET' || method === 'HEAD')) {
-    const operational = isOperationalApi(path) || path.startsWith('/api/schema') || path.startsWith('/api/commission-entities') || path.startsWith('/api/client-lookup-values');
+    const operational = isOperationalApi(path)
+      || path.startsWith('/api/schema')
+      || path.startsWith('/api/commission-entities')
+      || path.startsWith('/api/client-lookup-values')
+      || path.startsWith('/api/agent-allocations')
+      || path.startsWith('/api/transaction-team-caps');
     if (operational) return true;
   }
   if (gate === 'tracker_read' && access.permissions.commissionTrackerSettings && isSettingsRead(pathname)) return true;

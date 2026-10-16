@@ -205,7 +205,12 @@ function readDeal(deal: Record<string, unknown> | null, key: string): unknown {
  * Empty sections are included so the caller can replace the deal's splits entirely.
  */
 /** Dollars a team cap moved on this deal, keyed by the cap's formula key. */
-export type TeamCapCreditMap = Record<string, { total: number; byAgent: Record<string, number> }>;
+export type TeamCapCreditMap = Record<string, {
+  total: number;
+  byAgent: Record<string, number>;
+  /** Lowercased id and name of the agent who receives this cap. */
+  recipientKeys?: string[];
+}>;
 
 const TEAM_CAP_CREDIT = /^([a-z_][a-z0-9_]*)\.(agent|total)$/i;
 const TEAM_CAP_CREDIT_IN_FORMULA = /\b[a-z_][a-z0-9_]*\.(agent|total)\b/i;
@@ -259,6 +264,14 @@ export function applyTemplateLogic({
   waterfallPool?: { afterOffTheTop: number; afterPreSplits: number };
 }): AppliedTemplateRules {
   const ordered = [...steps].sort((a, b) => (a.step_number ?? 0) - (b.step_number ?? 0));
+  const referencedCapKeys = new Set<string>();
+  ordered.forEach((step) => {
+    if (bucketFor(step.section) !== 'agentSplit') return;
+    const source = `${step.custom_baseline || ''}\n${step.calculation_formula || ''}`;
+    for (const match of source.matchAll(/\b([a-z_][a-z0-9_]*)\.(?:agent|total)\b/gi)) {
+      referencedCapKeys.add(match[1].toLowerCase());
+    }
+  });
   const offTheTopRules: DynamicRule[] = [];
   const preSplitRules: DynamicRule[] = [];
   const postSplitRulesByAgent: Record<string, DynamicRule[]> = {};
@@ -281,6 +294,26 @@ export function applyTemplateLogic({
     if (key) suppressedKeys.add(key);
   };
   const parties = [...dealAgents, ...rosterAgents];
+  // A cap the agent-split formulas already name is moved there. Any other
+  // selected cap still leaves the payer and is added to that cap's recipient.
+  const unreferencedCapShare = (name: string) => {
+    if (!teamCapCredits || !name.trim()) return 0;
+    const party = parties.find((item) => item.name.trim().toLowerCase() === name.trim().toLowerCase());
+    const keys = new Set(
+      [name, party?.id, party?.name]
+        .map((value) => String(value || '').trim().toLowerCase())
+        .filter(Boolean),
+    );
+    let delta = 0;
+    Object.entries(teamCapCredits).forEach(([key, cap]) => {
+      if (referencedCapKeys.has(key)) return;
+      const paidKey = [...keys].find((item) => cap.byAgent[item] != null);
+      const paid = paidKey ? cap.byAgent[paidKey] : 0;
+      const receives = (cap.recipientKeys || []).some((item) => keys.has(item));
+      delta += (receives ? cap.total : 0) - paid;
+    });
+    return roundCurrency(delta);
+  };
   const context = {
     baseline: 0,
     prior: 0,
@@ -475,11 +508,11 @@ export function applyTemplateLogic({
       rememberValue(step.rule_key, formulaResult);
       return;
     }
-    const amount = roundCurrency(evaluateNumber(formula, `Amount for "${ruleName}"`));
+    const formulaAmount = roundCurrency(evaluateNumber(formula, `Amount for "${ruleName}"`));
     // A later agent split, such as a team-lead remainder, needs the share
     // before this cap is taken off. Post-splits need the net share, so that
     // amount is stored and written back once every agent split has run.
-    let remembered = amount;
+    let remembered = formulaAmount;
     if (bucket === 'agentSplit' && /\.agent\b/i.test(`${custom}\n${formula}`)) {
       context.ignoreAgentCapCredit = true;
       try {
@@ -493,6 +526,9 @@ export function applyTemplateLogic({
         context.baseline = baseline;
       }
     }
+    const amount = bucket === 'agentSplit'
+      ? roundCurrency(formulaAmount + unreferencedCapShare(agentName))
+      : formulaAmount;
     if (bucket === 'agentSplit' && step.rule_key?.trim()) {
       agentSplitNets.set(step.rule_key.trim(), amount);
     }

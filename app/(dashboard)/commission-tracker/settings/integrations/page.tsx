@@ -474,7 +474,7 @@ export default function TransactionIntegrationsPage() {
         <div>
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Transactions: TMS Integrations</h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
-            Soleox reads the SOLEOX Integration tab and adds every sheet row that has a TMS ID. It updates transactions that are in the Default View. Commission calculations and payments stay in Soleox.
+            Soleox reads the SOLEOX Integration tab and adds every sheet row that has a TMS ID. It updates transactions that are in the default view. Commission calculations and payments stay in Soleox.
           </p>
         </div>
         <button
@@ -499,7 +499,7 @@ export default function TransactionIntegrationsPage() {
           <>
           {!defaultViewFormula.trim() && (
             <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-200">
-              Save a <Link href="/commission-tracker/settings/transaction-view" className="font-semibold underline">Default View</Link> filter before syncing. A blank filter would include reconciled transactions.
+              Save a default view on the <Link href="/commission-tracker/settings/transaction-view" className="font-semibold underline">Views</Link> page before syncing. A blank filter would include reconciled transactions.
             </p>
           )}
           {!serviceAccountConfigured && (

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { apiError, requireSessionClient } from '@/lib/session';
+import { recordAudit } from '@/lib/audit';
 
 // GET: Fetch role permissions (filterable by role or resource)
 export async function GET(request: Request) {
@@ -29,9 +31,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, permissions: data || [] });
   } catch (error: any) {
-    console.error('Error fetching role permissions:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const body = await request.json();
     const perm = body.permission || body;
 
@@ -87,6 +87,14 @@ export async function POST(request: Request) {
     if (error) throw error;
 
     const returnedRow = data ? data[0] : rowPayload;
+    await recordAudit(supabase, {
+      clientId,
+      actorEmail: session.user.email,
+      action: isUpdate ? 'update' : 'create',
+      entity: 'permission',
+      entityId: returnedRow.id ? String(returnedRow.id) : null,
+      summary: `${isUpdate ? 'Changed' : 'Created'} the ${returnedRow.role} permission for ${returnedRow.resource}`,
+    });
 
     return NextResponse.json({
       success: true,
@@ -94,9 +102,7 @@ export async function POST(request: Request) {
       permission: returnedRow,
     });
   } catch (error: any) {
-    console.error('Supabase Role Permission Save Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -115,18 +121,24 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Permission ID is required' }, { status: 400 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const { error } = await supabase
       .from('role_permissions')
       .delete()
       .eq('id', id);
 
     if (error) throw error;
+    await recordAudit(supabase, {
+      clientId,
+      actorEmail: session.user.email,
+      action: 'delete',
+      entity: 'permission',
+      entityId: id,
+      summary: `Removed role permission ${id}`,
+    });
 
     return NextResponse.json({ success: true, message: 'Permission entry removed successfully' });
   } catch (error: any) {
-    console.error('Supabase Role Permission Delete Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }

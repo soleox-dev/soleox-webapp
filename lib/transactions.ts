@@ -7,6 +7,8 @@ import { CreateTransactionInput } from '@/lib/validations/transaction';
 import { processTransactionWaterfall } from '@/lib/services/waterfall-service';
 import { generatePrefixedId } from '@/lib/id';
 import { recordUserFieldProtections } from '@/lib/transaction-field-protections';
+import { recordAudit } from '@/lib/audit';
+import { repairImportedText } from '@/lib/imported-text';
 
 // Helper utility to safely round currency values to 2 decimal places
 const roundCurrency = (num: number): number => {
@@ -24,14 +26,23 @@ function readCustomAttributes(row: any): Record<string, any> {
   }
 }
 
+function repairImportedRecord(record: Record<string, unknown>): Record<string, unknown> {
+  const next: Record<string, unknown> = {};
+  Object.entries(record).forEach(([key, value]) => {
+    if (typeof value === 'string') next[key] = repairImportedText(value);
+    else next[key] = value;
+  });
+  return next;
+}
+
 /** Puts saved custom field values on the transaction object the screen reads. */
 export function presentTransaction(row: any): any {
-  const customAttrs = readCustomAttributes(row);
-  return {
+  const customAttrs = repairImportedRecord(readCustomAttributes(row));
+  return repairImportedRecord({
     ...row,
     ...customAttrs,
     custom_attributes: customAttrs,
-  };
+  });
 }
 
 /**
@@ -395,6 +406,19 @@ export async function createTransaction(
     console.warn('Field protections were not recorded:', message);
   }
 
+  const changedFields = previousRow
+    ? Object.keys(rowPayload).filter((key) => !['updated_at', 'updated_by', 'created_at', 'created_by'].includes(key) && JSON.stringify(previousRow[key]) !== JSON.stringify(rowPayload[key])).slice(0, 40)
+    : [];
+  await recordAudit(sb, {
+    clientId: input.client_id,
+    actorEmail: userId,
+    action: isExistingRecord ? 'update' : 'create',
+    entity: 'transaction',
+    entityId: finalTransactionId,
+    summary: isExistingRecord ? `Updated transaction ${finalTransactionId}` : `Created transaction ${finalTransactionId}`,
+    detail: changedFields.length > 0 ? { fields: changedFields } : {},
+  });
+
   return {
     transactionId: finalTransactionId,
     success: true,
@@ -462,6 +486,15 @@ export async function deleteTransaction(
   if (archiveError) throw new Error(archiveError.message);
   if (!archived?.length) throw new Error('Transaction not found or you do not have permission to delete it.');
 
+  await recordAudit(sb, {
+    clientId,
+    actorEmail: userId,
+    action: 'delete',
+    entity: 'transaction',
+    entityId: transactionId,
+    summary: `Archived transaction ${transactionId}`,
+  });
+
   return { id: transactionId };
 }
 
@@ -525,6 +558,15 @@ export async function restoreTransaction(
   if (restoreError) throw new Error(restoreError.message);
   if (!restored?.length) throw new Error('Transaction not found or you do not have permission to restore it.');
 
+  await recordAudit(sb, {
+    clientId,
+    actorEmail: userId,
+    action: 'restore',
+    entity: 'transaction',
+    entityId: transactionId,
+    summary: `Restored transaction ${transactionId}`,
+  });
+
   return { id: transactionId };
 }
 
@@ -549,6 +591,15 @@ export async function permanentlyDeleteTransaction(
 
   if (error) throw new Error(error.message);
   if (!removed?.length) throw new Error('Transaction not found or you do not have permission to delete it.');
+
+  await recordAudit(sb, {
+    clientId,
+    actorEmail: userId,
+    action: 'permanent_delete',
+    entity: 'client',
+    entityId: transactionId,
+    summary: `Permanently deleted transaction ${transactionId}`,
+  });
 
   return { id: transactionId };
 }

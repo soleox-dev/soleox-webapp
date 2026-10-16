@@ -455,7 +455,7 @@ export function SyncResultDialog({
           {showRest && notAdded.length > 0 && (
             <section>
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Not added</h4>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">These sheet rows are outside the Default View, so Soleox did not create them.</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">These sheet rows are outside the default view, so Soleox did not create them.</p>
               <ul className="mt-2 space-y-1">
                 {notAdded.map((detail, index) => (
                   <li key={`skip-${detail.tmsId}-${detail.rowNumber}-${index}`} className="text-sm text-slate-700 dark:text-slate-200">

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { requireSessionClient, apiError } from '@/lib/session';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -15,10 +15,9 @@ export async function GET(request: Request) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const url = new URL(request.url);
-    const clientId = url.searchParams.get('client_id') || request.headers.get('x-client-id') || 'DEMO';
     const transactionId = url.searchParams.get('transaction_id') || '';
     if (!transactionId) return NextResponse.json({ error: 'A transaction is required.' }, { status: 400 });
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const { data, error } = await supabase
       .from('transaction_agent_allocations')
       .select('id, agent_id, amount, calculated_amount, is_override')
@@ -27,8 +26,7 @@ export async function GET(request: Request) {
     if (error) throw error;
     return NextResponse.json({ success: true, allocations: data || [] });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'The agent allocations could not be loaded.';
-    return NextResponse.json({ error: message }, { status: message.includes('Unauthorized') ? 401 : 500 });
+    return apiError(error, 'The agent allocations could not be loaded.');
   }
 }
 
@@ -37,11 +35,10 @@ export async function PUT(request: Request) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await request.json();
-    const clientId = String(body.clientId || request.headers.get('x-client-id') || 'DEMO');
+    const { clientId, supabase } = await requireSessionClient();
     const transactionId = String(body.transactionId || '');
     const rows = Array.isArray(body.allocations) ? body.allocations as AllocationBody[] : [];
     if (!transactionId) return NextResponse.json({ error: 'A transaction is required.' }, { status: 400 });
-    const supabase = await getAuthenticatedSupabase();
     const user = session.user.email;
     const now = new Date().toISOString();
     const keep = new Set<string>();
@@ -91,7 +88,6 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'The agent allocations could not be saved.';
-    return NextResponse.json({ error: message }, { status: message.includes('Unauthorized') ? 401 : 500 });
+    return apiError(error, 'The agent allocations could not be saved.');
   }
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { resolveRequestTenant, responseStatus } from '@/lib/session';
+import { resolveRequestTenant, apiError } from '@/lib/session';
 import { callerIsAdmin, loadGoogleSheetIntegration, saveGoogleSheetIntegration } from '@/lib/google-sheet-connection';
 
 export async function GET(request: Request) {
@@ -14,8 +14,7 @@ export async function GET(request: Request) {
     const integration = await loadGoogleSheetIntegration(supabase, tenant.clientId);
     return NextResponse.json({ success: true, ...integration });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'The integration could not be loaded.';
-    return NextResponse.json({ success: false, error: message }, { status: responseStatus(error) });
+    return apiError(error, 'The integration could not be loaded.', 'success');
   }
 }
 
@@ -40,7 +39,6 @@ export async function PUT(request: Request) {
     const integration = await loadGoogleSheetIntegration(supabase, tenant.clientId);
     return NextResponse.json({ success: true, ...integration });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'The integration could not be saved.';
-    return NextResponse.json({ success: false, error: message }, { status: responseStatus(error) });
+    return apiError(error, 'The integration could not be saved.', 'success');
   }
 }

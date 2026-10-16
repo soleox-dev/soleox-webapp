@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Lock, RotateCcw, Trash2, Zap } from 'lucide-react';
+import { Check, Lock, Plus, RefreshCw, RotateCcw, Trash2, X, Zap, type LucideIcon } from 'lucide-react';
 import { evaluateFormula, formulaValueToInput, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { normalizeAgentName } from '@/lib/id';
 import { qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection, type TeamCapRule } from '@/lib/agent-allocations';
@@ -29,12 +29,14 @@ interface SubmittedTemplateRow {
   parameters: Record<string, string>;
 }
 
-const TEMPLATE_BUTTON_CLASS: Record<TemplateBoltTone, string> = {
-  submitted: 'bg-emerald-500 text-white hover:bg-emerald-600',
-  ready: 'bg-amber-400 text-slate-950 hover:bg-amber-500',
-  ineligible: 'bg-rose-500 text-white hover:bg-rose-600',
-  drift: 'bg-violet-400 text-slate-950 hover:bg-violet-500',
+const TEMPLATE_STATUS_ICON: Record<TemplateBoltTone, { icon: LucideIcon; className: string }> = {
+  submitted: { icon: Check, className: 'text-emerald-500' },
+  ready: { icon: Plus, className: 'text-blue-500' },
+  ineligible: { icon: X, className: 'text-rose-500' },
+  drift: { icon: RefreshCw, className: 'text-violet-400' },
 };
+
+const templateButtonChrome = 'inline-flex h-9 max-w-80 items-center gap-2 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700 cursor-pointer';
 
 type TemplateParameter = TemplateParameterRecord;
 
@@ -1418,11 +1420,7 @@ export function CommissionTemplatePanel({
     : bolt && tone
       ? bolt.label
       : 'Checking template status';
-  const templateButtonClass = locked
-    ? 'bg-slate-200 text-slate-400 cursor-not-allowed dark:bg-slate-700 dark:text-slate-500'
-    : tone
-      ? `${TEMPLATE_BUTTON_CLASS[tone]} cursor-pointer`
-      : 'bg-slate-200 text-slate-500 cursor-pointer dark:bg-slate-700 dark:text-slate-300';
+  const StatusIcon = tone ? TEMPLATE_STATUS_ICON[tone].icon : null;
 
   const openTemplate = (templateId: string) => {
     setDraftTemplateId(templateId);
@@ -1450,11 +1448,14 @@ export function CommissionTemplatePanel({
             onClick={() => {
               if (!locked && singleTemplate) openTemplate(singleTemplate.id);
             }}
-            className={`inline-flex h-7 max-w-64 items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold shadow-sm transition ${templateButtonClass}`}
+            className={templateButtonChrome}
           >
-            <Zap className="h-3.5 w-3.5 shrink-0" fill="currentColor" strokeWidth={1.75} aria-hidden />
-            {locked && <Lock className="h-3 w-3 shrink-0" strokeWidth={1.75} aria-hidden />}
+            <Zap className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
             <span className="truncate">{templateButtonLabel}</span>
+            {tone && StatusIcon && (
+              <StatusIcon className={`h-3.5 w-3.5 shrink-0 ${TEMPLATE_STATUS_ICON[tone].className}`} strokeWidth={2.25} aria-hidden />
+            )}
+            {locked && <Lock className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={1.75} aria-hidden />}
           </button>
         ) : (
         <button
@@ -1605,19 +1606,23 @@ export function CommissionTemplatePanel({
                   <div className="flex w-full items-center gap-2 px-3 py-2">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Team Caps</span>
                   </div>
-                  <div className="space-y-2 border-t border-slate-200 px-3 py-3 dark:border-slate-700">
-                    {qualifyingCaps.map((cap) => (
-                      <BooleanField
+                  <div className="flex flex-wrap items-center border-t border-slate-200 dark:border-slate-700">
+                    {qualifyingCaps.map((cap, index) => (
+                      <div
                         key={cap.id}
-                        id={`team-cap-${cap.id}`}
-                        label={cap.name.trim() || 'Team Cap'}
-                        checked={checkedCapIds.includes(cap.id)}
-                        onChange={(checked) => {
-                          setCheckedCapIds((current) => checked
-                            ? [...current, cap.id]
-                            : current.filter((id) => id !== cap.id));
-                        }}
-                      />
+                        className={`flex items-center px-4 py-2.5 ${index > 0 ? 'border-l border-slate-200 dark:border-slate-700' : ''}`}
+                      >
+                        <BooleanField
+                          id={`team-cap-${cap.id}`}
+                          label={cap.name.trim() || 'Team Cap'}
+                          checked={checkedCapIds.includes(cap.id)}
+                          onChange={(checked) => {
+                            setCheckedCapIds((current) => checked
+                              ? [...current, cap.id]
+                              : current.filter((id) => id !== cap.id));
+                          }}
+                        />
+                      </div>
                     ))}
                   </div>
                 </section>

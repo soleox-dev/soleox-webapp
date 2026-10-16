@@ -1,33 +1,26 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { requireSessionClient, apiError } from '@/lib/session';
+import { recordAudit } from '@/lib/audit';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
 // GET: Fetch active client accounts
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const clientId = searchParams.get('id');
-
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     let query = supabase
       .from('clients')
       .select('*')
+      .eq('id', clientId)
       .or('archived.is.null,archived.eq.false')
       .order('client_name', { ascending: true });
-
-    if (clientId) {
-      query = query.eq('id', clientId);
-    }
 
     const { data, error } = await query;
     if (error) throw error;
 
     return NextResponse.json({ success: true, clients: data || [] });
   } catch (error: any) {
-    console.error('Error fetching clients:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -39,7 +32,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const body = await request.json();
     const client = body.client || body;
 
@@ -53,6 +46,9 @@ export async function POST(request: Request) {
 
     const existingId = client.id ? String(client.id).toUpperCase().trim() : null;
     const isUpdate = Boolean(existingId);
+    if (isUpdate && existingId !== clientId) {
+      return NextResponse.json({ error: 'You do not have access to this brokerage.' }, { status: 403 });
+    }
     const user = session.user.email || client.updated_by || client.created_by || 'system_admin';
 
     // 2. Format row payload matching Postgres types
@@ -109,9 +105,7 @@ export async function POST(request: Request) {
       client: returnedRow,
     });
   } catch (error: any) {
-    console.error('Supabase Client Account Save Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -130,7 +124,10 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Client ID is required' }, { status: 400 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
+    if (id !== clientId) {
+      return NextResponse.json({ error: 'You do not have access to this brokerage.' }, { status: 403 });
+    }
     const { error } = await supabase
       .from('clients')
       .update({
@@ -139,14 +136,20 @@ export async function DELETE(request: Request) {
         updated_at: new Date().toISOString(),
         updated_by: session.user.email,
       })
-      .eq('id', id);
+      .eq('id', clientId);
 
     if (error) throw error;
+    await recordAudit(supabase, {
+      clientId,
+      actorEmail: session.user.email,
+      action: 'delete',
+      entity: 'client',
+      entityId: clientId,
+      summary: 'Archived this brokerage',
+    });
 
     return NextResponse.json({ success: true, message: 'Client account archived successfully' });
   } catch (error: any) {
-    console.error('Supabase Client Account Delete Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }

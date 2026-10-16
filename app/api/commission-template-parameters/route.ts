@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { requireSessionClient, apiError } from '@/lib/session';
+import { recordAudit } from '@/lib/audit';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -25,9 +27,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, parameters: data || [] });
   } catch (error: any) {
-    console.error('Error fetching template parameters:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const body = await request.json();
     const param = body.parameter || body;
 
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
     // 2. Format row payload
     const rowPayload: Record<string, any> = {
-      client_id: String(param.client_id || 'DEMO'),
+      client_id: clientId,
       template_id: String(param.template_id),
       parameter_name: String(param.parameter_name),
       parameter_key: String(param.parameter_key || param.parameter_name.toLowerCase().replace(/\s+/g, '_')),
@@ -143,6 +143,14 @@ export async function POST(request: Request) {
     if (error) throw error;
 
     const returnedRow = data ? data[0] : rowPayload;
+    await recordAudit(supabase, {
+      clientId,
+      actorEmail: session.user.email,
+      action: isUpdate ? 'update' : 'create',
+      entity: 'template',
+      entityId: returnedRow.id ? String(returnedRow.id) : null,
+      summary: `${isUpdate ? 'Updated' : 'Created'} template parameter ${returnedRow.parameter_name || ''}`.trim(),
+    });
 
     return NextResponse.json({
       success: true,
@@ -150,9 +158,7 @@ export async function POST(request: Request) {
       parameter: returnedRow,
     });
   } catch (error: any) {
-    console.error('Supabase Template Parameter Save Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -171,7 +177,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Parameter ID is required' }, { status: 400 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const { error } = await supabase
       .from('commission_template_parameters')
       .update({
@@ -179,14 +185,21 @@ export async function DELETE(request: Request) {
         updated_at: new Date().toISOString(),
         updated_by: session.user.email,
       })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('client_id', clientId);
 
     if (error) throw error;
+    await recordAudit(supabase, {
+      clientId,
+      actorEmail: session.user.email,
+      action: 'delete',
+      entity: 'template',
+      entityId: id,
+      summary: `Archived template parameter ${id}`,
+    });
 
     return NextResponse.json({ success: true, message: 'Parameter archived successfully' });
   } catch (error: any) {
-    console.error('Supabase Template Parameter Delete Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }

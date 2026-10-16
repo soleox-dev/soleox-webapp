@@ -216,6 +216,12 @@ export type DealAllocationLine = {
   cap_name: string | null;
   /** False for a team-lead payment that is not tracked against a cap. */
   tracked: boolean;
+  /** Yearly cap for this agent. Set only when the payment is tracked against a cap. */
+  cap_amount?: number | null;
+  /** Cap dollars already counted in this anniversary, excluding this transaction. */
+  prior_amount?: number | null;
+  /** Percent of this agent's split paid toward the cap. */
+  team_percent?: number | null;
 };
 
 function dealField(deal: Record<string, unknown> | null, key: string): string {
@@ -307,18 +313,21 @@ export function planDealAllocations(
           overrideAmount: overrideFor(context.overrides, share.agentId, 'team_cap', cap.id),
         };
       });
-      applyTeamCap(inputs, context.dealDate).forEach((result) => {
+      applyTeamCap(inputs, context.dealDate).forEach((result, index) => {
         if (result.agentId === recipientId) return;
+        const input = inputs[index];
         const share = shares.find((item) => item.agentId === result.agentId);
-        if (!share) return;
+        if (!share || !input) return;
         const room = roundCurrency(Math.max(0, share.amount - (paid.get(result.agentId) || 0)));
         const cut = roundCurrency(Math.min(result.teamLeadAmount, room));
-        if (cut <= 0 && result.allocationAmount == null) return;
+        const contributes = input.teamPercent != null && input.teamPercent > 0;
+        const hasCap = input.capAmount != null && Number.isFinite(input.capAmount);
+        if (cut <= 0 && result.allocationAmount == null && !(contributes && hasCap)) return;
         paid.set(result.agentId, roundCurrency((paid.get(result.agentId) || 0) + cut));
         const capName = cap.name.trim() || 'Team Cap';
-        if (result.allocationAmount != null) {
-          const counted = roundCurrency(Math.min(result.allocationAmount, cut));
-          if (counted <= 0 && !result.isOverride) return;
+        if (result.allocationAmount != null || (contributes && hasCap)) {
+          const counted = roundCurrency(Math.min(result.allocationAmount ?? 0, cut));
+          if (counted <= 0 && !result.isOverride && !(contributes && hasCap)) return;
           lines.push({
             id: `${result.agentId}:${cap.id}:team_cap`,
             agent_id: result.agentId,
@@ -330,6 +339,9 @@ export function planDealAllocations(
             team_cap_id: cap.id,
             cap_name: capName,
             tracked: true,
+            cap_amount: hasCap ? input.capAmount : null,
+            prior_amount: hasCap ? input.alreadyCounted : null,
+            team_percent: input.teamPercent,
           });
         } else if (cut > 0) {
           lines.push({

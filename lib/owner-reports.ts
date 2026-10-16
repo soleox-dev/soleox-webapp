@@ -1,5 +1,7 @@
 /** Aggregations for the Owner Reports dashboards, computed from transaction rows. */
 
+import { repairImportedText } from '@/lib/imported-text';
+
 export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] as const;
 
 export type ReportDeal = {
@@ -249,7 +251,7 @@ export function normalizeDeal(row: Record<string, unknown>): ReportDeal {
     agentId: String(row.agent_id || ''),
     leadSource: String(row.lead_source || '').trim() || 'Unspecified',
     address: String(row.property_address || ''),
-    clientName: String(row.client_name || ''),
+    clientName: repairImportedText(String(row.client_name || '')),
     salesPrice: num(row.sales_price),
     listPrice: num(row.list_price),
     gciAmount: num(row.gci_amount),
@@ -616,6 +618,7 @@ export const OWNER_REPORTS: ReportDefinition[] = [
   { id: 'net-commission-income', name: 'Agent Earnings', group: 'Your Agents', ready: true },
   { id: 'net-commission-analysis', name: 'Net Commission Income Analysis', group: 'Your Agents', ready: true },
   { id: 'agent-post-splits', name: 'Agent Post-splits', group: 'Your Agents', ready: true },
+  { id: 'team-caps', name: 'Team Caps', group: 'Your Agents', ready: true },
   { id: 'transaction-list', name: 'Transaction List', group: 'Transactions', ready: true },
   { id: 'transaction-map', name: 'Transaction Map', group: 'Transactions', ready: false, note: 'Transactions do not have map coordinates yet.' },
   { id: 'transaction-detail', name: 'Transaction Detail', group: 'Transactions', ready: true },

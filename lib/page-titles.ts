@@ -16,7 +16,7 @@ export function titleForPath(pathname: string): string | null {
   if (path.startsWith('/commission-tracker/transactions/')) return 'Transaction Detail';
   if (path.startsWith('/commission-tracker/agents')) return 'Agents';
   if (path.startsWith('/commission-tracker/settings/fields')) return 'Field Customizations';
-  if (path.startsWith('/commission-tracker/settings/transaction-view')) return 'Transactions: Default View';
+  if (path.startsWith('/commission-tracker/settings/transaction-view')) return 'Transactions: Views';
   if (path.startsWith('/commission-tracker/settings/integrations')) return 'Transactions: TMS Integrations';
   if (path.startsWith('/commission-tracker/settings/scorecards')) return 'Transactions: Scorecards';
   if (path.startsWith('/commission-tracker/settings/commission-entities')) return 'Commission Entities';
@@ -26,6 +26,7 @@ export function titleForPath(pathname: string): string | null {
   if (path.startsWith('/commission-tracker/settings/commission-templates')) return 'Commission Templates';
   if (path.startsWith('/commission-tracker/settings/lists')) return 'Dropdown Lists';
   if (path.startsWith('/commission-tracker/settings/commission-rules')) return 'Commission Rules';
+  if (path.startsWith('/commission-tracker/settings/activity')) return 'Activity';
   if (path.startsWith('/commission-tracker/settings')) return 'Settings';
   if (path.startsWith('/goals/settings')) return 'Goals Settings';
   if (path.startsWith('/goals')) return 'Goals';

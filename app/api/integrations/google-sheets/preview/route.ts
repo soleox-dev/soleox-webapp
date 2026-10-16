@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { resolveRequestTenant, responseStatus } from '@/lib/session';
+import { resolveRequestTenant, apiError } from '@/lib/session';
 import { callerIsAdmin, suggestMappings } from '@/lib/google-sheet-connection';
 import { parseSpreadsheetId, readGoogleSheet } from '@/lib/google-sheets';
 import { DEFAULT_SHEET_TAB, catalogFromFields } from '@/lib/transaction-sync';
@@ -39,7 +39,6 @@ export async function POST(request: Request) {
       mappings: suggestMappings(table.headers, catalog),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'The spreadsheet could not be read.';
-    return NextResponse.json({ success: false, error: message }, { status: responseStatus(error) });
+    return apiError(error, 'The spreadsheet could not be read.', 'success');
   }
 }

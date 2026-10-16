@@ -35,7 +35,7 @@ export function LeftSidebar({
     } ${rail ? 'w-10 h-10 rounded-lg flex items-center justify-center text-base' : 'w-full text-left px-3 py-2.5 rounded-lg text-xs font-semibold flex items-center justify-between'}`;
 
   return (
-    <aside className={`h-fit lg:sticky lg:top-8 ${collapsed ? 'lg:w-14' : 'w-full lg:w-[19rem]'}`}>
+    <aside className={`h-fit lg:sticky lg:top-[calc(4rem+var(--txn-header-height)+1.5rem)] lg:z-30 ${collapsed ? 'lg:w-14' : 'w-full lg:w-[19rem]'}`}>
       {collapsed && (
         <div className="hidden lg:flex flex-col items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2 shadow-xl">
           <button

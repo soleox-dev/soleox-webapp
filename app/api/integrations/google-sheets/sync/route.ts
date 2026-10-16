@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { resolveRequestTenant, responseStatus } from '@/lib/session';
+import { resolveRequestTenant, apiError } from '@/lib/session';
 import { callerCanSyncTransactions } from '@/lib/google-sheet-connection';
 import { GOOGLE_SHEETS_PROVIDER } from '@/lib/transaction-sync';
 import { syncGoogleSheetConnection } from '@/lib/transaction-sync-run';
+import { recordAudit } from '@/lib/audit';
 
 export async function POST(request: Request) {
   try {
@@ -35,10 +36,18 @@ export async function POST(request: Request) {
       requireEnabled: false,
       ...(transactionIds.length > 0 ? { transactionIds } : {}),
     });
+    await recordAudit(supabase, {
+      clientId: tenant.clientId,
+      actorEmail: session.user.email,
+      action: 'sync',
+      entity: 'sync',
+      entityId: result.id,
+      summary: `Ran Sync with TMS. ${result.createdCount ?? 0} added, ${result.updatedCount ?? 0} updated, ${result.errorCount ?? 0} errors.`,
+      detail: { status: result.status, created: result.createdCount ?? 0, updated: result.updatedCount ?? 0, errors: result.errorCount ?? 0 },
+    });
     const status = result.status === 'failed' ? 500 : result.status === 'blocked' ? 400 : 200;
     return NextResponse.json({ success: result.status === 'succeeded', run: result }, { status });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Sync failed.';
-    return NextResponse.json({ success: false, error: message }, { status: responseStatus(error) });
+    return apiError(error, 'Sync failed.', 'success');
   }
 }

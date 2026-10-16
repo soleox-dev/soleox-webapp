@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { apiError } from '@/lib/session';
 
 // GET: Fetch users (filterable by email, auth_provider_id, or agent_id)
 export async function GET(request: Request) {
@@ -37,9 +38,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, users: data || [] });
   } catch (error: any) {
-    console.error('Error fetching web users:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -106,9 +105,7 @@ export async function POST(request: Request) {
       user: returnedRow,
     });
   } catch (error: any) {
-    console.error('Supabase Web User Save Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -142,8 +139,6 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ success: true, message: 'User account archived successfully' });
   } catch (error: any) {
-    console.error('Supabase Web User Delete Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }

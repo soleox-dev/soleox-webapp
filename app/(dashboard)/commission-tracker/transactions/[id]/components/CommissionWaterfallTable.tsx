@@ -462,7 +462,7 @@ export function CommissionWaterfallTable({
               {teamCapGroups(allocations).map((group) => (
                 <tr key={group.id}>
                   <td className="sticky left-0 z-10 border-b border-amber-200/80 bg-amber-50 px-3 py-2 text-left align-middle dark:border-amber-800/50 dark:bg-amber-950/50">
-                    <span className="text-[11px] font-semibold normal-case tracking-normal text-amber-900 dark:text-amber-200">{group.name}</span>
+                    <span className="text-xs font-semibold normal-case tracking-normal text-amber-900 dark:text-amber-200">{group.name}</span>
                   </td>
                   {agents.map((agent) => (
                     <td key={agent.id} className="min-w-[14.5rem] border-b border-amber-200/80 bg-amber-50 px-2 py-2 text-center align-middle dark:border-amber-800/50 dark:bg-amber-950/40">

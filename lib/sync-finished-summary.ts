@@ -20,7 +20,7 @@ export function syncFinishedSummary(input: {
   const unclassified = Math.max(0, input.skippedCount - existing - notAdded);
   const sheetRows = notAdded + (existing === 0 ? unclassified : 0);
   if (sheetRows > 0) {
-    parts.push(`${sheetRows} sheet row${sheetRows === 1 ? ' is' : 's are'} outside the Default View and ${sheetRows === 1 ? 'was' : 'were'} not added`);
+    parts.push(`${sheetRows} sheet row${sheetRows === 1 ? ' is' : 's are'} outside the default view and ${sheetRows === 1 ? 'was' : 'were'} not added`);
   }
   parts.push(`${input.errorCount} error${input.errorCount === 1 ? '' : 's'}`);
   return `${parts.join(', ')}.`;

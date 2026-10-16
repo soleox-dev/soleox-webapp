@@ -1,7 +1,7 @@
 // app/commission-tracker/transactions/[id]/page.tsx
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AgentConfig, DynamicRule, ToastNotification, roundCurrency, roundPercentRate, KnownAgentInfo } from './types';
 
@@ -81,6 +81,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'commission' | 'disbursements'>('overview');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ overview: false, commission: false, disbursements: false });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [headerStick, setHeaderStick] = useState(144);
 
   useEffect(() => {
     if (window.localStorage.getItem('soleox-txn-sidebar-collapsed') === '1') setSidebarCollapsed(true);
@@ -172,6 +173,16 @@ export default function Dashboard() {
   const [selectedDeal, setSelectedDeal] = useState<any>(null);
   const [selectedDealId, setSelectedDealId] = useState('');
   const [dealNotFound, setDealNotFound] = useState(false);
+
+  useLayoutEffect(() => {
+    const header = document.getElementById('transaction-detail-header');
+    if (!header) return;
+    const sync = () => setHeaderStick(header.offsetHeight);
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, [dealNotFound]);
 
   useEffect(() => {
     scrolledSectionRef.current = null;
@@ -937,10 +948,24 @@ export default function Dashboard() {
 
   const agentSplitExcess = Number(dealResult.agentSplitExcess) || 0;
   const agentSplitsExceedCommission = agentSplitExcess > 0.009;
+  const commissionTotal = roundCurrency(Number(dealResult.totalCommission) || 0);
+  const totalPayments = roundCurrency(
+    Object.values(dealResult.netPayouts || {}).reduce((sum: number, amount) => sum + (Number(amount) || 0), 0),
+  );
+  const paymentsShortOfCommission = commissionTotal > 0.009 && roundCurrency(commissionTotal - totalPayments) > 0.009;
+  const saveBlocked = agentSplitsExceedCommission || paymentsShortOfCommission;
+  const saveBlockedReason = [
+    agentSplitsExceedCommission ? 'Agent splits are more than the remaining commission.' : '',
+    paymentsShortOfCommission ? 'The entire commission has to be allocated among agents and entities.' : '',
+  ].filter(Boolean).join(' ');
 
   const handleSave = (afterSaveSuccess?: () => void, options?: { decided?: boolean; omitPayments?: boolean }) => {
     if (agentSplitsExceedCommission) {
       showToast('Agent splits are more than the remaining commission, so this transaction cannot be saved.', 'error');
+      return;
+    }
+    if (paymentsShortOfCommission) {
+      showToast('This transaction cannot be saved until the entire commission is allocated among agents and entities.', 'error');
       return;
     }
     if (!activeClientId && !isNewTransaction) {
@@ -1566,7 +1591,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className={`${pageFrame} relative space-y-6 py-8`}>
+    <div className={`${pageFrame} relative space-y-6 py-8`} style={{ '--txn-header-height': `${headerStick}px` } as React.CSSProperties}>
       {toast && <ToastBanner message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
 
       <HeaderCard
@@ -1576,7 +1601,8 @@ export default function Dashboard() {
         onDiscard={handleDiscardChanges}
         onDelete={canWriteTracker && selectedDeal?.id ? () => { setDeleteError(null); setConfirmDeleteOpen(true); } : undefined}
         hasUnsavedChanges={hasUnsavedLocalChanges}
-        saveBlocked={agentSplitsExceedCommission}
+        saveBlocked={saveBlocked}
+        saveBlockedReason={saveBlockedReason}
       >
       <SearchableTransactionPicker
         searchQuery={searchQuery}
@@ -1903,7 +1929,8 @@ export default function Dashboard() {
         onStay={handleStayOnPage}
         onDiscard={handleDiscardAndLeave}
         onSave={handleSaveAndLeave}
-        saveDisabled={agentSplitsExceedCommission}
+        saveDisabled={saveBlocked}
+        saveDisabledReason={saveBlockedReason}
       />
 
       {confirmDeleteOpen && (

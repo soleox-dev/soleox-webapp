@@ -4,7 +4,6 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, Check, ChevronDown, Info, X } from 'lucide-react';
 import { pageFrame } from '@/lib/page-frame';
-import { OptionMenu } from '@/components/ui/option-menu';
 import { FieldChevron, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import {
   DATE_PRESETS,
@@ -37,6 +36,7 @@ import {
   teamLeadNet,
   ownerMonthTable,
   unitsLabel,
+  type AgentRow,
   type DateRange,
   type LeaderboardDate,
   type MetricId,
@@ -47,6 +47,16 @@ import {
   type ReportPayment,
   type Totals,
 } from '@/lib/owner-reports';
+import { TeamCapsReport } from '@/app/(dashboard)/owner-reports/team-caps-report';
+import {
+  shiftAsOf,
+  teamCapStandings,
+  todayIso,
+  type AgentProfile,
+  type CapContribution,
+  type CapStanding,
+  type TeamCapDefinition,
+} from '@/lib/team-cap-report';
 
 const GROUPS = ['Your Business', 'Your Agents', 'Transactions', 'Add-ons', 'My Custom Reports'];
 
@@ -95,9 +105,19 @@ export default function OwnerReportsPage() {
   const [metric, setMetric] = useState<MetricId>('volume');
   const [boardMetrics, setBoardMetrics] = useState<BoardField[]>([...PAYMENT_METRICS, { id: 'lead_source', label: 'Lead Source', type: 'SELECT' }]);
   const [entityNames, setEntityNames] = useState<Map<string, string>>(new Map());
+  const [earningEntities, setEarningEntities] = useState<Array<{ id: string; name: string }>>([]);
+  const [postSplits, setPostSplits] = useState<PostSplitCredit[]>([]);
+  const [earningsPicked, setEarningsPicked] = useState<string[] | null>(null);
   const [boardMetric, setBoardMetric] = useState('lead_source');
   const [boardDate, setBoardDate] = useState<LeaderboardDate>('closing');
   const [dateBases, setDateBases] = useState<BoardField[]>(DEFAULT_DATE_BASES);
+  const [agentProfiles, setAgentProfiles] = useState<AgentProfile[]>([]);
+  const [teamCaps, setTeamCaps] = useState<TeamCapDefinition[]>([]);
+  const [capContributions, setCapContributions] = useState<CapContribution[]>([]);
+  const [agentFieldLabels, setAgentFieldLabels] = useState<Map<string, string>>(new Map());
+  const [capPicked, setCapPicked] = useState<string[] | null>(null);
+  const [capYearOffset, setCapYearOffset] = useState(0);
+  const [capOpen, setCapOpen] = useState<{ capId: string; agentId: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -110,14 +130,27 @@ export default function OwnerReportsPage() {
       fetch('/api/schema/transactions', { headers }),
       fetch('/api/commission-entities', { headers }),
       fetch('/api/transaction-commission-items?view=ledger', { headers }),
-    ]).then(async ([dealRes, agentRes, paymentRes, schemaRes, entityRes, ledgerRes]) => {
+      fetch('/api/agent-allocations', { headers }),
+      fetch('/api/transaction-team-caps?scope=client', { headers }),
+      fetch('/api/schema/agents', { headers }),
+    ]).then(async ([dealRes, agentRes, paymentRes, schemaRes, entityRes, ledgerRes, capRes, contributionRes, agentSchemaRes]) => {
       if (!dealRes.ok) throw new Error('Could not load transactions.');
       const dealData = await dealRes.json();
       const rows = Array.isArray(dealData.transactions) ? dealData.transactions : [];
       let teamGci = new Map<string, number>();
       if (ledgerRes.ok) {
         const ledgerData = await ledgerRes.json();
-        teamGci = teamGciByTransaction(Array.isArray(ledgerData.items) ? ledgerData.items : []);
+        const items = Array.isArray(ledgerData.items) ? ledgerData.items : [];
+        teamGci = teamGciByTransaction(items);
+        setPostSplits(items.flatMap((item: Record<string, unknown>) => {
+          if (!isPostSplitSection(item.section)) return [];
+          const agentId = String(item.agent_id || '');
+          const entityId = String(item.payee_entity_id || '');
+          const amount = Number(item.final_amount) || 0;
+          const transactionId = String(item.transaction_id || '');
+          if (!agentId || !entityId || !transactionId || !amount) return [];
+          return [{ transactionId, agentId, entityId, amount }];
+        }));
       }
       setDeals(rows
         .filter((row: Record<string, unknown>) => row.archived !== true && row.permanently_deleted !== true)
@@ -131,16 +164,59 @@ export default function OwnerReportsPage() {
         const next = new Map<string, string>();
         const leads = new Set<string>();
         const groups = new Map<string, string>();
+        const profiles: AgentProfile[] = [];
         for (const agent of Array.isArray(agentData.agents) ? agentData.agents : []) {
           const id = String(agent.id || '');
-          next.set(id, String(agent.agent_name || agent.name || 'Agent'));
+          const name = String(agent.agent_name || agent.name || 'Agent');
+          next.set(id, name);
           if (agent.is_team_lead === true) leads.add(id);
           const group = String(agent.agent_group ?? agent.group_id ?? agent.group ?? '').trim();
           if (id) groups.set(id, group);
+          const fields: Record<string, string> = {};
+          Object.entries(agent as Record<string, unknown>).forEach(([key, value]) => {
+            if (value == null || typeof value === 'object') return;
+            fields[key] = String(value);
+          });
+          if (id) profiles.push({ id, name, archived: agent.archived === true, fields });
         }
         setNames(next);
         setTeamLeadIds(leads);
         setAgentGroupById(groups);
+        setAgentProfiles(profiles);
+      }
+      if (capRes.ok) {
+        const capData = await capRes.json();
+        const caps = Array.isArray(capData.teamCaps) ? capData.teamCaps : [];
+        setTeamCaps(caps.map((cap: Record<string, unknown>) => ({
+          id: String(cap.id || ''),
+          name: String(cap.name || 'Team Cap'),
+          enabled: cap.enabled !== false,
+          splitPercentFieldKey: cap.split_percent_field_key ? String(cap.split_percent_field_key) : null,
+          capAmountFieldKey: cap.cap_amount_field_key ? String(cap.cap_amount_field_key) : null,
+          resetDateFieldKey: cap.reset_date_field_key ? String(cap.reset_date_field_key) : null,
+          recipientAgentId: cap.recipient_agent_id ? String(cap.recipient_agent_id) : null,
+        })).filter((cap: TeamCapDefinition) => cap.id));
+      }
+      if (contributionRes.ok) {
+        const contributionData = await contributionRes.json();
+        const rows = Array.isArray(contributionData.contributions) ? contributionData.contributions : [];
+        setCapContributions(rows.map((row: Record<string, unknown>) => ({
+          agentId: String(row.agentId || ''),
+          teamCapId: String(row.teamCapId || ''),
+          amount: Number(row.amount) || 0,
+          periodStart: row.periodStart ? String(row.periodStart) : null,
+          transactionId: String(row.transactionId || ''),
+        })).filter((row: CapContribution) => row.agentId && row.teamCapId && row.transactionId));
+      }
+      if (agentSchemaRes.ok) {
+        const agentSchema = await agentSchemaRes.json();
+        const catalog = Array.isArray(agentSchema.catalog) ? agentSchema.catalog : [];
+        const labels = new Map<string, string>();
+        catalog.forEach((field: { field_key?: string; field_label?: string }) => {
+          const key = String(field.field_key || '');
+          if (key) labels.set(key, String(field.field_label || key));
+        });
+        setAgentFieldLabels(labels);
       }
       if (paymentRes.ok) {
         const paymentData = await paymentRes.json();
@@ -156,11 +232,16 @@ export default function OwnerReportsPage() {
       if (entityRes.ok) {
         const entityData = await entityRes.json();
         const next = new Map<string, string>();
+        const earning: Array<{ id: string; name: string }> = [];
         for (const entity of Array.isArray(entityData.entities) ? entityData.entities : []) {
           const id = String(entity.id || '');
-          if (id) next.set(id, String(entity.entity_name || entity.name || 'Entity'));
+          const name = String(entity.entity_name || entity.name || 'Entity');
+          if (!id) continue;
+          next.set(id, name);
+          if (EARNING_ENTITY_TYPES.has(String(entity.entity_type || '').trim().toUpperCase())) earning.push({ id, name });
         }
         setEntityNames(next);
+        setEarningEntities(earning);
       }
       if (schemaRes.ok) {
         const schemaData = await schemaRes.json();
@@ -197,7 +278,8 @@ export default function OwnerReportsPage() {
   }, [boardMetric, boardMetrics]);
 
   const closingBoard = reportId === 'lead-source-leaderboard' || reportId === 'team-performance' || reportId === 'net-commission-income';
-  const statusFallback = closingBoard ? ['Closed', 'Pending'] : null;
+  const closedPendingOnly = closingBoard || reportId === 'team-caps';
+  const statusFallback = closedPendingOnly ? ['Closed', 'Pending'] : null;
   const filterPicks = {
     statusPicked,
     sidePicked,
@@ -214,10 +296,10 @@ export default function OwnerReportsPage() {
   );
   const filtered = useMemo(() => deals.filter((deal) => {
     if (deal.archived) return false;
-    if (closingBoard && !isClosedOrPendingStatus(deal.status)) return false;
+    if (closedPendingOnly && !isClosedOrPendingStatus(deal.status)) return false;
     if (excludeLeadDeals && teamLeadIds.has(deal.agentId)) return false;
     return passesReportFilters(deal, filterPicks, null);
-  }), [agentGroupById, agentPicked, closingBoard, deals, excludeLeadDeals, filterPicks.applyDimensions, groupPicked, reportId, sidePicked, sourcePicked, statusFallback, statusPicked, teamLeadIds]);
+  }), [agentGroupById, agentPicked, closedPendingOnly, deals, excludeLeadDeals, filterPicks.applyDimensions, groupPicked, reportId, sidePicked, sourcePicked, statusFallback, statusPicked, teamLeadIds]);
 
   const applyDimensions = filterPicks.applyDimensions;
   const periodDeals = useMemo(
@@ -231,9 +313,9 @@ export default function OwnerReportsPage() {
   const optionDeals = (except: FilterExcept) => periodDeals.filter((deal) => passesReportFilters(deal, filterPicks, except));
   const statuses = useMemo(() => {
     const values = uniqueFolded(optionDeals('status').map((deal) => deal.status));
-    if (!closingBoard) return values;
+    if (!closedPendingOnly) return values;
     return ['Closed', 'Pending'].filter((label) => values.some((value) => value.toLowerCase() === label.toLowerCase()));
-  }, [agentGroupById, agentPicked, applyDimensions, closingBoard, groupPicked, periodDeals, reportId, sidePicked, sourcePicked, statusFallback]);
+  }, [agentGroupById, agentPicked, applyDimensions, closedPendingOnly, groupPicked, periodDeals, reportId, sidePicked, sourcePicked, statusFallback]);
   const sides = useMemo(() => uniqueFolded(optionDeals('side').map((deal) => deal.side)), [agentGroupById, agentPicked, applyDimensions, groupPicked, periodDeals, reportId, sourcePicked, statusFallback, statusPicked]);
   const sources = useMemo(() => uniqueValues(optionDeals('source').map((deal) => deal.leadSource)), [agentGroupById, agentPicked, applyDimensions, groupPicked, periodDeals, sidePicked, statusFallback, statusPicked]);
   const agents = useMemo(() => {
@@ -268,10 +350,14 @@ export default function OwnerReportsPage() {
   const payeeBasis = reportId === 'net-commission-income' ? 'closing' : boardDate;
   const payeePicked = paymentKind === 'entity' ? entityPayeePicked : agentPayeePicked;
   const setPayeePicked = paymentKind === 'entity' ? setEntityPayeePicked : setAgentPayeePicked;
+  const shownPayments = useMemo(
+    () => (reportId === 'net-commission-income' ? earningPayments(payments, postSplits, earningsPicked) : payments),
+    [earningsPicked, payments, postSplits, reportId],
+  );
   const payeeChoices = useMemo(() => {
     if (!paymentKind) return [];
     const lines = withoutTeamLeads(
-      paymentLines(payments, closedOrPendingOnDate(filtered, range, payeeBasis), paymentKind, names, entityNames),
+      paymentLines(shownPayments, closedOrPendingOnDate(filtered, range, payeeBasis), paymentKind, names, entityNames),
       paymentKind === 'agent' && excludeTeamLeads,
       teamLeadIds,
     );
@@ -284,7 +370,33 @@ export default function OwnerReportsPage() {
     return [...counts.entries()]
       .map(([value, item]) => ({ value, label: item.label, count: item.count }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [entityNames, excludeTeamLeads, filtered, names, payeeBasis, paymentKind, payments, range, teamLeadIds]);
+  }, [entityNames, excludeTeamLeads, filtered, names, payeeBasis, paymentKind, range, shownPayments, teamLeadIds]);
+  const earningsChoices = useMemo(() => {
+    if (reportId !== 'net-commission-income') return [];
+    const dealIds = new Set(closedOrPendingOnDate(filtered, range, 'closing').map((deal) => deal.id));
+    const allowed = (agentId: string) => {
+      if (excludeTeamLeads && teamLeadIds.has(agentId)) return false;
+      return payeeKept(agentId, agentPayeePicked);
+    };
+    const netIds = new Set<string>();
+    payments.forEach((payment) => {
+      if (payeeKind(payment) !== 'agent' || !dealIds.has(payment.transactionId)) return;
+      if (!allowed(payment.agentId || 'unspecified')) return;
+      netIds.add(payment.transactionId);
+    });
+    const byEntity = new Map<string, Set<string>>();
+    postSplits.forEach((credit) => {
+      if (!dealIds.has(credit.transactionId) || !allowed(credit.agentId)) return;
+      const ids = byEntity.get(credit.entityId) || new Set<string>();
+      ids.add(credit.transactionId);
+      byEntity.set(credit.entityId, ids);
+    });
+    const entities = earningEntities
+      .filter((entity) => (byEntity.get(entity.id)?.size || 0) > 0)
+      .map((entity) => ({ value: entity.id, label: entity.name, count: byEntity.get(entity.id)?.size || 0 }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    return [{ value: NET_EARNING, label: 'Net Commission Income', count: netIds.size }, ...entities];
+  }, [agentPayeePicked, earningEntities, excludeTeamLeads, filtered, payments, postSplits, range, reportId, teamLeadIds]);
 
   useEffect(() => {
     if (loading) return;
@@ -301,7 +413,12 @@ export default function OwnerReportsPage() {
     }
     prune(groupPicked, groupOptions, false, setGroupPicked);
     if (paymentKind) prune(payeePicked, payeeChoices.map((choice) => choice.value), false, setPayeePicked);
-  }, [agentPicked, agents, applyDimensions, groupOptions, groupPicked, loading, payeeChoices, payeePicked, paymentKind, setPayeePicked, sidePicked, sides, sourcePicked, sources, statusPicked, statuses]);
+    if (earningsPicked != null) {
+      const options = new Set(earningsChoices.map((choice) => choice.value));
+      const next = earningsPicked.filter((value) => options.has(value));
+      if (next.length !== earningsPicked.length) setEarningsPicked(next.length === 0 || (next.length === 1 && next[0] === NET_EARNING) ? null : next);
+    }
+  }, [agentPicked, agents, applyDimensions, earningsChoices, earningsPicked, groupOptions, groupPicked, loading, payeeChoices, payeePicked, paymentKind, setPayeePicked, sidePicked, sides, sourcePicked, sources, statusPicked, statuses]);
   const summaryDeals = useMemo(
     () => deals.filter((deal) => !deal.archived && pickMatches(groupPicked, null, agentGroupById.get(deal.agentId) || '', false)),
     [agentGroupById, deals, groupPicked],
@@ -320,6 +437,34 @@ export default function OwnerReportsPage() {
   const summaryNetPrior = useMemo(() => teamLeadNet(payments, summaryClosedPrior, teamLeadIds), [payments, summaryClosedPrior, teamLeadIds]);
   const ownerSummary = reportId === 'owner-summary';
   const report = OWNER_REPORTS.find((item) => item.id === reportId) || null;
+  const capAsOf = useMemo(() => shiftAsOf(todayIso(), capYearOffset), [capYearOffset]);
+  const capSections = useMemo(() => {
+    if (reportId !== 'team-caps') return [];
+    const dealMap = new Map(filtered.map((deal) => [deal.id, deal]));
+    const activeCaps = teamCaps.filter((cap) => cap.enabled || capContributions.some((row) => row.teamCapId === cap.id));
+    return activeCaps.flatMap((cap) => {
+      const rows = teamCapStandings({
+        cap,
+        agents: agentProfiles,
+        contributions: capContributions,
+        deals: dealMap,
+        names,
+        asOf: capAsOf,
+      });
+      if (rows.length === 0) return [];
+      return [{ cap, rows, count: rows.reduce((sum, row) => sum + row.lines.length, 0) }];
+    });
+  }, [agentProfiles, capAsOf, capContributions, filtered, names, reportId, teamCaps]);
+  const capChoices = capSections.map((section) => ({ value: section.cap.id, label: section.cap.name, count: section.count }));
+  const capFallback = capSections[0] ? [capSections[0].cap.id] : null;
+  const visibleCapSections = capSections.filter((section) => pickMatches(capPicked, capFallback, section.cap.id, false));
+  useEffect(() => {
+    if (capPicked == null) return;
+    const options = new Set(capSections.map((section) => section.cap.id));
+    const next = capPicked.filter((value) => options.has(value));
+    if (next.length === 0) setCapPicked(null);
+    else if (next.length !== 1 || next[0] !== capPicked[0]) setCapPicked([next[0]]);
+  }, [capPicked, capSections]);
   const [launching, setLaunching] = useState(false);
   const [reveal, setReveal] = useState(false);
   const launchLock = useRef(false);
@@ -465,6 +610,9 @@ export default function OwnerReportsPage() {
               payeeChoices={payeeChoices}
               payeePicked={payeePicked}
               onPayees={setPayeePicked}
+              earningsChoices={reportId === 'net-commission-income' ? earningsChoices : undefined}
+              earningsPicked={earningsPicked}
+              onEarnings={setEarningsPicked}
               excludeTeamLeads={excludeTeamLeads}
               onExcludeTeamLeads={setExcludeTeamLeads}
               loading={loading}
@@ -480,9 +628,24 @@ export default function OwnerReportsPage() {
               priorNetCommission={summaryNetPrior}
               allDeals={summaryDeals}
               deals={filtered}
-              payments={payments}
+              payments={shownPayments}
               entityNames={entityNames}
               teamLeadIds={teamLeadIds}
+              capChoices={capChoices}
+              capPicked={capPicked}
+              onCaps={setCapPicked}
+              capYearOffset={capYearOffset}
+              onCapYearOffset={setCapYearOffset}
+              capSections={visibleCapSections}
+              agentFieldLabels={agentFieldLabels}
+              capAsOf={capAsOf}
+              capOpen={capOpen}
+              onCapOpen={setCapOpen}
+              capEmpty={teamCaps.length === 0
+                ? 'No team caps are set up yet.'
+                : capPicked?.length === 0
+                  ? 'Select a team cap to see each agent’s cap year.'
+                  : 'No agents on these caps match the current filters.'}
             />
           ) : (
             <Cover launching={launching} onEnter={launch} />
@@ -767,6 +930,9 @@ function ReportView(props: {
   payeeChoices: FilterChoice[];
   payeePicked: string[] | null;
   onPayees: (value: string[] | null) => void;
+  earningsChoices?: FilterChoice[];
+  earningsPicked?: string[] | null;
+  onEarnings?: (value: string[] | null) => void;
   excludeTeamLeads: boolean;
   onExcludeTeamLeads: (value: boolean) => void;
   hideMetric?: boolean;
@@ -785,6 +951,17 @@ function ReportView(props: {
   payments: ReportPayment[];
   entityNames: Map<string, string>;
   teamLeadIds: Set<string>;
+  capChoices: FilterChoice[];
+  capPicked: string[] | null;
+  onCaps: (value: string[] | null) => void;
+  capYearOffset: number;
+  onCapYearOffset: (value: number) => void;
+  capSections: Array<{ cap: TeamCapDefinition; rows: CapStanding[]; count: number }>;
+  agentFieldLabels: Map<string, string>;
+  capAsOf: string;
+  capOpen: { capId: string; agentId: string } | null;
+  onCapOpen: (value: { capId: string; agentId: string } | null) => void;
+  capEmpty: string;
 }) {
   const { reportId, closed, pending, taken, closedPrior, pendingPrior, names, range, priorRange, metric, netCommission, priorNetCommission, allDeals, deals, payments, teamLeadIds } = props;
   const [cumulative, setCumulative] = useState(false);
@@ -856,9 +1033,11 @@ function ReportView(props: {
                     onChange={(id) => props.onBoardDate(id === 'acceptance' ? 'acceptance' : 'closing')}
                   />
                 </>
+              ) : props.reportId === 'team-caps' ? (
+                <TitleCaps options={props.capChoices} picked={props.capPicked} onChange={props.onCaps} />
               ) : props.reportName}
             </h2>
-            <p className="mt-1.5 text-sm text-slate-500">{formatRange(range)} compared with {formatRange(priorRange)}</p>
+            <p className="mt-1.5 text-sm text-slate-500">{props.reportId === 'team-caps' ? 'Each agent’s cap year comes from that team cap’s reset date.' : `${formatRange(range)} compared with ${formatRange(priorRange)}`}</p>
           </div>
           <div className="justify-self-end">
             {props.reportId === 'team-performance' ? (
@@ -883,7 +1062,10 @@ function ReportView(props: {
         <FilterBar
           {...props}
           dateOnly={props.reportId === 'owner-summary'}
-          hideMetric={props.reportId === 'lead-source-leaderboard' || props.reportId === 'team-performance' || props.reportId === 'net-commission-income'}
+          hideMetric={props.reportId === 'lead-source-leaderboard' || props.reportId === 'team-performance' || props.reportId === 'net-commission-income' || props.reportId === 'team-caps'}
+          hideDate={props.reportId === 'team-caps'}
+          capYearOffset={props.capYearOffset}
+          onCapYearOffset={props.onCapYearOffset}
           boardMetrics={undefined}
           payeeChoices={(props.reportId === 'net-commission-income' || (props.reportId === 'lead-source-leaderboard' && (props.boardMetric === 'payment:agent' || props.boardMetric === 'payment:entity'))) ? props.payeeChoices : undefined}
           excludeTeamLeads={(props.reportId === 'team-performance' || props.reportId === 'net-commission-income' || (props.reportId === 'lead-source-leaderboard' && props.boardMetric !== 'payment:entity')) ? props.excludeTeamLeads : undefined}
@@ -924,6 +1106,13 @@ function ReportView(props: {
             sidePicked={props.sidePicked}
             cumulative={props.reportId === 'team-performance' && cumulative}
             preset={props.preset}
+            capSections={props.capSections}
+            agentFieldLabels={props.agentFieldLabels}
+            capAsOf={props.capAsOf}
+            capYearOffset={props.capYearOffset}
+            capOpen={props.capOpen}
+            onCapOpen={props.onCapOpen}
+            capEmpty={props.capEmpty}
           />
         ) : null}
       </div>
@@ -962,20 +1151,46 @@ function FilterBar(props: {
   payeeChoices?: FilterChoice[];
   payeePicked?: string[] | null;
   onPayees?: (value: string[] | null) => void;
+  earningsChoices?: FilterChoice[];
+  earningsPicked?: string[] | null;
+  onEarnings?: (value: string[] | null) => void;
   excludeTeamLeads?: boolean;
   onExcludeTeamLeads?: (value: boolean) => void;
   dateRangeLabel?: string;
   dateOnly?: boolean;
   hideMetric?: boolean;
+  hideDate?: boolean;
+  capYearOffset?: number;
+  onCapYearOffset?: (value: number) => void;
 }) {
   return (
     <div className="relative z-30 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3">
-      <DateRangeFilter preset={props.preset} range={props.range} onPreset={props.onPreset} onRange={props.onRange} label={props.dateRangeLabel} />
-      {props.preset === 'custom' ? (
+      {props.hideDate ? (
+        <>
+          {props.onCapYearOffset ? (
+            <ChoiceFilter
+              label="Cap year"
+              note="Current uses today. Previous uses the same day one year ago. Every selected cap applies that day to its own reset date."
+              value={String(props.capYearOffset || 0)}
+              options={[
+                { value: '0', label: 'Current cap year' },
+                { value: '1', label: 'Previous cap year' },
+              ]}
+              onChange={(next) => props.onCapYearOffset?.(next === '1' ? 1 : 0)}
+            />
+          ) : null}
+        </>
+      ) : (
+        <DateRangeFilter preset={props.preset} range={props.range} onPreset={props.onPreset} onRange={props.onRange} label={props.dateRangeLabel} />
+      )}
+      {props.preset === 'custom' && !props.hideDate ? (
         <>
           <CustomDateField label="From" value={props.range.start} onChange={(start) => props.onRange({ ...props.range, start })} />
           <CustomDateField label="To" value={props.range.end} onChange={(end) => props.onRange({ ...props.range, end })} />
         </>
+      ) : null}
+      {props.earningsChoices && props.onEarnings ? (
+        <MultiFilter label="Earnings type" note="Net Commission Income is each agent’s payment amount. Checking an entity adds the post-split dollars that agent allocated to it." options={props.earningsChoices} picked={props.earningsPicked ?? null} fallback={[NET_EARNING]} onChange={props.onEarnings} />
       ) : null}
       <MultiFilter label="Group" note="Limits every metric to transactions whose primary agent belongs to the selected groups. All includes every agent." options={props.groupChoices} picked={props.groupPicked} fallback={null} onChange={props.onGroups} />
       {props.dateOnly ? null : (
@@ -988,7 +1203,7 @@ function FilterBar(props: {
         <MultiFilter label={props.boardMetric === 'payment:entity' ? 'Entity' : 'Agent'} options={props.payeeChoices} picked={props.payeePicked ?? null} fallback={null} onChange={props.onPayees} />
       ) : null}
       {props.excludeTeamLeads !== undefined && props.onExcludeTeamLeads ? (
-        <label className="flex h-9 cursor-pointer items-center gap-2 self-end text-sm font-medium text-slate-700 dark:text-slate-200">
+        <label className="mb-1 flex h-5 cursor-pointer items-center gap-2 self-end text-xs font-medium normal-case tracking-normal text-slate-700 dark:text-slate-200">
           <input
             type="checkbox"
             checked={Boolean(props.excludeTeamLeads)}
@@ -999,20 +1214,15 @@ function FilterBar(props: {
         </label>
       ) : null}
       {props.hideMetric ? null : (
-      <Field label="Metric">
-        <div className={underlineShell}>
-          <OptionMenu
-            className={`${underlineControl} overview-field-select`}
-            value={props.boardMetrics ? props.boardMetric : props.metric}
-            options={(props.boardMetrics ?? METRICS.map((item) => ({ id: item.id, label: item.label }))).map((item) => ({ value: item.id, label: item.label }))}
-            onChange={(next) => {
-              if (props.boardMetrics && props.onBoardMetric) props.onBoardMetric(next);
-              else props.onMetric(next as MetricId);
-            }}
-          />
-          <FieldChevron />
-        </div>
-      </Field>
+      <ChoiceFilter
+        label="Metric"
+        value={props.boardMetrics ? props.boardMetric : props.metric}
+        options={(props.boardMetrics ?? METRICS.map((item) => ({ id: item.id, label: item.label }))).map((item) => ({ value: item.id, label: item.label }))}
+        onChange={(next) => {
+          if (props.boardMetrics && props.onBoardMetric) props.onBoardMetric(next);
+          else props.onMetric(next as MetricId);
+        }}
+      />
       )}
         </>
       )}
@@ -1037,6 +1247,8 @@ function dealInReport(deal: ReportDeal, range: DateRange, reportId: string | nul
       return (status === 'closed' || status === 'pending') && inRange(dateBasis === 'acceptance' ? deal.acceptanceDate : deal.closingDate, range);
     case 'net-commission-income':
       return (status === 'closed' || status === 'pending') && inRange(deal.closingDate, range);
+    case 'team-caps':
+      return status === 'closed' || status === 'pending';
     case 'listings-by-list-date':
       return listed;
     case 'transaction-list':
@@ -1188,6 +1400,84 @@ function TitleMetric({ value, options, onChange }: { value: string; options: Boa
   );
 }
 
+function TitleCaps({ options, picked, onChange }: {
+  options: FilterChoice[];
+  picked: string[] | null;
+  onChange: (value: string[] | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const ref = useRef<HTMLSpanElement>(null);
+  const selected = options.find((option) => option.value === picked?.[0]) || options[0];
+  const visible = options.filter((option) => option.label.toLowerCase().includes(query.trim().toLowerCase()));
+  const choose = (id: string) => {
+    onChange(options[0]?.value === id ? null : [id]);
+    setOpen(false);
+    setQuery('');
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: MouseEvent) => {
+      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <span ref={ref} className="relative inline-block text-left">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-label={`Team cap ${selected?.label || 'Team Caps'}`}
+        onClick={() => setOpen((current) => !current)}
+        className="cursor-pointer appearance-none border-0 bg-transparent p-0 text-3xl font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
+      >
+        {selected?.label || 'Team Caps'}
+      </button>
+      {open ? (
+        <div role="listbox" aria-label="Team cap" className="absolute left-1/2 top-full z-50 mt-2 max-h-[min(36rem,calc(100dvh-14rem))] w-72 -translate-x-1/2 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+          <div className="sticky top-0 z-10 bg-white px-1 py-1 dark:bg-slate-900">
+            <div className="flex justify-end">
+              <button type="button" onClick={() => { if (options[0]) choose(options[0].value); }} className="cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Reset</button>
+            </div>
+            {options.length > 8 ? (
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search"
+                className="mt-1 h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-sm font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              />
+            ) : null}
+          </div>
+          {visible.length === 0 ? <p className="px-2 py-2 text-xs text-slate-400">No matches</p> : visible.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="option"
+              aria-selected={option.value === selected?.value}
+              onClick={() => choose(option.value)}
+              className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800 ${option.value === selected?.value ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200' : ''}`}
+            >
+              <span className="min-w-0 flex-1 truncate">{option.label}</span>
+              <span className="shrink-0 text-xs tabular-nums text-slate-400">{option.count.toLocaleString()}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </span>
+  );
+}
+
 function maskDate(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 8);
   const month = digits.slice(0, 2);
@@ -1222,7 +1512,7 @@ function CustomDateField({ label, value, onChange }: { label: string; value: str
   }, [value]);
   return (
     <Field label={label}>
-      <span className={`${selectClass} inline-flex w-[9.5rem] items-center gap-1 pr-1`}>
+      <span className={`${underlineShell} inline-flex w-[9.5rem] items-center gap-1 pr-1`}>
         <input
           value={text}
           inputMode="numeric"
@@ -1238,7 +1528,7 @@ function CustomDateField({ label, value, onChange }: { label: string; value: str
           onBlur={() => {
             if (!displayToIso(text)) setText(isoToDisplay(value));
           }}
-          className="min-w-0 flex-1 cursor-text bg-transparent outline-none"
+          className={`${underlineControl} min-w-0 flex-1 cursor-text normal-case tracking-normal`}
         />
         <button
           type="button"
@@ -1270,6 +1560,87 @@ function CustomDateField({ label, value, onChange }: { label: string; value: str
         />
       </span>
     </Field>
+  );
+}
+
+function ChoiceFilter({ label, note, value, options, onChange }: {
+  label: string;
+  note?: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = options.find((option) => option.value === value);
+  const visible = options.filter((option) => option.label.toLowerCase().includes(query.trim().toLowerCase()));
+  const choose = (next: string) => {
+    onChange(next);
+    setOpen(false);
+    setQuery('');
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: MouseEvent) => {
+      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className={`relative ${filterLabel}`}>
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {note ? <ScoreNote label={label} text={note} className="relative inline-flex" align="left" /> : null}
+      </span>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => setOpen((current) => !current)}
+        className={`${underlineShell} w-max max-w-full min-w-[9rem] cursor-pointer !pr-7 text-left`}
+      >
+        <span className={`${underlineControl} !inline-flex !w-auto items-center normal-case tracking-normal`}>{selected?.label || ''}</span>
+        <FieldChevron />
+      </button>
+      {open ? (
+        <div role="listbox" aria-label={label} className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+          {options.length > 8 ? (
+            <div className="sticky top-0 z-10 bg-white px-1 py-1 dark:bg-slate-900">
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search"
+                className="h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-sm font-medium text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              />
+            </div>
+          ) : null}
+          {visible.length === 0 ? <p className="px-2 py-2 text-xs text-slate-400">No matches</p> : visible.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="option"
+              aria-selected={option.value === value}
+              onClick={() => choose(option.value)}
+              className={`flex w-full cursor-pointer items-center rounded-md px-2 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800 ${option.value === value ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200' : ''}`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -1309,7 +1680,7 @@ function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date range
   }, [open]);
 
   return (
-    <div ref={ref} className="relative flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+    <div ref={ref} className={`relative ${filterLabel}`}>
       <span className="inline-flex items-center gap-1">
         {label}
         <ScoreNote label={label} text="This date range is shared across Owner Reports and stays in place when you open another report." className="relative inline-flex" align="left" />
@@ -1320,10 +1691,13 @@ function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date range
         aria-haspopup="listbox"
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => setOpen((value) => !value)}
-        className={`${selectClass} inline-flex w-max max-w-full items-center gap-2 text-left`}
+        className={`${underlineShell} w-max max-w-full cursor-pointer !pr-7 text-left`}
       >
-        <span>{selected.label}</span>
-        {preset !== 'custom' ? <span className="tabular-nums text-slate-400 dark:text-slate-500">{formatFilterSpan(range)}</span> : null}
+        <span className={`${underlineControl} !inline-flex !w-auto items-center gap-2 normal-case tracking-normal`}>
+          <span>{selected.label}</span>
+          {preset !== 'custom' ? <span className="tabular-nums text-slate-400 dark:text-slate-500">{formatFilterSpan(range)}</span> : null}
+        </span>
+        <FieldChevron />
       </button>
       {open ? (
         <div role="listbox" aria-label="Date range" className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-80 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
@@ -1367,7 +1741,9 @@ function filterPlural(label: string): string {
     Side: 'sides',
     'Primary agent': 'primary agents',
     'Lead source': 'lead sources',
+    'Earnings type': 'earnings types',
     Entity: 'entities',
+    'Team cap': 'team caps',
   };
   return nouns[label] || `${label.toLowerCase()}s`;
 }
@@ -1427,7 +1803,7 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
   }, [open]);
 
   return (
-    <div ref={ref} className="relative flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+    <div ref={ref} className={`relative ${filterLabel}`}>
       <span className="inline-flex items-center gap-1">
         {label}
         {note ? <ScoreNote label={label} text={note} className="relative inline-flex" align="left" /> : null}
@@ -1438,10 +1814,11 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
         aria-haspopup="listbox"
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => setOpen((value) => !value)}
-        className={`${selectClass} min-w-[9rem] max-w-[24rem] truncate text-left ${options.length > 0 && selectedLabels.length === 0 ? '!border-amber-500 !bg-amber-50 !text-amber-900 ring-2 ring-amber-400/80 dark:!border-amber-400 dark:!bg-amber-950 dark:!text-amber-100' : ''}`}
+        className={`${underlineShell} min-w-[9rem] max-w-[24rem] cursor-pointer !pr-7 text-left ${options.length > 0 && selectedLabels.length === 0 ? '!border-b-amber-500 !bg-amber-50 dark:!border-b-amber-400 dark:!bg-amber-950' : ''}`}
         title={summary}
       >
-        {summary}
+        <span className={`${underlineControl} block truncate normal-case tracking-normal ${options.length > 0 && selectedLabels.length === 0 ? '!text-amber-900 dark:!text-amber-100' : ''}`}>{summary}</span>
+        <FieldChevron />
       </button>
       {open ? (
         <div role="listbox" aria-label={label} aria-multiselectable="true" className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
@@ -1484,9 +1861,11 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
   );
 }
 
+const filterLabel = 'flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400';
+
 function Field({ label, note, children }: { label: string; note?: string; children: React.ReactNode }) {
   return (
-    <label className="flex cursor-pointer flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+    <label className={`cursor-pointer ${filterLabel}`}>
       <span className="inline-flex items-center gap-1">
         {label}
         {note ? <ScoreNote label={label} text={note} className="relative inline-flex" align="left" /> : null}
@@ -1495,8 +1874,6 @@ function Field({ label, note, children }: { label: string; note?: string; childr
     </label>
   );
 }
-
-const selectClass = 'report-field h-9 cursor-pointer rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 text-sm font-medium normal-case tracking-normal text-slate-800 dark:text-slate-100';
 
 function Unavailable({ note }: { note: string }) {
   return (
@@ -1531,10 +1908,30 @@ function ReportBody(props: {
   sidePicked: string[] | null;
   cumulative: boolean;
   preset: RangePreset;
+  capSections: Array<{ cap: TeamCapDefinition; rows: CapStanding[]; count: number }>;
+  agentFieldLabels: Map<string, string>;
+  capAsOf: string;
+  capYearOffset: number;
+  capOpen: { capId: string; agentId: string } | null;
+  onCapOpen: (value: { capId: string; agentId: string } | null) => void;
+  capEmpty: string;
 }) {
   const { id, closed, pending, taken, closedPrior, pendingPrior, names, range, priorRange, metric, netCommission, priorNetCommission, allDeals, deals, payments, entityNames, teamLeadIds, boardField, payeePicked, excludeTeamLeads, dateBasis, sidePicked, cumulative, preset } = props;
   const closing = seriesBuckets(closed, (deal) => deal.closingDate, range);
   const closingPrior = seriesBuckets(closedPrior, (deal) => deal.closingDate, priorRange);
+  if (id === 'team-caps') {
+    return (
+      <TeamCapsReport
+        sections={props.capSections}
+        labels={props.agentFieldLabels}
+        asOf={props.capAsOf}
+        previous={props.capYearOffset > 0}
+        open={props.capOpen}
+        onOpen={props.onCapOpen}
+        empty={props.capEmpty}
+      />
+    );
+  }
   if (id === 'owner-summary') {
     return (
       <OwnerSummary
@@ -2001,6 +2398,17 @@ function TrendPanel({ metric, title, tone, currentClass, previousClass, accentCl
   );
 }
 
+function metricEdge(label: string, tone: 'volume' | 'emerald' | 'units' | 'rate' | 'price' | 'team'): string {
+  if (label === 'Total') return 'border-slate-900 ring-slate-900 dark:border-white dark:ring-white';
+  const closed = label !== 'Pending';
+  if (tone === 'volume') return closed ? 'border-teal-700 ring-teal-700 dark:border-teal-200 dark:ring-teal-200' : 'border-teal-500 ring-teal-500 dark:border-teal-400 dark:ring-teal-400';
+  if (tone === 'units') return closed ? 'border-purple-700 ring-purple-700 dark:border-purple-200 dark:ring-purple-200' : 'border-purple-500 ring-purple-500 dark:border-purple-400 dark:ring-purple-400';
+  if (tone === 'rate') return closed ? 'border-sky-700 ring-sky-700 dark:border-sky-200 dark:ring-sky-200' : 'border-sky-500 ring-sky-500 dark:border-sky-400 dark:ring-sky-400';
+  if (tone === 'price') return closed ? 'border-amber-700 ring-amber-700 dark:border-amber-200 dark:ring-amber-200' : 'border-amber-500 ring-amber-500 dark:border-amber-400 dark:ring-amber-400';
+  if (tone === 'team') return closed ? 'border-rose-700 ring-rose-700 dark:border-rose-200 dark:ring-rose-200' : 'border-rose-500 ring-rose-500 dark:border-rose-400 dark:ring-rose-400';
+  return closed ? 'border-emerald-700 ring-emerald-700 dark:border-emerald-200 dark:ring-emerald-200' : 'border-emerald-500 ring-emerald-500 dark:border-emerald-400 dark:ring-emerald-400';
+}
+
 function TrendScore({ tone, label, amount, toneClass, dollar, percent, current = 0, prior = 0, selected, onSelect }: {
   tone: 'volume' | 'emerald' | 'units' | 'rate' | 'price' | 'team';
   label: string;
@@ -2013,24 +2421,24 @@ function TrendScore({ tone, label, amount, toneClass, dollar, percent, current =
   selected: boolean;
   onSelect: () => void;
 }) {
-  const selectedClass = tone === 'volume'
-    ? 'border-teal-500 bg-[#d7f6fa] ring-2 ring-teal-400 dark:border-teal-300 dark:bg-teal-950/80 dark:ring-teal-400'
+  const selectedFill = tone === 'volume'
+    ? 'bg-[#d7f6fa] dark:bg-teal-950/80'
     : tone === 'units'
-      ? 'border-purple-400 bg-[#f3e8ff] ring-2 ring-purple-300 dark:border-purple-300 dark:bg-purple-950/80 dark:ring-purple-400'
+      ? 'bg-[#f3e8ff] dark:bg-purple-950/80'
       : tone === 'rate'
-        ? 'border-sky-500 bg-sky-50 ring-2 ring-sky-400 dark:border-sky-300 dark:bg-sky-950/80 dark:ring-sky-400'
+        ? 'bg-sky-50 dark:bg-sky-950/80'
         : tone === 'price'
-          ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-400 dark:border-amber-300 dark:bg-amber-950/80 dark:ring-amber-400'
+          ? 'bg-amber-50 dark:bg-amber-950/80'
           : tone === 'team'
-            ? 'border-rose-500 bg-rose-50 ring-2 ring-rose-400 dark:border-rose-300 dark:bg-rose-950/80 dark:ring-rose-400'
-            : 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-400 dark:border-emerald-300 dark:bg-emerald-950/80 dark:ring-emerald-400';
+            ? 'bg-rose-50 dark:bg-rose-950/80'
+            : 'bg-emerald-50 dark:bg-emerald-950/80';
   const focusClass = tone === 'volume' ? 'focus-visible:ring-teal-400' : tone === 'units' ? 'focus-visible:ring-purple-400' : tone === 'rate' ? 'focus-visible:ring-sky-400' : tone === 'price' ? 'focus-visible:ring-amber-400' : tone === 'team' ? 'focus-visible:ring-rose-400' : 'focus-visible:ring-emerald-400';
   return (
     <button
       type="button"
       aria-pressed={selected}
       onClick={onSelect}
-      className={`w-full min-w-0 cursor-pointer appearance-none rounded-xl border px-3 py-2 text-center shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? `ring-inset ${selectedClass}` : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
+      className={`w-full min-w-0 cursor-pointer appearance-none rounded-xl border px-3 py-2 text-center shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? `ring-2 ring-inset ${metricEdge(label, tone)} ${selectedFill}` : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
     >
       <p className={`text-xs font-medium uppercase ${toneClass || 'text-slate-500 dark:text-white'}`}>{label}</p>
       <p className={`mt-0.5 text-xl font-extrabold tabular-nums ${toneClass}`}>{amount}</p>
@@ -2474,7 +2882,7 @@ function Equation(props: { left: string; right: string; result: string; leftValu
   );
 }
 
-function AgentTable({ rows, caption, paid = false }: { rows: Array<Totals & { name: string }>; caption: string; paid?: boolean }) {
+function AgentTable({ rows, caption, paid = false }: { rows: AgentRow[]; caption: string; paid?: boolean }) {
   const total = sumRows(rows);
   const { sort, toggle } = useColumnSort();
   const ordered = sortBy(rows, sort, (row, key) => (key === 'paid' ? (paid ? row.agentPaid : row.net) : row[key as keyof typeof row]) as string | number);
@@ -2494,7 +2902,7 @@ function AgentTable({ rows, caption, paid = false }: { rows: Array<Totals & { na
         <tbody>
           {ordered.length === 0 ? <tr><td className="px-4 py-6 text-slate-500" colSpan={5}>No transactions in this date range.</td></tr> : null}
           {ordered.map((row) => (
-            <tr key={row.name + row.units} className="border-t border-slate-100 dark:border-slate-800">
+            <tr key={row.agentId} className="border-t border-slate-100 dark:border-slate-800">
               <td className="px-4 py-1.5 font-medium">{row.name}</td>
               <td className="px-3 py-1.5 text-right tabular-nums">{unitsLabel(row.units)}</td>
               <td className="px-3 py-1.5 text-right tabular-nums">{money(row.volume)}</td>
@@ -2585,6 +2993,40 @@ function dealsForStatus(deals: ReportDeal[], status: 'all' | 'closed' | 'pending
 type PaymentLine = { key: string; label: string; status: string; amount: number };
 
 type BoardScores = { total: number; priorTotal: number; closed: number; priorClosed: number; pending: number };
+
+const NET_EARNING = 'net';
+const EARNING_ENTITY_TYPES = new Set(['EQUITY', 'INCOME']);
+
+type PostSplitCredit = {
+  transactionId: string;
+  agentId: string;
+  entityId: string;
+  amount: number;
+};
+
+function isPostSplitSection(section: unknown): boolean {
+  const key = String(section || '').toUpperCase().replace(/[\s_-]+/g, '');
+  return key === 'POSTSPLIT' || key === 'POSTSPLITL2';
+}
+
+function earningPayments(payments: ReportPayment[], credits: PostSplitCredit[], picked: string[] | null): ReportPayment[] {
+  const active = picked ?? [NET_EARNING];
+  const entities = new Set(active.filter((value) => value !== NET_EARNING));
+  const extra: ReportPayment[] = [];
+  credits.forEach((credit) => {
+    if (!entities.has(credit.entityId) || !credit.agentId || !credit.amount) return;
+    extra.push({
+      transactionId: credit.transactionId,
+      agentId: credit.agentId,
+      entityId: credit.entityId,
+      payeeType: 'AGENT',
+      amount: credit.amount,
+    });
+  });
+  if (active.includes(NET_EARNING) && extra.length === 0) return payments;
+  const base = active.includes(NET_EARNING) ? payments.filter((payment) => payeeKind(payment) === 'agent') : [];
+  return [...base, ...extra];
+}
 
 function payeeKind(payment: ReportPayment): 'agent' | 'entity' {
   const type = payment.payeeType.trim().toUpperCase();
@@ -2885,6 +3327,28 @@ function earningSums(deals: ReportDeal[], payments: ReportPayment[], range: Date
   return { total, closed, pending };
 }
 
+function earningPeriodSums(deals: ReportDeal[], payments: ReportPayment[], range: DateRange, period: string, excludeTeamLeads: boolean, teamLeadIds: Set<string>, payeePicked: string[] | null, agentId: string | null) {
+  const dealsById = new Map(deals.map((deal) => [deal.id, deal]));
+  let total = 0;
+  let closed = 0;
+  let pending = 0;
+  payments.forEach((payment) => {
+    const deal = dealsById.get(payment.transactionId);
+    if (!deal?.closingDate || payeeKind(payment) !== 'agent' || !inRange(deal.closingDate, range)) return;
+    if (periodKey(deal.closingDate, range) !== period) return;
+    const payeeId = payment.agentId || 'unspecified';
+    if (excludeTeamLeads && teamLeadIds.has(payeeId)) return;
+    if (!payeeKept(payeeId, payeePicked)) return;
+    if (agentId && payeeId !== agentId) return;
+    const status = deal.status.trim().toLowerCase();
+    if (status !== 'closed' && status !== 'pending') return;
+    total += payment.amount;
+    if (status === 'closed') closed += payment.amount;
+    else pending += payment.amount;
+  });
+  return { total, closed, pending };
+}
+
 function earningPeriodTotals(deals: ReportDeal[], payments: ReportPayment[], range: DateRange, excludeTeamLeads: boolean, teamLeadIds: Set<string>, payeePicked: string[] | null, agentId: string | null, statusFilter: 'all' | 'closed' | 'pending') {
   const columns = periodColumns(range);
   const totals = columns.map(() => 0);
@@ -2985,7 +3449,7 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
     else onSelect(key);
   };
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+    <div className="h-full rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
       <div className="relative">
         <svg
           ref={svgRef}
@@ -3083,6 +3547,22 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
   );
 }
 
+function EarningScoreRow({ sums, prior, statusFilter, onSelect }: {
+  sums: { total: number; closed: number; pending: number };
+  prior: { total: number; closed: number; pending: number };
+  statusFilter: 'all' | 'closed' | 'pending';
+  onSelect: (status: 'all' | 'closed' | 'pending') => void;
+}) {
+  const closedClass = 'text-emerald-700 dark:text-emerald-200';
+  return (
+    <div className={pairedScores}>
+      <TrendScore tone="emerald" label="Total" amount={fullMoney(sums.total)} toneClass="" dollar={signedFull(sums.total - prior.total)} percent={signedChangePercent(sums.total, prior.total)} current={sums.total} prior={prior.total} selected={statusFilter === 'all'} onSelect={() => onSelect('all')} />
+      <TrendScore tone="emerald" label="Closed" amount={fullMoney(sums.closed)} toneClass={closedClass} dollar={signedFull(sums.closed - prior.closed)} percent={signedChangePercent(sums.closed, prior.closed)} current={sums.closed} prior={prior.closed} selected={statusFilter === 'closed'} onSelect={() => onSelect('closed')} />
+      <TrendScore tone="emerald" label="Pending" amount={fullMoney(sums.pending)} toneClass="text-emerald-500 dark:text-emerald-400" selected={statusFilter === 'pending'} onSelect={() => onSelect('pending')} />
+    </div>
+  );
+}
+
 function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamLeads, teamLeadIds, payeePicked, preset }: { deals: ReportDeal[]; payments: ReportPayment[]; names: Map<string, string>; range: DateRange; priorRange: DateRange; excludeTeamLeads: boolean; teamLeadIds: Set<string>; payeePicked: string[] | null; preset: RangePreset }) {
   const [statusFilter, setStatusFilter] = useState<'all' | 'closed' | 'pending'>('all');
   useEffect(() => {
@@ -3159,13 +3639,7 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
     return totals;
   }, [columns, tableLines]);
   const grand = tableLines.reduce((sum, line) => sum + line.amount, 0);
-  const columnPeaks = useMemo(() => {
-    const peaks: Record<string, number> = {};
-    columns.forEach((column) => {
-      peaks[column.key] = rows.reduce((max, row) => Math.max(max, row.amounts[column.key] || 0), 0);
-    });
-    return peaks;
-  }, [columns, rows]);
+  const cellPeak = rows.reduce((max, row) => columns.reduce((peak, column) => Math.max(peak, row.amounts[column.key] || 0), max), 0);
   const rowPeak = rows.reduce((max, row) => Math.max(max, row.total), 0);
   const monthPeak = columns.reduce((max, column) => Math.max(max, columnTotals[column.key] || 0), 0);
   const [pick, setPick] = useState<{ agentId: string | null; periodKey: string | null } | null>(null);
@@ -3242,6 +3716,31 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
     () => (chartAgentId ? earningSums(deals, payments, priorRange, excludeTeamLeads, teamLeadIds, payeePicked, chartAgentId) : priorSums),
     [chartAgentId, deals, excludeTeamLeads, payments, payeePicked, priorRange, priorSums, teamLeadIds],
   );
+  const periodSums = useMemo(() => {
+    const key = pick?.periodKey;
+    if (!key) return { total: 0, closed: 0, pending: 0 };
+    let total = 0;
+    let closed = 0;
+    let pending = 0;
+    lines.forEach((line) => {
+      if (line.periodKey !== key) return;
+      if (chartAgentId && line.agentId !== chartAgentId) return;
+      total += line.amount;
+      const status = line.deal.status.trim().toLowerCase();
+      if (status === 'closed') closed += line.amount;
+      else if (status === 'pending') pending += line.amount;
+    });
+    return { total, closed, pending };
+  }, [chartAgentId, lines, pick?.periodKey]);
+  const periodPrior = useMemo(() => {
+    const key = pick?.periodKey;
+    if (!key) return { total: 0, closed: 0, pending: 0 };
+    const index = columns.findIndex((column) => column.key === key);
+    const priorKey = priorColumns[index]?.key || '';
+    if (!priorKey) return { total: 0, closed: 0, pending: 0 };
+    return earningPeriodSums(deals, payments, priorRange, priorKey, excludeTeamLeads, teamLeadIds, payeePicked, chartAgentId);
+  }, [chartAgentId, columns, deals, excludeTeamLeads, payeePicked, payments, pick?.periodKey, priorColumns, priorRange, teamLeadIds]);
+  const entirePeriodName = DATE_PRESETS.find((item) => item.id === preset)?.label || formatFilterSpan(range);
   const selectPeriod = (periodKey: string) => {
     setPick((current) => (current ? { agentId: current.agentId, periodKey } : { agentId: null, periodKey }));
   };
@@ -3291,23 +3790,34 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
       window.removeEventListener('scroll', onResize);
     };
   }, [pick, ordered.length, columns.length]);
-  const closedClass = 'text-emerald-700 dark:text-emerald-200';
   return (
     <div ref={blockRef} className="space-y-4">
-      <div className="flex flex-col gap-3">
-        <SectionHeading action={pick ? (
-          <button type="button" onClick={() => setPick(null)} className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/20 px-4 text-xs font-semibold normal-case tracking-normal text-white transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950">
-            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
-            All Agents
-          </button>
-        ) : undefined}>Agent Earnings</SectionHeading>
-        <div className={`${pairedScores} lg:mx-auto lg:w-[calc(50%-0.5rem)]`}>
-        <TrendScore tone="emerald" label="Total" amount={fullMoney(scoreSums.total)} toneClass="" dollar={signedFull(scoreSums.total - scorePrior.total)} percent={signedChangePercent(scoreSums.total, scorePrior.total)} current={scoreSums.total} prior={scorePrior.total} selected={statusFilter === 'all'} onSelect={() => selectStatus('all')} />
-        <TrendScore tone="emerald" label="Closed" amount={fullMoney(scoreSums.closed)} toneClass={closedClass} dollar={signedFull(scoreSums.closed - scorePrior.closed)} percent={signedChangePercent(scoreSums.closed, scorePrior.closed)} current={scoreSums.closed} prior={scorePrior.closed} selected={statusFilter === 'closed'} onSelect={() => selectStatus('closed')} />
-        <TrendScore tone="emerald" label="Pending" amount={fullMoney(scoreSums.pending)} toneClass="text-emerald-500 dark:text-emerald-400" selected={statusFilter === 'pending'} onSelect={() => selectStatus('pending')} />
+      <SectionHeading action={pick ? (
+        <button type="button" onClick={() => setPick(null)} className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/20 px-4 text-xs font-semibold normal-case tracking-normal text-white transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950">
+          <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+          All Agents
+        </button>
+      ) : undefined}>{agentName || 'Agent Earnings'}</SectionHeading>
+      <div className={`grid transition-[grid-template-columns,gap] duration-500 ease-out motion-reduce:transition-none ${pick ? 'items-stretch gap-4 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.2fr)]' : 'items-start gap-0 lg:grid-cols-1'}`}>
+        <div className={`min-w-0 transition-all duration-500 ease-out motion-reduce:transition-none ${pick ? 'flex w-full flex-col justify-between gap-4' : 'lg:mx-auto lg:w-[calc(50%-0.5rem)]'}`}>
+          <div className={pick ? 'rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900' : undefined}>
+            {pick ? <p className="mb-3 truncate rounded-full px-4 py-1.5 text-center text-xs font-bold uppercase tracking-wide report-pill-emerald" title={`Entire period (${entirePeriodName})`}>{`Entire period (${entirePeriodName})`}</p> : null}
+            <EarningScoreRow sums={scoreSums} prior={scorePrior} statusFilter={statusFilter} onSelect={selectStatus} />
+          </div>
+          {pick?.periodKey ? (
+            <div className="earnings-period-enter rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+              <p className="mb-3 truncate rounded-full px-4 py-1.5 text-center text-xs font-bold uppercase tracking-wide report-pill-emerald" title={periodLabel}>{periodLabel}</p>
+              <EarningScoreRow sums={periodSums} prior={periodPrior} statusFilter={statusFilter} onSelect={selectStatus} />
+            </div>
+          ) : null}
         </div>
+        {pick ? (
+          <div className="earnings-chart-enter min-w-0 self-stretch">
+            <EarningsTimeline columns={columns} values={chartValues} priorColumns={priorColumns} priorValues={priorChartValues} selectedKey={pick.periodKey} onSelect={selectPeriod} onClear={() => setPick((current) => (current ? { agentId: current.agentId, periodKey: null } : null))} />
+          </div>
+        ) : null}
       </div>
-      {pick ? <EarningsTimeline columns={columns} values={chartValues} priorColumns={priorColumns} priorValues={priorChartValues} selectedKey={pick.periodKey} onSelect={selectPeriod} onClear={() => setPick(null)} /> : (
+      {pick ? null : (
       <div ref={pivotWrapRef} className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div
           className="report-table report-table-fit min-h-0 flex-auto rounded-none border-0"
@@ -3337,7 +3847,7 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
                     <EarningCell
                       key={column.key}
                       amount={row.amounts[column.key] || 0}
-                      scale={columnPeaks[column.key] || 0}
+                      scale={cellPeak}
                       selected={selected(row.agentId, column.key)}
                       onSelect={() => choose(row.agentId, column.key)}
                       className="px-2 py-1.5 text-right"
@@ -3439,7 +3949,7 @@ function EarningCell({
       <span className="inline-flex flex-col items-end">
         <EarningAmount amount={amount} selected={selected} onSelect={onSelect} />
         <span className="relative mt-0.5 mr-1 h-1 w-[calc(100%-0.5rem)]" aria-hidden>
-          {share > 0 ? <span className="absolute inset-y-0 right-0 rounded-full bg-emerald-400" style={{ width: `${Math.max(share * 100, 18)}%` }} /> : null}
+          {share > 0 ? <span className="absolute inset-y-0 right-0 rounded-full bg-emerald-400" style={{ width: share >= 1 ? '100%' : `max(${share * 100}%, 2px)` }} /> : null}
         </span>
       </span>
     </td>
@@ -3461,8 +3971,11 @@ function EarningAmount({ amount, selected, onSelect }: { amount: number; selecte
 }
 
 function EarningTransactions({ lines, names, wrapRef }: { lines: Array<{ key: string; agentName: string; deal: ReportDeal; amount: number }>; names: Map<string, string>; wrapRef?: React.Ref<HTMLDivElement> }) {
-  const { sort, toggle } = useColumnSort();
-  const ordered = sortBy(lines.map((line, index) => ({ ...line, rank: index + 1 })), sort, (line, key) => {
+  const { sort, toggle } = useColumnSort({ key: 'closing', direction: 'asc' });
+  const ranked = [...lines]
+    .sort((a, b) => (a.deal.closingDate?.getTime() || 0) - (b.deal.closingDate?.getTime() || 0))
+    .map((line, index) => ({ ...line, rank: index + 1 }));
+  const ordered = sortBy(ranked, sort, (line, key) => {
     if (key === 'rank') return line.rank;
     if (key === 'agent') return line.agentName;
     if (key === 'primary') return names.get(line.deal.agentId) || '';

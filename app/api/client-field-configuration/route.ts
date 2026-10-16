@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { requireSessionClient, apiError } from '@/lib/session';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const body = await request.json();
     const config = body.field_config || body;
 
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
     // 2. Format row payload
     const rowPayload: Record<string, any> = {
-      client_id: String(config.client_id || 'DEMO'),
+      client_id: clientId,
       target_table: String(config.target_table || 'transactions'),
       section_name: String(config.section_name || config.section_label || 'General Information'),
       field_key: String(config.field_key),
@@ -74,8 +74,6 @@ export async function POST(request: Request) {
       field_config: returnedRow,
     });
   } catch (error: any) {
-    console.error('Supabase Client Field Config Save Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }

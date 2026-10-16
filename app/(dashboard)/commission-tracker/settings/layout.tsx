@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Building2, ChartColumn, ChevronRight, Gauge, Link2, ListFilter, PanelLeftClose, PanelLeftOpen, Scale, Settings2, Zap, type LucideIcon } from 'lucide-react';
+import { Building2, ChartColumn, ChevronRight, Gauge, Link2, ListFilter, PanelLeftClose, PanelLeftOpen, Scale, ScrollText, Settings2, Zap, type LucideIcon } from 'lucide-react';
 import { pageFrame } from '@/lib/page-frame';
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
@@ -108,7 +108,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
       kind: 'section',
       label: 'Transactions',
       items: [
-        { label: 'Default View', href: '/commission-tracker/settings/transaction-view', icon: ListFilter },
+        { label: 'Views', href: '/commission-tracker/settings/transaction-view', icon: ListFilter },
         { label: 'Scorecards', href: '/commission-tracker/settings/scorecards', icon: ChartColumn },
         { label: 'TMS Integrations', href: '/commission-tracker/settings/integrations', icon: Link2 },
       ],
@@ -117,6 +117,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     { kind: 'link', item: { label: 'Commission Templates', href: '/commission-tracker/settings/commission-templates', icon: Zap } },
     { kind: 'link', item: { label: 'Team Caps', href: '/commission-tracker/settings/team-caps', icon: Gauge } },
     { kind: 'link', item: { label: 'Agent Allocations', href: '/commission-tracker/settings/agent-allocations', icon: Scale } },
+    { kind: 'link', item: { label: 'Activity', href: '/commission-tracker/settings/activity', icon: ScrollText } },
   ];
 
   const navLinks = nav.flatMap((entry) => (entry.kind === 'link' ? [entry.item] : entry.items));

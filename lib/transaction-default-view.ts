@@ -10,11 +10,74 @@ export interface TransactionDefaultView {
   sortRules: TransactionSortRule[];
 }
 
+export interface TransactionView {
+  id: string;
+  name: string;
+  filterFormula: string;
+  sortRules: TransactionSortRule[];
+}
+
+export interface TransactionViewsConfig {
+  views: TransactionView[];
+  defaultViewId: string;
+}
+
+export const MAX_TRANSACTION_VIEWS = 4;
+export const TRANSACTIONS_LIST_STATE_KEY = 'soleox-transactions-list';
+
 /** DEMO keeps open work: not cancelled, and not a closed deal that is already paid. */
 export const DEMO_TRANSACTION_DEFAULT_VIEW: TransactionDefaultView = {
   filterFormula: 'AND(transaction_status<>"Cancelled", NOT(AND(transaction_status="Closed", finance_status="Paid")))',
   sortRules: [{ fieldKey: 'closing_date', direction: 'asc' }],
 };
+
+/** The complement of the DEMO unfinished formula: cancelled, or closed and paid. */
+export const DEMO_FINISHED_VIEW_FORMULA = 'OR(transaction_status="Cancelled", AND(transaction_status="Closed", finance_status="Paid"))';
+
+const RESERVED_VIEW_NAME_KEYS = new Set(['all', 'just synced', 'deleted']);
+
+export function transactionViewNameKey(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+export function transactionViewNameError(name: string, otherNames: string[]): string | null {
+  const trimmed = name.trim().replace(/\s+/g, ' ');
+  if (!trimmed) return 'Enter a view name.';
+  if (trimmed.length > 40) return 'Use 40 characters or fewer.';
+  const key = transactionViewNameKey(trimmed);
+  if (RESERVED_VIEW_NAME_KEYS.has(key)) return 'All, Just Synced, and Deleted are system views.';
+  if (otherNames.some((other) => transactionViewNameKey(other) === key)) return 'View names have to be different.';
+  return null;
+}
+
+function finishedFormulaFor(unfinishedFormula: string): string {
+  const formula = unfinishedFormula.trim();
+  if (!formula) return 'AND(transaction_status="Cancelled", transaction_status<>"Cancelled")';
+  if (formula === DEMO_TRANSACTION_DEFAULT_VIEW.filterFormula) return DEMO_FINISHED_VIEW_FORMULA;
+  return `NOT(${formula})`;
+}
+
+export function seededTransactionViews(clientId: string, stored?: TransactionDefaultView | null): TransactionViewsConfig {
+  const unfinished = stored ?? (clientId === 'DEMO' ? DEMO_TRANSACTION_DEFAULT_VIEW : emptyTransactionDefaultView());
+  const sortRules = unfinished.sortRules.length > 0 ? unfinished.sortRules : [{ fieldKey: 'closing_date', direction: 'asc' as const }];
+  return {
+    defaultViewId: 'unfinished',
+    views: [
+      {
+        id: 'finished',
+        name: 'Finished',
+        filterFormula: finishedFormulaFor(unfinished.filterFormula),
+        sortRules,
+      },
+      {
+        id: 'unfinished',
+        name: 'Unfinished',
+        filterFormula: unfinished.filterFormula,
+        sortRules,
+      },
+    ],
+  };
+}
 
 export function emptyTransactionDefaultView(): TransactionDefaultView {
   return { filterFormula: '', sortRules: [] };
@@ -47,14 +110,77 @@ export function parseTransactionDefaultView(value: unknown): TransactionDefaultV
   return { filterFormula, sortRules };
 }
 
-export function transactionDefaultViewFromSettings(settings: unknown, clientId: string): TransactionDefaultView {
+function parseSortRules(rawRules: unknown): TransactionSortRule[] | null {
+  if (!Array.isArray(rawRules)) return null;
+  const sortRules: TransactionSortRule[] = [];
+  for (const rule of rawRules) {
+    if (!rule || typeof rule !== 'object') continue;
+    const item = rule as Record<string, unknown>;
+    const fieldKey = String(item.field_key || item.fieldKey || '').trim();
+    const direction = item.direction === 'desc' ? 'desc' : item.direction === 'asc' ? 'asc' : null;
+    if (!fieldKey || !direction) continue;
+    sortRules.push({ fieldKey, direction });
+  }
+  return sortRules;
+}
+
+export function parseTransactionViews(value: unknown): TransactionViewsConfig | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const rawViews = Array.isArray(record.views) ? record.views : null;
+  const defaultViewId = String(record.default_view_id || record.defaultViewId || '').trim();
+  if (!rawViews || !defaultViewId) return null;
+
+  const views: TransactionView[] = [];
+  const seen = new Set<string>();
+  for (const raw of rawViews) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+    const item = raw as Record<string, unknown>;
+    const id = String(item.id || '').trim();
+    const name = String(item.name || '').trim().replace(/\s+/g, ' ');
+    const filterFormula = typeof item.filter_formula === 'string'
+      ? item.filter_formula
+      : typeof item.filterFormula === 'string'
+        ? item.filterFormula
+        : null;
+    const sortRules = parseSortRules(item.sort_rules ?? item.sortRules);
+    if (!id || !name || filterFormula === null || !sortRules || seen.has(id)) continue;
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) continue;
+    seen.add(id);
+    views.push({ id, name, filterFormula, sortRules });
+    if (views.length === MAX_TRANSACTION_VIEWS) break;
+  }
+  if (views.length === 0 || !views.some((view) => view.id === defaultViewId)) return null;
+  return { views, defaultViewId };
+}
+
+export function transactionViewsFromSettings(settings: unknown, clientId: string): TransactionViewsConfig {
   const record = settings && typeof settings === 'object' && !Array.isArray(settings)
     ? settings as Record<string, unknown>
     : {};
-  const stored = parseTransactionDefaultView(record.transaction_default_view);
-  if (stored) return stored;
-  if (clientId === 'DEMO') return DEMO_TRANSACTION_DEFAULT_VIEW;
-  return emptyTransactionDefaultView();
+  const storedViews = parseTransactionViews(record.transaction_views);
+  if (storedViews) return storedViews;
+  return seededTransactionViews(clientId, parseTransactionDefaultView(record.transaction_default_view));
+}
+
+export function defaultTransactionView(config: TransactionViewsConfig): TransactionView {
+  return config.views.find((view) => view.id === config.defaultViewId) || config.views[0];
+}
+
+/** A saved list tab, or the default view when the saved name is no longer a view. */
+export function resolveStoredLedgerView(stored: string, config: TransactionViewsConfig): string {
+  if (stored === 'ALL' || stored === 'SYNCED' || stored === 'DELETED') return stored;
+  if (config.views.some((view) => view.id === stored)) return stored;
+  if (stored === 'FINISHED') {
+    const finished = config.views.find((view) => view.id === 'finished' || transactionViewNameKey(view.name) === 'finished');
+    if (finished) return finished.id;
+  }
+  return config.defaultViewId;
+}
+
+export function transactionDefaultViewFromSettings(settings: unknown, clientId: string): TransactionDefaultView {
+  const view = defaultTransactionView(transactionViewsFromSettings(settings, clientId));
+  return { filterFormula: view.filterFormula, sortRules: view.sortRules };
 }
 
 function readDealField(deal: Record<string, unknown>, name: string): unknown {

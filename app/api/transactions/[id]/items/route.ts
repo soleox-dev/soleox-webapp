@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { requireSessionClient, apiError } from '@/lib/session';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -9,10 +9,9 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   const { id: transactionId } = await context.params;
-  const clientId = request.headers.get('x-client-id') || 'DEMO';
 
   try {
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const { data, error } = await supabase
       .from('transaction_commission_items')
       .select(`
@@ -48,9 +47,7 @@ export async function GET(
 
     return NextResponse.json({ success: true, items });
   } catch (error: any) {
-    console.error('Error fetching transaction commission items:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ success: false, error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.', 'success');
   }
 }
 
@@ -60,7 +57,6 @@ export async function POST(
   context: { params: Promise<{ id: string }> }
 ) {
   const { id: transactionId } = await context.params;
-  const clientId = request.headers.get('x-client-id') || 'DEMO';
 
   try {
     const session = await getServerSession(authOptions);
@@ -68,7 +64,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const body = await request.json();
     const item = body.item || body;
 
@@ -85,7 +81,7 @@ export async function POST(
 
     // 2. Format row payload matching schema
     const rowPayload: Record<string, any> = {
-      client_id: String(item.client_id || clientId),
+      client_id: clientId,
       transaction_id: String(transactionId),
       submission_id: item.submission_id ? String(item.submission_id) : null,
       step_number: item.step_number !== undefined ? Number(item.step_number) : 1,
@@ -135,8 +131,6 @@ export async function POST(
       item: returnedRow,
     });
   } catch (error: any) {
-    console.error('Supabase Transaction Commission Item Save Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ success: false, error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.', 'success');
   }
 }

@@ -1,24 +1,21 @@
 import { NextResponse } from 'next/server';
 import { getTransactions, createTransaction, deleteTransaction } from '@/lib/transactions';
 import { CreateTransactionSchema } from '@/lib/validations/transaction';
-import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { requireSessionClient, apiError } from '@/lib/session';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { ZodError } from 'zod';
 
 // GET: Fetch active transactions for a tenant
 export async function GET(request: Request) {
-  const clientId = request.headers.get('x-client-id') || request.headers.get('client_id') || 'DEMO';
   const view = new URL(request.url).searchParams.get('view');
 
   try {
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const transactions = await getTransactions(clientId, supabase, view === 'deleted' ? 'deleted' : 'active');
     return NextResponse.json({ success: true, transactions });
   } catch (error: any) {
-    console.error('Error in GET /api/transactions:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ success: false, error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.', 'success');
   }
 }
 
@@ -30,24 +27,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const body = await request.json();
 
-    // 1. Resolve client_id from headers or body
-    const headerClientId = request.headers.get('x-client-id') || request.headers.get('client_id');
-    const resolvedClientId = body.client_id || headerClientId;
-
-    if (!resolvedClientId) {
-      return NextResponse.json(
-        { success: false, error: 'User is not mapped to an active Client ID (client_id is required).' },
-        { status: 400 }
-      );
-    }
-
-    // 2. Attach client_id to payload before schema validation
     const payloadWithClientId = {
       ...body,
-      client_id: resolvedClientId,
+      client_id: clientId,
     };
 
     // 3. Validate payload with Zod
@@ -84,8 +69,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const status = error.message?.includes('Unauthorized') ? 401 : 400;
-    return NextResponse.json({ success: false, error: error.message || 'Server error' }, { status });
+    return apiError(error, 'The transaction could not be saved.', 'success');
   }
 }
 
@@ -99,20 +83,16 @@ export async function DELETE(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    const clientId = searchParams.get('client_id') || request.headers.get('x-client-id') || 'DEMO';
 
     if (!id || id === 'new') {
       return NextResponse.json({ success: false, error: 'Transaction ID is required' }, { status: 400 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     await deleteTransaction(clientId, id, session.user.email, supabase);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Error in DELETE /api/transactions:', error);
-    const message = error.message || 'Server error';
-    const status = message.includes('Unauthorized') ? 401 : message.includes('not found') ? 404 : 500;
-    return NextResponse.json({ success: false, error: message }, { status });
+    return apiError(error, 'The request could not be completed.', 'success');
   }
 }

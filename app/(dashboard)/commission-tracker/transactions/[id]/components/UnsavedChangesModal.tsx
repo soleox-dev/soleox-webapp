@@ -4,6 +4,7 @@ interface UnsavedChangesModalProps {
   isOpen: boolean;
   isSaving?: boolean;
   saveDisabled?: boolean;
+  saveDisabledReason?: string;
   description?: string;
   onStay: () => void;
   onDiscard: () => void;
@@ -14,6 +15,7 @@ export function UnsavedChangesModal({
   isOpen,
   isSaving = false,
   saveDisabled = false,
+  saveDisabledReason,
   description = 'You have applied changes to the Transaction Overview and/or Commission Waterfall that have not been saved to the database yet. Leave without saving?',
   onStay,
   onDiscard,
@@ -59,7 +61,7 @@ export function UnsavedChangesModal({
             type="button"
             onClick={onSave}
             disabled={isSaving || saveDisabled}
-            title={saveDisabled ? 'Agent splits are more than the remaining commission.' : undefined}
+            title={saveDisabled ? saveDisabledReason : undefined}
             className="text-xs px-3 py-2 rounded-lg font-bold bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-md transition cursor-pointer disabled:opacity-50"
           >
             {isSaving ? 'Saving...' : 'Save & Leave'}

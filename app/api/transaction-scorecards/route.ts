@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { requireSessionClient, apiError } from '@/lib/session';
 import { validateFormula } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-validator';
 import {
   SCORECARD_COLORS,
@@ -13,18 +13,13 @@ import {
   type TransactionScorecard,
 } from '@/lib/transaction-scorecards';
 
-function clientIdFrom(request: Request, body?: { clientId?: string }) {
-  return String(body?.clientId || request.headers.get('x-client-id') || request.headers.get('client_id') || 'DEMO').trim() || 'DEMO';
-}
-
 function isColor(value: string): value is ScorecardColor {
   return (SCORECARD_COLORS as readonly string[]).includes(value);
 }
 
 export async function GET(request: Request) {
   try {
-    const clientId = clientIdFrom(request);
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const { data, error } = await supabase
       .from('clients')
       .select('settings_json')
@@ -35,9 +30,7 @@ export async function GET(request: Request) {
     const { scorecards, stored } = transactionScorecardsFromSettings(data?.settings_json, clientId);
     return NextResponse.json({ success: true, clientId, stored, scorecards });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to load scorecards.';
-    const status = message.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ success: false, error: message }, { status });
+    return apiError(error, 'Failed to load scorecards.', 'success');
   }
 }
 
@@ -49,13 +42,12 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const clientId = clientIdFrom(request, body);
+    const { clientId, supabase } = await requireSessionClient();
     const rawCards = Array.isArray(body.scorecards) ? body.scorecards : null;
     if (!rawCards) {
       return NextResponse.json({ success: false, error: 'Scorecards are required.' }, { status: 400 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
     const { data: fields, error: fieldsError } = await supabase
       .from('client_field_configurations')
       .select('field_key, field_type')
@@ -160,8 +152,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, clientId, stored: true, scorecards });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to save scorecards.';
-    const status = message.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ success: false, error: message }, { status });
+    return apiError(error, 'Failed to save scorecards.', 'success');
   }
 }

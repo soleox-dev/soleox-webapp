@@ -7,7 +7,6 @@ import { authOptions } from '@/lib/auth';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local');
@@ -18,23 +17,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
  * Used for public unauthenticated endpoints (if any).
  */
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-/**
- * Administrative Supabase client using the service role key.
- * Bypasses RLS. Strictly for server-side migrations, maintenance scripts, and system tasks.
- */
-if (typeof window === 'undefined' && !supabaseServiceKey) {
-  console.warn('SUPABASE_SERVICE_ROLE_KEY is not defined in environment.');
-}
-
-export const supabaseAdmin = supabaseServiceKey
-  ? createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    })
-  : ({} as SupabaseClient);
 
 /**
  * Creates an authenticated Supabase client for a specific user email

@@ -3,6 +3,7 @@
 import { toPercentPoints } from '@/lib/percent';
 import { roundCurrency } from '../types';
 import { DecimalInput } from './DecimalInput';
+import { HoverNote } from './HoverNote';
 
 export type AgentAllocationLine = {
   id: string;
@@ -15,6 +16,9 @@ export type AgentAllocationLine = {
   team_cap_id?: string | null;
   cap_name?: string | null;
   tracked?: boolean;
+  cap_amount?: number | null;
+  prior_amount?: number | null;
+  team_percent?: number | null;
 };
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
@@ -34,6 +38,26 @@ export type TeamCapGroup = {
   name: string;
   lines: AgentAllocationLine[];
 };
+
+export function teamCapStanding(line: AgentAllocationLine): { label: string; detail: string; exceeded: boolean } | null {
+  if (line.kind !== 'team_cap' || line.tracked === false) return null;
+  const cap = line.cap_amount == null ? null : Number(line.cap_amount);
+  if (cap == null || !Number.isFinite(cap)) return null;
+  const prior = roundCurrency(Math.max(0, Number(line.prior_amount) || 0));
+  const current = roundCurrency(Math.max(0, Number(line.amount) || 0));
+  const after = roundCurrency(prior + current);
+  const capped = after >= cap - 0.005;
+  const exceeded = Boolean(line.is_override) && after > cap + 0.005;
+  const percent = line.team_percent == null || !Number.isFinite(Number(line.team_percent))
+    ? ''
+    : `Pays ${Number(line.team_percent).toLocaleString('en-US', { maximumFractionDigits: 2 })}% of the agent split until ${money.format(cap)}.\n`;
+  const detail = `${percent}Before this transaction: ${money.format(prior)}\nThis transaction: ${money.format(current)}\nIncluding this transaction: ${money.format(after)} of ${money.format(cap)}`;
+  return {
+    label: capped ? `Capped at ${money.format(cap)}` : `${money.format(after)} of ${money.format(cap)}`,
+    detail,
+    exceeded,
+  };
+}
 
 export function teamCapGroups(allocations: AgentAllocationLine[]): TeamCapGroup[] {
   const groups = new Map<string, TeamCapGroup>();
@@ -63,22 +87,38 @@ export function TeamCapAmount({
   const calculated = line.calculated_amount == null ? null : Number(line.calculated_amount);
   const canEdit = Boolean(isEditing && onAmountChange && line.team_cap_id);
   const edited = Boolean(line.is_override);
+  const standing = teamCapStanding(line);
+  const exceeded = Boolean(standing?.exceeded);
+  const amountTone = exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-amber-800 dark:text-amber-100';
+  const noteTone = exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-amber-800 dark:text-amber-200';
+  const editedTone = exceeded ? 'text-rose-600/80 dark:text-rose-300/80' : 'text-amber-700/80 dark:text-amber-300/80';
+  const standingNote = standing ? (
+    <HoverNote label={standing.detail}>
+      <span tabIndex={0} className={`cursor-help pr-2 text-right text-[10px] font-semibold outline-none ${noteTone}`}>
+        {standing.label}
+      </span>
+    </HoverNote>
+  ) : null;
   if (!canEdit) {
     return (
-      <span className="inline-flex w-[6.5rem] items-baseline justify-end gap-1 pr-2">
-        <span className="text-xs font-semibold text-amber-800 dark:text-amber-100">{money.format(amount)}</span>
-        {edited ? <span className="text-[9px] font-bold uppercase tracking-wide text-amber-700/80 dark:text-amber-300/80">edited</span> : null}
+      <span className="inline-flex flex-col items-end">
+        <span className="inline-flex w-[6.5rem] items-baseline justify-end gap-1 pr-2">
+          <span className={`text-xs font-semibold ${amountTone}`}>{money.format(amount)}</span>
+          {edited ? <span className={`text-[9px] font-bold uppercase tracking-wide ${editedTone}`}>edited</span> : null}
+        </span>
+        {standingNote}
       </span>
     );
   }
   return (
+    <span className="inline-flex flex-col items-end">
     <span className="inline-flex items-center justify-end gap-1">
       {edited && calculated != null ? (
         <button
           type="button"
           onClick={() => onAmountChange?.(line.agent_id, line.team_cap_id || '', null)}
           title={`Use the calculated ${money.format(calculated)}`}
-          className="text-[9px] font-bold uppercase tracking-wide text-amber-700/80 hover:text-amber-900 dark:text-amber-300/80 dark:hover:text-amber-100 cursor-pointer"
+          className={`text-[9px] font-bold uppercase tracking-wide cursor-pointer ${editedTone} ${exceeded ? 'hover:text-rose-700 dark:hover:text-rose-200' : 'hover:text-amber-900 dark:hover:text-amber-100'}`}
         >
           calculated
         </button>
@@ -97,10 +137,12 @@ export function TeamCapAmount({
           filled
           onKeyDown={(event) => { if (event.key === '-') event.preventDefault(); }}
           placeholder="0.00"
-          className="h-7 w-full border-0 bg-transparent pl-5 pr-2 text-right text-xs font-semibold text-amber-900 focus:outline-none dark:text-amber-100"
+          className={`h-7 w-full border-0 bg-transparent pl-5 pr-2 text-right text-xs font-semibold focus:outline-none ${exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-amber-900 dark:text-amber-100'}`}
         />
-        <span aria-hidden className="pointer-events-none absolute inset-y-0 left-1.5 flex items-center text-xs font-semibold text-amber-700 dark:text-amber-300">$</span>
+        <span aria-hidden className={`pointer-events-none absolute inset-y-0 left-1.5 flex items-center text-xs font-semibold ${exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-amber-700 dark:text-amber-300'}`}>$</span>
       </span>
+    </span>
+    {standingNote}
     </span>
   );
 }

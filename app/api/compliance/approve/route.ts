@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { transitionTransactionStatus } from '@/lib/compliance';
+import { requireSessionClient, apiError } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
   try {
-    const clientId = request.headers.get('x-client-id') || 'DEMO';
+    const { clientId } = await requireSessionClient();
     const { transactionId, newStatus, actorId, rejectionReason } = await request.json();
 
     if (!transactionId || !newStatus) {
@@ -23,6 +24,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, approval: result });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    return apiError(error, 'The request could not be completed.', 'success');
   }
 }

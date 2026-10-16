@@ -1,15 +1,13 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { requireSessionClient, apiError } from '@/lib/session';
+import { recordAudit } from '@/lib/audit';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
 // GET: Fetch non-archived templates
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const clientId = request.headers.get('x-client-id') || request.headers.get('client_id') || searchParams.get('client_id') || 'DEMO';
-
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const { data, error } = await supabase
       .from('commission_templates')
       .select('*')
@@ -22,9 +20,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, templates: data || [] });
   } catch (error: any) {
-    console.error('Error fetching commission templates:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -36,7 +32,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase, email } = await requireSessionClient();
     const body = await request.json();
     const template = body.template || body;
 
@@ -47,8 +43,7 @@ export async function POST(request: Request) {
 
     const existingId = template.id ? String(template.id) : null;
     const isUpdate = Boolean(existingId);
-    const clientId = String(template.client_id || 'DEMO');
-    const user = session.user.email || template.updated_by || template.created_by || 'system_admin';
+    const user = email || template.updated_by || template.created_by || 'system_admin';
 
     // 2. Handle default template unsetting logic if this item is marked default
     if (template.is_default) {
@@ -105,6 +100,14 @@ export async function POST(request: Request) {
     if (error) throw error;
 
     const returnedRow = data ? data[0] : rowPayload;
+    await recordAudit(supabase, {
+      clientId,
+      actorEmail: email,
+      action: isUpdate ? 'update' : 'create',
+      entity: 'template',
+      entityId: returnedRow.id ? String(returnedRow.id) : null,
+      summary: `${isUpdate ? 'Updated' : 'Created'} template ${returnedRow.template_name || ''}`.trim(),
+    });
 
     return NextResponse.json({
       success: true,
@@ -112,9 +115,7 @@ export async function POST(request: Request) {
       template: returnedRow,
     });
   } catch (error: any) {
-    console.error('Supabase Commission Templates Save Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -128,13 +129,12 @@ export async function DELETE(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    const clientId = searchParams.get('client_id') || 'DEMO';
 
     if (!id) {
       return NextResponse.json({ error: 'Template ID is required' }, { status: 400 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const { error } = await supabase
       .from('commission_templates')
       .update({
@@ -146,11 +146,17 @@ export async function DELETE(request: Request) {
       .eq('client_id', clientId);
 
     if (error) throw error;
+    await recordAudit(supabase, {
+      clientId,
+      actorEmail: session.user.email,
+      action: 'delete',
+      entity: 'template',
+      entityId: id,
+      summary: `Archived template ${id}`,
+    });
 
     return NextResponse.json({ success: true, message: 'Template archived successfully' });
   } catch (error: any) {
-    console.error('Supabase Commission Template Delete Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }

@@ -324,7 +324,14 @@ function teamCapCredits(allocation: DealAllocationContext, lines: DealAllocation
   const credits: TeamCapCreditMap = {};
   allocation.teamCaps.forEach((cap) => {
     const key = cap.key?.trim().toLowerCase();
-    if (key) credits[key] = { total: 0, byAgent: {} };
+    if (!key) return;
+    const recipient = agents.find((agent) => agent.id === cap.recipientAgentId);
+    const recipientKeys = [...new Set(
+      [cap.recipientAgentId, recipient?.name, recipient?.name ? normalizeAgentName(recipient.name) : '']
+        .map((name) => String(name || '').trim().toLowerCase())
+        .filter(Boolean),
+    )];
+    credits[key] = { total: 0, byAgent: {}, recipientKeys };
   });
   lines.forEach((line) => {
     if (line.kind !== 'team_cap' || !line.team_cap_id) return;
@@ -393,16 +400,21 @@ function mergeTeamCapRules(
   return next;
 }
 
-function stepUsesTeamCap(step: TemplateLogicStep): boolean {
-  return /\b[a-z_][a-z0-9_]*\.(agent|total)\b/i.test(`${step.custom_baseline || ''}\n${step.calculation_formula || ''}`);
-}
-
 function isAgentSplitStep(step: TemplateLogicStep): boolean {
   const key = (step.section || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
   return key === 'agentsplit' || key === 'agentsplits';
 }
 
-function applyFormulaAgentSplits(splits: Array<{ agentName?: string; amount?: number; grossAmount?: number; displayPercent?: number; capAdjusted?: boolean }>, replayed: AppliedAgentSplit[], netToSplit: number) {
+type WaterfallSplit = {
+  agentId?: string;
+  agentName?: string;
+  amount?: number;
+  grossAmount?: number;
+  displayPercent?: number;
+  capAdjusted?: boolean;
+};
+
+function applyFormulaAgentSplits(splits: WaterfallSplit[], replayed: AppliedAgentSplit[], netToSplit: number) {
   const dollars = new Map<string, number>();
   replayed.forEach((split) => {
     const key = split.name.trim().toLowerCase();
@@ -420,6 +432,50 @@ function applyFormulaAgentSplits(splits: Array<{ agentName?: string; amount?: nu
     item.displayPercent = netToSplit > 0 ? roundPercentRate(nextAmount / netToSplit) : 0;
     item.capAdjusted = true;
     item.amount = nextAmount;
+  });
+}
+
+// A team-cap recipient the template did not list still gets an agent split from
+// the engine. The payers were already reduced. That received amount belongs on
+// the split the engine created. A cap whose total a template formula already
+// names stays on that formula's agent.
+function assignEngineCapReceipts(
+  splits: WaterfallSplit[],
+  replayed: AppliedAgentSplit[],
+  credits: TeamCapCreditMap,
+  steps: TemplateLogicStep[],
+  netToSplit: number,
+) {
+  const referencedTotals = new Set<string>();
+  steps.forEach((step) => {
+    if (!isAgentSplitStep(step)) return;
+    const source = `${step.custom_baseline || ''}\n${step.calculation_formula || ''}`;
+    for (const match of source.matchAll(/\b([a-z_][a-z0-9_]*)\.total\b/gi)) {
+      referencedTotals.add(match[1].toLowerCase());
+    }
+  });
+  const replayedNames = new Set<string>();
+  replayed.forEach((split) => {
+    const key = split.name.trim().toLowerCase();
+    if (key) replayedNames.add(key);
+    const normalized = normalizeAgentName(split.name).trim().toLowerCase();
+    if (normalized) replayedNames.add(normalized);
+  });
+  splits.forEach((item) => {
+    const name = String(item.agentName || '').trim().toLowerCase();
+    const normalized = normalizeAgentName(name).trim().toLowerCase();
+    if (!name || replayedNames.has(name) || (normalized && replayedNames.has(normalized))) return;
+    const keys = new Set([name, normalized, String(item.agentId || '').trim().toLowerCase()].filter(Boolean));
+    const received = roundCurrency(Object.entries(credits).reduce((sum, [key, cap]) => {
+      if (referencedTotals.has(key)) return sum;
+      if (!(cap.recipientKeys || []).some((recipient) => keys.has(recipient))) return sum;
+      return sum + cap.total;
+    }, 0));
+    if (received <= 0.009 || Math.abs(received - Number(item.amount || 0)) <= 0.009) return;
+    item.grossAmount = item.amount;
+    item.displayPercent = netToSplit > 0 ? roundPercentRate(received / netToSplit) : 0;
+    item.capAdjusted = true;
+    item.amount = received;
   });
 }
 
@@ -441,7 +497,7 @@ function repriceTeamCapBaselines({
   allocation: DealAllocationContext | null;
   lines: DealAllocationLine[];
   agents: AgentConfig[];
-  splits: Array<{ agentName?: string; amount?: number; grossAmount?: number; displayPercent?: number; capAdjusted?: boolean }>;
+  splits: WaterfallSplit[];
   netToSplit: number;
   afterOffTheTop: number;
   replay: UseTransactionWaterfallProps['templateReplay'];
@@ -449,11 +505,13 @@ function repriceTeamCapBaselines({
   totalCommission: number;
 }): { level1: Record<string, DynamicRule[]>; level2: Record<string, DynamicRule[]> } {
   if (!replay || !allocation || replay.steps.length === 0) return { level1, level2 };
-  const capSteps = replay.steps.filter(stepUsesTeamCap);
-  if (capSteps.length === 0) return { level1, level2 };
-  const agentFormulasUseCap = capSteps.some(isAgentSplitStep);
   const credits = teamCapCredits(allocation, lines, agents);
   const capMovedMoney = Object.values(credits).some((cap) => Math.abs(cap.total) > 0.009);
+  // A named cap that took nothing still appears in the formulas. Replacing the
+  // waterfall with that replay would put an older full-pool share back on the
+  // primary agent. Once a cap actually moved money, the replay is the split
+  // after those dollars, including a cap the formulas never name.
+  if (!capMovedMoney) return { level1, level2 };
   try {
     const applied = applyTemplateLogic({
       steps: replay.steps,
@@ -470,13 +528,11 @@ function repriceTeamCapBaselines({
       teamCapCredits: credits,
       waterfallPool: { afterOffTheTop, afterPreSplits: netToSplit },
     });
-    // The agent-split formulas name the cap even when it took nothing. Replacing
-    // the waterfall with that replay would put an older full-pool share back on
-    // the primary agent and leave the other agents at the split just submitted.
-    if (agentFormulasUseCap && capMovedMoney) applyFormulaAgentSplits(splits, applied.agentSplits || [], netToSplit);
+    applyFormulaAgentSplits(splits, applied.agentSplits || [], netToSplit);
+    assignEngineCapReceipts(splits, applied.agentSplits || [], credits, replay.steps, netToSplit);
     return {
-      level1: mergeTeamCapRules(level1, applied.postSplitRulesByAgent || {}, !agentFormulasUseCap),
-      level2: mergeTeamCapRules(level2, applied.postSplit2RulesByAgent || {}, !agentFormulasUseCap),
+      level1: mergeTeamCapRules(level1, applied.postSplitRulesByAgent || {}, false),
+      level2: mergeTeamCapRules(level2, applied.postSplit2RulesByAgent || {}, false),
     };
   } catch {
     return { level1, level2 };

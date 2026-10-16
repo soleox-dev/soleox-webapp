@@ -1,7 +1,7 @@
 // app/api/schema/save/route.ts
 
 import { NextResponse } from 'next/server';
-import { getTenantContext } from '@/lib/session';
+import { getTenantContext, apiError } from '@/lib/session';
 import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -140,8 +140,6 @@ export async function POST(request: Request) {
       lookupCount: lookupRowsToInsert.length,
     });
   } catch (error: any) {
-    console.error('Error persisting schema to Supabase:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ success: false, error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.', 'success');
   }
 }

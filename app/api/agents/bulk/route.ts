@@ -2,11 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { bulkDeleteAgents, bulkUpdateAgents } from '@/lib/agent-bulk';
-import { getAuthenticatedSupabase } from '@/lib/supabase';
-
-function clientIdFrom(request: Request, body: { clientId?: unknown }): string {
-  return String(body.clientId || request.headers.get('x-client-id') || request.headers.get('client_id') || 'DEMO');
-}
+import { requireSessionClient, apiError } from '@/lib/session';
 
 function idsFrom(body: { ids?: unknown }): string[] {
   return Array.isArray(body.ids) ? body.ids.map((id: unknown) => String(id)) : [];
@@ -26,9 +22,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Choose a field to update.' }, { status: 400 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const result = await bulkUpdateAgents(supabase, {
-      clientId: clientIdFrom(request, body),
+      clientId,
       userId: session.user.email,
       ids: idsFrom(body),
       fieldKey,
@@ -37,9 +33,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, ...result });
   } catch (error: unknown) {
     console.error('Error in POST /api/agents/bulk:', error);
-    const message = error instanceof Error ? error.message : 'Server error';
-    const status = message.includes('Unauthorized') ? 401 : 400;
-    return NextResponse.json({ success: false, error: message }, { status });
+    return apiError(error, 'Server error', 'success');
   }
 }
 
@@ -51,9 +45,9 @@ export async function DELETE(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const result = await bulkDeleteAgents(supabase, {
-      clientId: clientIdFrom(request, body),
+      clientId,
       userId: session.user.email,
       ids: idsFrom(body),
     });
@@ -64,8 +58,6 @@ export async function DELETE(request: Request) {
     );
   } catch (error: unknown) {
     console.error('Error in DELETE /api/agents/bulk:', error);
-    const message = error instanceof Error ? error.message : 'Server error';
-    const status = message.includes('Unauthorized') ? 401 : 400;
-    return NextResponse.json({ success: false, error: message }, { status });
+    return apiError(error, 'Server error', 'success');
   }
 }

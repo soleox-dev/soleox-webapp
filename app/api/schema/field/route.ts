@@ -1,6 +1,6 @@
 // app/api/schema/field/route.ts
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { requireSessionClient, apiError } from '@/lib/session';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { clearSchemaCache } from '@/lib/fields';
@@ -14,10 +14,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase, email } = await requireSessionClient();
     const body = await request.json();
-    const { clientId = 'DEMO', targetTable, field, updatedBy } = body;
-    const authorEmail = session.user.email || updatedBy || 'system_admin';
+    const { targetTable, field, updatedBy } = body;
+    const authorEmail = email || updatedBy || 'system_admin';
 
     if (!targetTable || !field || !field.field_key) {
       return NextResponse.json(
@@ -100,9 +100,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, field: savedField });
   } catch (error: any) {
-    console.error('Error saving field:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -114,10 +112,9 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    const clientId = searchParams.get('clientId') || 'DEMO';
     const fieldKey = searchParams.get('fieldKey');
     const targetTable = searchParams.get('targetTable');
 
@@ -128,9 +125,9 @@ export async function DELETE(request: Request) {
       );
     }
 
-    let lookup = supabase.from('client_field_configurations').select('id, client_id, target_table, field_key');
+    let lookup = supabase.from('client_field_configurations').select('id, client_id, target_table, field_key').eq('client_id', clientId);
     if (id) lookup = lookup.eq('id', id);
-    else lookup = lookup.eq('client_id', clientId).eq('target_table', targetTable).eq('field_key', fieldKey);
+    else lookup = lookup.eq('target_table', targetTable).eq('field_key', fieldKey);
     const { data: existing, error: lookupError } = await lookup.maybeSingle();
     if (lookupError) throw lookupError;
     if (!existing) {
@@ -145,7 +142,8 @@ export async function DELETE(request: Request) {
         updated_at: new Date().toISOString(),
         updated_by: session.user.email,
       })
-      .eq('id', existing.id);
+      .eq('id', existing.id)
+      .eq('client_id', clientId);
     if (error) throw error;
 
     if (existing.target_table === 'transactions' && existing.field_key) {
@@ -156,8 +154,6 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ success: true, message: 'Field deleted successfully' });
   } catch (error: any) {
-    console.error('Error deleting field:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }

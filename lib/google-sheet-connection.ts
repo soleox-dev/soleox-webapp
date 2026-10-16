@@ -1,7 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { generatePrefixedId } from '@/lib/id';
 import { googleServiceAccount, parseSpreadsheetId, readGoogleSheet, spreadsheetUrl } from '@/lib/google-sheets';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import {
   DEFAULT_SHEET_TAB,
   GOOGLE_SHEETS_PROVIDER,
@@ -318,7 +318,7 @@ export async function saveGoogleSheetIntegration(
     if (clientError) throw new Error(clientError.message);
     const formula = transactionDefaultViewFromSettings(client?.settings_json, clientId).filterFormula.trim();
     if (!formula) {
-      return { error: 'Save a Default View filter before turning sync on.', status: 400 as const };
+      return { error: 'Save a default view before turning sync on.', status: 400 as const };
     }
   }
 

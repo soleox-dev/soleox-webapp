@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { requireSessionClient, apiError } from '@/lib/session';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -61,11 +61,10 @@ async function loadCommissionLedgerRows(supabase: SupabaseClient, clientId: stri
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const clientId = request.headers.get('x-client-id') || request.headers.get('client_id') || searchParams.get('client_id') || 'DEMO';
     const transactionId = searchParams.get('transaction_id');
     const submissionId = searchParams.get('submission_id');
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     if (searchParams.get('view') === 'ledger') {
       const items = await loadCommissionLedgerRows(supabase, clientId);
       return NextResponse.json({ success: true, items });
@@ -95,9 +94,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, items: data || [] });
   } catch (error: any) {
-    console.error('Error fetching transaction commission items:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -109,7 +106,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const body = await request.json();
     const item = body.item || body;
     const action = body.action || 'UPDATE';
@@ -125,7 +122,7 @@ export async function POST(request: Request) {
 
     const rowPayload = {
       id: String(item.id),
-      client_id: String(item.client_id || 'DEMO'),
+      client_id: clientId,
       transaction_id: String(item.transaction_id),
       submission_id: item.submission_id ? String(item.submission_id) : null,
       step_number: item.step_number !== undefined ? Number(item.step_number) : 1,
@@ -155,9 +152,7 @@ export async function POST(request: Request) {
       item: data ? data[0] : rowPayload,
     });
   } catch (error: any) {
-    console.error('Supabase Commission Item Save Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -176,7 +171,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const { error } = await supabase
       .from('transaction_commission_items')
       .update({
@@ -184,14 +179,13 @@ export async function DELETE(request: Request) {
         updated_at: new Date().toISOString(),
         updated_by: session.user.email,
       })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('client_id', clientId);
 
     if (error) throw error;
 
     return NextResponse.json({ success: true, message: 'Commission item archived successfully' });
   } catch (error: any) {
-    console.error('Supabase Commission Item Delete Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }

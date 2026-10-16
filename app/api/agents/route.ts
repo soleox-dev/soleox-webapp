@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSupabase } from '@/lib/supabase';
+import { requireSessionClient, apiError } from '@/lib/session';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -30,11 +30,9 @@ const NATIVE_AGENT_COLUMNS = new Set([
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const clientId = request.headers.get('x-client-id') || request.headers.get('client_id') || searchParams.get('client_id') || 'DEMO';
-
     const includeArchived = searchParams.get('include_archived') === 'true';
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     let query = supabase
       .from('agents')
       .select('*')
@@ -113,9 +111,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, agents: deduplicatedAgents });
   } catch (error: any) {
-    console.error('Error fetching agents:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -127,7 +123,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase, email } = await requireSessionClient();
     const body = await request.json();
     const agent = body.agent || body;
 
@@ -138,8 +134,7 @@ export async function POST(request: Request) {
 
     const existingId = agent.id || agent.agent_id ? String(agent.id || agent.agent_id) : null;
     const isUpdate = body.action === 'CREATE' ? false : Boolean(existingId);
-    const clientId = String(agent.client_id || 'DEMO');
-    const user = session.user.email || agent.updated_by || agent.created_by || 'system_admin';
+    const user = email || agent.updated_by || agent.created_by || 'system_admin';
 
     // 2. Separate custom non-native attributes
     const customAttributes: Record<string, any> = {};
@@ -208,9 +203,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error: any) {
-    console.error('Supabase Agents Save Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
 
@@ -219,13 +212,12 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    const clientId = searchParams.get('client_id') || 'DEMO';
 
     if (!id) {
       return NextResponse.json({ error: 'Agent ID is required' }, { status: 400 });
     }
 
-    const supabase = await getAuthenticatedSupabase();
+    const { clientId, supabase } = await requireSessionClient();
     const { error } = await supabase
       .from('agents')
       .update({
@@ -240,8 +232,6 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ success: true, message: 'Agent archived successfully' });
   } catch (error: any) {
-    console.error('Supabase Agent Delete Error:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }

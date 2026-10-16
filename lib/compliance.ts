@@ -1,6 +1,6 @@
 import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { getTenantContext } from '@/lib/session';
-import { createAuditLog } from '@/lib/audit';
+import { recordAudit } from '@/lib/audit';
 
 export type TransactionStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'DISBURSED' | 'REJECTED';
 
@@ -85,17 +85,17 @@ export async function transitionTransactionStatus({
     .eq('client_id', clientId);
 
   // 6. Write Audit Log Entry
-  const auditId = await createAuditLog({
+  await recordAudit(supabase, {
     clientId,
-    actorId,
-    action: `TRANSACTION_STATUS_${newStatus}`,
-    targetEntity: 'transactions',
+    actorEmail: actorId,
+    action: 'update',
+    entity: 'transaction',
     entityId: transactionId,
-    changesPayload: {
+    summary: `Changed transaction ${transactionId} to ${newStatus}`,
+    detail: {
       previousStatus: currentStatus,
       newStatus,
       rejectionReason: rejectionReason || null,
-      requireComplianceApproval: tenant.requireComplianceApproval,
     },
   });
 
@@ -104,6 +104,5 @@ export async function transitionTransactionStatus({
     previousStatus: currentStatus,
     newStatus,
     paymentStatus,
-    auditId,
   };
 }

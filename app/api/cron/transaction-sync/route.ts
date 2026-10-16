@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { GOOGLE_SHEETS_PROVIDER } from '@/lib/transaction-sync';
 import { syncGoogleSheetConnection } from '@/lib/transaction-sync-run';
+import { apiError } from '@/lib/session';
+import { recordAudit } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,13 +26,22 @@ async function run() {
     .eq('enabled', true)
     .or('archived.is.null,archived.eq.false');
   if (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return apiError(error, 'The request could not be completed.', 'success');
   }
 
   const results = [];
   for (const connection of connections || []) {
     try {
       const runResult = await syncGoogleSheetConnection(supabaseAdmin, String(connection.client_id), String(connection.id));
+      await recordAudit(supabaseAdmin, {
+        clientId: String(connection.client_id),
+        actorEmail: 'scheduled sync',
+        action: 'sync',
+        entity: 'sync',
+        entityId: runResult.id,
+        summary: `Scheduled sync. ${runResult.createdCount ?? 0} added, ${runResult.updatedCount ?? 0} updated, ${runResult.errorCount ?? 0} errors.`,
+        detail: { status: runResult.status },
+      });
       results.push({ clientId: connection.client_id, connectionId: connection.id, ...runResult });
     } catch (err) {
       results.push({

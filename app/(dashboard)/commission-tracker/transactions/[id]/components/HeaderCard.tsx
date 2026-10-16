@@ -9,12 +9,13 @@ interface HeaderCardProps {
   onDelete?: () => void;
   hasUnsavedChanges?: boolean;
   saveBlocked?: boolean;
+  saveBlockedReason?: string;
   children?: React.ReactNode;
 }
 
-export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDelete, hasUnsavedChanges = false, saveBlocked = false, children }: HeaderCardProps) {
+export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDelete, hasUnsavedChanges = false, saveBlocked = false, saveBlockedReason, children }: HeaderCardProps) {
   return (
-    <div className="sticky top-16 z-40 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl flex flex-col gap-4 transition-colors">
+    <div id="transaction-detail-header" className="sticky top-16 z-40 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl flex flex-col gap-4 transition-colors">
       <div className="flex justify-between items-center gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -59,7 +60,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
               type="button"
               onClick={onSave}
               disabled={isSaving || saveBlocked}
-              title={saveBlocked ? 'Agent splits are more than the remaining commission.' : undefined}
+              title={saveBlocked ? saveBlockedReason : undefined}
               className="px-4 py-2 font-bold text-xs rounded-lg shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer bg-amber-500 hover:bg-amber-400 text-slate-950"
             >
               <span>{isSaving ? '⏳' : '💾'}</span>

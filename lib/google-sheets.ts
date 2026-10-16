@@ -1,5 +1,10 @@
 import crypto from 'crypto';
+import { repairImportedText } from '@/lib/imported-text';
 import { DEFAULT_SHEET_TAB, type SheetSyncRow } from '@/lib/transaction-sync';
+
+if (typeof window !== 'undefined') {
+  throw new Error('The Google service account is server-only.');
+}
 
 const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -122,7 +127,7 @@ export async function readGoogleSheet(spreadsheetId: string, tabName: string): P
     let hasValue = false;
     headers.forEach((header) => {
       const index = headerIndex.get(header) ?? -1;
-      const value = index >= 0 ? String(line?.[index] ?? '').trim() : '';
+      const value = index >= 0 ? repairImportedText(String(line?.[index] ?? '').trim()) : '';
       if (value) hasValue = true;
       cells[header] = value;
     });

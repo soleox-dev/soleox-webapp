@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedSupabase } from '@/lib/supabase';
-import { getTenantContext } from '@/lib/session';
+import { getTenantContext, apiError } from '@/lib/session';
 import { formulaLookupSource } from '@/lib/formula-lookup-tables';
 
 // GET: One page of a client-scoped table for formula XLOOKUP.
@@ -34,8 +34,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, client_id: clientId, table, rows });
   } catch (error: any) {
-    console.error('Error fetching formula lookups:', error);
-    const status = error.message?.includes('Unauthorized') ? 401 : 500;
-    return NextResponse.json({ error: error.message }, { status });
+    return apiError(error, 'The request could not be completed.');
   }
 }
