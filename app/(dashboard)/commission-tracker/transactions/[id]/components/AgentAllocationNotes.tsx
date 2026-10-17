@@ -1,5 +1,7 @@
 'use client';
 
+import { useLayoutEffect, useRef } from 'react';
+import { capProgressLabel } from '@/lib/agent-cap-progress';
 import { toPercentPoints } from '@/lib/percent';
 import { roundCurrency } from '../types';
 import { DecimalInput } from './DecimalInput';
@@ -39,24 +41,20 @@ export type TeamCapGroup = {
   lines: AgentAllocationLine[];
 };
 
-export function teamCapStanding(line: AgentAllocationLine): { label: string; detail: string; exceeded: boolean } | null {
+export function teamCapStanding(line: AgentAllocationLine): { label: string; detail: string; share: number; exceeded: boolean } | null {
   if (line.kind !== 'team_cap' || line.tracked === false) return null;
   const cap = line.cap_amount == null ? null : Number(line.cap_amount);
-  if (cap == null || !Number.isFinite(cap)) return null;
+  if (cap == null || !Number.isFinite(cap) || Math.abs(cap) < 0.005) return null;
   const prior = roundCurrency(Math.max(0, Number(line.prior_amount) || 0));
   const current = roundCurrency(Math.max(0, Number(line.amount) || 0));
   const after = roundCurrency(prior + current);
-  const capped = after >= cap - 0.005;
   const exceeded = Boolean(line.is_override) && after > cap + 0.005;
+  const progress = capProgressLabel(after, cap);
   const percent = line.team_percent == null || !Number.isFinite(Number(line.team_percent))
     ? ''
     : `Pays ${Number(line.team_percent).toLocaleString('en-US', { maximumFractionDigits: 2 })}% of the agent split until ${money.format(cap)}.\n`;
   const detail = `${percent}Before this transaction: ${money.format(prior)}\nThis transaction: ${money.format(current)}\nIncluding this transaction: ${money.format(after)} of ${money.format(cap)}`;
-  return {
-    label: capped ? `Capped at ${money.format(cap)}` : `${money.format(after)} of ${money.format(cap)}`,
-    detail,
-    exceeded,
-  };
+  return { label: progress.label, detail, share: progress.share, exceeded };
 }
 
 export function teamCapGroups(allocations: AgentAllocationLine[]): TeamCapGroup[] {
@@ -90,14 +88,11 @@ export function TeamCapAmount({
   const standing = teamCapStanding(line);
   const exceeded = Boolean(standing?.exceeded);
   const amountTone = exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-amber-800 dark:text-amber-100';
-  const noteTone = exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-amber-800 dark:text-amber-200';
   const editedTone = exceeded ? 'text-rose-600/80 dark:text-rose-300/80' : 'text-amber-700/80 dark:text-amber-300/80';
   const standingNote = standing ? (
-    <HoverNote label={standing.detail}>
-      <span tabIndex={0} className={`cursor-help pr-2 text-right text-[10px] font-semibold outline-none ${noteTone}`}>
-        {standing.label}
-      </span>
-    </HoverNote>
+    <span className="pr-2">
+      <AgentCapNote label={standing.label} detail={standing.detail} share={standing.share} />
+    </span>
   ) : null;
   if (!canEdit) {
     return (
@@ -144,6 +139,35 @@ export function TeamCapAmount({
     </span>
     {standingNote}
     </span>
+  );
+}
+
+function matchCapBarWidths(bar: HTMLElement) {
+  const root = bar.closest('#commission') ?? document.body;
+  const bars = [...root.querySelectorAll<HTMLElement>('[data-cap-bar]')];
+  if (bars.length === 0) return;
+  for (const item of bars) item.style.width = 'max-content';
+  const max = Math.max(...bars.map((item) => item.getBoundingClientRect().width));
+  const px = `${Math.ceil(max)}px`;
+  for (const item of bars) item.style.width = px;
+}
+
+export function AgentCapNote({ label, detail, share }: { label: string; detail: string; share: number }) {
+  const barRef = useRef<HTMLSpanElement>(null);
+  const width = Math.min(100, Math.max(0, share * 100));
+  const over = share > 1;
+  const fill = over ? 'bg-rose-400' : 'bg-emerald-400';
+  useLayoutEffect(() => {
+    const bar = barRef.current;
+    if (bar) matchCapBarWidths(bar);
+  }, [label]);
+  return (
+    <HoverNote label={detail}>
+      <span ref={barRef} data-cap-bar tabIndex={0} className="relative mt-0.5 inline-flex h-4 shrink-0 cursor-help items-center justify-end overflow-hidden rounded-sm bg-slate-200 outline-none dark:bg-slate-800">
+        <span aria-hidden className={`absolute inset-y-0 left-0 z-0 ${fill}`} style={{ width: `${width}%` }} />
+        <span className="relative z-10 px-1 text-right text-[10px] font-bold leading-none tabular-nums text-slate-950 dark:text-white dark:[text-shadow:0_0_2px_#020617,0_0_3px_#020617]">{label}</span>
+      </span>
+    </HoverNote>
   );
 }
 

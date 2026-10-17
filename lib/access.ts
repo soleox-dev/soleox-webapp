@@ -250,8 +250,8 @@ export function gateForRequest(pathname: string, method: string): AccessGate | n
   const write = method !== 'GET' && method !== 'HEAD';
 
   if (path.startsWith('/api/access') || path.startsWith('/api/auth') || path.startsWith('/api/cron')) return null;
-  if (path === '/api/session' || path === '/api/clients' || path.startsWith('/api/web-users') || path.startsWith('/api/client-user-roles') || path.startsWith('/api/role-permissions')) {
-    return path.startsWith('/api/web-users') || path.startsWith('/api/client-user-roles') || path.startsWith('/api/role-permissions')
+  if (path === '/api/session' || path === '/api/clients' || path.startsWith('/api/web-users') || path.startsWith('/api/client-user-roles')) {
+    return path.startsWith('/api/web-users') || path.startsWith('/api/client-user-roles')
       ? 'super_admin'
       : null;
   }

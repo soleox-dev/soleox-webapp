@@ -69,6 +69,55 @@ export async function GET(request: Request) {
       const items = await loadCommissionLedgerRows(supabase, clientId);
       return NextResponse.json({ success: true, items });
     }
+    if (searchParams.get('view') === 'post-split-history') {
+      const list = (value: string | null) => (value || '').split(',').map((id) => id.trim()).filter(Boolean).slice(0, 40);
+      const agentIds = list(searchParams.get('agent_ids'));
+      const entityIds = list(searchParams.get('entity_ids'));
+      const excludeId = searchParams.get('exclude_transaction_id') || '';
+      if (agentIds.length === 0 || entityIds.length === 0) return NextResponse.json({ success: true, history: [] });
+      const items = await readClientPages((offset, limit, withCount) => {
+        let itemsQuery = supabase
+          .from('transaction_commission_items')
+          .select('final_amount, agent_id, payee_entity_id, section, transaction_id', withCount ? { count: 'exact' } : undefined)
+          .eq('client_id', clientId)
+          .in('agent_id', agentIds)
+          .in('payee_entity_id', entityIds)
+          .in('section', ['POST_SPLIT', 'POST_SPLIT_L2'])
+          .or('archived.is.null,archived.eq.false')
+          .order('id', { ascending: true })
+          .range(offset, offset + limit - 1);
+        if (excludeId) itemsQuery = itemsQuery.neq('transaction_id', excludeId);
+        return itemsQuery;
+      });
+      const transactionIds = [...new Set(items.map((row) => String(row.transaction_id || '')).filter(Boolean))];
+      const dates = new Map<string, string | null>();
+      for (let index = 0; index < transactionIds.length; index += 100) {
+        const slice = transactionIds.slice(index, index + 100);
+        const { data: deals, error: dealsError } = await supabase
+          .from('transactions')
+          .select('id, closing_date, archived')
+          .eq('client_id', clientId)
+          .in('id', slice);
+        if (dealsError) throw dealsError;
+        for (const deal of deals || []) {
+          if (deal.archived) continue;
+          dates.set(String(deal.id), deal.closing_date);
+        }
+      }
+      return NextResponse.json({
+        success: true,
+        history: items.flatMap((row) => {
+          const transactionId = String(row.transaction_id || '');
+          if (!dates.has(transactionId)) return [];
+          return [{
+            agentId: String(row.agent_id || ''),
+            entityId: String(row.payee_entity_id || ''),
+            amount: Number(row.final_amount) || 0,
+            closingDate: dates.get(transactionId) || null,
+          }];
+        }),
+      });
+    }
 
     let query = supabase
       .from('transaction_commission_items')

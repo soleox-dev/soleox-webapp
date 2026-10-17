@@ -28,7 +28,6 @@ Example: `TXN_6C59DB33ADE8` (Length: 16 characters total).
 | `clients` | `CLI_` | `CLI_4A2B8C1D9E0F` *(or slug `DEMO`)* | Tenant client organization master records. |
 | `web_users` | `USR_` | `USR_0000000001` | System user accounts identified by OAuth email. |
 | `client_user_roles` | `CUR_` | `CUR_0000000001` | Role-based memberships mapping `user_id` $\rightarrow$ `client_id`. |
-| `role_permissions` | `RP_` | `RP_2E3F4A5B6C7D` | Granular permission toggles assigned to tenant roles. |
 | `client_field_configurations` | `CFC_` | `CFC_4F8A77CBF7B9` | Dynamic schema field configuration per tenant table. |
 | `client_lookup_values` | `CLV_` | `CLV_AD77A1FEAE0B` | System and custom dropdown options grouped by `category`. |
 | `agents` | `AGT_` | `AGT_A8C5F636713A` | Real estate agents belonging to a client tenant. |

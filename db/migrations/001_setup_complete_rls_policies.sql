@@ -168,10 +168,3 @@ CREATE POLICY "Users can view own roles" ON public.client_user_roles
       SELECT id FROM web_users WHERE email = public.get_request_email()
     )
   );
-
--- 11. role_permissions table
-DROP POLICY IF EXISTS "Authenticated users can read role permissions" ON public.role_permissions;
-
-CREATE POLICY "Authenticated users can read role permissions" ON public.role_permissions
-  FOR SELECT TO public
-  USING (true);

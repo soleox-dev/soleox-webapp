@@ -195,7 +195,7 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
     payload: any,
     resolvedClientId: string,
     showToast: (msg: string, type: 'success' | 'error') => void,
-    onSuccess?: (savedTxn: any, commissionItems?: StoredCommissionItem[]) => void
+    onSuccess?: (savedTxn: any, commissionItems?: StoredCommissionItem[]) => void | false | Promise<void | false>
   ) => {
     if (isSaving) return;
     try {
@@ -208,8 +208,11 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
 
       const responseData = await res.json().catch(() => ({}));
       if (res.ok && responseData.success !== false) {
+        const outcome = onSuccess && responseData.transaction
+          ? await onSuccess(responseData.transaction, responseData.commissionItems)
+          : undefined;
+        if (outcome === false) return;
         showToast(`Transaction ${payload.id} saved successfully!`, 'success');
-        if (onSuccess && responseData.transaction) onSuccess(responseData.transaction, responseData.commissionItems);
       } else {
         showToast(`Failed to save: ${responseData.error || responseData.message}`, 'error');
       }

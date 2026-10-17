@@ -305,15 +305,6 @@
         <text x="130" y="65" text-anchor="middle" class="txt-sub">FK: client_id, user_id</text>
       </g>
 
-      <g transform="translate(1270, 165)">
-        <rect class="card-bg" width="260" height="80" />
-        <path class="hdr-dark" d="M 0 6 A 6 6 0 0 1 6 0 L 254 0 A 6 6 0 0 1 260 6 L 260 28 L 0 28 Z" />
-        <line x1="0" y1="28" x2="260" y2="28" stroke="#1e293b" stroke-width="1" />
-        <text x="130" y="18" text-anchor="middle" class="txt-hdr">role_permissions</text>
-        <text x="130" y="48" text-anchor="middle" class="txt-title">RBAC Matrix</text>
-        <text x="130" y="65" text-anchor="middle" class="txt-sub">FK: role_code</text>
-      </g>
-
       <!-- GLOBAL AUDIT TRAIL ANCHOR -->
       <g transform="translate(560, 610)">
         <rect class="card-bg" width="260" height="50" />
@@ -372,21 +363,6 @@
         <tr><td class="fk">user_id</td><td class="type">STRING</td><td>FK -> web_users.id. Target user context.</td></tr>
         <tr><td>role_code</td><td class="type">STRING</td><td>ADMIN, AGENT, TC, COMPLIANCE.</td></tr>
         <tr><td>created_at / updated_at</td><td class="type">TIMESTAMP</td><td>Timestamps.</td></tr>
-      </table>
-    </div>
-
-    <!-- 4. role_permissions -->
-    <div class="card">
-      <div class="card-header">
-        <span>role_permissions</span>
-        <span class="tag">Access Control (RBAC)</span>
-      </div>
-      <table>
-        <tr><th>Field Name</th><th>Type</th><th>Key / Description</th></tr>
-        <tr><td class="pk">id</td><td class="type">STRING</td><td>Primary Key. Permission rule identifier.</td></tr>
-        <tr><td>role_code</td><td class="type">STRING</td><td>Target role code.</td></tr>
-        <tr><td>permission_code</td><td class="type">STRING</td><td>Granular system permission code.</td></tr>
-        <tr><td>created_at</td><td class="type">TIMESTAMP</td><td>Timestamps.</td></tr>
       </table>
     </div>
 

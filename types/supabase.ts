@@ -341,14 +341,17 @@ export type Database = {
         }
         Relationships: []
       }
-      client_team_caps: {
+      client_caps: {
         Row: {
           archived: boolean | null
           cap_amount_field_key: string | null
+          cap_type: string
           client_id: string
+          commission_entity_id: string | null
           created_at: string | null
           created_by: string | null
           enabled: boolean
+          hide_over_allocations: boolean
           id: string
           key: string | null
           name: string
@@ -362,10 +365,13 @@ export type Database = {
         Insert: {
           archived?: boolean | null
           cap_amount_field_key?: string | null
+          cap_type?: string
           client_id: string
+          commission_entity_id?: string | null
           created_at?: string | null
           created_by?: string | null
           enabled?: boolean
+          hide_over_allocations?: boolean
           id?: string
           key?: string | null
           name?: string
@@ -379,10 +385,13 @@ export type Database = {
         Update: {
           archived?: boolean | null
           cap_amount_field_key?: string | null
+          cap_type?: string
           client_id?: string
+          commission_entity_id?: string | null
           created_at?: string | null
           created_by?: string | null
           enabled?: boolean
+          hide_over_allocations?: boolean
           id?: string
           key?: string | null
           name?: string
@@ -879,51 +888,6 @@ export type Database = {
           payment_status?: string | null
           reference_number?: string | null
           transaction_id?: string
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Relationships: []
-      }
-      role_permissions: {
-        Row: {
-          can_approve_payouts: boolean | null
-          can_create: boolean | null
-          can_delete: boolean | null
-          can_read: boolean | null
-          can_update: boolean | null
-          created_at: string | null
-          created_by: string | null
-          id: string
-          resource: string
-          role: string
-          updated_at: string | null
-          updated_by: string | null
-        }
-        Insert: {
-          can_approve_payouts?: boolean | null
-          can_create?: boolean | null
-          can_delete?: boolean | null
-          can_read?: boolean | null
-          can_update?: boolean | null
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          resource: string
-          role: string
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Update: {
-          can_approve_payouts?: boolean | null
-          can_create?: boolean | null
-          can_delete?: boolean | null
-          can_read?: boolean | null
-          can_update?: boolean | null
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          resource?: string
-          role?: string
           updated_at?: string | null
           updated_by?: string | null
         }

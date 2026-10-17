@@ -120,9 +120,9 @@ export type TeamCapRule = {
 const TEAM_CAP_KEY_PATTERN = /^[a-z_][a-z0-9_]*$/;
 
 /** Formula token for a cap name. "Robert Team Cap" becomes robert_team_cap. */
-export function teamCapKeyFromName(name: string): string {
+export function teamCapKeyFromName(name: string, emptyKey = 'team_cap'): string {
   const key = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-  if (!key || /^[0-9]/.test(key)) return key ? `cap_${key}` : 'team_cap';
+  if (!key || /^[0-9]/.test(key)) return key ? `cap_${key}` : emptyKey;
   return key;
 }
 

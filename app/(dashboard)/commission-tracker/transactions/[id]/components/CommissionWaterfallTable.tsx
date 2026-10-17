@@ -43,6 +43,8 @@ interface CommissionWaterfallTableProps {
   onDraftDirty?: (dirty: boolean) => void;
   allocations?: AgentAllocationLine[];
   onTeamCapAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
+  onRemoveTeamCap?: (teamCapId: string) => void;
+  agentCapNote?: (agentId: string, agentName: string, entity: string) => React.ReactNode;
 }
 
 function entityOrder(rulesByAgent: Record<string, DynamicRule[]>, names: string[]): string[] {
@@ -149,6 +151,8 @@ export function CommissionWaterfallTable({
   onDraftDirty,
   allocations = [],
   onTeamCapAmountChange,
+  onRemoveTeamCap,
+  agentCapNote,
 }: CommissionWaterfallTableProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -324,7 +328,7 @@ export function CommissionWaterfallTable({
     dollarAmount: number,
     onToggle: () => void,
     onValue: (val: number) => void,
-    options?: { deduction?: boolean; editable?: boolean; locked?: boolean; beforePercent?: React.ReactNode; invalid?: boolean },
+    options?: { deduction?: boolean; editable?: boolean; locked?: boolean; beforePercent?: React.ReactNode; underAmount?: React.ReactNode; invalid?: boolean },
   ) => (
     <div className="flex w-full justify-end">
       <SplitPair
@@ -336,6 +340,7 @@ export function CommissionWaterfallTable({
         dollarAmount={dollarAmount}
         deduction={options?.deduction}
         beforePercent={options?.beforePercent}
+        underAmount={options?.underAmount}
         invalid={options?.invalid}
         onPercentChange={(val) => {
           if (type !== 'PERCENT') onToggle();
@@ -459,10 +464,17 @@ export function CommissionWaterfallTable({
                   );
                 })}
               </tr>
-              {teamCapGroups(allocations).map((group) => (
+              {teamCapGroups(allocations).map((group) => {
+                const capId = group.lines.find((line) => line.team_cap_id)?.team_cap_id || '';
+                return (
                 <tr key={group.id}>
                   <td className="sticky left-0 z-10 border-b border-amber-200/80 bg-amber-50 px-3 py-2 text-left align-middle dark:border-amber-800/50 dark:bg-amber-950/50">
-                    <span className="text-xs font-semibold normal-case tracking-normal text-amber-900 dark:text-amber-200">{group.name}</span>
+                    <div className="flex items-center gap-1">
+                      {isEditing && onRemoveTeamCap && capId && (
+                        <button type="button" onClick={() => onRemoveTeamCap(capId)} className={trashButton} title={`Remove ${group.name}`} aria-label={`Remove ${group.name}`}><TrashIcon /></button>
+                      )}
+                      <span className="text-xs font-semibold normal-case tracking-normal text-amber-900 dark:text-amber-200">{group.name}</span>
+                    </div>
                   </td>
                   {agents.map((agent) => (
                     <td key={agent.id} className="min-w-[14.5rem] border-b border-amber-200/80 bg-amber-50 px-2 py-2 text-center align-middle dark:border-amber-800/50 dark:bg-amber-950/40">
@@ -476,7 +488,8 @@ export function CommissionWaterfallTable({
                     </td>
                   ))}
                 </tr>
-              ))}
+                );
+              })}
 
               <tr>
                 <td className={`${sectionLabel} bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200`}>
@@ -516,7 +529,7 @@ export function CommissionWaterfallTable({
                       return (
                         <td key={agent.id} className={agentCell}>
                           <div className="flex flex-col items-stretch gap-1">
-                            {calculated.map((item) => {
+                            {calculated.map((item, index) => {
                               const type: SplitType = item.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENT';
                               const amount = Number(item.amount) || 0;
                               return (
@@ -527,7 +540,7 @@ export function CommissionWaterfallTable({
                                     amount,
                                     () => { if (item.id) onToggleAgentPostSplitType(agent.name, item.id); },
                                     (val) => { if (item.id) onUpdateAgentPostSplitValue(agent.name, item.id, val); },
-                                    { deduction: true },
+                                    { deduction: true, underAmount: index === calculated.length - 1 ? agentCapNote?.(agent.id, agent.name, entity) : null },
                                   )}
                                 </div>
                               );
@@ -550,7 +563,7 @@ export function CommissionWaterfallTable({
                     return (
                       <td key={agent.id} className={agentCell}>
                         <div className="flex flex-col items-stretch gap-1">
-                          {rules.map((rule) => {
+                          {rules.map((rule, index) => {
                             const calculated = items.find((item: { id?: string; amount?: number }) => item.id === rule.id);
                             const gross = (dealResult.agentSplitItems || []).find((item: { agentName?: string; amount?: number }) => item.agentName === agent.name)?.amount || 0;
                             return (
@@ -563,6 +576,7 @@ export function CommissionWaterfallTable({
                                   (val) => onUpdateAgentPostSplitValue(agent.name, rule.id, val),
                                   {
                                     deduction: true,
+                                    underAmount: index === rules.length - 1 ? agentCapNote?.(agent.id, agent.name, entity) : null,
                                     beforePercent: isEditing ? (
                                       <button type="button" onClick={() => onDeleteAgentPostSplitRule(agent.name, rule.id)} className={`${trashButton} shrink-0`} title="Delete rule" aria-label="Delete rule"><TrashIcon /></button>
                                     ) : null,
@@ -640,7 +654,7 @@ export function CommissionWaterfallTable({
                       return (
                         <td key={agent.id} className={agentCell}>
                           <div className="flex flex-col items-stretch gap-1">
-                            {calculated.map((item) => {
+                            {calculated.map((item, index) => {
                               const type: SplitType = item.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENT';
                               const amount = Number(item.amount) || 0;
                               return (
@@ -651,7 +665,7 @@ export function CommissionWaterfallTable({
                                     amount,
                                     () => { if (item.id) onToggleAgentPostSplit2Type?.(agent.name, item.id); },
                                     (val) => { if (item.id) onUpdateAgentPostSplit2Value?.(agent.name, item.id, val); },
-                                    { deduction: true },
+                                    { deduction: true, underAmount: index === calculated.length - 1 ? agentCapNote?.(agent.id, agent.name, entity) : null },
                                   )}
                                 </div>
                               );
@@ -674,7 +688,7 @@ export function CommissionWaterfallTable({
                     return (
                       <td key={agent.id} className={agentCell}>
                         <div className="flex flex-col items-stretch gap-1">
-                          {rules.map((rule) => {
+                          {rules.map((rule, index) => {
                             const calculated = items.find((item: { id?: string; amount?: number }) => item.id === rule.id);
                             const gross = (dealResult.agentSplitItems || []).find((item: { agentName?: string; amount?: number }) => item.agentName === agent.name)?.amount || 0;
                             const netAfterL1 = dealResult.agentNetAfterLevel1?.[agent.name] ?? gross;
@@ -688,6 +702,7 @@ export function CommissionWaterfallTable({
                                   (val) => onUpdateAgentPostSplit2Value?.(agent.name, rule.id, val),
                                   {
                                     deduction: true,
+                                    underAmount: index === rules.length - 1 ? agentCapNote?.(agent.id, agent.name, entity) : null,
                                     beforePercent: isEditing ? (
                                       <button type="button" onClick={() => onDeleteAgentPostSplit2Rule?.(agent.name, rule.id)} className={`${trashButton} shrink-0`} title="Delete rule" aria-label="Delete rule"><TrashIcon /></button>
                                     ) : null,

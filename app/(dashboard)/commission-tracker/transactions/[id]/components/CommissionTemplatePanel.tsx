@@ -670,6 +670,8 @@ export function CommissionTemplatePanel({
   onApplied,
   onSubmissionDeleted,
   onTeamCapSelection,
+  onStoredSubmission,
+  pendingSubmission = null,
   submissionRevision = 0,
   embedded = false,
 }: {
@@ -685,6 +687,10 @@ export function CommissionTemplatePanel({
   onSubmissionDeleted?: () => void;
   /** Null means this submission did not record which team caps to apply. */
   onTeamCapSelection?: (ids: string[] | null) => void;
+  /** The submission last loaded from the server. Null means this transaction has none. */
+  onStoredSubmission?: (submission: TemplateSubmissionDraft | null) => void;
+  /** An unsaved template submit. A load that finishes after it must not replace the submission on screen. */
+  pendingSubmission?: TemplateSubmissionDraft | null;
   /** Bumped when an unsaved template submission is discarded, so the panel reloads the stored one. */
   submissionRevision?: number;
   embedded?: boolean;
@@ -714,6 +720,10 @@ export function CommissionTemplatePanel({
   const capChoiceSet = useRef(false);
   const onTeamCapSelectionRef = useRef(onTeamCapSelection);
   onTeamCapSelectionRef.current = onTeamCapSelection;
+  const onStoredSubmissionRef = useRef(onStoredSubmission);
+  onStoredSubmissionRef.current = onStoredSubmission;
+  const pendingSubmissionRef = useRef(pendingSubmission);
+  pendingSubmissionRef.current = pendingSubmission;
   const [parameters, setParameters] = useState<TemplateParameter[]>([]);
   const [logicSteps, setLogicSteps] = useState<TemplateLogicStep[]>([]);
   const [ledger, setLedger] = useState<FormulaLedgerRow[] | null>(null);
@@ -800,6 +810,8 @@ export function CommissionTemplatePanel({
       setSubmittedTemplateId('');
       setSubmittedParameters({});
       setSubmittedRows([]);
+      onTeamCapSelectionRef.current?.(null);
+      onStoredSubmissionRef.current?.(null);
       setSubmissionReady(true);
       return;
     }
@@ -816,6 +828,7 @@ export function CommissionTemplatePanel({
       setSubmittedParameters({});
       setSubmittedRows([]);
       onTeamCapSelectionRef.current?.(null);
+      onStoredSubmissionRef.current?.(null);
     };
     const loadSubmission = async () => {
       try {
@@ -832,10 +845,18 @@ export function CommissionTemplatePanel({
           const id = String(row?.id || '').trim();
           return id ? [id] : [];
         });
-        setCommittedTemplateId(submitted?.template_id || '');
-        setSubmissionId(submitted?.id || null);
         setSubmissionIds(ids);
         const savedParameters = parameterRecord(submitted?.submitted_parameters);
+        onStoredSubmissionRef.current?.(submitted?.template_id ? {
+          id: submitted.id || null,
+          template_id: String(submitted.template_id),
+          submitted_parameters: savedParameters,
+          status: 'SUBMITTED',
+          team_cap_ids: readTeamCapSelection(savedParameters) ?? undefined,
+        } : null);
+        if (pendingSubmissionRef.current?.template_id) return;
+        setCommittedTemplateId(submitted?.template_id || '');
+        setSubmissionId(submitted?.id || null);
         setSubmittedTemplateId(submitted?.template_id || '');
         setSubmittedParameters(savedParameters);
         onTeamCapSelectionRef.current?.(submitted ? readTeamCapSelection(savedParameters) : null);

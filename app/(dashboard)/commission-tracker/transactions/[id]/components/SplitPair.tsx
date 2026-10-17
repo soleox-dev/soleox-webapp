@@ -18,6 +18,8 @@ interface SplitPairProps {
   /** View mode: pin the percent to the same column as compact rows, without moving the dollar. */
   matchColumns?: boolean;
   beforePercent?: React.ReactNode;
+  /** Sits under the dollar, the way a team cap shows its running total. */
+  underAmount?: React.ReactNode;
   invalid?: boolean;
   locked?: boolean;
 }
@@ -57,6 +59,7 @@ export function SplitPair({
   compact = false,
   matchColumns = false,
   beforePercent,
+  underAmount,
   invalid = false,
   locked = false,
 }: SplitPairProps) {
@@ -80,6 +83,16 @@ export function SplitPair({
   const selectUntil = useRef(0);
   const selectDollarUntil = useRef(0);
   const [suffixHover, setSuffixHover] = useState(false);
+  const padNote = isEditing || (compact && !matchColumns);
+  const amountStack = (amount: React.ReactNode) => {
+    if (!underAmount) return amount;
+    return (
+      <span className="inline-flex flex-col items-end">
+        {amount}
+        <span className={padNote ? 'pr-2' : undefined}>{underAmount}</span>
+      </span>
+    );
+  };
 
   const activatePercent = () => {
     if (!amountBased) return;
@@ -140,14 +153,16 @@ export function SplitPair({
             %
           </span>
         </span>
-        <span className={`${dollarBox} relative inline-flex shrink-0`}>
-          <span className={`flex w-full items-center justify-end ${boxChrome} ${dollarAlert ? lockedAlert : lockedBox} ${lockedPrefix.length > 1 ? 'pl-7' : 'pl-5'}`}>
-            {amountText}
-          </span>
-          <span aria-hidden className={`pointer-events-none absolute inset-y-0 left-1.5 flex items-center text-xs font-semibold ${dollarAlert ? roseText : 'text-slate-500 dark:text-slate-400'}`}>
-            {lockedPrefix}
-          </span>
-        </span>
+        {amountStack(
+          <span className={`${dollarBox} relative inline-flex shrink-0`}>
+            <span className={`flex w-full items-center justify-end ${boxChrome} ${dollarAlert ? lockedAlert : lockedBox} ${lockedPrefix.length > 1 ? 'pl-7' : 'pl-5'}`}>
+              {amountText}
+            </span>
+            <span aria-hidden className={`pointer-events-none absolute inset-y-0 left-1.5 flex items-center text-xs font-semibold ${dollarAlert ? roseText : 'text-slate-500 dark:text-slate-400'}`}>
+              {lockedPrefix}
+            </span>
+          </span>,
+        )}
       </div>
     );
   }
@@ -161,9 +176,11 @@ export function SplitPair({
           {!amountBased && (
             <span className={percentClass}>({formatPercentPoints(shownPercent)}%)</span>
           )}
-          <span className={`w-[6.375rem] shrink-0 ${dollarClass}`}>
-            {dollarText}
-          </span>
+          {amountStack(
+            <span className={`w-[6.375rem] shrink-0 ${dollarClass}`}>
+              {dollarText}
+            </span>,
+          )}
         </div>
       );
     }
@@ -178,9 +195,11 @@ export function SplitPair({
             ({formatPercentPoints(shownPercent)}%)
           </span>
         ) : null}
-        <span className={`${compact ? `${dollarBox} shrink-0 pr-2 text-xs` : 'text-xs'} text-right font-bold whitespace-nowrap ${dollarAlert ? roseText : 'text-emerald-600 dark:text-emerald-400'}`}>
-          {dollarText}
-        </span>
+        {amountStack(
+          <span className={`${compact ? `${dollarBox} shrink-0 pr-2 text-xs` : 'text-xs'} text-right font-bold whitespace-nowrap ${dollarAlert ? roseText : 'text-emerald-600 dark:text-emerald-400'}`}>
+            {dollarText}
+          </span>,
+        )}
       </div>
     );
   }
@@ -252,29 +271,31 @@ export function SplitPair({
         )}
       </span>
       </span>
-      <span title="Amount" className={`relative inline-flex shrink-0 ${dollarAlert ? invalidField : quietField}`}>
-        <DecimalInput
-          ref={dollarRef}
-          value={dollarAmount || 0}
-          onChange={onAmountChange}
-          useCommas
-          colorCode
-          invalid={dollarAlert}
-          filled
-          allowEmpty
-          onKeyDown={preventMinus}
-          onMouseUp={keepDollarSelection}
-          onClick={keepDollarSelection}
-          placeholder="0.00"
-          className={`${dollarBox} ${quietInput} ${dollarPrefix.length > 1 ? 'pl-7 pr-2' : 'pl-5 pr-2'}`}
-        />
-        <span
-          aria-hidden
-          className={`pointer-events-none absolute inset-y-0 left-1.5 flex items-center text-xs font-semibold ${dollarAlert ? roseText : 'text-emerald-600 dark:text-emerald-400'}`}
-        >
-          {dollarPrefix}
-        </span>
-      </span>
+      {amountStack(
+        <span title="Amount" className={`relative inline-flex shrink-0 ${dollarAlert ? invalidField : quietField}`}>
+          <DecimalInput
+            ref={dollarRef}
+            value={dollarAmount || 0}
+            onChange={onAmountChange}
+            useCommas
+            colorCode
+            invalid={dollarAlert}
+            filled
+            allowEmpty
+            onKeyDown={preventMinus}
+            onMouseUp={keepDollarSelection}
+            onClick={keepDollarSelection}
+            placeholder="0.00"
+            className={`${dollarBox} ${quietInput} ${dollarPrefix.length > 1 ? 'pl-7 pr-2' : 'pl-5 pr-2'}`}
+          />
+          <span
+            aria-hidden
+            className={`pointer-events-none absolute inset-y-0 left-1.5 flex items-center text-xs font-semibold ${dollarAlert ? roseText : 'text-emerald-600 dark:text-emerald-400'}`}
+          >
+            {dollarPrefix}
+          </span>
+        </span>,
+      )}
     </div>
   );
 }

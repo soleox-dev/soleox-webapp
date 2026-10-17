@@ -325,28 +325,159 @@ function blankOwnerMonth(key: string, label: string): OwnerMonthRow {
   };
 }
 
-/** Every calendar month touched by the range, including months with no transactions. */
+export type ProductionGrain = 'day' | 'week' | 'month';
+
+/** Day rows when the range is 62 days or shorter, otherwise month rows. */
+export function automaticProductionGrain(range: DateRange): 'day' | 'month' {
+  return periodSpan(range).daily ? 'day' : 'month';
+}
+
+/** Week rows are offered for a month, a quarter, or a custom range of at most four months. */
+export function weekGrainAllowed(preset: RangePreset, range: DateRange): boolean {
+  if (preset === 'this-month' || preset === 'last-month' || preset === 'this-quarter' || preset === 'last-quarter') return true;
+  if (preset !== 'custom') return false;
+  const start = parseKey(range.start);
+  const end = parseKey(range.end);
+  const limit = new Date(start.getFullYear(), start.getMonth() + 4, start.getDate());
+  return dateKey(end) <= dateKey(limit);
+}
+
+export function resolveProductionGrain(choice: ProductionGrain | null, preset: RangePreset, range: DateRange): ProductionGrain {
+  const automatic = automaticProductionGrain(range);
+  if (!choice || !weekGrainAllowed(preset, range)) return automatic;
+  return choice;
+}
+
+function shiftDateKey(key: string): string {
+  const [year, month, day] = key.split('-').map(Number);
+  return dateKey(new Date((year || 1970) - 1, (month || 1) - 1, day || 1));
+}
+
+/** The same calendar span one year earlier. A week keeps both of its dates. */
+export function priorProductionKey(key: string): string {
+  if (key.includes(':')) {
+    const [start, end] = key.split(':');
+    return `${shiftDateKey(start)}:${shiftDateKey(end)}`;
+  }
+  const parts = key.split('-').map(Number);
+  if (parts.length >= 3) return shiftDateKey(key);
+  return `${parts[0] - 1}-${String(parts[1]).padStart(2, '0')}`;
+}
+
+export function productionKeyMatches(date: Date, key: string): boolean {
+  const day = dateKey(date);
+  if (key.includes(':')) {
+    const [start, end] = key.split(':');
+    return day >= start && day <= end;
+  }
+  if (key.split('-').length >= 3) return day === key;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}` === key;
+}
+
+function weekDate(date: Date, withYear: boolean): string {
+  const month = MONTHS[date.getMonth()].slice(0, 3);
+  const day = String(date.getDate()).padStart(2, '0');
+  return withYear ? `${month} ${day}, ${date.getFullYear()}` : `${month} ${day}`;
+}
+
+/** Jul 01 - Jul 04. A week that crosses a year keeps the year on each date. */
+function weekLabel(start: Date, end: Date): string {
+  const crossYears = start.getFullYear() !== end.getFullYear();
+  return `${weekDate(start, crossYears)} - ${weekDate(end, crossYears)}`;
+}
+
+/** Banner text for a selected production row, with the year included. */
+export function formatProductionKey(key: string): string {
+  if (key.includes(':')) {
+    const [startKey, endKey] = key.split(':');
+    const start = parseKey(startKey);
+    const end = parseKey(endKey);
+    if (start.getFullYear() !== end.getFullYear()) return weekLabel(start, end);
+    return `${weekLabel(start, end)}, ${start.getFullYear()}`;
+  }
+  const parts = key.split('-').map(Number);
+  if (parts.length >= 3) return new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+  return new Date(parts[0], parts[1] - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+}
+
+function dayColumns(start: Date, end: Date, spanYears: boolean): { key: string; label: string }[] {
+  const dayCount = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+  const columns: { key: string; label: string }[] = [];
+  for (let offset = 0; offset < dayCount; offset += 1) {
+    const date = addDays(start, offset);
+    columns.push({
+      key: dateKey(date),
+      label: date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: spanYears ? 'numeric' : undefined }),
+    });
+  }
+  return columns;
+}
+
+function monthColumns(start: Date, end: Date, spanYears: boolean): { key: string; label: string }[] {
+  const columns: { key: string; label: string }[] = [];
+  let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+  const last = new Date(end.getFullYear(), end.getMonth(), 1);
+  while (cursor <= last) {
+    columns.push({
+      key: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
+      label: spanYears ? `${MONTHS[cursor.getMonth()]} ${cursor.getFullYear()}` : MONTHS[cursor.getMonth()],
+    });
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+  }
+  return columns;
+}
+
+/** Weeks start on Sunday. A week that crosses the range edge keeps only the days inside the range. */
+function weekColumns(start: Date, end: Date): { key: string; label: string }[] {
+  const columns: { key: string; label: string }[] = [];
+  let cursor = start;
+  while (cursor <= end) {
+    const saturday = addDays(cursor, 6 - cursor.getDay());
+    const bucketEnd = saturday < end ? saturday : end;
+    columns.push({
+      key: `${dateKey(cursor)}:${dateKey(bucketEnd)}`,
+      label: weekLabel(cursor, bucketEnd),
+    });
+    cursor = addDays(bucketEnd, 1);
+  }
+  return columns;
+}
+
+function productionColumns(range: DateRange, grain: ProductionGrain): { key: string; label: string }[] {
+  const start = parseKey(range.start);
+  const end = parseKey(range.end);
+  const spanYears = start.getFullYear() !== end.getFullYear();
+  if (grain === 'week') return weekColumns(start, end);
+  if (grain === 'day') return dayColumns(start, end, spanYears);
+  return monthColumns(start, end, spanYears);
+}
+
+export function productionPeriodKey(date: Date, range: DateRange, grain: ProductionGrain): string {
+  if (grain === 'day') return dateKey(date);
+  if (grain === 'month') return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  const day = dateKey(date);
+  const match = weekColumns(parseKey(range.start), parseKey(range.end)).find((column) => {
+    const [start, end] = column.key.split(':');
+    return day >= start && day <= end;
+  });
+  return match?.key ?? '';
+}
+
+/** One row for each production period in the range, including periods with no transactions. */
 export function ownerMonthTable(
   deals: ReportDeal[],
   payments: ReportPayment[],
   teamLeadIds: Set<string>,
   range: DateRange,
+  grain: ProductionGrain = automaticProductionGrain(range),
 ): OwnerMonthRow[] {
-  const start = parseKey(range.start);
-  const end = parseKey(range.end);
-  const spanYears = start.getFullYear() !== end.getFullYear();
   const rows: OwnerMonthRow[] = [];
   const index = new Map<string, OwnerMonthRow>();
-  let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
-  const last = new Date(end.getFullYear(), end.getMonth(), 1);
-  while (cursor <= last) {
-    const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
-    const label = spanYears ? `${MONTHS[cursor.getMonth()]} ${cursor.getFullYear()}` : MONTHS[cursor.getMonth()];
-    const row = blankOwnerMonth(key, label);
+  productionColumns(range, grain).forEach((column) => {
+    const row = blankOwnerMonth(column.key, column.label);
     rows.push(row);
-    index.set(key, row);
-    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
-  }
+    index.set(column.key, row);
+  });
 
   const netByTransaction = new Map<string, number>();
   payments.forEach((payment) => {
@@ -356,7 +487,7 @@ export function ownerMonthTable(
 
   const place = (date: Date | null, apply: (row: OwnerMonthRow) => void) => {
     if (!inRange(date, range) || !date) return;
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const key = productionPeriodKey(date, range, grain);
     const row = index.get(key);
     if (row) apply(row);
   };
@@ -618,7 +749,7 @@ export const OWNER_REPORTS: ReportDefinition[] = [
   { id: 'net-commission-income', name: 'Agent Earnings', group: 'Your Agents', ready: true },
   { id: 'net-commission-analysis', name: 'Net Commission Income Analysis', group: 'Your Agents', ready: true },
   { id: 'agent-post-splits', name: 'Agent Post-splits', group: 'Your Agents', ready: true },
-  { id: 'team-caps', name: 'Team Caps', group: 'Your Agents', ready: true },
+  { id: 'team-caps', name: 'Caps', group: 'Your Agents', ready: true },
   { id: 'transaction-list', name: 'Transaction List', group: 'Transactions', ready: true },
   { id: 'transaction-map', name: 'Transaction Map', group: 'Transactions', ready: false, note: 'Transactions do not have map coordinates yet.' },
   { id: 'transaction-detail', name: 'Transaction Detail', group: 'Transactions', ready: true },

@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
-import { ArrowLeft, Calendar, Check, ChevronDown, Info, X } from 'lucide-react';
+import { ArrowLeft, Calendar, Check, ChevronDown, ChevronUp, Info, X } from 'lucide-react';
 import { pageFrame } from '@/lib/page-frame';
 import { FieldChevron, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import {
@@ -15,6 +16,7 @@ import {
   closedInRange,
   closedOrPendingOnDate,
   compactMoney,
+  dateKey,
   formatMetric,
   formatRange,
   fullMoney,
@@ -35,6 +37,11 @@ import {
   teamGciByTransaction,
   teamLeadNet,
   ownerMonthTable,
+  formatProductionKey,
+  priorProductionKey,
+  productionKeyMatches,
+  resolveProductionGrain,
+  weekGrainAllowed,
   unitsLabel,
   type AgentRow,
   type DateRange,
@@ -42,6 +49,7 @@ import {
   type MetricId,
   type MonthRow,
   type OwnerMonthRow,
+  type ProductionGrain,
   type RangePreset,
   type ReportDeal,
   type ReportPayment,
@@ -49,6 +57,8 @@ import {
 } from '@/lib/owner-reports';
 import { TeamCapsReport } from '@/app/(dashboard)/owner-reports/team-caps-report';
 import {
+  formatLong,
+  formatUs,
   shiftAsOf,
   teamCapStandings,
   todayIso,
@@ -186,16 +196,24 @@ export default function OwnerReportsPage() {
       }
       if (capRes.ok) {
         const capData = await capRes.json();
-        const caps = Array.isArray(capData.teamCaps) ? capData.teamCaps : [];
-        setTeamCaps(caps.map((cap: Record<string, unknown>) => ({
+        const teamCaps = Array.isArray(capData.teamCaps) ? capData.teamCaps : [];
+        const agentCaps = Array.isArray(capData.agentCaps) ? capData.agentCaps : [];
+        const asCap = (cap: Record<string, unknown>, kind: 'team' | 'agent'): TeamCapDefinition => ({
           id: String(cap.id || ''),
-          name: String(cap.name || 'Team Cap'),
+          name: String(cap.name || (kind === 'agent' ? 'Agent Cap' : 'Team Cap')),
           enabled: cap.enabled !== false,
-          splitPercentFieldKey: cap.split_percent_field_key ? String(cap.split_percent_field_key) : null,
+          kind,
+          splitPercentFieldKey: kind === 'team' && cap.split_percent_field_key ? String(cap.split_percent_field_key) : null,
           capAmountFieldKey: cap.cap_amount_field_key ? String(cap.cap_amount_field_key) : null,
           resetDateFieldKey: cap.reset_date_field_key ? String(cap.reset_date_field_key) : null,
-          recipientAgentId: cap.recipient_agent_id ? String(cap.recipient_agent_id) : null,
-        })).filter((cap: TeamCapDefinition) => cap.id));
+          recipientAgentId: kind === 'team' && cap.recipient_agent_id ? String(cap.recipient_agent_id) : null,
+          entityId: kind === 'agent' && cap.commission_entity_id ? String(cap.commission_entity_id) : null,
+          hideOverAllocations: kind === 'agent' && cap.hide_over_allocations === true,
+        });
+        setTeamCaps([
+          ...teamCaps.map((cap: Record<string, unknown>) => asCap(cap, 'team')),
+          ...agentCaps.map((cap: Record<string, unknown>) => asCap(cap, 'agent')),
+        ].filter((cap) => cap.id));
       }
       if (contributionRes.ok) {
         const contributionData = await contributionRes.json();
@@ -441,12 +459,26 @@ export default function OwnerReportsPage() {
   const capSections = useMemo(() => {
     if (reportId !== 'team-caps') return [];
     const dealMap = new Map(filtered.map((deal) => [deal.id, deal]));
-    const activeCaps = teamCaps.filter((cap) => cap.enabled || capContributions.some((row) => row.teamCapId === cap.id));
+    const agentContributions = teamCaps.flatMap((cap) => {
+      if (cap.kind !== 'agent' || !cap.entityId) return [];
+      return postSplits.flatMap((credit) => {
+        if (credit.entityId !== cap.entityId || !credit.agentId || !credit.transactionId || !credit.amount) return [];
+        return [{
+          agentId: credit.agentId,
+          teamCapId: cap.id,
+          amount: credit.amount,
+          periodStart: null,
+          transactionId: credit.transactionId,
+        }];
+      });
+    });
+    const contributions = [...capContributions, ...agentContributions];
+    const activeCaps = teamCaps.filter((cap) => cap.enabled || contributions.some((row) => row.teamCapId === cap.id));
     return activeCaps.flatMap((cap) => {
       const rows = teamCapStandings({
         cap,
         agents: agentProfiles,
-        contributions: capContributions,
+        contributions,
         deals: dealMap,
         names,
         asOf: capAsOf,
@@ -454,8 +486,8 @@ export default function OwnerReportsPage() {
       if (rows.length === 0) return [];
       return [{ cap, rows, count: rows.reduce((sum, row) => sum + row.lines.length, 0) }];
     });
-  }, [agentProfiles, capAsOf, capContributions, filtered, names, reportId, teamCaps]);
-  const capChoices = capSections.map((section) => ({ value: section.cap.id, label: section.cap.name, count: section.count }));
+  }, [agentProfiles, capAsOf, capContributions, filtered, names, postSplits, reportId, teamCaps]);
+  const capChoices = capSections.map((section) => ({ value: section.cap.id, label: section.cap.name, count: section.count, group: section.cap.kind }));
   const capFallback = capSections[0] ? [capSections[0].cap.id] : null;
   const visibleCapSections = capSections.filter((section) => pickMatches(capPicked, capFallback, section.cap.id, false));
   useEffect(() => {
@@ -563,9 +595,9 @@ export default function OwnerReportsPage() {
   }, [reportId]);
 
   return (
-    <main onClick={!report ? launch : undefined} className={`min-h-screen [overflow-anchor:none] text-slate-900 dark:text-slate-100 ${reportCanvas} ${!report ? 'cursor-pointer' : ''}`}>
-      <div className={`${pageFrame} pb-4`}>
-        <section className={`min-w-0 space-y-4 ${reveal ? 'report-arrive' : ''}`}>
+    <main onClick={!report ? launch : undefined} className={`[overflow-anchor:none] text-slate-900 dark:text-slate-100 ${reportCanvas} ${!report ? 'cursor-pointer' : ''} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'h-dvh overflow-hidden' : 'min-h-screen'}`}>
+      <div className={`${pageFrame} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'flex h-full min-h-0 flex-col overflow-hidden pb-3' : 'pb-4'}`}>
+        <section className={`min-w-0 ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'flex min-h-0 flex-1 flex-col' : `space-y-4 ${reveal ? 'report-arrive' : ''}`}`}>
           {report ? (
             <ReportView
               onSelectReport={selectReport}
@@ -642,10 +674,10 @@ export default function OwnerReportsPage() {
               capOpen={capOpen}
               onCapOpen={setCapOpen}
               capEmpty={teamCaps.length === 0
-                ? 'No team caps are set up yet.'
+                ? 'No caps are set up yet.'
                 : capPicked?.length === 0
-                  ? 'Select a team cap to see each agent’s cap year.'
-                  : 'No agents on these caps match the current filters.'}
+                  ? 'Select a cap to see each agent’s cap year.'
+                  : 'No agents on this cap match the current filters.'}
             />
           ) : (
             <Cover launching={launching} onEnter={launch} />
@@ -951,7 +983,7 @@ function ReportView(props: {
   payments: ReportPayment[];
   entityNames: Map<string, string>;
   teamLeadIds: Set<string>;
-  capChoices: FilterChoice[];
+  capChoices: CapMenuChoice[];
   capPicked: string[] | null;
   onCaps: (value: string[] | null) => void;
   capYearOffset: number;
@@ -965,7 +997,36 @@ function ReportView(props: {
 }) {
   const { reportId, closed, pending, taken, closedPrior, pendingPrior, names, range, priorRange, metric, netCommission, priorNetCommission, allDeals, deals, payments, teamLeadIds } = props;
   const [cumulative, setCumulative] = useState(false);
+  const capSection = props.reportId === 'team-caps' && props.capSections.length === 1 ? props.capSections[0] : null;
+  const locked = props.reportId === 'net-commission-income' || props.reportId === 'team-caps';
   const chromeRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!locked) return;
+    const previousHtml = document.documentElement.style.overflow;
+    const previousBody = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    const onWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+      const scroller = document.querySelector<HTMLElement>('.report-table-fit');
+      if (!scroller || scroller.scrollHeight <= scroller.clientHeight + 1) return;
+      if (event.target instanceof Node && scroller.contains(event.target)) return;
+      let node = event.target instanceof Element ? event.target : null;
+      while (node && node !== document.body) {
+        const style = getComputedStyle(node);
+        if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight + 1) return;
+        node = node.parentElement;
+      }
+      scroller.scrollTop += event.deltaY;
+      event.preventDefault();
+    };
+    window.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      document.documentElement.style.overflow = previousHtml;
+      document.body.style.overflow = previousBody;
+      window.removeEventListener('wheel', onWheel);
+    };
+  }, [locked]);
   useLayoutEffect(() => {
     const chrome = chromeRef.current;
     const root = chrome?.closest('main');
@@ -973,12 +1034,33 @@ function ReportView(props: {
     let frame = 0;
     const apply = () => {
       const bottom = Math.max(0, chrome.getBoundingClientRect().bottom);
+      root.style.setProperty('--report-chrome-bottom', `${bottom}px`);
       root.querySelectorAll<HTMLElement>('.report-table').forEach((wrap) => {
+        if (wrap.closest('[data-production-block]')) return;
         const head = wrap.querySelector('thead');
         if (!head) return;
         const wrapRect = wrap.getBoundingClientRect();
         const hold = !wrap.classList.contains('report-table-fit') && wrapRect.top < bottom && wrapRect.bottom > bottom + head.offsetHeight;
         head.style.transform = hold ? `translateY(${bottom - wrapRect.top}px)` : '';
+      });
+      root.querySelectorAll<HTMLElement>('[data-production-block]').forEach((block) => {
+        const heading = block.querySelector<HTMLElement>('[data-production-heading]');
+        const wrap = block.querySelector<HTMLElement>('.report-table');
+        const head = wrap?.querySelector<HTMLElement>('thead');
+        if (!heading || !wrap || !head) return;
+        if (wrap.classList.contains('report-table-fit')) {
+          heading.style.transform = '';
+          head.style.transform = '';
+          return;
+        }
+        const blockRect = block.getBoundingClientRect();
+        const wrapRect = wrap.getBoundingClientRect();
+        const headingHeight = heading.offsetHeight;
+        const shift = bottom - blockRect.top;
+        const hold = shift > 0 && blockRect.bottom > bottom + headingHeight + head.offsetHeight;
+        heading.style.transform = hold ? `translateY(${shift}px)` : '';
+        const theadShift = bottom + headingHeight - wrapRect.top;
+        head.style.transform = hold ? `translateY(${theadShift}px)` : '';
       });
     };
     const schedule = () => {
@@ -1001,8 +1083,8 @@ function ReportView(props: {
     };
   }, []);
   return (
-    <div>
-      <div ref={chromeRef} className={`sticky top-0 z-40 border-b border-slate-200/80 px-0 pb-4 dark:border-slate-700/80 ${reportCanvas}`}>
+    <div className={locked ? 'flex min-h-0 flex-1 flex-col' : undefined}>
+      <div ref={chromeRef} className={`z-40 shrink-0 border-b border-slate-200/80 px-0 dark:border-slate-700/80 ${reportCanvas} ${locked ? '' : 'sticky top-0'} ${capSection ? 'pb-3' : 'pb-4'}`}>
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-6">
           <div className="z-50 min-w-0 justify-self-start">
             <OwnerReportNav reportId={props.reportId} onSelect={props.onSelectReport} />
@@ -1037,7 +1119,7 @@ function ReportView(props: {
                 <TitleCaps options={props.capChoices} picked={props.capPicked} onChange={props.onCaps} />
               ) : props.reportName}
             </h2>
-            <p className="mt-1.5 text-sm text-slate-500">{props.reportId === 'team-caps' ? 'Each agent’s cap year comes from that team cap’s reset date.' : `${formatRange(range)} compared with ${formatRange(priorRange)}`}</p>
+            <p className="mt-1.5 text-sm text-slate-500">{props.reportId === 'team-caps' ? 'Each agent’s cap year comes from that cap’s reset date.' : `${formatRange(range)} compared with ${formatRange(priorRange)}`}</p>
           </div>
           <div className="justify-self-end">
             {props.reportId === 'team-performance' ? (
@@ -1075,8 +1157,18 @@ function ReportView(props: {
               ? `${props.dateBases.find((field) => field.id === 'closing')?.label || 'Closing Date'} Range`
               : undefined}
         />
+        {capSection ? (
+          <CapStickyHeading
+            section={capSection}
+            labels={props.agentFieldLabels}
+            asOf={props.capAsOf}
+            previous={props.capYearOffset > 0}
+            openAgentId={props.capOpen?.capId === capSection.cap.id ? props.capOpen.agentId : null}
+            onClose={() => props.onCapOpen(null)}
+          />
+        ) : null}
       </div>
-      <div className="space-y-4 pt-4">
+      <div className={locked ? `flex min-h-0 flex-1 flex-col overflow-hidden ${capSection ? 'pt-0' : 'pt-4'}` : `space-y-4 ${capSection ? 'pt-0' : 'pt-4'}`}>
         {props.loading ? <p className="text-sm text-slate-500">Loading transactions…</p> : null}
         {props.error ? <p className="text-sm text-rose-600">{props.error}</p> : null}
         {!props.loading && !props.ready ? <Unavailable note={props.note || 'This report needs data Soleox does not store yet.'} /> : null}
@@ -1121,6 +1213,7 @@ function ReportView(props: {
 }
 
 type FilterChoice = { value: string; label: string; count: number };
+type CapMenuChoice = FilterChoice & { group: 'team' | 'agent' };
 
 function FilterBar(props: {
   preset: RangePreset;
@@ -1189,10 +1282,10 @@ function FilterBar(props: {
           <CustomDateField label="To" value={props.range.end} onChange={(end) => props.onRange({ ...props.range, end })} />
         </>
       ) : null}
+      <MultiFilter label="Group" note="Limits every metric to transactions whose primary agent belongs to the selected groups. All includes every agent." options={props.groupChoices} picked={props.groupPicked} fallback={null} onChange={props.onGroups} />
       {props.earningsChoices && props.onEarnings ? (
         <MultiFilter label="Earnings type" note="Net Commission Income is each agent’s payment amount. Checking an entity adds the post-split dollars that agent allocated to it." options={props.earningsChoices} picked={props.earningsPicked ?? null} fallback={[NET_EARNING]} onChange={props.onEarnings} />
       ) : null}
-      <MultiFilter label="Group" note="Limits every metric to transactions whose primary agent belongs to the selected groups. All includes every agent." options={props.groupChoices} picked={props.groupPicked} fallback={null} onChange={props.onGroups} />
       {props.dateOnly ? null : (
         <>
       <MultiFilter label="Status" options={props.statusChoices} picked={props.statusPicked} fallback={props.statusFallback} onChange={props.onStatus} fold />
@@ -1401,7 +1494,7 @@ function TitleMetric({ value, options, onChange }: { value: string; options: Boa
 }
 
 function TitleCaps({ options, picked, onChange }: {
-  options: FilterChoice[];
+  options: CapMenuChoice[];
   picked: string[] | null;
   onChange: (value: string[] | null) => void;
 }) {
@@ -1409,7 +1502,12 @@ function TitleCaps({ options, picked, onChange }: {
   const [query, setQuery] = useState('');
   const ref = useRef<HTMLSpanElement>(null);
   const selected = options.find((option) => option.value === picked?.[0]) || options[0];
-  const visible = options.filter((option) => option.label.toLowerCase().includes(query.trim().toLowerCase()));
+  const needle = query.trim().toLowerCase();
+  const visible = options.filter((option) => option.label.toLowerCase().includes(needle));
+  const groups = [
+    { id: 'team' as const, label: 'Team Caps', options: visible.filter((option) => option.group === 'team') },
+    { id: 'agent' as const, label: 'Agent Caps', options: visible.filter((option) => option.group === 'agent') },
+  ].filter((group) => group.options.length > 0);
   const choose = (id: string) => {
     onChange(options[0]?.value === id ? null : [id]);
     setOpen(false);
@@ -1438,14 +1536,14 @@ function TitleCaps({ options, picked, onChange }: {
         type="button"
         aria-expanded={open}
         aria-haspopup="listbox"
-        aria-label={`Team cap ${selected?.label || 'Team Caps'}`}
+        aria-label={`Cap ${selected?.label || 'Caps'}`}
         onClick={() => setOpen((current) => !current)}
         className="cursor-pointer appearance-none border-0 bg-transparent p-0 text-3xl font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
       >
-        {selected?.label || 'Team Caps'}
+        {selected?.label || 'Caps'}
       </button>
       {open ? (
-        <div role="listbox" aria-label="Team cap" className="absolute left-1/2 top-full z-50 mt-2 max-h-[min(36rem,calc(100dvh-14rem))] w-72 -translate-x-1/2 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+        <div role="listbox" aria-label="Cap" className="absolute left-1/2 top-full z-50 mt-2 max-h-[min(36rem,calc(100dvh-14rem))] w-72 -translate-x-1/2 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
           <div className="sticky top-0 z-10 bg-white px-1 py-1 dark:bg-slate-900">
             <div className="flex justify-end">
               <button type="button" onClick={() => { if (options[0]) choose(options[0].value); }} className="cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Reset</button>
@@ -1459,18 +1557,23 @@ function TitleCaps({ options, picked, onChange }: {
               />
             ) : null}
           </div>
-          {visible.length === 0 ? <p className="px-2 py-2 text-xs text-slate-400">No matches</p> : visible.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              role="option"
-              aria-selected={option.value === selected?.value}
-              onClick={() => choose(option.value)}
-              className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800 ${option.value === selected?.value ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200' : ''}`}
-            >
-              <span className="min-w-0 flex-1 truncate">{option.label}</span>
-              <span className="shrink-0 text-xs tabular-nums text-slate-400">{option.count.toLocaleString()}</span>
-            </button>
+          {groups.length === 0 ? <p className="px-2 py-2 text-xs text-slate-400">No matches</p> : groups.map((group, index) => (
+            <div key={group.id} className={index > 0 ? 'mt-1 border-t border-slate-200 pt-1 dark:border-slate-700' : undefined}>
+              <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">{group.label}</div>
+              {group.options.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="option"
+                  aria-selected={option.value === selected?.value}
+                  onClick={() => choose(option.value)}
+                  className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800 ${option.value === selected?.value ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200' : ''}`}
+                >
+                  <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                  <span className="shrink-0 text-xs tabular-nums text-slate-400">{option.count.toLocaleString()}</span>
+                </button>
+              ))}
+            </div>
           ))}
         </div>
       ) : null}
@@ -1923,9 +2026,6 @@ function ReportBody(props: {
     return (
       <TeamCapsReport
         sections={props.capSections}
-        labels={props.agentFieldLabels}
-        asOf={props.capAsOf}
-        previous={props.capYearOffset > 0}
         open={props.capOpen}
         onOpen={props.onCapOpen}
         empty={props.capEmpty}
@@ -1943,6 +2043,7 @@ function ReportBody(props: {
         payments={payments}
         teamLeadIds={teamLeadIds}
         range={range}
+        preset={preset}
       />
     );
   }
@@ -1974,22 +2075,94 @@ function ReportBody(props: {
   return null;
 }
 
-function closingMonthKey(date: Date | null): string | null {
-  if (!date) return null;
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+const PRODUCTION_GRAINS: Array<{ id: ProductionGrain; label: string }> = [
+  { id: 'day', label: 'Day-by-Day Production' },
+  { id: 'week', label: 'Week-by-Week Production' },
+  { id: 'month', label: 'Month-over-Month Production' },
+];
+
+function ProductionGrainTitle({ grain, enabled, onChange }: { grain: ProductionGrain; enabled: boolean; onChange: (grain: ProductionGrain) => void }) {
+  const [open, setOpen] = useState(false);
+  const [box, setBox] = useState<{ top: number; left: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const selected = PRODUCTION_GRAINS.find((option) => option.id === grain) || PRODUCTION_GRAINS[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (rect) setBox({ top: rect.bottom + 8, left: rect.left + rect.width / 2 });
+    };
+    place();
+    const onPointer = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  if (!enabled) return selected.label;
+
+  const choose = (id: ProductionGrain) => {
+    onChange(id);
+    setOpen(false);
+  };
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-label={`Production ${selected.label}`}
+        onClick={() => setOpen((current) => !current)}
+        className="cursor-pointer border-0 bg-transparent p-0 font-inherit uppercase tracking-wide text-inherit [-webkit-tap-highlight-color:transparent] [outline:none] hover:opacity-80 focus:[outline:none] focus-visible:[outline:none]"
+      >
+        {selected.label}
+      </button>
+      {open && box ? createPortal(
+        <div
+          ref={menuRef}
+          role="listbox"
+          aria-label="Production"
+          className="w-max rounded-lg border border-slate-200 bg-white p-1 text-left text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          style={{ position: 'fixed', top: box.top, left: box.left, transform: 'translateX(-50%)', zIndex: 80 }}
+        >
+          {PRODUCTION_GRAINS.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              role="option"
+              aria-selected={option.id === grain}
+              onClick={() => choose(option.id)}
+              className={`block w-full cursor-pointer whitespace-nowrap rounded-md px-2 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800 ${option.id === grain ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200' : ''}`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>,
+        document.body,
+      ) : null}
+    </>
+  );
 }
 
-function priorMonthKey(monthKey: string): string {
-  const [year, month] = monthKey.split('-');
-  return `${Number(year) - 1}-${month}`;
-}
-
-function formatMonthKey(monthKey: string): string {
-  const [year, month] = monthKey.split('-').map(Number);
-  return new Date(year, month - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-}
-
-function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, teamLeadIds, range }: {
+function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, teamLeadIds, range, preset }: {
   closed: ReportDeal[];
   closedPrior: ReportDeal[];
   net: number;
@@ -1998,14 +2171,114 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
   payments: ReportPayment[];
   teamLeadIds: Set<string>;
   range: DateRange;
+  preset: RangePreset;
 }) {
   const [monthKey, setMonthKey] = useState<string | null>(null);
+  const [grainChoice, setGrainChoice] = useState<ProductionGrain | null>(null);
+  const [scoresOpen, setScoresOpen] = useState(true);
   const [pulse, setPulse] = useState(0);
   const skipPulse = useRef(true);
+  const grain = resolveProductionGrain(grainChoice, preset, range);
+  const weekChoice = weekGrainAllowed(preset, range);
 
   useEffect(() => {
     setMonthKey(null);
-  }, [range.start, range.end]);
+  }, [range.start, range.end, grain]);
+
+  useEffect(() => {
+    if (!scoresOpen) return;
+    const chromeLimit = () => {
+      const main = document.querySelector('main');
+      const raw = main ? Number.parseFloat(getComputedStyle(main).getPropertyValue('--report-chrome-bottom')) : Number.NaN;
+      if (Number.isFinite(raw) && raw > 0) return raw;
+      const chrome = document.querySelector('main .sticky');
+      return chrome ? chrome.getBoundingClientRect().bottom : 0;
+    };
+    let locking = false;
+    const clamp = () => {
+      if (locking) return;
+      const block = document.querySelector<HTMLElement>('[data-production-block]');
+      const page = document.scrollingElement;
+      if (!block || !page) return;
+      const limit = chromeLimit();
+      const top = block.getBoundingClientRect().top;
+      if (top >= limit - 0.5) return;
+      locking = true;
+      page.scrollTop -= limit - top;
+      locking = false;
+    };
+    const onWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+      const block = document.querySelector<HTMLElement>('[data-production-block]');
+      const scroller = block?.querySelector<HTMLElement>('[data-production-fit]');
+      const page = document.scrollingElement;
+      if (!block || !scroller || !page) return;
+      const limit = chromeLimit();
+      const top = block.getBoundingClientRect().top;
+      const pixelDelta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaMode === 2 ? event.deltaY * window.innerHeight : event.deltaY;
+      if (pixelDelta > 0 && top > limit + 0.5) {
+        const room = top - limit;
+        if (pixelDelta <= room + 0.5) return;
+        locking = true;
+        page.scrollTop += room;
+        locking = false;
+        scroller.scrollTop += pixelDelta - room;
+        event.preventDefault();
+        return;
+      }
+      if (top > limit + 1) return;
+      const atTop = scroller.scrollTop <= 0;
+      const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
+      if (pixelDelta < 0 && atTop) return;
+      if (event.target instanceof Node && scroller.contains(event.target)) {
+        if (pixelDelta > 0 && atBottom) event.preventDefault();
+        return;
+      }
+      let node = event.target instanceof Element ? event.target : null;
+      while (node && node !== document.body) {
+        const style = getComputedStyle(node);
+        if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight + 1) return;
+        node = node.parentElement;
+      }
+      scroller.scrollTop += pixelDelta;
+      event.preventDefault();
+    };
+    window.addEventListener('scroll', clamp, { passive: true });
+    window.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      window.removeEventListener('scroll', clamp);
+      window.removeEventListener('wheel', onWheel);
+    };
+  }, [scoresOpen]);
+
+  useEffect(() => {
+    if (scoresOpen) return;
+    const previousHtml = document.documentElement.style.overflow;
+    const previousBody = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    document.scrollingElement?.scrollTo(0, 0);
+    const onWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+      const scroller = document.querySelector<HTMLElement>('[data-production-fit]');
+      if (!scroller || scroller.scrollHeight <= scroller.clientHeight + 1) return;
+      if (event.target instanceof Node && scroller.contains(event.target)) return;
+      let node = event.target instanceof Element ? event.target : null;
+      while (node && node !== document.body) {
+        const style = getComputedStyle(node);
+        if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight + 1) return;
+        node = node.parentElement;
+      }
+      scroller.scrollTop += event.deltaY;
+      event.preventDefault();
+    };
+    window.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      document.documentElement.style.overflow = previousHtml;
+      document.body.style.overflow = previousBody;
+      window.removeEventListener('wheel', onWheel);
+    };
+  }, [scoresOpen]);
 
   useEffect(() => {
     if (skipPulse.current) {
@@ -2019,8 +2292,8 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
     setMonthKey((current) => (key === 'total' || current === key ? null : key));
   };
 
-  const shownClosed = monthKey ? closed.filter((deal) => closingMonthKey(deal.closingDate) === monthKey) : closed;
-  const shownPrior = monthKey ? closedPrior.filter((deal) => closingMonthKey(deal.closingDate) === priorMonthKey(monthKey)) : closedPrior;
+  const shownClosed = monthKey ? closed.filter((deal) => deal.closingDate && productionKeyMatches(deal.closingDate, monthKey)) : closed;
+  const shownPrior = monthKey ? closedPrior.filter((deal) => deal.closingDate && productionKeyMatches(deal.closingDate, priorProductionKey(monthKey))) : closedPrior;
   const shownNet = monthKey ? teamLeadNet(payments, shownClosed, teamLeadIds) : net;
   const shownPriorNet = monthKey ? teamLeadNet(payments, shownPrior, teamLeadIds) : priorNet;
   const closedTotals = sumOf(shownClosed);
@@ -2040,16 +2313,23 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
   const operatingExpenses = 0;
   const netIncome = shownNet - operatingExpenses;
   const priorIncome = shownPriorNet - operatingExpenses;
-  const months = ownerMonthTable(deals, payments, teamLeadIds, range);
-  const monthLabel = monthKey ? formatMonthKey(monthKey) : '';
-  const priorLabel = monthKey ? formatMonthKey(priorMonthKey(monthKey)) : '';
+  const months = ownerMonthTable(deals, payments, teamLeadIds, range, grain);
+  const periodWord = grain === 'day' ? 'day' : grain === 'week' ? 'week' : 'month';
+  const periodLabel = grain === 'day' ? 'Day' : grain === 'week' ? 'Week' : 'Month';
+  const monthLabel = monthKey ? formatProductionKey(monthKey) : '';
+  const priorLabel = monthKey ? formatProductionKey(priorProductionKey(monthKey)) : '';
   return (
-    <div className="space-y-10">
+    <div
+      className={scoresOpen ? 'space-y-10' : `flex min-h-0 flex-col gap-4 ${reportCanvas}`}
+      style={scoresOpen ? undefined : { marginTop: '-1rem', height: 'calc(100dvh - var(--report-chrome-bottom, 0px) - 0.75rem)' }}
+    >
       {monthKey ? (
         <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-          Showing {monthLabel}, compared with {priorLabel}. Click the month again to restore the full range.
+          Showing {monthLabel}, compared with {priorLabel}. Click the {periodWord} again to restore the full range.
         </p>
       ) : null}
+      {scoresOpen ? (
+      <>
       <div className="flex flex-wrap items-stretch gap-6">
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
           <SectionHeading>Closed Net Commission Income to Owner(s)</SectionHeading>
@@ -2116,9 +2396,36 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
           </div>
         </div>
       </div>
-      <div className="space-y-3">
-        <SectionHeading>Month-over-Month Production</SectionHeading>
-        <MonthTable rows={months} selectedMonth={monthKey} onSelectMonth={selectMonth} />
+      </>
+      ) : null}
+      <div
+        data-production-block=""
+        className={`flex min-h-0 flex-col overflow-hidden ${reportCanvas} ${scoresOpen ? '' : 'flex-1'}`}
+        style={scoresOpen ? { height: 'calc(100dvh - var(--report-chrome-bottom, 0px) - 0.75rem)' } : undefined}
+      >
+        <div data-production-heading="" className="relative z-30 shrink-0 bg-slate-100 pb-3 dark:bg-slate-950">
+        <SectionHeading
+          end={(
+            <button
+              type="button"
+              aria-expanded={scoresOpen}
+              aria-label={scoresOpen ? 'Hide scorecards' : 'Show scorecards'}
+              title={scoresOpen ? 'Hide scorecards' : 'Show scorecards'}
+              onClick={() => setScoresOpen((open) => !open)}
+              className="all-agents-enter-right inline-flex h-full cursor-pointer items-center justify-center rounded-r-full bg-black/20 px-4 text-white transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950"
+            >
+              {scoresOpen ? <ChevronUp className="h-4 w-4" strokeWidth={2.5} aria-hidden /> : <ChevronDown className="h-4 w-4" strokeWidth={2.5} aria-hidden />}
+            </button>
+          )}
+        >
+          <ProductionGrainTitle
+            grain={grain}
+            enabled={weekChoice}
+            onChange={(next) => setGrainChoice(next)}
+          />
+        </SectionHeading>
+        </div>
+        <MonthTable rows={months} selectedMonth={monthKey} onSelectMonth={selectMonth} periodLabel={periodLabel} pinTotal />
       </div>
     </div>
   );
@@ -2342,7 +2649,7 @@ function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, cumu
   };
   return (
     <div className={pairedReport}>
-      <TrendPanel metric="volume" title="Sales volume" tone="volume" currentClass="text-teal-600 dark:text-teal-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-teal-700 dark:text-teal-200" pendingClass="text-teal-500 dark:text-teal-400" cumulative={cumulative} {...panel} />
+      <TrendPanel metric="volume" title="Sales volume" tone="blue" currentClass="text-blue-700 dark:text-blue-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-blue-800 dark:text-blue-200" pendingClass="text-blue-600 dark:text-blue-400" cumulative={cumulative} {...panel} />
       <TrendPanel metric="gci" title="Gross commission income" tone="emerald" currentClass="text-emerald-600 dark:text-emerald-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-emerald-700 dark:text-emerald-200" pendingClass="text-emerald-500 dark:text-emerald-400" cumulative={cumulative} {...panel} />
       <TrendPanel metric="units" title="Units" tone="units" currentClass="text-purple-600 dark:text-purple-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-purple-700 dark:text-purple-200" pendingClass="text-purple-500 dark:text-purple-400" cumulative={cumulative} {...panel} />
       <TrendPanel metric="team" title="Team Commission" tone="team" currentClass="text-rose-600 dark:text-rose-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-rose-700 dark:text-rose-200" pendingClass="text-rose-500 dark:text-rose-400" cumulative={cumulative} {...panel} />
@@ -2355,7 +2662,7 @@ function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, cumu
 function TrendPanel({ metric, title, tone, currentClass, previousClass, accentClass, pendingClass, chart = 'line', cumulative = false, months, priorMonths, currentDeals, priorDeals, statusFilter, onSelectStatus, notice }: {
   metric: TrendMetric;
   title: string;
-  tone: 'volume' | 'emerald' | 'units' | 'rate' | 'price' | 'team';
+  tone: 'volume' | 'blue' | 'emerald' | 'units' | 'rate' | 'price' | 'team';
   currentClass: string;
   previousClass: string;
   accentClass: string;
@@ -2398,9 +2705,10 @@ function TrendPanel({ metric, title, tone, currentClass, previousClass, accentCl
   );
 }
 
-function metricEdge(label: string, tone: 'volume' | 'emerald' | 'units' | 'rate' | 'price' | 'team'): string {
+function metricEdge(label: string, tone: 'volume' | 'blue' | 'emerald' | 'units' | 'rate' | 'price' | 'team'): string {
   if (label === 'Total') return 'border-slate-900 ring-slate-900 dark:border-white dark:ring-white';
   const closed = label !== 'Pending';
+  if (tone === 'blue') return closed ? 'border-blue-800 ring-blue-800 dark:border-blue-200 dark:ring-blue-200' : 'border-blue-600 ring-blue-600 dark:border-blue-400 dark:ring-blue-400';
   if (tone === 'volume') return closed ? 'border-teal-700 ring-teal-700 dark:border-teal-200 dark:ring-teal-200' : 'border-teal-500 ring-teal-500 dark:border-teal-400 dark:ring-teal-400';
   if (tone === 'units') return closed ? 'border-purple-700 ring-purple-700 dark:border-purple-200 dark:ring-purple-200' : 'border-purple-500 ring-purple-500 dark:border-purple-400 dark:ring-purple-400';
   if (tone === 'rate') return closed ? 'border-sky-700 ring-sky-700 dark:border-sky-200 dark:ring-sky-200' : 'border-sky-500 ring-sky-500 dark:border-sky-400 dark:ring-sky-400';
@@ -2410,7 +2718,7 @@ function metricEdge(label: string, tone: 'volume' | 'emerald' | 'units' | 'rate'
 }
 
 function TrendScore({ tone, label, amount, toneClass, dollar, percent, current = 0, prior = 0, selected, onSelect }: {
-  tone: 'volume' | 'emerald' | 'units' | 'rate' | 'price' | 'team';
+  tone: 'volume' | 'blue' | 'emerald' | 'units' | 'rate' | 'price' | 'team';
   label: string;
   amount: string;
   toneClass: string;
@@ -2421,7 +2729,9 @@ function TrendScore({ tone, label, amount, toneClass, dollar, percent, current =
   selected: boolean;
   onSelect: () => void;
 }) {
-  const selectedFill = tone === 'volume'
+  const selectedFill = tone === 'blue'
+    ? 'bg-blue-50 dark:bg-blue-950/80'
+    : tone === 'volume'
     ? 'bg-[#d7f6fa] dark:bg-teal-950/80'
     : tone === 'units'
       ? 'bg-[#f3e8ff] dark:bg-purple-950/80'
@@ -2432,7 +2742,7 @@ function TrendScore({ tone, label, amount, toneClass, dollar, percent, current =
           : tone === 'team'
             ? 'bg-rose-50 dark:bg-rose-950/80'
             : 'bg-emerald-50 dark:bg-emerald-950/80';
-  const focusClass = tone === 'volume' ? 'focus-visible:ring-teal-400' : tone === 'units' ? 'focus-visible:ring-purple-400' : tone === 'rate' ? 'focus-visible:ring-sky-400' : tone === 'price' ? 'focus-visible:ring-amber-400' : tone === 'team' ? 'focus-visible:ring-rose-400' : 'focus-visible:ring-emerald-400';
+  const focusClass = tone === 'blue' ? 'focus-visible:ring-blue-400' : tone === 'volume' ? 'focus-visible:ring-teal-400' : tone === 'units' ? 'focus-visible:ring-purple-400' : tone === 'rate' ? 'focus-visible:ring-sky-400' : tone === 'price' ? 'focus-visible:ring-amber-400' : tone === 'team' ? 'focus-visible:ring-rose-400' : 'focus-visible:ring-emerald-400';
   return (
     <button
       type="button"
@@ -2458,6 +2768,19 @@ function runningTotal(values: number[]): number[] {
     total += value;
     return total;
   });
+}
+
+function svgUserX(svg: SVGSVGElement, clientX: number, clientY: number): number {
+  const matrix = svg.getScreenCTM();
+  if (!matrix) {
+    const rect = svg.getBoundingClientRect();
+    const viewWidth = svg.viewBox.baseVal.width || rect.width;
+    return ((clientX - rect.left) / rect.width) * viewWidth;
+  }
+  const point = svg.createSVGPoint();
+  point.x = clientX;
+  point.y = clientY;
+  return point.matrixTransform(matrix.inverse()).x;
 }
 
 function TrendChart({ metric, title, months, priorMonths, currentClass, previousClass, cumulative = false }: {
@@ -2505,8 +2828,7 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
           onMouseLeave={() => setHover(null)}
           onMouseMove={(event) => {
             if (!months.length) return;
-            const rect = event.currentTarget.getBoundingClientRect();
-            const x = ((event.clientX - rect.left) / rect.width) * width;
+            const x = svgUserX(event.currentTarget, event.clientX, event.clientY);
             let nearest = 0;
             let best = Infinity;
             months.forEach((_, index) => {
@@ -2647,8 +2969,7 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
           onMouseLeave={() => setHover(null)}
           onMouseMove={(event) => {
             if (!months.length) return;
-            const rect = event.currentTarget.getBoundingClientRect();
-            const x = ((event.clientX - rect.left) / rect.width) * width;
+            const x = svgUserX(event.currentTarget, event.clientX, event.clientY);
             setHover(Math.min(months.length - 1, Math.max(0, Math.floor((x - pad.left) / slot))));
           }}
         >
@@ -2747,8 +3068,7 @@ function LineChart({ title, metric, current, previous }: { title: string; metric
           className="w-full h-56"
           onMouseLeave={() => setHover(null)}
           onMouseMove={(event) => {
-            const rect = event.currentTarget.getBoundingClientRect();
-            const x = ((event.clientX - rect.left) / rect.width) * width;
+            const x = svgUserX(event.currentTarget, event.clientX, event.clientY);
             let nearest = 0;
             let best = Infinity;
             current.forEach((_, index) => {
@@ -3643,6 +3963,7 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
   const rowPeak = rows.reduce((max, row) => Math.max(max, row.total), 0);
   const monthPeak = columns.reduce((max, column) => Math.max(max, columnTotals[column.key] || 0), 0);
   const [pick, setPick] = useState<{ agentId: string | null; periodKey: string | null } | null>(null);
+  const [summaryOpen, setSummaryOpen] = useState(true);
   const blockRef = useRef<HTMLDivElement>(null);
   const pivotWrapRef = useRef<HTMLDivElement>(null);
   const pivotBodyRef = useRef<HTMLTableElement>(null);
@@ -3748,34 +4069,16 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
     const fit = (scroll: boolean) => {
       const pivot = pivotWrapRef.current;
       const detail = detailWrapRef.current;
-      const chrome = document.querySelector('main .sticky.top-0');
-      if (!pick) {
-        clearReportDetailPad(pivot);
-        if (pivot) {
-          const top = pivot.getBoundingClientRect().top;
-          const fitHeight = Math.max(180, Math.round(window.innerHeight - top - 12));
-          const body = pivot.querySelector<HTMLElement>('.report-table-fit');
-          const foot = pivot.querySelector<HTMLElement>('[data-pivot-foot]');
-          const needed = (body?.scrollHeight ?? 0) + (foot?.scrollHeight ?? 0);
-          const border = pivot.offsetHeight - pivot.clientHeight;
-          pivot.style.maxHeight = `${fitHeight}px`;
-          pivot.style.height = needed > 0 ? `${Math.min(needed + border, fitHeight)}px` : '';
-        }
-      } else if (pivot) {
+      if (pivot) {
         pivot.style.maxHeight = '';
         pivot.style.height = '';
       }
-      if (pick && scroll) scrollUnderChrome(blockRef.current);
       if (detail) {
-        const chromeBottom = chrome?.getBoundingClientRect().bottom ?? 0;
-        const top = Math.max(detail.getBoundingClientRect().top, chromeBottom);
-        const fitHeight = Math.max(160, Math.round(window.innerHeight - top - 12));
-        const body = detail.querySelector<HTMLElement>('.report-table-fit');
-        const foot = detail.querySelector<HTMLElement>('[data-earning-foot]');
-        const needed = (body?.scrollHeight ?? 0) + (foot?.scrollHeight ?? 0);
-        detail.style.maxHeight = `${fitHeight}px`;
-        detail.style.height = needed > fitHeight ? `${fitHeight}px` : 'auto';
+        detail.style.maxHeight = '';
+        detail.style.height = '';
       }
+      if (!pick) clearReportDetailPad(pivot);
+      if (pick && scroll) scrollUnderChrome(blockRef.current);
     };
     fit(true);
     syncPivotFoot();
@@ -3791,13 +4094,30 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
     };
   }, [pick, ordered.length, columns.length]);
   return (
-    <div ref={blockRef} className="space-y-4">
-      <SectionHeading action={pick ? (
-        <button type="button" onClick={() => setPick(null)} className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/20 px-4 text-xs font-semibold normal-case tracking-normal text-white transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950">
-          <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
-          All Agents
-        </button>
-      ) : undefined}>{agentName || 'Agent Earnings'}</SectionHeading>
+    <div ref={blockRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+      <div className="shrink-0 space-y-4">
+      <SectionHeading
+        action={pick ? (
+          <button type="button" onClick={() => setPick(null)} className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/20 px-4 text-xs font-semibold normal-case tracking-normal text-white transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950">
+            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+            All Agents
+          </button>
+        ) : undefined}
+        end={(
+          <button
+            key={pick ? 'open' : 'all'}
+            type="button"
+            aria-expanded={summaryOpen}
+            aria-label={summaryOpen ? 'Hide scorecards and chart' : 'Show scorecards and chart'}
+            title={summaryOpen ? 'Hide scorecards and chart' : 'Show scorecards and chart'}
+            onClick={() => setSummaryOpen((open) => !open)}
+            className="all-agents-enter-right inline-flex h-full cursor-pointer items-center justify-center rounded-r-full bg-black/20 px-4 text-white transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950"
+          >
+            {summaryOpen ? <ChevronUp className="h-4 w-4" strokeWidth={2.5} aria-hidden /> : <ChevronDown className="h-4 w-4" strokeWidth={2.5} aria-hidden />}
+          </button>
+        )}
+      >{agentName || 'Agent Earnings'}</SectionHeading>
+      {summaryOpen ? (
       <div className={`grid transition-[grid-template-columns,gap] duration-500 ease-out motion-reduce:transition-none ${pick ? 'items-stretch gap-4 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.2fr)]' : 'items-start gap-0 lg:grid-cols-1'}`}>
         <div className={`min-w-0 transition-all duration-500 ease-out motion-reduce:transition-none ${pick ? 'flex w-full flex-col justify-between gap-4' : 'lg:mx-auto lg:w-[calc(50%-0.5rem)]'}`}>
           <div className={pick ? 'rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900' : undefined}>
@@ -3817,10 +4137,12 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
           </div>
         ) : null}
       </div>
+      ) : null}
+      </div>
       {pick ? null : (
-      <div ref={pivotWrapRef} className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div ref={pivotWrapRef} className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div
-          className="report-table report-table-fit min-h-0 flex-auto rounded-none border-0"
+          className="report-table report-table-fit min-h-0 flex-1 rounded-none border-0"
           onScroll={(event) => {
             if (pivotFootScrollRef.current) pivotFootScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
           }}
@@ -3897,8 +4219,8 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
       </div>
       )}
       {pick ? (
-        <div className="space-y-2">
-          <p className="text-sm text-slate-500">{subject}: {periodLabel}.</p>
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+          <p className="shrink-0 text-sm text-slate-500">{subject}: {periodLabel}.</p>
           <EarningTransactions lines={shown} names={names} wrapRef={detailWrapRef} />
         </div>
       ) : null}
@@ -4044,7 +4366,7 @@ function EarningTransactions({ lines, names, wrapRef }: { lines: Array<{ key: st
     </>
   );
   return (
-    <div ref={wrapRef} className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+    <div ref={wrapRef} className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div
         className="report-table report-table-fit min-h-0 flex-1 rounded-none border-0"
         onScroll={(event) => {
@@ -4328,13 +4650,48 @@ function ScoreNote({ label, text, onOpenChange, className = 'absolute right-1.5 
   );
 }
 
-function SectionHeading({ children, tone = 'emerald', note, action }: { children: React.ReactNode; tone?: 'emerald' | 'listing' | 'buyer' | 'volume' | 'units' | 'slate' | 'rate' | 'price' | 'team'; note?: string; action?: React.ReactNode }) {
+function CapStickyHeading({ section, labels, asOf, previous, openAgentId, onClose }: {
+  section: { cap: TeamCapDefinition; rows: CapStanding[] };
+  labels: Map<string, string>;
+  asOf: string;
+  previous: boolean;
+  openAgentId: string | null;
+  onClose: () => void;
+}) {
+  const open = section.rows.find((row) => row.agentId === openAgentId) || null;
+  const resetLabel = section.cap.resetDateFieldKey ? (labels.get(section.cap.resetDateFieldKey) || 'the reset date') : 'the reset date';
+  const measured = previous ? `Previous cap year, measured from ${formatLong(asOf)}.` : `Data as of ${formatLong(asOf)}.`;
+  return (
+    <div className="mt-4">
+      <SectionHeading
+        note={`${measured} Closed and pending contributions in that year. Click an agent for the transactions.`}
+        action={open ? (
+          <button type="button" onClick={onClose} className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/20 px-4 text-xs font-semibold normal-case tracking-normal text-white transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950">
+            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+            All agents
+          </button>
+        ) : undefined}
+      >
+        {open ? open.agentName : section.cap.name}
+      </SectionHeading>
+      <p className="mt-3 text-center text-sm text-slate-500">
+        {open
+          ? `${open.agentName} · ${formatUs(open.start)} – ${formatUs(open.end)}`
+          : `Cap year from ${resetLabel}. Each row is that agent’s own anniversary.`}
+      </p>
+    </div>
+  );
+}
+
+function SectionHeading({ children, tone = 'emerald', note, action, end }: { children: React.ReactNode; tone?: 'emerald' | 'listing' | 'buyer' | 'volume' | 'blue' | 'units' | 'slate' | 'rate' | 'price' | 'team'; note?: string; action?: React.ReactNode; end?: React.ReactNode }) {
   const fill = tone === 'listing'
     ? 'report-pill-listing'
     : tone === 'buyer'
       ? 'report-pill-buyer'
       : tone === 'volume'
         ? 'report-turquoise'
+        : tone === 'blue'
+          ? 'report-blue'
         : tone === 'units'
           ? 'report-purple'
           : tone === 'slate'
@@ -4347,9 +4704,12 @@ function SectionHeading({ children, tone = 'emerald', note, action }: { children
                   ? 'bg-rose-700 text-white'
                   : 'report-pill-emerald';
   return (
-    <h3 className={`relative w-full rounded-full text-center text-sm font-bold uppercase tracking-wide ${fill} ${action ? 'grid grid-cols-[1fr_auto_1fr] items-stretch overflow-hidden' : 'px-4 py-2'}`}>
-      {action ? <div className="justify-self-start">{action}</div> : null}
-      {action ? <span className="flex items-center justify-center px-4 py-2">{children}</span> : children}
+    <h3 className="relative w-full">
+      <div className={`rounded-full text-center text-sm font-bold uppercase tracking-wide ${fill} ${action || end ? 'grid grid-cols-[1fr_auto_1fr] items-stretch overflow-hidden' : 'px-4 py-2'}`}>
+        {action || end ? <div className="justify-self-start">{action}</div> : null}
+        {action || end ? <span className="flex items-center justify-center px-4 py-2">{children}</span> : children}
+        {end ? <div className="justify-self-end self-stretch">{end}</div> : null}
+      </div>
       {note ? (
         <ScoreNote
           label={typeof children === 'string' ? children : 'section'}
@@ -4463,7 +4823,7 @@ function Figure({ label, value, emphasis = false }: { label: string; value: stri
   );
 }
 
-function MonthTable({ rows, selectedMonth, onSelectMonth }: { rows: OwnerMonthRow[]; selectedMonth: string | null; onSelectMonth: (key: string) => void }) {
+function MonthTable({ rows, selectedMonth, onSelectMonth, periodLabel, pinTotal = false }: { rows: OwnerMonthRow[]; selectedMonth: string | null; onSelectMonth: (key: string) => void; periodLabel: string; pinTotal?: boolean }) {
   const { sort, toggle } = useColumnSort();
   const total = rows.reduce<OwnerMonthRow>((sum, row) => ({
     key: 'total',
@@ -4504,14 +4864,48 @@ function MonthTable({ rows, selectedMonth, onSelectMonth }: { rows: OwnerMonthRo
     if (key === 'closedNetIncome') return row.closedNet;
     return row[key as keyof OwnerMonthRow] as string | number;
   });
-  const body = [...ordered, total];
+  const body = pinTotal ? ordered : [...ordered, total];
   const count = (value: number) => value.toLocaleString();
-  return (
-    <div className={reportTableWrap}>
-      <table className="w-full text-xs">
+  const bodyRef = useRef<HTMLTableElement>(null);
+  const footRef = useRef<HTMLTableElement>(null);
+  const footScrollRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!pinTotal) return;
+    const sync = () => {
+      const table = bodyRef.current;
+      const foot = footRef.current;
+      if (!table || !foot) return;
+      const widths = [...table.querySelectorAll('thead th')].map((cell) => cell.getBoundingClientRect().width);
+      foot.style.width = `${table.scrollWidth}px`;
+      [...foot.querySelectorAll('td')].forEach((cell, index) => {
+        const width = `${widths[index] || 0}px`;
+        cell.style.width = width;
+        cell.style.minWidth = width;
+        cell.style.maxWidth = width;
+      });
+    };
+    sync();
+    const observer = new ResizeObserver(sync);
+    if (bodyRef.current) observer.observe(bodyRef.current);
+    window.addEventListener('resize', sync);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', sync);
+    };
+  }, [pinTotal, ordered, periodLabel]);
+  const table = (
+    <div className={pinTotal ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900' : reportTableWrap}>
+      <div
+        data-production-fit={pinTotal ? '' : undefined}
+        className={pinTotal ? 'report-table report-table-fit min-h-0 flex-1 rounded-none border-0' : undefined}
+        onScroll={pinTotal ? (event) => {
+          if (footScrollRef.current) footScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
+        } : undefined}
+      >
+      <table ref={bodyRef} className="w-full text-xs">
         <thead className="report-head-dark text-xs font-medium normal-case text-white">
           <tr>
-            <SortHead column="month" label="Month" sort={sort} onSort={toggle} className="sticky left-0 z-10 bg-slate-800 px-2 py-2 text-xs font-medium text-white" />
+            <SortHead column="month" label={periodLabel} sort={sort} onSort={toggle} className="sticky left-0 z-10 bg-slate-800 px-2 py-2 text-xs font-medium text-white" />
             <SortHead column="closedUnits" label="Closed Units" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
             <SortHead column="closedVolume" label="Closed Volume" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
             <SortHead column="closedCommission" label="Closed Total Comm." title="Closed total commission" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
@@ -4576,8 +4970,44 @@ function MonthTable({ rows, selectedMonth, onSelectMonth }: { rows: OwnerMonthRo
           })}
         </tbody>
       </table>
+      </div>
+      {pinTotal ? (
+        <div
+          ref={footScrollRef}
+          data-production-foot=""
+          className="shrink-0 overflow-x-auto border-t border-slate-200 bg-slate-200 font-bold dark:border-slate-700 dark:bg-slate-700 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          onScroll={(event) => {
+            const scroller = event.currentTarget.previousElementSibling;
+            if (scroller instanceof HTMLElement) scroller.scrollLeft = event.currentTarget.scrollLeft;
+          }}
+        >
+          <table ref={footRef} className="text-xs font-bold">
+            <tbody>
+              <tr className="cursor-pointer" onClick={() => onSelectMonth(total.key)}>
+                <td className="sticky left-0 z-10 bg-slate-200 px-3 py-2 whitespace-nowrap dark:bg-slate-700">{total.label}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{count(total.closedUnits)}</td>
+                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(total.closedVolume)}</td>
+                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(total.closedCommission)}</td>
+                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(total.closedNet)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">—</td>
+                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(total.closedNet)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{count(total.listingsTaken)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{count(total.listingsPended)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{count(total.listingsClosed)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{count(total.buyersPended)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{count(total.buyersClosed)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{count(total.pendingUnits)}</td>
+                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(total.pendingVolume)}</td>
+                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(total.pendingCommission)}</td>
+                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(total.pendingNet)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ) : null}
     </div>
   );
+  return table;
 }
 
 function sumOf(deals: ReportDeal[]): Totals {

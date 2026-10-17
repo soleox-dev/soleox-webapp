@@ -32,6 +32,7 @@ import { AllocateCommissionModal } from './components/AllocateCommissionModal';
 import { toPercentPoints } from '@/lib/percent';
 import type { AppliedTemplateRules } from './components/applyTemplateLogic';
 import type { TemplateSubmissionDraft } from './components/CommissionTemplatePanel';
+import { qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection } from '@/lib/agent-allocations';
 import { isPrimaryAgent, resolvePrimaryAgentId, waterfallFromCommissionItems } from './commissionItemState';
 import { generatePrefixedId } from '@/lib/id';
 import { transactionDealLabel, transactionSearchLabel } from '@/lib/transaction-label';
@@ -342,6 +343,7 @@ export default function Dashboard() {
     preSplitRules: DynamicRule[];
     postSplitRulesByAgent: Record<string, DynamicRule[]>;
     postSplit2RulesByAgent: Record<string, DynamicRule[]>;
+    teamCapIds: string[] | null;
   } | null>(null);
   const [hasUnsavedLocalChanges, setHasUnsavedLocalChanges] = useState(false);
   const [waterfallResetPending, setWaterfallResetPending] = useState(false);
@@ -352,9 +354,13 @@ export default function Dashboard() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [pendingTemplateSubmission, setPendingTemplateSubmission] = useState<TemplateSubmissionDraft | null>(null);
   const [selectedTeamCapIds, setSelectedTeamCapIds] = useState<string[] | null>(null);
+  const [suspendCapAutoSave, setSuspendCapAutoSave] = useState(false);
   const [templateSubmissionRevision, setTemplateSubmissionRevision] = useState(0);
   const [templateReplayReset, setTemplateReplayReset] = useState(0);
   const pendingTemplateSubmissionRef = useRef<TemplateSubmissionDraft | null>(null);
+  const storedTemplateSubmissionRef = useRef<TemplateSubmissionDraft | null>(null);
+  const savedTeamCapIdsRef = useRef<string[] | null>(null);
+  const teamCapsClearedRef = useRef(false);
   const [isUnsavedModalOpen, setIsUnsavedModalOpen] = useState(false);
   const pendingNavigationRef = useRef<(() => void) | null>(null);
   type CapOverrideRow = { agentId: string; kind: 'team_cap' | 'sales_volume'; amount: number; teamCapId: string | null };
@@ -390,6 +396,17 @@ export default function Dashboard() {
   const cloneWaterfallRulesByAgent = (map: Record<string, DynamicRule[]>) =>
     Object.fromEntries(Object.entries(map).map(([k, rules]) => [k, cloneWaterfallRules(rules)]));
 
+  const sameTeamCapSelection = (left: string[] | null | undefined, right: string[] | null | undefined) => {
+    if (left == null || right == null) return left == null && right == null;
+    if (left.length !== right.length) return false;
+    const rightIds = new Set(right);
+    return left.every((id) => rightIds.has(id));
+  };
+
+  const holdCapAutoSave = (ids: string[] | null) => {
+    setSuspendCapAutoSave(teamCapsClearedRef.current || !sameTeamCapSelection(ids, savedTeamCapIdsRef.current));
+  };
+
   const handleStartWaterfallEdit = () => {
     setWaterfallEditSnapshot({
       agents: agents.map((a) => ({ ...a })),
@@ -397,21 +414,25 @@ export default function Dashboard() {
       preSplitRules: cloneWaterfallRules(preSplitRules),
       postSplitRulesByAgent: cloneWaterfallRulesByAgent(postSplitRulesByAgent),
       postSplit2RulesByAgent: cloneWaterfallRulesByAgent(postSplit2RulesByAgent),
+      teamCapIds: selectedTeamCapIds ? [...selectedTeamCapIds] : null,
     });
     capOverrideActions.current.setBaseline(capOverrideActions.current.current.map((row) => ({ ...row })));
     setIsEditingWaterfall(true);
   };
 
   const handleCancelWaterfallEdit = () => {
+    const restoredCaps = waterfallEditSnapshot ? waterfallEditSnapshot.teamCapIds : selectedTeamCapIds;
     if (waterfallEditSnapshot) {
       setAgents(waterfallEditSnapshot.agents.map((a) => ({ ...a })));
       setOffTheTopRules(cloneWaterfallRules(waterfallEditSnapshot.offTheTopRules));
       setPreSplitRules(cloneWaterfallRules(waterfallEditSnapshot.preSplitRules));
       setPostSplitRulesByAgent(cloneWaterfallRulesByAgent(waterfallEditSnapshot.postSplitRulesByAgent));
       setPostSplit2RulesByAgent(cloneWaterfallRulesByAgent(waterfallEditSnapshot.postSplit2RulesByAgent));
+      setSelectedTeamCapIds(waterfallEditSnapshot.teamCapIds);
     }
     if (capOverrideActions.current.baseline) capOverrideActions.current.replace(capOverrideActions.current.baseline);
     capOverrideActions.current.setBaseline(null);
+    holdCapAutoSave(restoredCaps);
     setWaterfallEditSnapshot(null);
     setIsEditingWaterfall(false);
     setIsAddAgentModalOpen(false);
@@ -433,18 +454,58 @@ export default function Dashboard() {
     const unchanged = !waterfallHasEdits();
     const baseline = capOverrideActions.current.baseline;
     const capChanged = baseline != null && !sameAllocationOverrides(capOverrideActions.current.current, baseline);
+    const selectionChanged = waterfallEditSnapshot != null && !sameTeamCapSelection(waterfallEditSnapshot.teamCapIds, selectedTeamCapIds);
 
     setWaterfallEditSnapshot(null);
     capOverrideActions.current.setBaseline(null);
     setIsEditingWaterfall(false);
     setIsAddAgentModalOpen(false);
-    if (unchanged && !capChanged) return;
+    if (selectionChanged && selectedTeamCapIds) stageTeamCapSelection(selectedTeamCapIds);
+    holdCapAutoSave(selectedTeamCapIds);
+    if (unchanged && !capChanged && !selectionChanged) return;
 
     // Local apply only — DB persistence happens via Save Transaction
     setHasUnsavedLocalChanges(true);
   };
 
+  const releaseTeamCapClear = () => {
+    teamCapsClearedRef.current = false;
+    setSuspendCapAutoSave(false);
+  };
+
+  const rememberStoredSubmission = (submission: TemplateSubmissionDraft | null) => {
+    storedTemplateSubmissionRef.current = submission;
+    savedTeamCapIdsRef.current = submission ? readTeamCapSelection(submission.submitted_parameters) : null;
+    if (teamCapsClearedRef.current) stageClearedTeamCaps();
+  };
+
+  const handleTeamCapSelection = (ids: string[] | null) => {
+    if (teamCapsClearedRef.current) return;
+    setSelectedTeamCapIds(ids);
+  };
+
+  function stageTeamCapSelection(ids: string[]) {
+    const pending = pendingTemplateSubmissionRef.current;
+    const source = pending ?? storedTemplateSubmissionRef.current;
+    if (!source?.template_id) return;
+    const recorded = readTeamCapSelection(source.submitted_parameters);
+    if (sameTeamCapSelection(recorded, ids)) return;
+    const next: TemplateSubmissionDraft = {
+      ...source,
+      submitted_parameters: writeTeamCapSelection({ ...source.submitted_parameters }, ids),
+      team_cap_ids: ids,
+      ...(ids.length === 0 ? { team_cap_recipients: [] } : {}),
+    };
+    pendingTemplateSubmissionRef.current = next;
+    setPendingTemplateSubmission(next);
+  }
+
+  function stageClearedTeamCaps() {
+    stageTeamCapSelection([]);
+  }
+
   const handleApplyTemplateRules = (applied: AppliedTemplateRules, submission?: TemplateSubmissionDraft) => {
+    releaseTeamCapClear();
     const nextOff = applied.offTheTopRules ?? [];
     const nextPre = applied.preSplitRules ?? [];
     const nextPost = applied.postSplitRulesByAgent ?? {};
@@ -733,6 +794,7 @@ export default function Dashboard() {
     input: allocationInput,
     hasStoredRows: hasStoredAllocations,
     overrides: capOverrides,
+    agentCapCells,
     setTeamCapOverride,
     replaceOverrides,
     restoreLoadedOverrides,
@@ -759,6 +821,23 @@ export default function Dashboard() {
     if (!allocationInput) return null;
     return { ...allocationInput, selectedTeamCapIds };
   }, [allocationInput, selectedTeamCapIds]);
+
+  const handleRemoveTeamCap = (teamCapId: string) => {
+    const removedId = teamCapId.trim();
+    if (!removedId) return;
+    const qualifyingIds = qualifyingTeamCaps(
+      allocationInput?.teamCaps ?? [],
+      allocationDeal,
+      allocationFieldTypes,
+    ).map((cap) => cap.id);
+    const current = selectedTeamCapIds == null ? qualifyingIds : selectedTeamCapIds;
+    if (!current.includes(removedId) && selectedTeamCapIds != null) return;
+    setSelectedTeamCapIds(current.filter((id) => id !== removedId));
+    capOverrideActions.current.replace(
+      capOverrideActions.current.current.filter((row) => !(row.kind === 'team_cap' && (row.teamCapId || '') === removedId)),
+    );
+    setSuspendCapAutoSave(true);
+  };
 
   const templateReplay = useSubmittedTemplateReplay({
     clientId: activeClientId,
@@ -787,6 +866,16 @@ export default function Dashboard() {
     templateReplay,
   });
 
+  type AllocationSaveRow = {
+    agentId: string;
+    kind: string;
+    amount: number;
+    calculatedAmount: number;
+    isOverride: boolean;
+    periodStart: string | null;
+    teamCapId: string | null;
+  };
+
   const allocationSaveKey = JSON.stringify((dealResult.allocationLines || [])
     .filter((line: { tracked?: boolean }) => line.tracked !== false)
     .map((line: { agent_id: string; kind: string; amount: number; calculated_amount: number; is_override: boolean; period_start: string | null; team_cap_id?: string | null }) => ({
@@ -799,54 +888,64 @@ export default function Dashboard() {
       teamCapId: line.team_cap_id || null,
     })));
   const savedAllocationKey = useRef('');
-  const allocationSaveGeneration = useRef(0);
+  const allocationSaveKeyRef = useRef(allocationSaveKey);
+  const allocationSaveTransactionRef = useRef('');
+  const allocationWriteQueue = useRef(Promise.resolve());
+  allocationSaveKeyRef.current = allocationSaveKey;
+
+  const enqueueAllocationWrite = (task: () => Promise<boolean>) => {
+    const run = allocationWriteQueue.current.then(task, task);
+    allocationWriteQueue.current = run.then(() => undefined, () => undefined);
+    return run;
+  };
+
+  const sendAllocationWrite = async (transactionId: string, clientId: string) => {
+    const key = allocationSaveKeyRef.current;
+    if (!transactionId || key === savedAllocationKey.current) return true;
+    const rows = JSON.parse(key) as AllocationSaveRow[];
+    const headers = { 'Content-Type': 'application/json', 'x-client-id': clientId };
+    const [capsResponse, allocationsResponse] = await Promise.all([
+      fetch('/api/transaction-team-caps', {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          clientId,
+          transactionId,
+          teamCaps: rows.filter((row) => row.kind === 'team_cap'),
+        }),
+      }),
+      fetch('/api/transaction-agent-allocations', {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          clientId,
+          transactionId,
+          allocations: rows.filter((row) => row.kind === 'sales_volume'),
+        }),
+      }),
+    ]);
+    const ok = capsResponse.ok && allocationsResponse.ok;
+    if (ok && allocationSaveKeyRef.current === key) savedAllocationKey.current = key;
+    return ok;
+  };
 
   useEffect(() => {
     const transactionId = selectedDeal?.id ? String(selectedDeal.id) : '';
+    if (allocationSaveTransactionRef.current !== transactionId) {
+      allocationSaveTransactionRef.current = transactionId;
+      savedAllocationKey.current = '';
+    }
     const featuresOn = Boolean(allocationInput?.teamCaps.some((cap) => cap.enabled) || allocationInput?.salesVolume?.enabled);
-    if (!allocationReady || !canWriteTracker || !transactionId) return;
+    if (!allocationReady || !canWriteTracker || !transactionId || suspendCapAutoSave) return;
     if (!featuresOn && !hasStoredAllocations) return;
     if (allocationSaveKey === savedAllocationKey.current) return;
-    const generation = allocationSaveGeneration.current + 1;
-    allocationSaveGeneration.current = generation;
     const timer = window.setTimeout(() => {
-      const rows = JSON.parse(allocationSaveKey) as {
-        agentId: string;
-        kind: string;
-        amount: number;
-        calculatedAmount: number;
-        isOverride: boolean;
-        periodStart: string | null;
-        teamCapId: string | null;
-      }[];
-      const headers = { 'Content-Type': 'application/json', 'x-client-id': activeClientId };
-      void Promise.all([
-        fetch('/api/transaction-team-caps', {
-          method: 'PUT',
-          headers,
-          body: JSON.stringify({
-            clientId: activeClientId,
-            transactionId,
-            teamCaps: rows.filter((row) => row.kind === 'team_cap'),
-          }),
-        }),
-        fetch('/api/transaction-agent-allocations', {
-          method: 'PUT',
-          headers,
-          body: JSON.stringify({
-            clientId: activeClientId,
-            transactionId,
-            allocations: rows.filter((row) => row.kind === 'sales_volume'),
-          }),
-        }),
-      ]).then(([capsResponse, allocationsResponse]) => {
-        if (capsResponse.ok && allocationsResponse.ok && generation === allocationSaveGeneration.current) {
-          savedAllocationKey.current = allocationSaveKey;
-        }
-      }).catch(() => undefined);
+      const requestTransactionId = allocationSaveTransactionRef.current;
+      if (!requestTransactionId) return;
+      void enqueueAllocationWrite(() => sendAllocationWrite(requestTransactionId, activeClientId));
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [allocationReady, allocationSaveKey, canWriteTracker, selectedDeal?.id, activeClientId]);
+  }, [allocationReady, allocationSaveKey, canWriteTracker, selectedDeal?.id, activeClientId, suspendCapAutoSave, hasStoredAllocations]);
 
   useEffect(() => {
     if (isNewTransaction) {
@@ -958,6 +1057,13 @@ export default function Dashboard() {
     agentSplitsExceedCommission ? 'Agent splits are more than the remaining commission.' : '',
     paymentsShortOfCommission ? 'The entire commission has to be allocated among agents and entities.' : '',
   ].filter(Boolean).join(' ');
+
+  const persistDealAllocations = (transactionId: string): Promise<boolean> => {
+    const featuresOn = Boolean(allocationInput?.teamCaps.some((cap) => cap.enabled) || allocationInput?.salesVolume?.enabled);
+    if (!allocationReady || !canWriteTracker || !transactionId) return Promise.resolve(true);
+    if (!featuresOn && !hasStoredAllocations) return Promise.resolve(true);
+    return enqueueAllocationWrite(() => sendAllocationWrite(transactionId, activeClientId));
+  };
 
   const handleSave = (afterSaveSuccess?: () => void, options?: { decided?: boolean; omitPayments?: boolean }) => {
     if (agentSplitsExceedCommission) {
@@ -1213,6 +1319,8 @@ export default function Dashboard() {
       }),
     ];
 
+    if (teamCapsClearedRef.current) stageClearedTeamCaps();
+    else if (selectedTeamCapIds && !sameTeamCapSelection(selectedTeamCapIds, savedTeamCapIdsRef.current)) stageTeamCapSelection(selectedTeamCapIds);
     const templateSubmission = pendingTemplateSubmissionRef.current;
     const payload = {
       ...coreDbFields,
@@ -1222,7 +1330,7 @@ export default function Dashboard() {
       ...(templateSubmission ? { template_submission: templateSubmission } : {}),
     };
 
-    saveTransaction(payload, activeClientId, showToast, (savedTxn, savedItems) => {
+    saveTransaction(payload, activeClientId, showToast, async (savedTxn, savedItems) => {
       // 🔍 LOG 3: Check what the backend returned
       console.log('--- SAVE STEP 3: API RESPONSE ---', {
         returned_list_date: savedTxn?.list_date,
@@ -1232,8 +1340,15 @@ export default function Dashboard() {
 
       if (!savedTxn) return;
 
+      const capsSaved = await persistDealAllocations(String(savedTxn.id || payload.id));
+      if (!capsSaved) {
+        showToast('The transaction was saved, but the team cap amounts were not. Save again to store them.', 'error');
+        return false;
+      }
+
       setWaterfallResetPending(false);
       setAllocatePromptOpen(false);
+      releaseTeamCapClear();
 
       if (Array.isArray(savedItems)) {
         setCommissionItems(savedItems);
@@ -1324,6 +1439,7 @@ export default function Dashboard() {
       && Object.values(postSplit2RulesByAgent).every((rules) => rules.length === 0);
     const agentsAlreadyReset = agents.length === nextAgents.length
       && agents.every((agent, index) => agent.id === nextAgents[index]?.id && agent.splitType === 'PERCENT' && agent.splitVal === 1);
+    const capsAlreadyCleared = Array.isArray(selectedTeamCapIds) && selectedTeamCapIds.length === 0;
 
     setWaterfallEditSnapshot(null);
     setIsEditingWaterfall(false);
@@ -1333,7 +1449,13 @@ export default function Dashboard() {
     setPostSplitRulesByAgent({});
     setPostSplit2RulesByAgent({});
     setAgents(nextAgents);
-    if (!rulesEmpty || !agentsAlreadyReset) {
+    if (!capsAlreadyCleared) {
+      teamCapsClearedRef.current = true;
+      setSuspendCapAutoSave(true);
+      setSelectedTeamCapIds([]);
+      stageClearedTeamCaps();
+    }
+    if (!rulesEmpty || !agentsAlreadyReset || !capsAlreadyCleared) {
       setHasUnsavedLocalChanges(true);
       setWaterfallResetPending(true);
     }
@@ -1342,6 +1464,9 @@ export default function Dashboard() {
   const handleTemplateSubmissionDeleted = () => {
     pendingTemplateSubmissionRef.current = null;
     setPendingTemplateSubmission(null);
+    storedTemplateSubmissionRef.current = null;
+    savedTeamCapIdsRef.current = null;
+    releaseTeamCapClear();
     setSelectedTeamCapIds(null);
     setTemplateSubmissionRevision((current) => current + 1);
     setTemplateReplayReset((current) => current + 1);
@@ -1356,6 +1481,8 @@ export default function Dashboard() {
   };
 
   const handleDiscardChanges = () => {
+    releaseTeamCapClear();
+    setSelectedTeamCapIds(savedTeamCapIdsRef.current);
     setWaterfallResetPending(false);
     setAllocatePromptOpen(false);
     overviewForm.setIsEditingOverview(false);
@@ -1441,6 +1568,8 @@ export default function Dashboard() {
   };
 
   const handleDiscardAndLeave = () => {
+    releaseTeamCapClear();
+    setSelectedTeamCapIds(savedTeamCapIdsRef.current);
     setWaterfallResetPending(false);
     setAllocatePromptOpen(false);
     const navigate = pendingNavigationRef.current;
@@ -1676,8 +1805,10 @@ export default function Dashboard() {
             isCollapsed={collapsed.commission}
             onToggleSection={() => toggleSection('commission')}
             isEditing={isEditingWaterfall}
-            hasChanges={waterfallHasEdits() || (capOverrideBaseline != null && !sameAllocationOverrides(capOverrides, capOverrideBaseline))}
+            hasChanges={waterfallHasEdits() || (waterfallEditSnapshot != null && !sameTeamCapSelection(waterfallEditSnapshot.teamCapIds, selectedTeamCapIds)) || (capOverrideBaseline != null && !sameAllocationOverrides(capOverrides, capOverrideBaseline))}
             onTeamCapAmountChange={setTeamCapOverride}
+            onRemoveTeamCap={handleRemoveTeamCap}
+            agentCapCells={agentCapCells}
             onStartEdit={handleStartWaterfallEdit}
             onCancelEdit={handleCancelWaterfallEdit}
             onApplyEdit={handleApplyWaterfallEdit}
@@ -1860,7 +1991,9 @@ export default function Dashboard() {
             primaryAgentId={primaryAgentId}
             onApplyTemplate={handleApplyTemplateRules}
             onSubmissionDeleted={handleTemplateSubmissionDeleted}
-            onTeamCapSelection={setSelectedTeamCapIds}
+            onTeamCapSelection={handleTeamCapSelection}
+            onStoredSubmission={rememberStoredSubmission}
+            pendingTemplateSubmission={pendingTemplateSubmission}
             onResetWaterfall={handleResetWaterfall}
             submissionRevision={templateSubmissionRevision}
           />

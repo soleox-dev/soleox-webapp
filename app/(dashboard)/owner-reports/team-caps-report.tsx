@@ -1,11 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import {
   capMoney,
   formatAnniversary,
-  formatLong,
   formatUs,
   type CapDealLine,
   type CapStanding,
@@ -64,8 +62,6 @@ function useColumnSort() {
   return { sort, toggle };
 }
 
-const tableWrap = 'report-table rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900';
-
 function rowStripe(index: number, total = false): string {
   if (total) return 'bg-slate-200 font-semibold dark:bg-slate-700';
   return index % 2 === 1
@@ -73,30 +69,54 @@ function rowStripe(index: number, total = false): string {
     : 'bg-white dark:bg-slate-900';
 }
 
+type CapHeat = 'over' | 'met' | 'hot' | 'warm' | 'cool';
+
+/** Share of the goal, matched to the percent shown beside the bar. */
+function capHeat(percent: number): CapHeat {
+  const shown = Math.round(percent * 1000) / 10;
+  if (shown > 100) return 'over';
+  if (shown >= 100) return 'met';
+  if (shown >= 90) return 'hot';
+  if (shown >= 70) return 'warm';
+  return 'cool';
+}
+
+const capHeatBar: Record<CapHeat, string> = {
+  over: 'bg-rose-500',
+  met: 'bg-emerald-500',
+  hot: 'bg-orange-500',
+  warm: 'bg-yellow-400',
+  cool: 'bg-sky-500',
+};
+
+const capHeatText: Record<CapHeat, string> = {
+  over: 'text-rose-600 dark:text-rose-300',
+  met: 'text-emerald-700 dark:text-emerald-300',
+  hot: 'text-orange-600 dark:text-orange-300',
+  warm: 'text-yellow-700 dark:text-yellow-300',
+  cool: 'text-sky-700 dark:text-sky-300',
+};
+
 function GoalMeter({ total, goal, percent }: { total: number; goal: number | null; percent: number | null }) {
   if (goal == null || percent == null) return <span className="text-slate-400">—</span>;
-  const over = percent > 1.005;
-  const near = !over && percent >= 0.9;
-  const bar = over ? 'bg-rose-500' : near ? 'bg-amber-400' : 'bg-emerald-500';
-  const text = over ? 'text-rose-600 dark:text-rose-300' : 'text-slate-500 dark:text-slate-400';
+  const heat = capHeat(percent);
   const width = Math.min(100, Math.max(0, percent * 100));
   return (
     <div className="ml-auto w-[9.5rem]">
       <div className="flex items-baseline justify-between gap-2 tabular-nums">
         <span className="font-medium text-slate-800 dark:text-slate-100">{capMoney(goal)}</span>
-        <span className={`text-[11px] font-semibold ${text}`}>{(percent * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%</span>
+        <span className={`text-[11px] font-semibold ${capHeatText[heat]}`}>{(percent * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%</span>
       </div>
       <div className="mt-1 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700" title={`${capMoney(total)} of ${capMoney(goal)}`}>
-        <div className={`h-1.5 rounded-full ${bar}`} style={{ width: `${width}%` }} />
+        <div className={`h-1.5 rounded-full ${capHeatBar[heat]}`} style={{ width: `${width}%` }} />
       </div>
     </div>
   );
 }
 
-function LeftAmount({ left }: { left: number | null }) {
-  if (left == null) return <span className="text-slate-400">—</span>;
-  const over = left < -0.009;
-  return <span className={over ? 'font-medium text-rose-600 dark:text-rose-300' : 'font-medium text-emerald-700 dark:text-emerald-300'}>{capMoney(left)}</span>;
+function LeftAmount({ left, percent }: { left: number | null; percent: number | null }) {
+  if (left == null || percent == null) return <span className="text-slate-400">—</span>;
+  return <span className={`font-medium ${capHeatText[capHeat(percent)]}`}>{capMoney(left)}</span>;
 }
 
 function standingValue(row: CapStanding, key: string): string | number | null {
@@ -126,13 +146,11 @@ function lineValue(row: CapDealLine, key: string): string | number | null {
   return null;
 }
 
-function CapSection({ cap, rows, resetLabel, openAgentId, onOpen, onClose }: {
+function CapSection({ cap, rows, openAgentId, onOpen }: {
   cap: TeamCapDefinition;
   rows: CapStanding[];
-  resetLabel: string;
   openAgentId: string | null;
   onOpen: (agentId: string) => void;
-  onClose: () => void;
 }) {
   const standingsSort = useColumnSort();
   const detailSort = useColumnSort();
@@ -146,27 +164,43 @@ function CapSection({ cap, rows, resetLabel, openAgentId, onOpen, onClose }: {
   const goal = rows.reduce((sum, row) => sum + (row.goal || 0), 0);
   const hasGoal = rows.some((row) => row.goal != null);
   const left = hasGoal ? goal - total : null;
+  const standingsWrapRef = useRef<HTMLDivElement>(null);
+  const standingsBodyRef = useRef<HTMLTableElement>(null);
+  const standingsFootRef = useRef<HTMLTableElement>(null);
+  const standingsFootScrollRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const wrap = standingsWrapRef.current;
+    const body = standingsBodyRef.current;
+    const foot = standingsFootRef.current;
+    if (!wrap || !body || !foot) return;
+    const sync = () => {
+      const widths = [...body.querySelectorAll('thead th')].map((cell) => cell.getBoundingClientRect().width);
+      foot.style.width = `${body.scrollWidth}px`;
+      [...foot.querySelectorAll('td')].forEach((cell, index) => {
+        const width = `${widths[index] || 0}px`;
+        cell.style.width = width;
+        cell.style.minWidth = width;
+        cell.style.maxWidth = width;
+      });
+      wrap.style.maxHeight = '';
+      wrap.style.height = '';
+    };
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(wrap);
+    window.addEventListener('resize', sync);
+    window.addEventListener('scroll', sync, { passive: true });
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', sync);
+      window.removeEventListener('scroll', sync);
+    };
+  }, [open, ordered, closed, pending, total, goal, left]);
 
   return (
-    <section className="space-y-3">
-      <h3 className={`relative w-full rounded-full text-center text-sm font-bold uppercase tracking-wide report-pill-emerald ${open ? 'grid grid-cols-[1fr_auto_1fr] items-stretch overflow-hidden' : 'px-4 py-2'}`}>
-        {open ? (
-          <div className="justify-self-start">
-            <button type="button" onClick={onClose} className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/20 px-4 text-xs font-semibold normal-case tracking-normal text-white transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950">
-              <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
-              All agents
-            </button>
-          </div>
-        ) : null}
-        <span className={open ? 'flex items-center justify-center px-4 py-2' : undefined}>{open ? open.agentName : cap.name}</span>
-      </h3>
-      <p className="text-center text-sm text-slate-500">
-        {open
-          ? `${open.agentName} · ${formatUs(open.start)} – ${formatUs(open.end)}`
-          : `Cap year from ${resetLabel}. Each row is that agent’s own anniversary.`}
-      </p>
+    <section className="flex min-h-0 flex-1 flex-col">
       {open ? (
-        <div className={tableWrap}>
+        <div className="report-table report-table-fit min-h-0 flex-1 rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
           <table className="w-full min-w-[960px] text-xs">
             <thead className="report-head-dark text-xs font-medium normal-case text-white">
               <tr>
@@ -178,7 +212,7 @@ function CapSection({ cap, rows, resetLabel, openAgentId, onOpen, onClose }: {
                 <SortHead column="closing" label="Closing date" sort={detailSort.sort} onSort={detailSort.toggle} />
                 <SortHead column="price" label="Sales price" sort={detailSort.sort} onSort={detailSort.toggle} align="right" />
                 <SortHead column="source" label="Lead source" sort={detailSort.sort} onSort={detailSort.toggle} />
-                <SortHead column="amount" label="Contribution" sort={detailSort.sort} onSort={detailSort.toggle} align="right" title="Team cap dollars recorded for this agent on the transaction" />
+                <SortHead column="amount" label="Contribution" sort={detailSort.sort} onSort={detailSort.toggle} align="right" title={cap.kind === 'agent' ? 'Post-split dollars paid to this cap’s entity on the transaction' : 'Team cap dollars recorded for this agent on the transaction'} />
                 <SortHead column="cumulative" label="Cumulative" sort={detailSort.sort} onSort={detailSort.toggle} align="right" />
                 <SortHead column="toward" label="Toward goal" sort={detailSort.sort} onSort={detailSort.toggle} align="right" title="Cumulative contribution against this agent's goal" />
               </tr>
@@ -209,74 +243,86 @@ function CapSection({ cap, rows, resetLabel, openAgentId, onOpen, onClose }: {
           </table>
         </div>
       ) : (
-        <div className={tableWrap}>
-          <table className="w-full min-w-[880px] text-xs">
-            <thead className="report-head-dark text-xs font-medium normal-case text-white">
-              <tr>
-                <SortHead column="rank" label="#" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" />
-                <SortHead column="agent" label="Agent" sort={standingsSort.sort} onSort={standingsSort.toggle} />
-                <SortHead column="reset" label="Reset" sort={standingsSort.sort} onSort={standingsSort.toggle} title="The month and day this agent's cap year starts" />
-                <SortHead column="start" label="Cap start" sort={standingsSort.sort} onSort={standingsSort.toggle} />
-                <SortHead column="end" label="Cap end" sort={standingsSort.sort} onSort={standingsSort.toggle} />
-                <SortHead column="closed" label="Closed" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" title="Closed contribution in this cap year" />
-                <SortHead column="pending" label="Pending" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" title="Pending contribution in this cap year" />
-                <SortHead column="total" label="Contribution" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" title="Closed plus pending" />
-                <SortHead column="goal" label="Goal" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" />
-                <SortHead column="left" label="Left to cap" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" title="Goal minus closed and pending. Negative means the agent is past the goal." />
-              </tr>
-            </thead>
-            <tbody>
-              {ordered.map((row, index) => (
-                <tr
-                  key={row.agentId}
-                  role="button"
-                  tabIndex={0}
-                  className={`cursor-pointer ${rowStripe(index)} hover:bg-emerald-50 dark:hover:bg-emerald-950/60`}
-                  onClick={() => onOpen(row.agentId)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      onOpen(row.agentId);
-                    }
-                  }}
-                >
-                  <td className="px-3 py-2.5 text-right tabular-nums text-slate-400">{row.rank}</td>
-                  <td className="px-3 py-2.5 whitespace-nowrap font-medium">{row.agentName}</td>
-                  <td className="px-3 py-2.5 whitespace-nowrap">{formatAnniversary(row.resetDate)}</td>
-                  <td className="px-3 py-2.5 whitespace-nowrap tabular-nums">{formatUs(row.start)}</td>
-                  <td className="px-3 py-2.5 whitespace-nowrap tabular-nums">{formatUs(row.end)}</td>
-                  <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">{capMoney(row.closed)}</td>
-                  <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">{capMoney(row.pending)}</td>
-                  <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap font-medium">{capMoney(row.total)}</td>
-                  <td className="px-3 py-2.5"><GoalMeter total={row.total} goal={row.goal} percent={row.percent} /></td>
-                  <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap"><LeftAmount left={row.left} /></td>
+        <div ref={standingsWrapRef} className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <div
+            className="report-table report-table-fit min-h-0 flex-1 rounded-none border-0"
+            onScroll={(event) => {
+              if (standingsFootScrollRef.current) standingsFootScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
+            }}
+          >
+            <table ref={standingsBodyRef} className="w-full min-w-[880px] text-xs">
+              <thead className="report-head-dark text-xs font-medium normal-case text-white">
+                <tr>
+                  <SortHead column="rank" label="#" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" />
+                  <SortHead column="agent" label="Agent" sort={standingsSort.sort} onSort={standingsSort.toggle} />
+                  <SortHead column="reset" label="Reset" sort={standingsSort.sort} onSort={standingsSort.toggle} title="The month and day this agent's cap year starts" />
+                  <SortHead column="start" label="Cap start" sort={standingsSort.sort} onSort={standingsSort.toggle} />
+                  <SortHead column="end" label="Cap end" sort={standingsSort.sort} onSort={standingsSort.toggle} />
+                  <SortHead column="closed" label="Closed" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" title="Closed contribution in this cap year" />
+                  <SortHead column="pending" label="Pending" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" title="Pending contribution in this cap year" />
+                  <SortHead column="total" label="Contribution" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" title="Closed plus pending" />
+                  <SortHead column="goal" label="Goal" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" />
+                  <SortHead column="left" label="Left to cap" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" title="Goal minus closed and pending. Negative means the agent is past the goal." />
                 </tr>
-              ))}
-              <tr className={rowStripe(0, true)}>
-                <td className="px-3 py-2.5" />
-                <td className="px-3 py-2.5">Total</td>
-                <td className="px-3 py-2.5" />
-                <td className="px-3 py-2.5" />
-                <td className="px-3 py-2.5" />
-                <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">{capMoney(closed)}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">{capMoney(pending)}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">{capMoney(total)}</td>
-                <td className="px-3 py-2.5"><GoalMeter total={total} goal={hasGoal ? goal : null} percent={hasGoal && goal > 0 ? total / goal : null} /></td>
-                <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap"><LeftAmount left={left} /></td>
-              </tr>
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {ordered.map((row, index) => (
+                  <tr
+                    key={row.agentId}
+                    role="button"
+                    tabIndex={0}
+                    className={`cursor-pointer ${rowStripe(index)} hover:bg-emerald-50 dark:hover:bg-emerald-950/60`}
+                    onClick={() => onOpen(row.agentId)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        onOpen(row.agentId);
+                      }
+                    }}
+                  >
+                    <td className="px-3 py-2.5 text-right tabular-nums text-slate-400">{row.rank}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap font-medium">{row.agentName}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">{formatAnniversary(row.resetDate)}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap tabular-nums">{formatUs(row.start)}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap tabular-nums">{formatUs(row.end)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">{capMoney(row.closed)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">{capMoney(row.pending)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap font-medium">{capMoney(row.total)}</td>
+                    <td className="px-3 py-2.5"><GoalMeter total={row.total} goal={row.goal} percent={row.percent} /></td>
+                    <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap"><LeftAmount left={row.left} percent={row.percent} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {ordered.length > 0 ? (
+            <div ref={standingsFootScrollRef} className="shrink-0 overflow-x-hidden border-t border-slate-200 bg-slate-200 font-bold dark:border-slate-700 dark:bg-slate-700">
+              <table ref={standingsFootRef} className="text-xs font-bold">
+                <tbody>
+                  <tr>
+                    <td className="px-3 py-2.5" />
+                    <td className="px-3 py-2.5">Total</td>
+                    <td className="px-3 py-2.5" />
+                    <td className="px-3 py-2.5" />
+                    <td className="px-3 py-2.5" />
+                    <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">{capMoney(closed)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">{capMoney(pending)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">{capMoney(total)}</td>
+                    <td className="px-3 py-2.5"><GoalMeter total={total} goal={hasGoal ? goal : null} percent={hasGoal && goal > 0 ? total / goal : null} /></td>
+                    <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap"><LeftAmount left={left} percent={hasGoal && goal > 0 ? total / goal : null} /></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </div>
       )}
     </section>
   );
 }
 
-export function TeamCapsReport({ sections, labels, asOf, previous, open, onOpen, empty }: {
+export function TeamCapsReport({ sections, open, onOpen, empty }: {
   sections: Array<{ cap: TeamCapDefinition; rows: CapStanding[] }>;
-  labels: Map<string, string>;
-  asOf: string;
-  previous: boolean;
   open: { capId: string; agentId: string } | null;
   onOpen: (value: { capId: string; agentId: string } | null) => void;
   empty: string;
@@ -285,20 +331,14 @@ export function TeamCapsReport({ sections, labels, asOf, previous, open, onOpen,
     return <p className="text-sm text-slate-500">{empty}</p>;
   }
   return (
-    <div className="space-y-8">
-      <p className="text-sm text-slate-500">
-        {previous ? `Previous cap year, measured from ${formatLong(asOf)}.` : `Data as of ${formatLong(asOf)}.`}
-        {' '}Closed and pending contributions in that year. Click an agent for the transactions.
-      </p>
+    <div className="flex min-h-0 flex-1 flex-col">
       {sections.map((section) => (
         <CapSection
           key={section.cap.id}
           cap={section.cap}
           rows={section.rows}
-          resetLabel={section.cap.resetDateFieldKey ? (labels.get(section.cap.resetDateFieldKey) || 'the reset date') : 'the reset date'}
           openAgentId={open?.capId === section.cap.id ? open.agentId : null}
           onOpen={(agentId) => onOpen({ capId: section.cap.id, agentId })}
-          onClose={() => onOpen(null)}
         />
       ))}
     </div>

@@ -115,7 +115,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     },
     { kind: 'link', item: { label: 'Commission Entities', href: '/commission-tracker/settings/commission-entities', icon: Building2 } },
     { kind: 'link', item: { label: 'Commission Templates', href: '/commission-tracker/settings/commission-templates', icon: Zap } },
-    { kind: 'link', item: { label: 'Team Caps', href: '/commission-tracker/settings/team-caps', icon: Gauge } },
+    { kind: 'link', item: { label: 'Caps', href: '/commission-tracker/settings/caps', icon: Gauge } },
     { kind: 'link', item: { label: 'Agent Allocations', href: '/commission-tracker/settings/agent-allocations', icon: Scale } },
     { kind: 'link', item: { label: 'Activity', href: '/commission-tracker/settings/activity', icon: ScrollText } },
   ];

@@ -6,4 +6,5 @@ dist/gcp-key.json
 .env*
 gcp-key.json
 .DS_Store
+data/imports/
 *.tsbuildinfo

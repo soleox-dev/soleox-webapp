@@ -9,6 +9,21 @@ Permissions are granted per client. A person can hold several at once. Each perm
 
 When a new chat should follow this before editing access, say: read `.cursor/rules/access-requirements.mdc` before making changes.
 
+## Stored roles
+
+Each permission is a `role` on `client_user_roles` for one client. `ADMIN` and `SUPER_ADMIN` grant every permission on that client. `web_users.is_super_admin` grants every permission on every client.
+
+| Role | Permission |
+| --- | --- |
+| `COMMISSION_TRACKER_READ` | Commission Tracker Read |
+| `COMMISSION_TRACKER_WRITE` | Commission Tracker Write, which includes Read. It can read and write `client_caps`. |
+| `COMMISSION_TRACKER_SETTINGS` | Commission Tracker Settings. It can also read and write `client_caps`. |
+| `OWNER_REPORTS` | Owner Reports |
+| `ADMIN` | Every permission on that client |
+| `SUPER_ADMIN` | Every permission on that client |
+
+Any active role on a client can read `client_caps`. Writing that table requires Commission Tracker Write, Commission Tracker Settings, `ADMIN`, `SUPER_ADMIN`, or platform super admin. `client_caps` holds team caps and agent caps.
+
 ## Permissions
 
 ### Commission Tracker Read
@@ -17,7 +32,7 @@ View Transactions and Agents. This permission cannot create, edit, or delete any
 
 ### Commission Tracker Write
 
-Full use of Transactions and Agents, including creating, editing, and deleting. This permission includes read access to those two pages. It can read commission templates, parameters, and rules, and it can create, change, and delete commission template submissions. It can run Sync with TMS. It does not open Settings and cannot change template definitions or the spreadsheet connection.
+Full use of Transactions and Agents, including creating, editing, and deleting. This permission includes read access to those two pages. It can read commission templates, parameters, and rules, and it can create, change, and delete commission template submissions. It can run Sync with TMS. It can read and write `client_caps`. It does not open Settings and cannot change template definitions or the spreadsheet connection.
 
 ### Commission Tracker Settings
 

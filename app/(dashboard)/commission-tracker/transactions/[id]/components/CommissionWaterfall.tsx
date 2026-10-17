@@ -18,7 +18,8 @@ import { useSectionEditKeys } from './useSectionEditKeys';
 import { CommissionTemplatePanel, type TemplateSubmissionDraft } from './CommissionTemplatePanel';
 import type { AppliedTemplateRules } from './applyTemplateLogic';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
-import { AgentAllocationNotes, TeamCapAmount, adjustedSplitView, teamCapGroups, type AgentAllocationLine } from './AgentAllocationNotes';
+import { AgentAllocationNotes, AgentCapNote, TeamCapAmount, adjustedSplitView, teamCapGroups, type AgentAllocationLine } from './AgentAllocationNotes';
+import { formatAgentCapLine, type AgentCapCell } from '@/lib/agent-cap-progress';
 import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
 import { useAccess } from '@/components/access-provider';
 
@@ -84,10 +85,14 @@ interface CommissionWaterfallProps {
   onApplyTemplate?: (applied: AppliedTemplateRules, submission: TemplateSubmissionDraft) => void;
   onSubmissionDeleted?: () => void;
   onTeamCapSelection?: (ids: string[] | null) => void;
+  onStoredSubmission?: (submission: TemplateSubmissionDraft | null) => void;
+  pendingTemplateSubmission?: TemplateSubmissionDraft | null;
   onResetWaterfall?: () => void;
   submissionRevision?: number;
   allocations?: AgentAllocationLine[];
   onTeamCapAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
+  onRemoveTeamCap?: (teamCapId: string) => void;
+  agentCapCells?: Record<string, Record<string, AgentCapCell>>;
 }
 
 function AgentCapStrips({
@@ -95,26 +100,44 @@ function AgentCapStrips({
   allocations,
   isEditing,
   onTeamCapAmountChange,
+  onRemoveTeamCap,
 }: {
   agentId: string;
   allocations: AgentAllocationLine[];
   isEditing: boolean;
   onTeamCapAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
+  onRemoveTeamCap?: (teamCapId: string) => void;
 }) {
   const groups = teamCapGroups(allocations);
   if (groups.length === 0) return null;
   return (
     <div className="space-y-1.5">
-      {groups.map((group) => (
-        <div key={group.id} className="flex items-center justify-between gap-3 rounded-md bg-amber-50 px-2.5 py-1.5 dark:bg-amber-950/40">
-          <span className="text-xs font-semibold text-amber-900 dark:text-amber-200">{group.name}</span>
-          <TeamCapAmount
-            line={group.lines.find((item) => item.agent_id === agentId)}
-            isEditing={isEditing}
-            onAmountChange={onTeamCapAmountChange}
-          />
-        </div>
-      ))}
+      {groups.map((group) => {
+        const capId = group.lines.find((line) => line.team_cap_id)?.team_cap_id || '';
+        return (
+          <div key={group.id} className="flex items-center justify-between gap-3 rounded-md bg-amber-50 px-2.5 py-1.5 dark:bg-amber-950/40">
+            <span className="flex min-w-0 items-center gap-1.5">
+              {isEditing && onRemoveTeamCap && capId && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveTeamCap(capId)}
+                  className="shrink-0 rounded p-0.5 text-rose-500 transition hover:bg-rose-500/10 hover:text-rose-600 cursor-pointer"
+                  title={`Remove ${group.name}`}
+                  aria-label={`Remove ${group.name}`}
+                >
+                  <TrashIcon />
+                </button>
+              )}
+              <span className="text-xs font-semibold text-amber-900 dark:text-amber-200">{group.name}</span>
+            </span>
+            <TeamCapAmount
+              line={group.lines.find((item) => item.agent_id === agentId)}
+              isEditing={isEditing}
+              onAmountChange={onTeamCapAmountChange}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -180,13 +203,30 @@ export function CommissionWaterfall({
   onApplyTemplate,
   onSubmissionDeleted,
   onTeamCapSelection,
+  onStoredSubmission,
+  pendingTemplateSubmission = null,
   onResetWaterfall,
   submissionRevision = 0,
   allocations = [],
   onTeamCapAmountChange,
+  onRemoveTeamCap,
+  agentCapCells = {},
 }: CommissionWaterfallProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+
+  const agentCapNote = (agentId: string, agentName: string, entityName: string) => {
+    const entityId = knownEntities.find((entity) => entity.name === entityName)?.id;
+    const cell = entityId ? agentCapCells[agentId]?.[entityId] : undefined;
+    if (!cell) return null;
+    const rows = [...(dealResult.postSplitItems || []), ...(dealResult.postSplit2Items || [])];
+    const current = rows.reduce((sum: number, item: { agentName?: string; entity?: string; amount?: number }) => {
+      if (item.agentName !== agentName || (item.entity || '').trim() !== entityName) return sum;
+      return sum + (Number(item.amount) || 0);
+    }, 0);
+    const line = formatAgentCapLine(cell, current);
+    return <AgentCapNote label={line.label} detail={line.detail} share={line.share} />;
+  };
 
   const baselineTotalCommission = dealResult.totalCommission || dealResult.grossCommission || 0;
   const [confirmReset, setConfirmReset] = useState(false);
@@ -516,6 +556,8 @@ export function CommissionWaterfall({
             onApplied={onApplyTemplate}
             onSubmissionDeleted={onSubmissionDeleted}
             onTeamCapSelection={onTeamCapSelection}
+            onStoredSubmission={onStoredSubmission}
+            pendingSubmission={pendingTemplateSubmission}
             submissionRevision={submissionRevision}
           />
           )}
@@ -937,6 +979,8 @@ export function CommissionWaterfall({
               onDraftDirty={setTableDraftDirty}
               allocations={allocations}
               onTeamCapAmountChange={onTeamCapAmountChange}
+              onRemoveTeamCap={onRemoveTeamCap}
+              agentCapNote={agentCapNote}
             />
           ) : (
           <>
@@ -1048,7 +1092,7 @@ export function CommissionWaterfall({
                             preventMinus={preventMinus}
                           />
                         </div>
-                        <AgentCapStrips agentId={agent.id} allocations={allocations} isEditing={isEditing} onTeamCapAmountChange={onTeamCapAmountChange} />
+                        <AgentCapStrips agentId={agent.id} allocations={allocations} isEditing={isEditing} onTeamCapAmountChange={onTeamCapAmountChange} onRemoveTeamCap={onRemoveTeamCap} />
                       </div>
                     );
                   }
@@ -1121,7 +1165,7 @@ export function CommissionWaterfall({
                           preventMinus={preventMinus}
                         />
                       </div>
-                      <AgentCapStrips agentId={agent.id} allocations={allocations} isEditing={isEditing} onTeamCapAmountChange={onTeamCapAmountChange} />
+                      <AgentCapStrips agentId={agent.id} allocations={allocations} isEditing={isEditing} onTeamCapAmountChange={onTeamCapAmountChange} onRemoveTeamCap={onRemoveTeamCap} />
                       <AgentAllocationNotes agentId={agent.id} allocations={allocations} />
                     </div>
                   );
@@ -1366,6 +1410,7 @@ export function CommissionWaterfall({
                                 percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (agentGrossSplit > 0 ? ((calculatedItem?.amount || 0) / agentGrossSplit) * 100 : 0)}
                                 dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
                                 deduction
+                                underAmount={agentRules1.findLastIndex((item) => (item.entity || '').trim() === (rule.entity || '').trim()) === ruleIdx ? agentCapNote(agentObj?.id || '', agentName, rule.entity) : null}
                                 onPercentChange={(val) => {
                                   if (rule.type !== 'PERCENT') onToggleAgentPostSplitType(agentName, rule.id);
                                   onUpdateAgentPostSplitValue(agentName, rule.id, val);
@@ -1389,6 +1434,7 @@ export function CommissionWaterfall({
                               percentPoints={item.type === 'AMOUNT' ? (agentGrossSplit > 0 ? ((Number(item.amount) || 0) / agentGrossSplit) * 100 : 0) : toPercentPoints(Number(item.value) || 0)}
                               dollarAmount={Number(item.amount) || 0}
                               deduction
+                              underAmount={agentCapNote(agentObj?.id || '', agentName, item.entity || '')}
                               onPercentChange={(val) => {
                                 if (item.type === 'AMOUNT' && item.id) onToggleAgentPostSplitType(agentName, item.id);
                                 if (item.id) onUpdateAgentPostSplitValue(agentName, item.id, val);
@@ -1570,6 +1616,7 @@ export function CommissionWaterfall({
                                 percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (netAfterL1 > 0 ? ((calculatedItem2?.amount || 0) / netAfterL1) * 100 : 0)}
                                 dollarAmount={calculatedItem2?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
                                 deduction
+                                underAmount={agentRules2.findLastIndex((item) => (item.entity || '').trim() === (rule.entity || '').trim()) === ruleIdx ? agentCapNote(agentObj?.id || '', agentName, rule.entity) : null}
                                 onPercentChange={(val) => {
                                   if (rule.type !== 'PERCENT') onToggleAgentPostSplit2Type?.(agentName, rule.id);
                                   onUpdateAgentPostSplit2Value?.(agentName, rule.id, val);
@@ -1593,6 +1640,7 @@ export function CommissionWaterfall({
                               percentPoints={item.type === 'AMOUNT' ? (netAfterL1 > 0 ? ((Number(item.amount) || 0) / netAfterL1) * 100 : 0) : toPercentPoints(Number(item.value) || 0)}
                               dollarAmount={Number(item.amount) || 0}
                               deduction
+                              underAmount={agentCapNote(agentObj?.id || '', agentName, item.entity || '')}
                               onPercentChange={(val) => {
                                 if (item.type === 'AMOUNT' && item.id) onToggleAgentPostSplit2Type?.(agentName, item.id);
                                 if (item.id) onUpdateAgentPostSplit2Value?.(agentName, item.id, val);
@@ -1649,7 +1697,7 @@ export function CommissionWaterfall({
                 Reset the waterfall?
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-                Deductions and extra agents are removed. The Primary Agent keeps 100% of the commission. The template submission stays.
+                Off-the-top deductions, pre-splits, agent splits, post-splits, and team caps are removed. The Primary Agent keeps 100% of the commission. The template submission stays.
               </p>
             </div>
             <div className="flex items-center justify-end gap-2">

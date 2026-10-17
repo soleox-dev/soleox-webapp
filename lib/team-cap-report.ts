@@ -5,10 +5,13 @@ export type TeamCapDefinition = {
   id: string;
   name: string;
   enabled: boolean;
+  kind: 'team' | 'agent';
   splitPercentFieldKey: string | null;
   capAmountFieldKey: string | null;
   resetDateFieldKey: string | null;
   recipientAgentId: string | null;
+  entityId: string | null;
+  hideOverAllocations: boolean;
 };
 
 export type CapContribution = {
@@ -202,6 +205,7 @@ export function teamCapStandings(args: {
     const rows = byAgent.get(agentId) || [];
     const isRecipient = cap.recipientAgentId === agentId;
     const goal = profile ? moneyField(cap.capAmountFieldKey ? profile.fields[cap.capAmountFieldKey] : null) : null;
+    if (cap.kind === 'agent' && goal != null && Math.abs(goal) < 0.005) return;
     const percentText = profile && cap.splitPercentFieldKey ? profile.fields[cap.splitPercentFieldKey] : undefined;
     const hasPercent = percentText != null && percentText.trim() !== '';
     const hasGoal = goal != null && goal > 0;
@@ -253,8 +257,20 @@ export function teamCapStandings(args: {
       line.cumulative = running;
     });
 
-    const closed = roundCurrency(lines.filter((line) => !line.pending).reduce((sum, line) => sum + line.amount, 0));
-    const pending = roundCurrency(lines.filter((line) => line.pending).reduce((sum, line) => sum + line.amount, 0));
+    let closed = roundCurrency(lines.filter((line) => !line.pending).reduce((sum, line) => sum + line.amount, 0));
+    let pending = roundCurrency(lines.filter((line) => line.pending).reduce((sum, line) => sum + line.amount, 0));
+    if (cap.hideOverAllocations && hasGoal && goal != null && goal > 0) {
+      let room = goal;
+      closed = 0;
+      pending = 0;
+      lines.forEach((line) => {
+        const counted = roundCurrency(Math.min(Math.max(0, line.amount), Math.max(0, room)));
+        room = roundCurrency(Math.max(0, room - counted));
+        line.cumulative = roundCurrency(goal - room);
+        if (line.pending) pending = roundCurrency(pending + counted);
+        else closed = roundCurrency(closed + counted);
+      });
+    }
     const total = roundCurrency(closed + pending);
     if (!window && lines.length === 0 && !hasGoal && !hasPercent) return;
 

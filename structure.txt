@@ -58,8 +58,6 @@
 |  |  |  └── route.ts
 |  |  ├── payments
 |  |  |  └── route.ts
-|  |  ├── role-permissions
-|  |  |  └── route.ts
 |  |  ├── schema
 |  |  |  ├── [table]
 |  |  |  |  └── route.ts
@@ -97,8 +95,7 @@
 |     ├── 002_migrate_prod_to_webapp_transactions.sql
 |     ├── 004_migrate_prod_to_webapp_agents.sql
 |     ├── 008_migrate_prod_to_webapp_commissions.sql
-|     ├── 010_migrate_prod_to_webapp_payments.sql
-|     └── 015_seed_role_permissions_table.sql
+|     └── 010_migrate_prod_to_webapp_payments.sql
 ├── erd_schema.html
 ├── gcp-key.json
 ├── lib

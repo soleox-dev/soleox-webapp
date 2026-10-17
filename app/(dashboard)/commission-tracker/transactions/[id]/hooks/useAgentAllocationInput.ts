@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DealAllocationContext } from '@/lib/agent-allocations';
+import { buildAgentCapCells, type AgentCapDefinition, type AgentCapHistoryRow } from '@/lib/agent-cap-progress';
 import type { AgentConfig, KnownAgentInfo } from '../types';
 import { readTransactionField } from '../types';
 
@@ -49,6 +50,22 @@ function copyOverrides(rows: StoredOverride[]): StoredOverride[] {
   return rows.map((row) => ({ ...row }));
 }
 
+function agentCapsFrom(rows: Array<Record<string, unknown>>): AgentCapDefinition[] {
+  return rows.flatMap((row) => {
+    const id = String(row.id || '').trim();
+    const entityId = String(row.commission_entity_id || '').trim();
+    if (!id || !entityId || !row.enabled) return [];
+    return [{
+      id,
+      enabled: true,
+      entityId,
+      capAmountFieldKey: row.cap_amount_field_key ? String(row.cap_amount_field_key) : null,
+      resetDateFieldKey: row.reset_date_field_key ? String(row.reset_date_field_key) : null,
+      hideOverAllocations: Boolean(row.hide_over_allocations),
+    }];
+  });
+}
+
 function volumeFrom(row: VolumeRow | null) {
   if (!row) return null;
   return {
@@ -79,6 +96,8 @@ export function useAgentAllocationInput({
   fieldTypes: Record<string, string>;
 }) {
   const [teamCaps, setTeamCaps] = useState<DealAllocationContext['teamCaps']>([]);
+  const [agentCaps, setAgentCaps] = useState<AgentCapDefinition[]>([]);
+  const [postSplitHistory, setPostSplitHistory] = useState<AgentCapHistoryRow[]>([]);
   const [salesVolume, setSalesVolume] = useState<DealAllocationContext['salesVolume']>(null);
   const [history, setHistory] = useState<DealAllocationContext['history']>([]);
   const [overrides, setOverrides] = useState<DealAllocationContext['overrides']>([]);
@@ -119,6 +138,25 @@ export function useAgentAllocationInput({
         if (cancelled || !historyResponse.ok || historyBody.success === false) return;
         if (capsResponse && (!capsResponse.ok || capsBody.success === false)) return;
         if (allocationsResponse && (!allocationsResponse.ok || allocationsBody.success === false)) return;
+        const nextAgentCaps = agentCapsFrom(Array.isArray(config.agentCaps) ? config.agentCaps : []);
+        const entityIds = [...new Set(nextAgentCaps.map((cap) => cap.entityId))];
+        let nextHistory: AgentCapHistoryRow[] = [];
+        if (entityIds.length > 0 && ids.length > 0) {
+          const historyParams = new URLSearchParams({
+            view: 'post-split-history',
+            agent_ids: ids.join(','),
+            entity_ids: entityIds.join(','),
+          });
+          if (transactionId) historyParams.set('exclude_transaction_id', transactionId);
+          const postSplitResponse = await fetch(`/api/transaction-commission-items?${historyParams.toString()}`, { headers });
+          const postSplitBody = await postSplitResponse.json().catch(() => ({}));
+          if (!cancelled && postSplitResponse.ok && postSplitBody.success !== false) {
+            nextHistory = Array.isArray(postSplitBody.history) ? postSplitBody.history : [];
+          }
+        }
+        if (cancelled) return;
+        setAgentCaps(nextAgentCaps);
+        setPostSplitHistory(nextHistory);
         setTeamCaps((Array.isArray(config.teamCaps) ? config.teamCaps : []).map(teamCapFrom).filter((cap: { id: string }) => cap.id));
         setSalesVolume(volumeFrom(config.salesVolume));
         setHistory(Array.isArray(historyBody.history) ? historyBody.history : []);
@@ -146,6 +184,16 @@ export function useAgentAllocationInput({
   }, [requestKey, clientId, transactionId, agentIds]);
 
   const ready = loadedKey === requestKey && loadedKey !== '';
+
+  const agentCapCells = useMemo(() => buildAgentCapCells({
+    caps: agentCaps,
+    agents: agents.map((agent) => ({
+      id: agent.id,
+      fields: knownAgents.find((known) => known.id === agent.id)?.fields || {},
+    })),
+    history: postSplitHistory,
+    dealDate,
+  }), [agentCaps, agents, knownAgents, postSplitHistory, dealDate]);
 
   const unitsRaw = readTransactionField(deal, 'units');
   const units = unitsRaw === undefined || unitsRaw === null || String(unitsRaw).trim() === ''
@@ -188,5 +236,5 @@ export function useAgentAllocationInput({
     loadedOverridesRef.current = copyOverrides(overridesRef.current);
   };
 
-  return { ready, input, hasStoredRows, overrides, setTeamCapOverride, replaceOverrides, restoreLoadedOverrides, commitOverrides };
+  return { ready, input, hasStoredRows, overrides, agentCapCells, setTeamCapOverride, replaceOverrides, restoreLoadedOverrides, commitOverrides };
 }
