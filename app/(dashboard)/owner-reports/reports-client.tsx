@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, X } from 'lucide-react';
 import { pageFrame } from '@/lib/page-frame';
-import { useIsDesktop, useIsTouch } from '@/lib/use-media-query';
+import { DESKTOP_QUERY, useIsDesktop, useIsTouch } from '@/lib/use-media-query';
 import { FieldChevron, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { LoadingDataPage, type LoadingProgressInfo } from './loading-data-page';
 import {
@@ -1473,6 +1473,14 @@ function ReportView(props: {
     const apply = () => {
       const bottom = Math.max(0, chrome.getBoundingClientRect().bottom);
       root.style.setProperty('--report-chrome-bottom', `${bottom}px`);
+      // Phones do not pin table headers: a header moved by script trails iOS momentum scrolling,
+      // so rows peek out and show through. Each header stays at the top of its own table instead.
+      if (!window.matchMedia(DESKTOP_QUERY).matches) {
+        root.querySelectorAll<HTMLElement>('.report-table thead, [data-production-heading]').forEach((element) => {
+          element.style.transform = '';
+        });
+        return;
+      }
       root.querySelectorAll<HTMLElement>('.report-table').forEach((wrap) => {
         if (wrap.closest('[data-production-block]')) return;
         const head = wrap.querySelector('thead');

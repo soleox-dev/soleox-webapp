@@ -62,7 +62,8 @@ From and To sit immediately to the right of the date range filter. No other filt
 
 ### Tables
 
-- A table header stays fixed just below the report title and filters while that table is on screen. The stuck header stays square so the table body does not show past its corners. It scrolls away once the user has moved past the end of the table.
+- Below `md` table headers are not pinned: each header stays at the top of its own table and scrolls with it. A header moved by script trails iOS momentum scrolling, so rows peeked out and showed through it.
+- At `md` and wider a table header stays fixed just below the report title and filters while that table is on screen. The stuck header stays square so the table body does not show past its corners. It scrolls away once the user has moved past the end of the table.
 - Every column header sorts that table when clicked. The first click sorts ascending. Clicking the same header again sorts descending. The active header shows the direction. Each table sorts on its own. Total and grand total rows stay at the bottom. A table keeps its original order until a header is clicked.
 - When a table has a # index column, that column is right-aligned, header and cells.
 - Header cells are opaque and always paint above the rows, including the rows' bars and values. Each `thead th` in a `.report-table` is positioned with its own stacking (base layer in `app/globals.css`), because iOS Safari does not reliably layer a whole `<thead>`.
