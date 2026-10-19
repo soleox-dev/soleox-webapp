@@ -5439,9 +5439,9 @@ function SectionHeading({ children, tone = 'emerald', note, action, end }: { chi
                   : 'report-pill-emerald';
   return (
     <h3 className="relative w-full">
-      <div className={`rounded-full text-center text-sm font-bold uppercase tracking-wide max-md:text-xs max-md:tracking-normal ${fill} ${action || end ? 'grid grid-cols-[1fr_auto_1fr] items-stretch overflow-hidden' : 'px-4 py-2 max-md:px-3 max-md:py-1.5'}`}>
+      <div className={`rounded-full text-center text-sm font-bold uppercase tracking-wide max-md:tracking-normal ${fill} ${action || end ? 'grid grid-cols-[1fr_auto_1fr] items-stretch overflow-hidden' : 'px-4 py-2 max-md:px-3 max-md:py-1'}`}>
         {action || end ? <div className="justify-self-start">{action}</div> : null}
-        {action || end ? <span className="flex items-center justify-center px-4 py-2 max-md:px-2 max-md:py-1.5">{children}</span> : children}
+        {action || end ? <span className="flex items-center justify-center px-4 py-2 max-md:px-2 max-md:py-1">{children}</span> : children}
         {end ? <div className="justify-self-end self-stretch">{end}</div> : null}
       </div>
       {note ? (
