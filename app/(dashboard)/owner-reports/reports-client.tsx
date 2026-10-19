@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, Check, ChevronDown, ChevronUp, Info, X } from 'lucide-react';
 import { pageFrame } from '@/lib/page-frame';
-import { useIsDesktop } from '@/lib/use-media-query';
+import { useIsDesktop, useIsTouch } from '@/lib/use-media-query';
 import { FieldChevron, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { LoadingDataPage, type LoadingProgressInfo } from './loading-data-page';
 import {
@@ -1059,7 +1059,8 @@ function Cover({ launching, onEnter }: { launching: boolean; onEnter: () => void
 const reportTableWrap = 'report-table rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900';
 const pairedReport = 'grid items-stretch gap-4 lg:grid-cols-2';
 const pairedSection = 'flex h-full min-w-0 flex-col gap-3';
-const pairedScores = 'grid grid-cols-3 gap-3';
+// Phones stack the three cards so full dollar amounts fit; sm and up keep three columns.
+const pairedScores = 'grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3';
 
 type ColumnSort = { key: string; direction: 'asc' | 'desc' };
 
@@ -1883,6 +1884,26 @@ function CustomDateField({ label, value, onChange }: { label: string; value: str
   );
 }
 
+/** Below md, shifts an open dropdown left and caps its width so it stays on screen. Desktop is untouched. */
+function useViewportClamp(ref: React.RefObject<HTMLDivElement | null>, open: boolean) {
+  const isDesktop = useIsDesktop();
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!open || isDesktop || !el) return;
+    // clientWidth, not innerWidth: on phones an overflowing menu widens innerWidth.
+    const gutter = 8;
+    const viewport = document.documentElement.clientWidth;
+    el.style.maxWidth = `${viewport - gutter * 2}px`;
+    const rect = el.getBoundingClientRect();
+    const over = rect.right - (viewport - gutter);
+    if (over > 0) el.style.left = `${-Math.min(over, Math.max(0, rect.left - gutter))}px`;
+    return () => {
+      el.style.left = '';
+      el.style.maxWidth = '';
+    };
+  }, [ref, open, isDesktop]);
+}
+
 function ChoiceFilter({ label, note, value, options, onChange }: {
   label: string;
   note?: string;
@@ -1891,6 +1912,8 @@ function ChoiceFilter({ label, note, value, options, onChange }: {
   onChange: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  useViewportClamp(listRef, open);
   const [query, setQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
   const selected = options.find((option) => option.value === value);
@@ -1935,7 +1958,7 @@ function ChoiceFilter({ label, note, value, options, onChange }: {
         <FieldChevron />
       </button>
       {open ? (
-        <div role="listbox" aria-label={label} className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+        <div ref={listRef} role="listbox" aria-label={label} className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
           {options.length > 8 ? (
             <div className="sticky top-0 z-10 bg-white px-1 py-1 dark:bg-slate-900">
               <input
@@ -1972,6 +1995,8 @@ function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date range
   label?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  useViewportClamp(listRef, open);
   const [query, setQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
   const selected = DATE_PRESETS.find((item) => item.id === preset) || DATE_PRESETS[0];
@@ -2020,7 +2045,7 @@ function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date range
         <FieldChevron />
       </button>
       {open ? (
-        <div role="listbox" aria-label="Date range" className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-80 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+        <div ref={listRef} role="listbox" aria-label="Date range" className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-80 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
           {DATE_PRESETS.length > 8 ? (
             <div className="sticky top-0 z-10 bg-white px-1 py-1 dark:bg-slate-900">
               <input
@@ -2083,7 +2108,12 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
   fold?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  useViewportClamp(listRef, open);
   const [query, setQuery] = useState('');
+  // Touch has no hover, so tapping the right side of an option reveals its ONLY button.
+  const touch = useIsTouch();
+  const [onlyArmed, setOnlyArmed] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const values = options.map((option) => option.value);
   const chosen = (value: string) => {
@@ -2105,6 +2135,10 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
       : [...checkedValues, value];
     commit(next);
   };
+
+  useEffect(() => {
+    if (!open) setOnlyArmed(null);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -2141,7 +2175,7 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
         <FieldChevron />
       </button>
       {open ? (
-        <div role="listbox" aria-label={label} aria-multiselectable="true" className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+        <div ref={listRef} role="listbox" aria-label={label} aria-multiselectable="true" className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
           <div className="sticky top-0 z-10 bg-white px-1 py-1 dark:bg-slate-900">
             <div className="flex items-center justify-between gap-2">
               <button type="button" onClick={() => commit(values)} className="cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950">Select all</button>
@@ -2156,17 +2190,40 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
               />
             ) : null}
           </div>
-          {visible.length === 0 ? <p className="px-2 py-2 text-xs text-slate-400">No matches</p> : visible.map((option) => (
-            <div key={option.value} className="group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => toggle(option.value)}>
-              <input type="checkbox" readOnly checked={chosen(option.value)} className="pointer-events-none cursor-pointer" />
-              <span className="min-w-0 flex-1 truncate">{option.label}</span>
+          {visible.length === 0 ? <p className="px-2 py-2 text-xs text-slate-400">No matches</p> : visible.map((option) => {
+            const armed = touch && onlyArmed === option.value;
+            // On touch the checkbox and the name toggle the value; the rest of the row arms ONLY.
+            const toggleOnTouch = (event: React.MouseEvent) => {
+              event.stopPropagation();
+              setOnlyArmed(null);
+              toggle(option.value);
+            };
+            return (
+            <div
+              key={option.value}
+              className={`group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 ${armed ? 'bg-slate-100 dark:bg-slate-800' : ''}`}
+              onClick={() => (touch ? setOnlyArmed(armed ? null : option.value) : toggle(option.value))}
+            >
+              {touch ? (
+                <>
+                  <input type="checkbox" readOnly checked={chosen(option.value)} className="cursor-pointer" onClick={toggleOnTouch} />
+                  <span className="min-w-0 truncate" onClick={toggleOnTouch}>{option.label}</span>
+                  <span className="flex-1 self-stretch" aria-hidden />
+                </>
+              ) : (
+                <>
+                  <input type="checkbox" readOnly checked={chosen(option.value)} className="pointer-events-none cursor-pointer" />
+                  <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                </>
+              )}
               <span className="relative shrink-0">
-                <span className="block min-w-[4.5rem] text-right text-xs tabular-nums text-slate-400 group-hover:opacity-0">{option.count.toLocaleString()}</span>
+                <span className={`block min-w-[4.5rem] text-right text-xs tabular-nums text-slate-400 group-hover:opacity-0 ${armed ? 'opacity-0' : ''}`}>{option.count.toLocaleString()}</span>
                 <button
                   type="button"
-                  className="absolute inset-0 hidden cursor-pointer items-center justify-end text-[10px] font-bold uppercase tracking-wide text-emerald-700 group-hover:flex dark:text-emerald-300"
+                  className={`absolute inset-0 cursor-pointer items-center justify-end text-[10px] font-bold uppercase tracking-wide text-emerald-700 group-hover:flex dark:text-emerald-300 ${armed ? 'flex' : 'hidden'}`}
                   onClick={(event) => {
                     event.stopPropagation();
+                    setOnlyArmed(null);
                     onChange([option.value]);
                   }}
                 >
@@ -2174,7 +2231,8 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
                 </button>
               </span>
             </div>
-          ))}
+            );
+          })}
         </div>
       ) : null}
     </div>
@@ -5051,10 +5109,10 @@ function Score({ label, amount, changeAmount, value, change, tone = 'plain', pul
         : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900';
   const amountClass = tone === 'result' ? 'text-emerald-800 dark:text-emerald-200' : tone === 'listing' ? 'text-sky-800 dark:text-sky-200' : tone === 'buyer' ? 'text-amber-800 dark:text-amber-200' : '';
   return (
-    <div key={pulse} data-score-card className={`relative flex h-full min-w-0 w-full flex-col justify-center rounded-xl border px-3 py-3 text-center ${noteOpen ? 'z-30' : ''} ${shell} ${pulse > 0 ? 'scorecard-pulse' : ''}`}>
+    <div key={pulse} data-score-card className={`relative flex h-full min-w-0 w-full flex-col justify-center rounded-xl border px-1.5 py-3 text-center md:px-3 ${noteOpen ? 'z-30' : ''} ${shell} ${pulse > 0 ? 'scorecard-pulse' : ''}`}>
       {note ? <ScoreNote label={label} text={note} onOpenChange={setNoteOpen} /> : null}
-      <p className="px-4 text-xs font-medium uppercase text-slate-500">{label}</p>
-      <FitText full={full} compact={compact} className={`mt-1 text-xl font-extrabold tabular-nums whitespace-nowrap ${amountClass}`} />
+      <p className="px-3 text-[10px] font-medium uppercase text-slate-500 md:px-4 md:text-xs">{label}</p>
+      <FitText full={full} compact={compact} className={`mt-1 text-base font-extrabold tabular-nums whitespace-nowrap md:text-xl ${amountClass}`} />
       {changeFull ? <FitText full={changeFull} compact={changeCompact} className={changeClass} /> : null}
     </div>
   );
