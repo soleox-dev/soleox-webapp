@@ -1678,6 +1678,8 @@ function FilterBar(props: {
   onEarnings?: (value: string[] | null) => void;
   excludeTeamLeads?: boolean;
   onExcludeTeamLeads?: (value: boolean) => void;
+  /** The client's team leads; the exclude checkbox is singular when there is exactly one. */
+  teamLeadIds?: Set<string>;
   cumulative?: boolean;
   onCumulative?: (value: boolean) => void;
   dateRangeLabel?: string;
@@ -1784,7 +1786,7 @@ function FilterBar(props: {
             onChange={(event) => props.onExcludeTeamLeads?.(event.target.checked)}
             className="h-4 w-4 cursor-pointer accent-emerald-600"
           />
-          Exclude Team Lead(s)
+          {props.teamLeadIds?.size === 1 ? 'Exclude Team Lead' : 'Exclude Team Leads'}
         </label>
       ) : null}
       {props.cumulative !== undefined && props.onCumulative ? (
