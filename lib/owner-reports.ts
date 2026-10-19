@@ -507,11 +507,15 @@ export function ownerMonthTable(
     if (side === 'seller') {
       place(deal.listDate, (row) => { row.listingsTaken += 1; });
       place(deal.acceptanceDate, (row) => { row.listingsPended += 1; });
-      place(deal.closingDate, (row) => { row.listingsClosed += 1; });
+      if (status === 'closed') {
+        place(deal.closingDate, (row) => { row.listingsClosed += 1; });
+      }
     }
     if (side === 'buyer') {
       place(deal.acceptanceDate, (row) => { row.buyersPended += 1; });
-      place(deal.closingDate, (row) => { row.buyersClosed += 1; });
+      if (status === 'closed') {
+        place(deal.closingDate, (row) => { row.buyersClosed += 1; });
+      }
     }
     if (status === 'pending') {
       place(deal.closingDate, (row) => {
@@ -524,6 +528,103 @@ export function ownerMonthTable(
   });
 
   return rows;
+}
+
+export type ProductionDrilldownItem = {
+  deal: ReportDeal;
+  date: Date | null;
+  net: number;
+};
+
+/** All records/transactions that make up a clicked number on the production table. */
+export function ownerProductionTransactions(
+  deals: ReportDeal[],
+  payments: ReportPayment[],
+  teamLeadIds: Set<string>,
+  range: DateRange,
+  grain: ProductionGrain,
+  rowKey: string,
+  metric: keyof OwnerMonthRow,
+): ProductionDrilldownItem[] {
+  const netByTransaction = new Map<string, number>();
+  payments.forEach((payment) => {
+    if (!teamLeadIds.has(payment.agentId)) return;
+    netByTransaction.set(payment.transactionId, (netByTransaction.get(payment.transactionId) || 0) + payment.amount);
+  });
+
+  const matchesPeriod = (date: Date | null): boolean => {
+    if (!date || !inRange(date, range)) return false;
+    if (rowKey === 'total') return true;
+    return productionPeriodKey(date, range, grain) === rowKey;
+  };
+
+  const results: ProductionDrilldownItem[] = [];
+
+  reportableDeals(deals).forEach((deal) => {
+    const status = deal.status.trim().toLowerCase();
+    const side = deal.side.trim().toLowerCase();
+    const net = netByTransaction.get(deal.id) || 0;
+
+    switch (metric) {
+      case 'closedUnits':
+      case 'closedVolume':
+      case 'closedCommission':
+        if (status === 'closed' && matchesPeriod(deal.closingDate)) {
+          results.push({ deal, date: deal.closingDate, net });
+        }
+        break;
+      case 'closedNet':
+        if (status === 'closed' && matchesPeriod(deal.closingDate)) {
+          if (net !== 0) {
+            results.push({ deal, date: deal.closingDate, net });
+          }
+        }
+        break;
+      case 'listingsTaken':
+        if (side === 'seller' && matchesPeriod(deal.listDate)) {
+          results.push({ deal, date: deal.listDate, net });
+        }
+        break;
+      case 'listingsPended':
+        if (side === 'seller' && matchesPeriod(deal.acceptanceDate)) {
+          results.push({ deal, date: deal.acceptanceDate, net });
+        }
+        break;
+      case 'listingsClosed':
+        if (side === 'seller' && status === 'closed' && matchesPeriod(deal.closingDate)) {
+          results.push({ deal, date: deal.closingDate, net });
+        }
+        break;
+      case 'buyersPended':
+        if (side === 'buyer' && matchesPeriod(deal.acceptanceDate)) {
+          results.push({ deal, date: deal.acceptanceDate, net });
+        }
+        break;
+      case 'buyersClosed':
+        if (side === 'buyer' && status === 'closed' && matchesPeriod(deal.closingDate)) {
+          results.push({ deal, date: deal.closingDate, net });
+        }
+        break;
+      case 'pendingUnits':
+      case 'pendingVolume':
+      case 'pendingCommission':
+        if (status === 'pending' && matchesPeriod(deal.closingDate)) {
+          results.push({ deal, date: deal.closingDate, net });
+        }
+        break;
+      case 'pendingNet':
+        if (status === 'pending' && matchesPeriod(deal.closingDate)) {
+          if (net !== 0) {
+            results.push({ deal, date: deal.closingDate, net });
+          }
+        }
+        break;
+      default:
+        break;
+    }
+  });
+
+  return results;
 }
 
 export function teamLeadNet(

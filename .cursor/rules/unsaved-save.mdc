@@ -1,6 +1,7 @@
 ---
 description: Block navigation while a Save button is visible and enabled.
-alwaysApply: true
+globs: components/save-leave-guard.tsx,app/(dashboard)/**/*.tsx
+alwaysApply: false
 ---
 
 # Unsaved save

@@ -1,6 +1,7 @@
 ---
 description: Requirements for permissions and multi-client selection. Follow this before changing access, roles, or client switching.
-alwaysApply: true
+globs: lib/access.ts,proxy.ts,app/api/**/*,app/(dashboard)/**/settings/**/*
+alwaysApply: false
 ---
 
 # Access requirements

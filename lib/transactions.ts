@@ -9,6 +9,7 @@ import { generatePrefixedId } from '@/lib/id';
 import { recordUserFieldProtections } from '@/lib/transaction-field-protections';
 import { recordAudit } from '@/lib/audit';
 import { repairImportedText } from '@/lib/imported-text';
+import { fetchAllPages } from '@/lib/supabase-pagination';
 
 // Helper utility to safely round currency values to 2 decimal places
 const roundCurrency = (num: number): number => {
@@ -57,36 +58,45 @@ export async function getTransactions(
 ): Promise<Transaction[]> {
   const sb = client || (await getAuthenticatedSupabase());
 
-  let transactionsQuery = sb
-    .from('transactions')
-    .select('*')
-    .eq('client_id', clientId);
-  transactionsQuery = scope === 'deleted'
-    ? transactionsQuery.eq('archived', true).eq('permanently_deleted', false)
-    : transactionsQuery.or('archived.is.null,archived.eq.false');
-
-  const [txRes, agentsRes] = await Promise.all([
-    transactionsQuery.order('created_at', { ascending: false }),
+  const [txData, agentData] = await Promise.all([
+    fetchAllPages((offset, limit, withCount) => {
+      let q = sb
+        .from('transactions')
+        .select('*', withCount ? { count: 'exact' } : undefined)
+        .eq('client_id', clientId);
+      q = scope === 'deleted'
+        ? q.eq('archived', true).eq('permanently_deleted', false)
+        : q.or('archived.is.null,archived.eq.false');
+      return q
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+        .range(offset, offset + limit - 1);
+    }),
     sb
       .from('agents')
       .select('id, agent_name')
-      .eq('client_id', clientId),
+      .eq('client_id', clientId)
+      .order('id', { ascending: true })
+      .then((res: any) => (res.data || []) as Array<{ id?: string | number; agent_name?: string; name?: string; agent_id?: string }>),
   ]);
 
-  if (txRes.error) {
-    console.error('Error fetching transactions from Supabase:', txRes.error);
-    throw txRes.error;
-  }
-
   const agentMap = new Map<string, string>();
-  (agentsRes.data || []).forEach((ag: any) => {
+  agentData.forEach((ag: any) => {
     const name = ag.agent_name || ag.name;
     if (ag.id && name) agentMap.set(String(ag.id), name);
     if (ag.agent_id && name) agentMap.set(String(ag.agent_id), name);
   });
 
+  const seenIds = new Set<string>();
+  const uniqueTx = txData.filter((row: any) => {
+    const id = String(row?.id || '');
+    if (!id || seenIds.has(id)) return false;
+    seenIds.add(id);
+    return true;
+  });
+
   // Parse custom attributes and format numeric values without forcing fallbacks
-  return (txRes.data || []).map((row: any) => {
+  return uniqueTx.map((row: any) => {
     const customAttrs = readCustomAttributes(row);
     const resolvedAgentName = row.agent_id ? (agentMap.get(String(row.agent_id)) || null) : null;
 

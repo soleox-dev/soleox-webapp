@@ -457,6 +457,33 @@ function callPhrase(expr: Extract<Expr, { kind: 'call' }>, reading: Reading): st
   if (expr.name === 'SEARCH' && args.length >= 2) {
     return `the position of ${phrase(args[0], reading)} in ${phrase(args[1], reading)}`;
   }
+  if (expr.name === 'ROUND' || expr.name === 'ROUNDUP' || expr.name === 'ROUNDDOWN') {
+    const direction = expr.name === 'ROUNDUP' ? ' up' : expr.name === 'ROUNDDOWN' ? ' down' : '';
+    if (args.length === 0) return expr.name;
+    const num = phrase(args[0], reading);
+    if (args.length === 1) {
+      return `${num} rounded${direction} to the nearest whole number`;
+    }
+    const digitsExpr = args[1];
+    if (digitsExpr.kind === 'num') {
+      const d = Number(digitsExpr.raw);
+      if (d === 0) return `${num} rounded${direction} to the nearest whole number`;
+      if (d === 1) return `${num} rounded${direction} to 1 decimal place`;
+      if (d > 1) return `${num} rounded${direction} to ${digitsExpr.raw} decimal places`;
+      if (d === -1) return `${num} rounded${direction} to the nearest 10`;
+      if (d === -2) return `${num} rounded${direction} to the nearest 100`;
+      if (d === -3) return `${num} rounded${direction} to the nearest 1,000`;
+      if (d < 0) return `${num} rounded${direction} to the nearest 10^${Math.abs(d)}`;
+    }
+    if (digitsExpr.kind === 'unary' && digitsExpr.op === '-' && digitsExpr.arg.kind === 'num') {
+      const d = -Number(digitsExpr.arg.raw);
+      if (d === -1) return `${num} rounded${direction} to the nearest 10`;
+      if (d === -2) return `${num} rounded${direction} to the nearest 100`;
+      if (d === -3) return `${num} rounded${direction} to the nearest 1,000`;
+      if (d < 0) return `${num} rounded${direction} to the nearest 10^${Math.abs(d)}`;
+    }
+    return `${num} rounded${direction} to ${phrase(digitsExpr, reading)} decimal places`;
+  }
   if (expr.name === 'YEAR' && args.length === 1) return `the year of ${phrase(args[0], reading)}`;
   if (expr.name === 'TODAY' && args.length === 0) return 'today';
   const rendered = args.map((arg) => phrase(arg, reading));

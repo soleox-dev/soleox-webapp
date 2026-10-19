@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireSessionClient, apiError } from '@/lib/session';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { fetchAllPages } from '@/lib/supabase-pagination';
 
 const NATIVE_AGENT_COLUMNS = new Set([
   'id',
@@ -33,18 +34,19 @@ export async function GET(request: Request) {
     const includeArchived = searchParams.get('include_archived') === 'true';
 
     const { clientId, supabase } = await requireSessionClient();
-    let query = supabase
-      .from('agents')
-      .select('*')
-      .eq('client_id', clientId);
 
-    if (!includeArchived) {
-      query = query.or('archived.is.null,archived.eq.false');
-    }
+    const data = await fetchAllPages((offset, limit, withCount) => {
+      let query = supabase
+        .from('agents')
+        .select('*', withCount ? { count: 'exact' } : undefined)
+        .eq('client_id', clientId);
 
-    const { data, error } = await query.order('agent_name', { ascending: true });
+      if (!includeArchived) {
+        query = query.or('archived.is.null,archived.eq.false');
+      }
 
-    if (error) throw error;
+      return query.order('agent_name', { ascending: true }).range(offset, offset + limit - 1);
+    });
 
     // Flatten custom and commission attributes onto the returned objects
     const formattedAgents = (data || []).map((row: any) => {

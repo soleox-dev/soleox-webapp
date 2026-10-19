@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireSessionClient, apiError } from '@/lib/session';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { fetchAllPages } from '@/lib/supabase-pagination';
 
 // GET: Fetch non-archived payment records
 export async function GET(request: Request) {
@@ -26,21 +27,15 @@ export async function GET(request: Request) {
     }
 
     if (!transactionId && !commissionItemId) {
-      const pageSize = 1000;
-      const payments: unknown[] = [];
-      for (let offset = 0; offset < 50000; offset += pageSize) {
-        const { data, error } = await supabase
+      const payments = await fetchAllPages((offset, limit, withCount) =>
+        supabase
           .from('payments')
-          .select('*')
+          .select('*', withCount ? { count: 'exact' } : undefined)
           .eq('client_id', clientId)
           .or('archived.is.null,archived.eq.false')
           .order('id', { ascending: true })
-          .range(offset, offset + pageSize - 1);
-        if (error) throw error;
-        const batch = data || [];
-        payments.push(...batch);
-        if (batch.length < pageSize) break;
-      }
+          .range(offset, offset + limit - 1)
+      );
       return NextResponse.json({ success: true, payments });
     }
 

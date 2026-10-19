@@ -3,6 +3,7 @@ import { requireSessionClient, apiError } from '@/lib/session';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fetchAllPages } from '@/lib/supabase-pagination';
 
 async function reorderPostSplitEntities(supabase: SupabaseClient, user: string, clientId: string, body: { entity_ids?: unknown }) {
   const requested = Array.isArray(body.entity_ids) ? body.entity_ids.map((id) => String(id)) : [];
@@ -48,27 +49,38 @@ async function reorderPostSplitEntities(supabase: SupabaseClient, user: string, 
 export async function GET(request: Request) {
   try {
     const { clientId, supabase } = await requireSessionClient();
-    const [{ data, error }, { data: paymentRows, error: paymentsError }] = await Promise.all([
+    const { searchParams } = new URL(request.url);
+    const checkUsage = searchParams.get('check_usage') === 'true';
+
+    const data = await fetchAllPages((offset, limit, withCount) =>
       supabase
         .from('commission_entities')
-        .select('*')
+        .select('*', withCount ? { count: 'exact' } : undefined)
         .eq('client_id', clientId)
         .or('archived.is.null,archived.eq.false')
         .order('is_active', { ascending: false })
-        .order('entity_name', { ascending: true }),
-      supabase
-        .from('payments')
-        .select('payee_entity_id')
-        .eq('client_id', clientId)
-        .not('payee_entity_id', 'is', null),
-    ]);
-
-    if (error) throw error;
-    if (paymentsError) throw paymentsError;
-
-    const entityIdsWithPayments = new Set(
-      (paymentRows || []).map((row) => String(row.payee_entity_id)).filter(Boolean)
+        .order('entity_name', { ascending: true })
+        .range(offset, offset + limit - 1)
     );
+
+    let entityIdsWithPayments = new Set<string>();
+    if (checkUsage && data && data.length > 0) {
+      const entityIds = data.map((e: any) => String(e.id)).filter(Boolean);
+      const matched = await fetchAllPages((offset, limit, withCount) =>
+        supabase
+          .from('payments')
+          .select('payee_entity_id', withCount ? { count: 'exact' } : undefined)
+          .eq('client_id', clientId)
+          .in('payee_entity_id', entityIds)
+          .order('id', { ascending: true })
+          .range(offset, offset + limit - 1)
+      );
+
+      entityIdsWithPayments = new Set(
+        (matched || []).map((row: any) => String(row.payee_entity_id)).filter(Boolean)
+      );
+    }
+
     const entities = (data || []).map((entity) => ({
       ...entity,
       has_payments: entityIdsWithPayments.has(String(entity.id)),

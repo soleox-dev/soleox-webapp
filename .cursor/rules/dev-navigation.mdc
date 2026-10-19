@@ -1,6 +1,7 @@
 ---
 description: Keep navigation off the Compiling and Rendering stall.
-alwaysApply: true
+globs: proxy.ts,lib/access.ts,next.config.ts
+alwaysApply: false
 ---
 
 # Dev navigation

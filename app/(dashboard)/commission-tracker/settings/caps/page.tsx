@@ -9,6 +9,7 @@ import { generatePrefixedId } from '@/lib/id';
 import { normalizeTeamCapKey, teamCapKeyFormatError, teamCapKeyFromName } from '@/lib/agent-allocations';
 import { FormulaEditor, type FormulaName } from '../commission-templates/FormulaEditor';
 import { ALLOCATION_CLIENT_ID, AllocationFieldMenu, allocationFormulaHint, fieldOptions, useAllocationSchema, type AllocationAgent } from '../allocation-fields';
+import { useAccess } from '@/components/access-provider';
 
 type CapTab = 'team' | 'agent';
 
@@ -139,6 +140,8 @@ export default function CapsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { access } = useAccess();
+  const activeClientId = access?.clientId || ALLOCATION_CLIENT_ID;
   const { agentFields, agents, formulaNames } = useAllocationSchema();
   const requestLeave = useRequestLeave();
 
@@ -146,9 +149,9 @@ export default function CapsPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const headers = { 'x-client-id': ALLOCATION_CLIENT_ID };
+        const headers = { 'x-client-id': activeClientId };
         const [capsResponse, entitiesResponse] = await Promise.all([
-          fetch(`/api/agent-allocations?client_id=${ALLOCATION_CLIENT_ID}`, { headers }),
+          fetch(`/api/agent-allocations?client_id=${encodeURIComponent(activeClientId)}`, { headers }),
           fetch('/api/commission-entities', { headers }),
         ]);
         const data = await capsResponse.json().catch(() => ({}));
@@ -178,7 +181,7 @@ export default function CapsPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [activeClientId]);
 
   const namedKeys = (): NamedKey[] => [
     ...teamCaps.map((cap) => ({ id: cap.id, name: cap.name, key: cap.key })),
@@ -219,9 +222,9 @@ export default function CapsPage() {
       const payload = caps.map(({ keyLocked, keyCustom, ...cap }) => cap);
       const response = await fetch('/api/agent-allocations', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-client-id': ALLOCATION_CLIENT_ID },
+        headers: { 'Content-Type': 'application/json', 'x-client-id': activeClientId },
         body: JSON.stringify({
-          clientId: ALLOCATION_CLIENT_ID,
+          clientId: activeClientId,
           ...(savingTeam ? { teamCaps: payload } : { agentCaps: payload }),
         }),
       });

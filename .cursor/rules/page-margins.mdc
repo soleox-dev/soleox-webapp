@@ -1,6 +1,7 @@
 ---
 description: Side margins for every page. Match the Owner Reports filters card.
-alwaysApply: true
+globs: lib/page-frame.ts,app/(dashboard)/**/page.tsx,app/(dashboard)/**/layout.tsx
+alwaysApply: false
 ---
 
 # Page margins

@@ -1,7 +1,38 @@
+# Environment & Secrets
 .env
-.env.local
-.env.development
-.env.production
+.env*
 config/secrets.json
 *.pem
 *.key
+gcp-key.json
+
+# Dependencies & Build artifacts
+node_modules/
+.next/
+dist/
+build/
+*.tsbuildinfo
+
+# Raw Data, Imports & Database Seeds/Dumps
+# (Prevents AI from indexing tens of megabytes of raw SQL inserts & spreadsheets)
+data/
+db/seeds/
+db/*.json
+*.xlsx
+*.csv
+*.tsv
+
+# Large generated metadata & exports
+structure.txt
+*.log
+
+# Backups and temporary files
+*_backup.*
+*backup*
+*.bak
+*.tmp
+__pycache__/
+.DS_Store
+
+package-lock.json
+*.html

@@ -8,8 +8,8 @@ import { normalizeAgentName } from '@/lib/id';
 import { qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection, type TeamCapRule } from '@/lib/agent-allocations';
 import { templateBoltTone, type TemplateBoltTone } from '@/lib/transaction-default-view';
 import { allocationForReplay, loadAllocationCatalog, loadAllocationHistory, loadAllocationOverrides, payoutSignature, replayedPaymentSignature, savedPayouts } from '@/lib/template-payment-drift';
-import { applyTemplateLogic, formulaDataNeeds, loadCommissionLedger, loadFormulaLookups, loadTemplateBundle, peekCommissionLedger, peekFormulaLookups, peekTemplateBundle, templateFormulaSources, type AppliedCalculation, type AppliedTemplateRules, type TemplateLogicStep, type TemplateParameterRecord } from './applyTemplateLogic';
-import type { FormulaLedgerRow, FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
+import { applyTemplateLogic, clearCommissionModuleCache, formulaDataNeeds, loadCommissionLedger, loadFormulaLookups, loadTemplateBundle, peekCommissionLedger, peekFormulaLookups, peekTemplateBundle, templateFormulaSources, type AppliedCalculation, type AppliedTemplateRules, type TemplateLogicStep, type TemplateParameterRecord } from './applyTemplateLogic';
+import { isConfiguredOrExistingField, type FormulaLedgerRow, type FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import type { StoredCommissionItem } from '../commissionItemState';
 import type { CommissionEntityOption, FieldSetting, KnownAgentInfo } from '../types';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
@@ -551,7 +551,15 @@ function defaultFromFormula(
       return nameText ? { type: 'text', value: nameText } : { type: 'blank' };
     }
     const field = readDealValue(deal, key);
-    if (field === undefined || field === null || field === '') return { type: 'blank' };
+    if (field === undefined || field === null || field === '') {
+      if (
+        isConfiguredOrExistingField('transactions', key, [], lookups) ||
+        (deal && (key in deal || (deal.custom_attributes && typeof deal.custom_attributes === 'object' && key in (deal.custom_attributes as Record<string, unknown>))))
+      ) {
+        return { type: 'blank' };
+      }
+      return { type: 'error' };
+    }
     if (typeof field === 'number') return { type: 'number', value: field };
     if (typeof field === 'boolean') return { type: 'boolean', value: field };
     const text = String(field).trim();
@@ -1041,16 +1049,14 @@ export function CommissionTemplatePanel({
       } else {
         setLookups(null);
       }
-      const ledgerPromise = loadCommissionLedger(clientId, entities, { refresh: Boolean(cachedLedger) });
+      const ledgerPromise = loadCommissionLedger(clientId, entities, { refresh: true });
       try {
-        const bundle = cachedBundle ?? await loadTemplateBundle(draftTemplateId);
+        const bundle = await loadTemplateBundle(draftTemplateId, { refresh: true });
         if (cancelled) return;
         const steps = bundle.steps;
         const parameterRows = bundle.parameters;
-        if (!cachedBundle) {
-          setParameters(parameterRows);
-          setLogicSteps(steps);
-        }
+        setParameters(parameterRows);
+        setLogicSteps(steps);
         setIsLoadingParameters(false);
 
         const needs = formulaDataNeeds(templateFormulaSources(steps, parameterRows));
@@ -1060,7 +1066,7 @@ export function CommissionTemplatePanel({
             try {
               const nextLookups = needs.lookupTables.length === 0
                 ? { clientId, tables: {} }
-                : await loadFormulaLookups(clientId, needs.lookupTables);
+                : await loadFormulaLookups(clientId, needs.lookupTables, { refresh: true });
               if (!cancelled) setLookups(nextLookups);
             } catch (err) {
               if (!cancelled) setLedgerError(err instanceof Error ? err.message : 'Failed to calculate template results.');
@@ -1293,6 +1299,7 @@ export function CommissionTemplatePanel({
         }
       }
       localSubmitRef.current = false;
+      clearCommissionModuleCache();
       onSubmissionDeleted?.();
       setPopupOpen(false);
       setDraftTemplateId('');
@@ -1339,11 +1346,11 @@ export function CommissionTemplatePanel({
       });
       const submittedParametersWithCaps = writeTeamCapSelection(parameterValues, teamCapIds);
 
-      const steps = (await loadTemplateBundle(draftTemplateId)).steps;
+      const steps = (await loadTemplateBundle(draftTemplateId, { refresh: true })).steps;
       const needs = formulaDataNeeds(templateFormulaSources(steps, parameters));
       const [submitLedger, lookupsForSubmit] = await Promise.all([
-        needs.needsLedger ? (ledger ?? loadCommissionLedger(clientId, entities)) : Promise.resolve([]),
-        lookups ?? loadFormulaLookups(clientId, needs.lookupTables),
+        needs.needsLedger ? loadCommissionLedger(clientId, entities, { refresh: true }) : Promise.resolve([]),
+        needs.lookupTables.length > 0 ? loadFormulaLookups(clientId, needs.lookupTables, { refresh: true }) : Promise.resolve({ clientId, tables: {} }),
       ]);
       const applied = applyTemplateLogic({
         steps,
@@ -1358,6 +1365,7 @@ export function CommissionTemplatePanel({
         lookups: lookupsForSubmit,
       });
 
+      clearCommissionModuleCache();
       localSubmitRef.current = true;
       setCommittedTemplateId(draftTemplateId);
       setSubmittedTemplateId(draftTemplateId);
@@ -1444,6 +1452,7 @@ export function CommissionTemplatePanel({
   const StatusIcon = tone ? TEMPLATE_STATUS_ICON[tone].icon : null;
 
   const openTemplate = (templateId: string) => {
+    clearCommissionModuleCache();
     setDraftTemplateId(templateId);
     setPopupOpen(true);
     setTemplateMenuOpen(false);

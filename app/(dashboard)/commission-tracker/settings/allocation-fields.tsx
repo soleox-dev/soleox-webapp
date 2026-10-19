@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { OptionMenu } from '@/components/ui/option-menu';
 import { FieldChevron, UnderlineField, underlineControl } from '@/components/ui/underline-field';
 import { isHiddenRecordId } from '@/lib/fields';
+import { useAccess } from '@/components/access-provider';
 import type { FormulaName } from './commission-templates/FormulaEditor';
 
 export const ALLOCATION_CLIENT_ID = 'DEMO';
@@ -45,13 +46,15 @@ export function AllocationFieldMenu({
 }
 
 export function useAllocationSchema() {
+  const { access } = useAccess();
   const [fields, setFields] = useState<AllocationSchemaField[]>([]);
   const [agentFields, setAgentFields] = useState<AllocationSchemaField[]>([]);
   const [agents, setAgents] = useState<AllocationAgent[]>([]);
 
   useEffect(() => {
     let cancelled = false;
-    const headers = { 'x-client-id': ALLOCATION_CLIENT_ID };
+    const clientId = access?.clientId || ALLOCATION_CLIENT_ID;
+    const headers = { 'x-client-id': clientId };
     void (async () => {
       const [schemaResponse, agentSchemaResponse, agentsResponse] = await Promise.all([
         fetch('/api/schema/transactions', { headers }),
@@ -74,7 +77,7 @@ export function useAllocationSchema() {
       }));
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [access?.clientId]);
 
   const formulaNames = useMemo<FormulaName[]>(() => {
     const names = new Map<string, FormulaName>();

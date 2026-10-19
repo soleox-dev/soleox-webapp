@@ -1,4 +1,13 @@
-import { evaluateFormula, formulaDataNeeds, type FormulaLedgerRow, type FormulaLookups, type FormulaLookupCell, type FormulaLookupRow, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
+import {
+  evaluateFormula,
+  formulaDataNeeds,
+  isConfiguredOrExistingField,
+  type FormulaLedgerRow,
+  type FormulaLookups,
+  type FormulaLookupCell,
+  type FormulaLookupRow,
+  type FormulaValue,
+} from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { FORMULA_LOOKUP_TABLES, formulaLookupSource } from '@/lib/formula-lookup-tables';
 import { DynamicRule, roundCurrency, roundPercentRate } from '../types';
 
@@ -27,10 +36,10 @@ export function peekTemplateBundle(templateId: string): TemplateBundle | null {
   return templateBundles.get(templateId)?.bundle ?? null;
 }
 
-/** Rules and parameters for one template. Later reads reuse the first request. */
-export function loadTemplateBundle(templateId: string): Promise<TemplateBundle> {
+/** Rules and parameters for one template. Later reads reuse the first request unless refresh is requested. */
+export function loadTemplateBundle(templateId: string, options?: { refresh?: boolean }): Promise<TemplateBundle> {
   const existing = templateBundles.get(templateId);
-  if (existing?.promise) return existing.promise;
+  if (!options?.refresh && existing?.promise) return existing.promise;
   const promise = (async () => {
     const [parametersResponse, logicResponse] = await Promise.all([
       fetch(`/api/commission-template-parameters?template_id=${encodeURIComponent(templateId)}`, { cache: 'no-store' }),
@@ -56,7 +65,7 @@ export function loadTemplateBundle(templateId: string): Promise<TemplateBundle> 
     }
     throw error;
   });
-  templateBundles.set(templateId, { promise, bundle: null });
+  templateBundles.set(templateId, { promise, bundle: options?.refresh ? existing?.bundle ?? null : null });
   return promise;
 }
 
@@ -335,6 +344,7 @@ export function applyTemplateLogic({
     if (key === 'baseline_after_l1_post_splits') return { type: 'number', value: context.afterL1PostSplits };
     if (key === 'prior_amounts') return { type: 'number', value: context.prior };
     if (key === 'total_commission') return { type: 'number', value: totalCommission };
+    if (key === 'gross_commission') return { type: 'number', value: Number((deal as any)?.gross_commission || (deal as any)?.gci_amount || totalCommission) };
     const ruleHit = Object.keys(ruleResults).find((ruleKey) => ruleKey.toLowerCase() === key);
     if (ruleHit) {
       const stored = ruleResults[ruleHit];
@@ -348,7 +358,35 @@ export function applyTemplateLogic({
         return storedValue(parameters[match], isBooleanType(typeKey ? parameterTypes[typeKey] : undefined));
       }
     }
-    return storedValue(readDeal(deal, key));
+    const stepHit = steps.some((step) => step.rule_key?.trim().toLowerCase() === key);
+    if (stepHit) {
+      return { type: 'blank' };
+    }
+    if (key === 'primary_agent' || key === 'agent_1') {
+      const agent = dealAgents[0] || rosterAgents.find((a) => a.id === (deal as any)?.agent_id || a.name === (deal as any)?.primary_agent);
+      if (agent) return { type: 'text', value: agent.id || agent.name };
+      return { type: 'blank' };
+    }
+    if (key.startsWith('agent_')) {
+      const idx = parseInt(key.slice(6), 10);
+      if (!Number.isNaN(idx) && idx >= 1) {
+        const agent = dealAgents[idx - 1];
+        if (agent) return { type: 'text', value: agent.id || agent.name };
+        return { type: 'blank' };
+      }
+    }
+    const dealVal = readDeal(deal, key);
+    if (dealVal !== undefined && dealVal !== null && dealVal !== '') {
+      return storedValue(dealVal);
+    }
+    const dealRow = deal ? [formulaLookupRow(lookups?.clientId || '', deal)].filter(Boolean) as FormulaLookupRow[] : [];
+    if (
+      isConfiguredOrExistingField('transactions', key, dealRow, lookups) ||
+      (deal && (key in deal || (deal.custom_attributes && typeof deal.custom_attributes === 'object' && key in (deal.custom_attributes as Record<string, unknown>))))
+    ) {
+      return { type: 'blank' };
+    }
+    return { type: 'error' };
   };
   const rememberValue = (ruleKey: string | null | undefined, value: FormulaValue) => {
     const key = ruleKey?.trim();
@@ -789,13 +827,20 @@ async function fetchFormulaLookupTable(clientId: string, table: string): Promise
   const pageSize = 1000;
   const rows: FormulaLookupRow[] = [];
   for (let offset = 0; offset < 50000; offset += pageSize) {
-    const response = await fetch(`/api/formula-lookups?table=${encodeURIComponent(table)}&client_id=${encodeURIComponent(clientId)}&offset=${offset}&limit=${pageSize}`, { cache: 'no-store' });
+    const response = await fetch(`/api/formula-lookups?table=${encodeURIComponent(table)}&client_id=${encodeURIComponent(clientId)}&offset=${offset}&limit=${pageSize}`, {
+      headers: { 'x-client-id': clientId },
+      cache: 'no-store',
+    });
     const data = await response.json();
     if (!response.ok || data.success === false) throw new Error(data.error || `Failed to load ${table}.`);
-    if (String(data.client_id || '') !== clientId) throw new Error('Formula lookup returned a different client.');
+    const returnedClientId = String(data.client_id || '').trim();
+    if (clientId && clientId !== 'DEMO' && returnedClientId && returnedClientId !== clientId) {
+      throw new Error('Formula lookup returned a different client.');
+    }
+    const effectiveClientId = returnedClientId || clientId;
     const batch = Array.isArray(data.rows) ? data.rows as Record<string, unknown>[] : [];
     for (const record of batch) {
-      const row = formulaLookupRow(clientId, record);
+      const row = formulaLookupRow(effectiveClientId, record);
       if (row) rows.push(row);
     }
     if (batch.length < pageSize) break;
@@ -803,10 +848,10 @@ async function fetchFormulaLookupTable(clientId: string, table: string): Promise
   return rows;
 }
 
-function loadFormulaLookupTable(clientId: string, table: string): Promise<FormulaLookupRow[]> {
+function loadFormulaLookupTable(clientId: string, table: string, options?: { refresh?: boolean }): Promise<FormulaLookupRow[]> {
   const cacheKey = `${clientId}:${table}`;
   const existing = lookupTableCache.get(cacheKey);
-  if (existing) return existing.promise;
+  if (!options?.refresh && existing) return existing.promise;
   const promise = fetchFormulaLookupTable(clientId, table).then((rows) => {
     const current = lookupTableCache.get(cacheKey);
     if (current?.promise === promise) current.rows = rows;
@@ -816,7 +861,7 @@ function loadFormulaLookupTable(clientId: string, table: string): Promise<Formul
     if (current?.promise === promise) lookupTableCache.delete(cacheKey);
     throw error;
   });
-  lookupTableCache.set(cacheKey, { promise, rows: null });
+  lookupTableCache.set(cacheKey, { promise, rows: options?.refresh ? existing?.rows ?? null : null });
   return promise;
 }
 
@@ -828,17 +873,55 @@ export function peekFormulaLookups(clientId: string, tables: readonly string[]):
     if (!entry?.rows) return null;
     loaded[table] = entry.rows;
   }
+  const configEntry = lookupTableCache.get(`${clientId}:client_field_configurations`);
+  if (configEntry?.rows) {
+    loaded['client_field_configurations'] = configEntry.rows;
+  }
   return { clientId, tables: loaded };
 }
 
 /** Client-scoped rows for the tables a formula's XLOOKUP actually reads. */
-export async function loadFormulaLookups(clientId: string, tablesToLoad: readonly string[] = FORMULA_LOOKUP_TABLES): Promise<FormulaLookups> {
-  const requested = [...new Set(tablesToLoad)].flatMap((table) => {
+export async function loadFormulaLookups(
+  clientId: string,
+  tablesToLoad: readonly string[] = FORMULA_LOOKUP_TABLES,
+  options?: { refresh?: boolean },
+): Promise<FormulaLookups> {
+  const tablesWithConfigs = [...new Set([...tablesToLoad, 'client_field_configurations'])];
+  const requested = tablesWithConfigs.flatMap((table) => {
     const source = formulaLookupSource(table);
     return source ? [{ key: table, source }] : [];
   });
-  const loaded = await Promise.all(requested.map(async ({ key, source }) => [key, await loadFormulaLookupTable(clientId, source)] as const));
+  const loaded = await Promise.all(requested.map(async ({ key, source }) => [key, await loadFormulaLookupTable(clientId, source, options)] as const));
   const tables: FormulaLookups['tables'] = {};
   for (const [table, rows] of loaded) tables[table] = rows;
   return { clientId, tables };
+}
+
+/** Clears all module-level in-memory caches so subsequent calculations re-fetch fresh data. */
+export function clearCommissionModuleCache(): void {
+  templateBundles.clear();
+  ledgerCache.clear();
+  lookupTableCache.clear();
+}
+
+export function invalidateTemplateBundle(templateId?: string): void {
+  if (templateId) templateBundles.delete(templateId);
+  else templateBundles.clear();
+}
+
+export function invalidateFormulaLookups(clientId?: string, table?: string): void {
+  if (clientId && table) {
+    lookupTableCache.delete(`${clientId}:${table}`);
+  } else if (clientId) {
+    for (const key of lookupTableCache.keys()) {
+      if (key.startsWith(`${clientId}:`)) lookupTableCache.delete(key);
+    }
+  } else {
+    lookupTableCache.clear();
+  }
+}
+
+export function invalidateCommissionLedger(clientId?: string): void {
+  if (clientId) ledgerCache.delete(clientId);
+  else ledgerCache.clear();
 }

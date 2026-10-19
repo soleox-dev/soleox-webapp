@@ -6,6 +6,9 @@ const FUNCTION_ARITY: Record<string, { min: number; max: number; even?: boolean;
   NOT: { min: 1, max: 1 },
   COUNTIFS: { min: 2, max: 40, even: true },
   SUMIFS: { min: 3, max: 41, pairsAfterFirst: true },
+  ROUND: { min: 1, max: 2 },
+  ROUNDUP: { min: 1, max: 2 },
+  ROUNDDOWN: { min: 1, max: 2 },
   MIN: { min: 1, max: 20 },
   MAX: { min: 1, max: 20 },
   ISNUMBER: { min: 1, max: 1 },
@@ -263,6 +266,11 @@ export function validateFormula(source: string, knownNames: string[]): string | 
         eat();
         if (count < rule.min || count > rule.max) {
           if (rule.max === 0) fail(`${upper} does not take a value.`);
+          if (count > rule.max) {
+            fail(rule.min === rule.max
+              ? `${upper} needs ${rule.min} value${rule.min === 1 ? '' : 's'}.`
+              : `${upper} takes at most ${rule.max} value${rule.max === 1 ? '' : 's'}.`);
+          }
           fail(rule.min === rule.max
             ? `${upper} needs ${rule.min} value${rule.min === 1 ? '' : 's'}.`
             : `${upper} needs at least ${rule.min} value${rule.min === 1 ? '' : 's'}.`);

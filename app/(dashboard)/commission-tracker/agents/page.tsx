@@ -327,9 +327,8 @@ export default function AgentsPage() {
 
   const loadLiveSchema = async () => {
     try {
-      const res = await fetch('/api/schema/agents', {
-        headers: { 'x-client-id': 'DEMO' },
-      });
+      const headers = access?.clientId ? { 'x-client-id': access.clientId } : undefined;
+      const res = await fetch('/api/schema/agents', { headers });
       const data = await res.json();
       if (data.catalog && Array.isArray(data.catalog)) {
         setFieldConfigs(data.catalog);
@@ -344,9 +343,8 @@ export default function AgentsPage() {
   const loadLiveAgents = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/agents', {
-        headers: { 'x-client-id': 'DEMO' },
-      });
+      const headers = access?.clientId ? { 'x-client-id': access.clientId } : undefined;
+      const res = await fetch('/api/agents', { headers });
       const data = await res.json();
       if (data.success && Array.isArray(data.agents)) {
         setAgents(data.agents);
@@ -690,10 +688,12 @@ export default function AgentsPage() {
     setIsBulkUpdating(true);
     setBulkError(null);
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (access?.clientId) headers['x-client-id'] = access.clientId;
       const response = await fetch('/api/agents/bulk', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-client-id': 'DEMO' },
-        body: JSON.stringify({ clientId: 'DEMO', ids: [...selectedIds], fieldKey, value }),
+        headers,
+        body: JSON.stringify({ clientId: access?.clientId, ids: [...selectedIds], fieldKey, value }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.success) throw new Error(payload.error || 'Could not update those agents.');
@@ -721,10 +721,12 @@ export default function AgentsPage() {
     setIsBulkDeleting(true);
     setBulkDeleteError(null);
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (access?.clientId) headers['x-client-id'] = access.clientId;
       const response = await fetch('/api/agents/bulk', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', 'x-client-id': 'DEMO' },
-        body: JSON.stringify({ clientId: 'DEMO', ids: [...selectedIds] }),
+        headers,
+        body: JSON.stringify({ clientId: access?.clientId, ids: [...selectedIds] }),
       });
       const payload = await response.json().catch(() => ({}));
       const deletedIds = new Set<string>(Array.isArray(payload.deleted) ? payload.deleted.map((id: unknown) => String(id)) : []);
@@ -884,7 +886,7 @@ export default function AgentsPage() {
     }
 
     try {
-      const res = await fetch(`/api/agents?id=${encodeURIComponent(agent.id)}&client_id=DEMO`, {
+      const res = await fetch(`/api/agents?id=${encodeURIComponent(agent.id)}`, {
         method: 'DELETE',
       });
 

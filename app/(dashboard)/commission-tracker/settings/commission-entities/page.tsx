@@ -12,7 +12,7 @@ export interface CommissionEntity {
   id: string;
   client_id?: string;
   entity_name: string;
-  entity_type: 'REFERRAL' | 'FRANCHISE' | 'BROKERAGE' | 'CLIENT' | 'TEAM' | 'VENDOR' | 'EQUITY' | 'OTHER' | string;
+  entity_type: 'REFERRAL' | 'FRANCHISE' | 'BROKERAGE' | 'CLIENT' | 'TEAM' | 'VENDOR' | 'EQUITY' | 'TAXES' | 'OTHER' | string;
   contact_name?: string;
   contact_email?: string;
   tax_id?: string;
@@ -32,7 +32,7 @@ interface DialogState {
   onConfirm?: () => void;
 }
 
-const ENTITY_TYPES = ['REFERRAL', 'FRANCHISE', 'BROKERAGE', 'CLIENT', 'TEAM', 'VENDOR', 'EQUITY', 'OTHER'];
+const ENTITY_TYPES = ['REFERRAL', 'FRANCHISE', 'BROKERAGE', 'CLIENT', 'TEAM', 'VENDOR', 'EQUITY', 'TAXES', 'OTHER'];
 
 const underlineShell =
   'group/field relative underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600';
@@ -75,7 +75,7 @@ export default function CommissionEntitiesPage() {
   const loadEntities = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/commission-entities');
+      const res = await fetch('/api/commission-entities?check_usage=true');
       const data = await res.json();
       if (data.success && Array.isArray(data.entities)) {
         setEntities(data.entities);
@@ -357,7 +357,7 @@ export default function CommissionEntitiesPage() {
         closeDialog();
         setActionLoadingId(entity.id);
         try {
-          const res = await fetch(`/api/commission-entities?id=${encodeURIComponent(entity.id)}&client_id=DEMO`, {
+          const res = await fetch(`/api/commission-entities?id=${encodeURIComponent(entity.id)}`, {
             method: 'DELETE',
           });
 

@@ -234,6 +234,22 @@ function trimNumber(value: number): string {
   return String(rounded);
 }
 
+function roundNumber(value: number, digits = 0, mode: 'round' | 'up' | 'down' = 'round'): number {
+  if (!Number.isFinite(value)) return value;
+  const d = Math.trunc(digits);
+  if (d > 20) return value;
+  if (d < -20) return 0;
+  const sign = value < 0 ? -1 : 1;
+  const abs = Math.abs(value);
+  const parts = `${abs}`.split('e');
+  const exp = (parts[1] ? Number(parts[1]) : 0) + d;
+  const fn = mode === 'up' ? Math.ceil : mode === 'down' ? Math.floor : Math.round;
+  const shifted = fn(Number(`${parts[0]}e${exp}`));
+  const unshiftedParts = `${shifted}`.split('e');
+  const unshiftedExp = (unshiftedParts[1] ? Number(unshiftedParts[1]) : 0) - d;
+  return sign * Number(`${unshiftedParts[0]}e${unshiftedExp}`);
+}
+
 function compare(left: FormulaValue, op: string, right: FormulaValue): FormulaValue {
   if (left.type === 'error' || right.type === 'error') return { type: 'error' };
   const leftText = left.type === 'text' || (left.type === 'blank' && right.type === 'text');
@@ -348,7 +364,104 @@ export function formulaDataNeeds(sources: string[]): { lookupTables: string[]; n
       }
     });
   }
+  if (tables.size > 0) {
+    tables.add('client_field_configurations');
+  }
   return { lookupTables: [...tables].sort(), needsLedger };
+}
+
+const KNOWN_TABLE_COLUMNS: Record<string, ReadonlySet<string>> = {
+  agents: new Set([
+    'id', 'agent_id', 'user_id', 'tms_id', 'agent_name', 'name', 'full_name',
+    'agent_email', 'email', 'agent_phone', 'phone', 'group_id', 'agent_status',
+    'is_team_lead', 'agent_onboard_date', 'agent_offboard_date', 'archived',
+    'created_at', 'created_by', 'updated_at', 'updated_by', 'client_id',
+  ]),
+  transactions: new Set([
+    'id', 'transaction_status', 'status', 'agent_id', 'primary_agent',
+    'transaction_side', 'side', 'property_address', 'sales_price', 'gci_type',
+    'gci_perc', 'gci_amount', 'total_commission', 'gross_commission', 'list_price', 'list_date',
+    'acceptance_date', 'closing_date', 'lead_source', 'client_type',
+    'client_name', 'escrow_number', 'tms_id', 'isa', 'transaction_coordinator',
+    'notes', 'archived', 'created_at', 'created_by', 'updated_at', 'updated_by', 'client_id',
+  ]),
+  commission_entities: new Set([
+    'id', 'entity_name', 'name', 'entity_type', 'type', 'waterfall_sort_order',
+    'is_active', 'archived', 'client_id', 'created_at', 'created_by', 'updated_at', 'updated_by',
+  ]),
+  commission_templates: new Set([
+    'id', 'template_name', 'description', 'eligibility_formula', 'is_default',
+    'is_active', 'archived', 'client_id', 'created_at', 'created_by', 'updated_at', 'updated_by',
+  ]),
+  commission_template_parameters: new Set([
+    'id', 'template_id', 'parameter_name', 'parameter_key', 'data_type',
+    'autofill_formula', 'validation_rule', 'notes', 'is_required', 'sort_order',
+    'section', 'dropdown_options', 'client_id', 'created_at', 'created_by', 'updated_at', 'updated_by',
+  ]),
+  commission_template_rules: new Set([
+    'id', 'template_id', 'step_number', 'rule_name', 'rule_key', 'section',
+    'payee_entity_id', 'agent_key', 'payee_formula', 'apply_condition',
+    'custom_baseline', 'calculation_formula', 'split_type', 'result_type',
+    'show_in_popup', 'popup_section', 'show_when_formula', 'client_id',
+    'created_at', 'created_by', 'updated_at', 'updated_by',
+  ]),
+  payments: new Set([
+    'id', 'transaction_id', 'recipient_name', 'amount', 'payment_status',
+    'payment_date', 'notes', 'client_id', 'created_at', 'created_by', 'updated_at', 'updated_by',
+  ]),
+  transaction_commission_items: new Set([
+    'id', 'transaction_id', 'agent_id', 'payee_entity_id', 'final_amount',
+    'section', 'split_type', 'split_value', 'calculation_formula', 'client_id',
+    'created_at', 'created_by', 'updated_at', 'updated_by',
+  ]),
+  client_field_configurations: new Set([
+    'id', 'client_id', 'target_table', 'section_name', 'field_key',
+    'field_label', 'field_type', 'is_required', 'is_enabled', 'sort_order',
+    'archived', 'created_at', 'created_by', 'updated_at', 'updated_by',
+  ]),
+  client_lookup_values: new Set([
+    'id', 'client_id', 'category', 'option_label', 'option_value',
+    'sort_order', 'is_default', 'is_active', 'archived',
+    'created_at', 'created_by', 'updated_at', 'updated_by',
+  ]),
+  client_user_roles: new Set([
+    'id', 'user_id', 'client_id', 'role', 'is_active', 'archived',
+    'created_at', 'created_by', 'updated_at', 'updated_by',
+  ]),
+};
+
+export function isConfiguredOrExistingField(
+  table: string,
+  field: string,
+  rows: FormulaLookupRow[] = [],
+  lookups?: FormulaLookups,
+): boolean {
+  const normTable = (table === 'commission_template_logic' ? 'commission_template_rules' : table).toLowerCase();
+  const normField = field.toLowerCase();
+
+  // 1. Check known core database columns
+  const knownColumns = KNOWN_TABLE_COLUMNS[normTable];
+  if (knownColumns && knownColumns.has(normField)) return true;
+
+  // 2. Check if configured in client_field_configurations lookup table
+  const fieldConfigs = lookups?.tables?.client_field_configurations;
+  if (fieldConfigs) {
+    const isConfigured = fieldConfigs.some((row) => {
+      const targetTable = String(row.fields.target_table || '').toLowerCase();
+      const fieldKey = String(row.fields.field_key || '').toLowerCase();
+      const isArchived = row.fields.archived === true || String(row.fields.archived || '').toLowerCase() === 'true';
+      return targetTable === normTable && fieldKey === normField && !isArchived;
+    });
+    if (isConfigured) return true;
+  }
+
+  // 3. Check if the attribute exists on ANY object in the table's rows
+  const existsOnAnyObject = rows.some((row) =>
+    Object.keys(row.fields).some((key) => key.toLowerCase() === normField)
+  );
+  if (existsOnAnyObject) return true;
+
+  return false;
 }
 
 function valuesEqual(left: FormulaValue, right: FormulaValue): boolean {
@@ -507,7 +620,8 @@ function lookupCell(cell: FormulaLookupCell | undefined): FormulaValue {
 function agentsAsLookup(agents: FormulaAgent[], clientId: string): FormulaLookupRow[] {
   const rows: FormulaLookupRow[] = [];
   for (const agent of agents) {
-    if (!clientId || agent.clientId !== clientId) continue;
+    if (clientId && agent.clientId && agent.clientId !== clientId) continue;
+    const effectiveClientId = agent.clientId || clientId;
     const fields: Record<string, FormulaLookupCell> = { ...(agent.fields || {}) };
     if (agent.id) fields.id = agent.id;
     if (agent.name) {
@@ -515,8 +629,8 @@ function agentsAsLookup(agents: FormulaAgent[], clientId: string): FormulaLookup
       fields.name = agent.name;
     }
     fields.is_team_lead = Boolean(agent.isTeamLead);
-    fields.client_id = agent.clientId;
-    rows.push({ clientId: agent.clientId, fields });
+    fields.client_id = effectiveClientId;
+    rows.push({ clientId: effectiveClientId, fields });
   }
   return rows;
 }
@@ -581,6 +695,19 @@ function callFunction(
       amounts.push(amount);
     }
     return { type: 'number', value: name === 'MIN' ? Math.min(...amounts) : Math.max(...amounts) };
+  }
+  if (name === 'ROUND' || name === 'ROUNDUP' || name === 'ROUNDDOWN') {
+    const rawVal = args[0];
+    if (!rawVal || rawVal.type === 'error') return { type: 'error' };
+    const num = asNumber(rawVal);
+    if (num === null) return { type: 'error' };
+    const digits = args[1] !== undefined ? asNumber(args[1]) : 0;
+    if (digits === null) return { type: 'error' };
+    const mode = name === 'ROUNDUP' ? 'up' : name === 'ROUNDDOWN' ? 'down' : 'round';
+    const result = roundNumber(num, digits, mode);
+    return rawVal.type === 'percent'
+      ? { type: 'percent', value: result }
+      : { type: 'number', value: result };
   }
   if (name === 'ISNUMBER') {
     const value = args[0];
@@ -654,10 +781,41 @@ function callFunction(
       return { type: 'error' };
     }
     const rows = lookupRows(keyColumn.table, agents, lookups);
-    const exact = rows.find((row) => valuesEqual(lookup, lookupCell(row.fields[keyColumn.field])));
+
+    // Verify keyColumn.field is a valid configured or existing field on this table
+    if (!isConfiguredOrExistingField(keyColumn.table, keyColumn.field, rows, lookups)) {
+      return { type: 'error' };
+    }
+
+    const exact = rows.find((row) => {
+      const keyName = Object.keys(row.fields).find((k) => k.toLowerCase() === keyColumn.field.toLowerCase());
+      return keyName !== undefined && valuesEqual(lookup, lookupCell(row.fields[keyName]));
+    });
     const match = exact ?? chooseNamedAgent(keyColumn, lookup, rows);
-    if (!match || !Object.prototype.hasOwnProperty.call(match.fields, returnColumn.field)) return { type: 'error' };
-    return lookupCell(match.fields[returnColumn.field]);
+
+    // If the lookup value itself is blank (e.g. unassigned agent_2), and no match was found:
+    // return blank if the return column is a valid attribute, else error
+    if (!match) {
+      if (lookup.type === 'blank' && isConfiguredOrExistingField(returnColumn.table, returnColumn.field, rows, lookups)) {
+        return { type: 'blank' };
+      }
+      return { type: 'error' };
+    }
+
+    // Find the return column field on the matched row (case-insensitive)
+    const matchedKey = Object.keys(match.fields).find((k) => k.toLowerCase() === returnColumn.field.toLowerCase());
+    if (matchedKey !== undefined) {
+      return lookupCell(match.fields[matchedKey]);
+    }
+
+    // If the field was not set on this specific matched object, differentiate whether it is
+    // a valid configured/existing attribute that is simply blank for this object,
+    // versus an invalid attribute that does not exist in configuration or for any objects.
+    if (isConfiguredOrExistingField(returnColumn.table, returnColumn.field, rows, lookups)) {
+      return { type: 'blank' };
+    }
+
+    return { type: 'error' };
   }
   if (name === 'SUMIFS') return sumIfs(rawArgs, evalExpr, ledger);
   if (name === 'TODAY') {

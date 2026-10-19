@@ -1,6 +1,7 @@
 ---
 description: Underline inputs and the shared dropdown menu for every form control.
-alwaysApply: true
+globs: components/ui/**/*,app/(dashboard)/**/*.tsx
+alwaysApply: false
 ---
 
 # Form controls

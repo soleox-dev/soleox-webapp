@@ -390,7 +390,11 @@ export default function TransactionsListPage() {
   const [submittedTemplates, setSubmittedTemplates] = useState<Map<string, SubmittedTemplate[]>>(new Map());
   const [overviewFields, setOverviewFields] = useState<FieldSetting[]>([]);
   const [paymentDriftIds, setPaymentDriftIds] = useState<Set<string>>(new Set());
+  const [paymentDriftCheckedIds, setPaymentDriftCheckedIds] = useState<Set<string>>(new Set());
   const [paymentDriftReady, setPaymentDriftReady] = useState(false);
+  const [rowDisplayLimit, setRowDisplayLimit] = useState(100);
+  const sentinelRef = useRef<HTMLTableRowElement>(null);
+  const viewedDealsRef = useRef<Record<string, any>[]>([]);
   
   // Sorting
   const [sortField, setSortField] = useState<string>('closing_date');
@@ -478,9 +482,8 @@ export default function TransactionsListPage() {
       try {
         setIsLoading(true);
 
-        // NOTE: Replace 'DEMO' here with your frontend auth state variable 
-        // (e.g., currentUser.client_id or activeOrganization.id) once you wire up a SessionProvider
-        const activeClientId = 'DEMO'; 
+        // Active client ID from session access context
+        const activeClientId = access?.clientId || 'DEMO'; 
 
         const fetchOptions = {
           headers: {
@@ -488,19 +491,81 @@ export default function TransactionsListPage() {
           }
         };
 
-        const [schemaRes, dealsRes, deletedRes, agentsRes, statusRes, viewRes, scoreRes, templateRes, submissionRes, tmsIdsRes, sheetsRes] = await Promise.all([
+        const [schemaRes, dealsRes, agentsRes, statusRes, viewRes, scoreRes, templateRes, submissionRes] = await Promise.all([
           fetch('/api/schema/transactions', fetchOptions),
           fetch('/api/transactions', fetchOptions),
-          fetch('/api/transactions?view=deleted', fetchOptions),
           fetch('/api/agents?include_archived=true', fetchOptions),
           fetch('/api/client-lookup-values?category=TRANSACTION_STATUS', fetchOptions),
           fetch('/api/transaction-default-view', fetchOptions),
           fetch('/api/transaction-scorecards', fetchOptions),
           fetch('/api/commission-templates', fetchOptions),
           fetch(`/api/commission-template-submissions?client_id=${encodeURIComponent(activeClientId)}`, fetchOptions),
-          fetch('/api/integrations/tms-ids', fetchOptions),
-          fetch('/api/integrations/google-sheets', fetchOptions),
         ]);
+
+        // Load non-blocking secondary integrations & deleted deals in the background
+        void (async () => {
+          try {
+            const [deletedRes, tmsIdsRes, sheetsRes] = await Promise.all([
+              fetch('/api/transactions?view=deleted', fetchOptions),
+              fetch('/api/integrations/tms-ids', fetchOptions),
+              fetch('/api/integrations/google-sheets', fetchOptions),
+            ]);
+
+            if (deletedRes.ok) {
+              const deletedData = await deletedRes.json();
+              const list = deletedData.transactions || deletedData.deals || [];
+              setDeletedDeals(Array.isArray(list) ? list : []);
+            }
+
+            if (sheetsRes.ok) {
+              const sheetsData = await sheetsRes.json();
+              const connection = sheetsData.connection as { spreadsheetId?: string } | null;
+              setTmsConnectorActive(Boolean(connection && String(connection.spreadsheetId || '').trim()));
+              const run = sheetsData.lastRun;
+              const errorCount = Number(run?.error_count ?? 0);
+              const details = Array.isArray(run?.details) ? run.details as SyncRunDetail[] : [];
+              setSyncHighlights(parseSyncHighlights(run?.highlights));
+              const finishedAt = run?.finished_at || run?.started_at;
+              if (run && run.status === 'succeeded' && finishedAt) {
+                setSyncNotice({
+                  tone: 'ok',
+                  finishedAt: String(finishedAt),
+                  createdCount: Number(run.created_count ?? 0),
+                  updatedCount: Number(run.updated_count ?? 0),
+                  errorCount,
+                  text: '',
+                });
+              }
+              const createdCount = Number(run?.created_count ?? 0);
+              const updatedCount = Number(run?.updated_count ?? 0);
+              if (run && (createdCount > 0 || updatedCount > 0 || (errorCount > 0 && details.some((detail) => detail.outcome === 'error')))) {
+                const summary = syncFinishedSummary({
+                  createdCount,
+                  updatedCount,
+                  skippedCount: Number(run.skipped_count ?? 0),
+                  errorCount,
+                  connectedCount: Number(run.connected_count ?? 0),
+                  disconnectedCount: Number(run.disconnected_count ?? 0),
+                  details,
+                });
+                setSyncResult({
+                  summary,
+                  note: run.message ? String(run.message) : null,
+                  details,
+                });
+              }
+            }
+
+            if (tmsIdsRes.ok) {
+              const tmsIdsData = await tmsIdsRes.json();
+              setSourceTmsIds(tmsIdsData.available ? new Set((tmsIdsData.tmsIds || []).map((id: unknown) => String(id).toLowerCase())) : null);
+            } else {
+              setSourceTmsIds(null);
+            }
+          } catch (bgErr) {
+            console.warn('Background sync/deleted fetch error:', bgErr);
+          }
+        })();
 
         // Process Schema Catalog
         if (schemaRes.ok) {
@@ -544,14 +609,6 @@ export default function TransactionsListPage() {
           setDeals(Array.isArray(list) ? list : []);
         } else {
           setDeals([]); // Clean empty state on failure
-        }
-
-        if (deletedRes.ok) {
-          const deletedData = await deletedRes.json();
-          const list = deletedData.transactions || deletedData.deals || [];
-          setDeletedDeals(Array.isArray(list) ? list : []);
-        } else {
-          setDeletedDeals([]);
         }
 
         if (statusRes.ok) {
@@ -632,52 +689,6 @@ export default function TransactionsListPage() {
           setSubmittedTemplates(byTransaction);
         } else {
           setSubmittedTemplates(new Map());
-        }
-
-        if (sheetsRes.ok) {
-          const sheetsData = await sheetsRes.json();
-          const connection = sheetsData.connection as { spreadsheetId?: string } | null;
-          setTmsConnectorActive(Boolean(connection && String(connection.spreadsheetId || '').trim()));
-          const run = sheetsData.lastRun;
-          const errorCount = Number(run?.error_count ?? 0);
-          const details = Array.isArray(run?.details) ? run.details as SyncRunDetail[] : [];
-          setSyncHighlights(parseSyncHighlights(run?.highlights));
-          const finishedAt = run?.finished_at || run?.started_at;
-          if (run && run.status === 'succeeded' && finishedAt) {
-            setSyncNotice({
-              tone: 'ok',
-              finishedAt: String(finishedAt),
-              createdCount: Number(run.created_count ?? 0),
-              updatedCount: Number(run.updated_count ?? 0),
-              errorCount,
-              text: '',
-            });
-          }
-          const createdCount = Number(run?.created_count ?? 0);
-          const updatedCount = Number(run?.updated_count ?? 0);
-          if (run && (createdCount > 0 || updatedCount > 0 || (errorCount > 0 && details.some((detail) => detail.outcome === 'error')))) {
-            const summary = syncFinishedSummary({
-              createdCount,
-              updatedCount,
-              skippedCount: Number(run.skipped_count ?? 0),
-              errorCount,
-              connectedCount: Number(run.connected_count ?? 0),
-              disconnectedCount: Number(run.disconnected_count ?? 0),
-              details,
-            });
-            setSyncResult({
-              summary,
-              note: run.message ? String(run.message) : null,
-              details,
-            });
-          }
-        }
-
-        if (tmsIdsRes.ok) {
-          const tmsIdsData = await tmsIdsRes.json();
-          setSourceTmsIds(tmsIdsData.available ? new Set((tmsIdsData.tmsIds || []).map((id: unknown) => String(id).toLowerCase())) : null);
-        } else {
-          setSourceTmsIds(null);
         }
       } catch (err) {
         console.error('Data initialization failed:', err);
@@ -848,7 +859,7 @@ export default function TransactionsListPage() {
     if (isSyncing) return;
     setIsSyncing(true);
     setSyncNotice(null);
-    const clientId = 'DEMO';
+    const clientId = access?.clientId || 'DEMO';
     const fetchOptions = { headers: { 'x-client-id': clientId } };
     try {
       const response = await fetch('/api/integrations/google-sheets/sync', {
@@ -956,6 +967,7 @@ export default function TransactionsListPage() {
   useEffect(() => {
     if (isLoading) return;
     if (deals.length === 0 || submittedTemplates.size === 0) {
+      setPaymentDriftCheckedIds(new Set());
       setPaymentDriftIds(new Set());
       setPaymentDriftReady(true);
       return;
@@ -971,15 +983,17 @@ export default function TransactionsListPage() {
       });
     });
     if (candidates.length === 0) {
+      setPaymentDriftCheckedIds(new Set());
       setPaymentDriftIds(new Set());
       setPaymentDriftReady(true);
       return;
     }
 
+    setPaymentDriftCheckedIds(new Set());
     setPaymentDriftReady(false);
 
     let cancelled = false;
-    const clientId = 'DEMO';
+    const clientId = access?.clientId || 'DEMO';
     const fetchOptions = { headers: { 'x-client-id': clientId } };
 
     const checkDrift = async () => {
@@ -1027,67 +1041,95 @@ export default function TransactionsListPage() {
         ),
       })).filter((agent) => agent.id && agent.name);
 
-      const [ledger, lookups, itemGroups, catalog, history] = await Promise.all([
-        needs.needsLedger ? loadCommissionLedger(clientId, entities) : Promise.resolve([]),
-        needs.lookupTables.length > 0 ? loadFormulaLookups(clientId, needs.lookupTables) : Promise.resolve({ clientId, tables: {} }),
-        Promise.all(candidates.map(async (deal) => {
-          const transactionId = String(deal.id || '');
-          const [response, overrides] = await Promise.all([
-            fetch(`/api/transaction-commission-items?client_id=${encodeURIComponent(clientId)}&transaction_id=${encodeURIComponent(transactionId)}`, fetchOptions),
-            loadAllocationOverrides(clientId, transactionId),
-          ]);
-          const data = await response.json();
-          if (!response.ok || data.success === false) throw new Error(data.error || 'Failed to load commission lines.');
-          return { transactionId, items: (Array.isArray(data.items) ? data.items : []) as StoredCommissionItem[], overrides };
-        })),
-        loadAllocationCatalog(clientId),
-        loadAllocationHistory(clientId, agents.map((agent) => agent.id)),
+      const [ledger, lookups, catalog, history] = await Promise.all([
+        needs.needsLedger ? loadCommissionLedger(clientId, entities).catch(() => []) : Promise.resolve([]),
+        needs.lookupTables.length > 0 ? loadFormulaLookups(clientId, needs.lookupTables).catch(() => ({ clientId, tables: {} })) : Promise.resolve({ clientId, tables: {} }),
+        loadAllocationCatalog(clientId).catch(() => ({ teamCaps: [], salesVolume: [] })),
+        loadAllocationHistory(clientId, agents.map((agent) => agent.id)).catch(() => []),
       ]);
       if (cancelled) return;
 
+      // Prioritize candidate deals currently in view so the top of the table resolves first
+      const viewedIds = new Set(viewedDealsRef.current.map((d) => String(d.id || '')));
+      const prioritizedCandidates = [...candidates].sort((a, b) => {
+        const aVis = viewedIds.has(String(a.id || '')) ? 0 : 1;
+        const bVis = viewedIds.has(String(b.id || '')) ? 0 : 1;
+        return aVis - bVis;
+      });
+
+      const BATCH_SIZE = 6;
       const drifted = new Set<string>();
-      for (const deal of candidates) {
-        const transactionId = String(deal.id || '');
-        const group = itemGroups.find((item) => item.transactionId === transactionId);
-        const items = group?.items || [];
-        const saved = payoutSignature(savedPayouts(items, agents, entities));
-        const allocation = allocationForReplay({
-          catalog,
-          history,
-          overrides: group?.overrides || [],
-          deal,
-          transactionId,
-          agents,
-          fieldTypes,
-        });
-        const submitted = submittedTemplates.get(transactionId) || [];
-        let changed = false;
-        for (const row of submitted) {
-          const bundle = bundleById.get(row.templateId);
-          if (!bundle) continue;
+      const allChecked = new Set<string>();
+
+      for (let i = 0; i < prioritizedCandidates.length; i += BATCH_SIZE) {
+        if (cancelled) return;
+        const batch = prioritizedCandidates.slice(i, i + BATCH_SIZE);
+
+        const itemGroups = await Promise.all(batch.map(async (deal) => {
+          const transactionId = String(deal.id || '');
           try {
-            const replayed = replayedPaymentSignature({
-              deal,
-              steps: bundle.steps,
-              parameters: row.parameters,
-              parameterTypes: bundle.parameterTypes,
-              items,
-              agents,
-              entities,
-              overviewFields,
-              ledger,
-              lookups,
-              allocation,
-            });
-            if (replayed !== saved) changed = true;
+            const [response, overrides] = await Promise.all([
+              fetch(`/api/transaction-commission-items?client_id=${encodeURIComponent(clientId)}&transaction_id=${encodeURIComponent(transactionId)}`, fetchOptions),
+              loadAllocationOverrides(clientId, transactionId),
+            ]);
+            const data = await response.json();
+            if (!response.ok || data.success === false) return { transactionId, items: [] as StoredCommissionItem[], overrides: [] };
+            return { transactionId, items: (Array.isArray(data.items) ? data.items : []) as StoredCommissionItem[], overrides };
           } catch {
-            // A replay that cannot be calculated stays green.
+            return { transactionId, items: [] as StoredCommissionItem[], overrides: [] };
           }
+        }));
+        if (cancelled) return;
+
+        for (const deal of batch) {
+          const transactionId = String(deal.id || '');
+          allChecked.add(transactionId);
+          const group = itemGroups.find((item) => item.transactionId === transactionId);
+          const items = group?.items || [];
+          const saved = payoutSignature(savedPayouts(items, agents, entities));
+          const allocation = allocationForReplay({
+            catalog,
+            history,
+            overrides: group?.overrides || [],
+            deal,
+            transactionId,
+            agents,
+            fieldTypes,
+          });
+          const submitted = submittedTemplates.get(transactionId) || [];
+          let changed = false;
+          for (const row of submitted) {
+            const bundle = bundleById.get(row.templateId);
+            if (!bundle) continue;
+            try {
+              const replayed = replayedPaymentSignature({
+                deal,
+                steps: bundle.steps,
+                parameters: row.parameters,
+                parameterTypes: bundle.parameterTypes,
+                items,
+                agents,
+                entities,
+                overviewFields,
+                ledger,
+                lookups,
+                allocation,
+              });
+              if (replayed !== saved) changed = true;
+            } catch {
+              // A replay that cannot be calculated stays green.
+            }
+          }
+          if (changed) drifted.add(transactionId);
         }
-        if (changed) drifted.add(transactionId);
+
+        if (!cancelled) {
+          setPaymentDriftCheckedIds(new Set(allChecked));
+          setPaymentDriftIds(new Set(drifted));
+        }
       }
+
       if (!cancelled) {
-        setPaymentDriftIds(drifted);
         setPaymentDriftReady(true);
       }
     };
@@ -1095,14 +1137,13 @@ export default function TransactionsListPage() {
     void checkDrift().catch((error) => {
       console.error('template payment check failed', error);
       if (!cancelled) {
-        setPaymentDriftIds(new Set());
         setPaymentDriftReady(true);
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [isLoading, deals, submittedTemplates, commissionTemplates, fieldTypes, agentsList, overviewFields, defaultView.filterFormula]);
+  }, [isLoading, deals, submittedTemplates, commissionTemplates, fieldTypes, agentsList, overviewFields, defaultView.filterFormula, access?.clientId]);
 
   const templateBolt = useCallback((deal: Record<string, any>): { tone: BoltTone; label: string } | null => {
     const dealId = String(deal.id || '');
@@ -1119,18 +1160,19 @@ export default function TransactionsListPage() {
           : 'A template was submitted. Transactions outside the default view are not re-checked in this list.',
       };
     }
+    const isChecked = paymentDriftReady || paymentDriftCheckedIds.has(dealId);
     const bolt = templateBoltTone(deal, commissionTemplates, submittedIds, fieldTypes, paymentDriftIds.has(dealId));
-    if (bolt?.tone === 'submitted' && !paymentDriftReady) return null;
+    if (bolt?.tone === 'submitted' && !isChecked) return null;
     return bolt;
-  }, [submittedTemplates, commissionTemplates, fieldTypes, paymentDriftIds, paymentDriftReady, defaultView.filterFormula]);
+  }, [submittedTemplates, commissionTemplates, fieldTypes, paymentDriftIds, paymentDriftCheckedIds, paymentDriftReady, defaultView.filterFormula]);
 
   const templateBoltChecking = useCallback((deal: Record<string, any>): boolean => {
-    if (paymentDriftReady) return false;
-    if (!dealMatchesDefaultView(deal, defaultView.filterFormula, fieldTypes)) return false;
     const dealId = String(deal.id || '');
+    if (paymentDriftReady || paymentDriftCheckedIds.has(dealId)) return false;
+    if (!dealMatchesDefaultView(deal, defaultView.filterFormula, fieldTypes)) return false;
     const submittedIds = (submittedTemplates.get(dealId) || []).map((item) => item.templateId);
     return templateBoltTone(deal, commissionTemplates, submittedIds, fieldTypes, false)?.tone === 'submitted';
-  }, [submittedTemplates, commissionTemplates, fieldTypes, paymentDriftReady, defaultView.filterFormula]);
+  }, [submittedTemplates, commissionTemplates, fieldTypes, paymentDriftCheckedIds, paymentDriftReady, defaultView.filterFormula]);
 
   // 2. Process Filters & Sorting
   const showingDeleted = ledgerView === DELETED_TAB && !activeScorecardId;
@@ -1191,8 +1233,16 @@ export default function TransactionsListPage() {
 
   const viewedDeals = useMemo(() => {
     const source = showingDeleted ? deletedDeals : deals;
-    return source.filter((deal) => matchesLedgerFilters(deal, false));
+    const seen = new Set<string>();
+    return source.filter((deal) => {
+      const id = String(deal.id || '');
+      if (id && seen.has(id)) return false;
+      if (id) seen.add(id);
+      return matchesLedgerFilters(deal, false);
+    });
   }, [deals, deletedDeals, searchQuery, ledgerView, statusSelection, activeScorecardId, showingDeleted, statusLookups, colFilters, schemaFields, defaultView, fieldTypes, scorecards, syncHighlights, transactionViews]);
+
+  viewedDealsRef.current = viewedDeals;
 
   const boltCounts = useMemo(() => {
     const counts: Record<BoltTone, number> = { submitted: 0, ready: 0, ineligible: 0, drift: 0, filed: 0 };
@@ -1364,6 +1414,28 @@ export default function TransactionsListPage() {
     });
   }, [viewedDeals, boltTone, tmsFilter, templateBolt, markTmsLink, ledgerView, activeScorecardId, defaultSortRules, sortField, sortOrder, transactionViews]);
 
+  const displayedDeals = useMemo(() => {
+    if (processedDeals.length <= rowDisplayLimit) return processedDeals;
+    return processedDeals.slice(0, rowDisplayLimit);
+  }, [processedDeals, rowDisplayLimit]);
+
+  useEffect(() => {
+    setRowDisplayLimit(100);
+  }, [searchQuery, colFilters, ledgerView, statusSelection, boltTone, tmsFilter, sortField, sortOrder, activeScorecardId]);
+
+  useEffect(() => {
+    if (rowDisplayLimit >= processedDeals.length) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) {
+        setRowDisplayLimit((prev) => Math.min(prev + 100, processedDeals.length));
+      }
+    }, { rootMargin: '300px' });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [rowDisplayLimit, processedDeals.length]);
+
   const visibleIds = useMemo(
     () => processedDeals.map((deal) => String(deal.id || '')).filter(Boolean),
     [processedDeals],
@@ -1509,11 +1581,12 @@ export default function TransactionsListPage() {
   const confirmBulkUpdate = async (fieldKey: string, value: string) => {
     setIsBulkUpdating(true);
     setBulkError(null);
+    const clientId = access?.clientId || 'DEMO';
     try {
       const response = await fetch('/api/transactions/bulk', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-client-id': 'DEMO' },
-        body: JSON.stringify({ clientId: 'DEMO', ids: [...selectedIds], fieldKey, value }),
+        headers: { 'Content-Type': 'application/json', 'x-client-id': clientId },
+        body: JSON.stringify({ clientId, ids: [...selectedIds], fieldKey, value }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.success) throw new Error(payload.error || 'Could not update those transactions.');
@@ -1545,11 +1618,12 @@ export default function TransactionsListPage() {
     setIsBulkDeleting(true);
     setBulkDeleteError(null);
     const ids = [...selectedIds];
+    const clientId = access?.clientId || 'DEMO';
     try {
       const response = await fetch('/api/transactions/bulk', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', 'x-client-id': 'DEMO' },
-        body: JSON.stringify({ clientId: 'DEMO', ids }),
+        headers: { 'Content-Type': 'application/json', 'x-client-id': clientId },
+        body: JSON.stringify({ clientId, ids }),
       });
       const payload = await response.json().catch(() => ({}));
       const deletedIds = new Set<string>(Array.isArray(payload.deleted) ? payload.deleted.map((id: unknown) => String(id)) : []);
@@ -2416,8 +2490,9 @@ export default function TransactionsListPage() {
                   </td>
                 </tr>
               ) : (
-                processedDeals.map((deal, idx) => {
-                  const dealId = deal.id || `TXN_${idx + 1}`;
+                <>
+                  {displayedDeals.map((deal, idx) => {
+                  const dealId = deal.id ? String(deal.id) : `TXN_row_${idx + 1}`;
                   const rowNavigates = !showingDeleted && !bulkMode;
 
                   const bolt = templateBolt(deal);
@@ -2425,7 +2500,7 @@ export default function TransactionsListPage() {
                   const markClass = compactRows ? 'h-3.5 w-3.5' : 'h-4 w-4';
                   return (
                     <tr
-                      key={dealId}
+                      key={deal.id ? `deal_${deal.id}` : `row_${idx}`}
                       data-bulk-id={bulkMode ? String(deal.id || dealId) : undefined}
                       onPointerDown={(event) => {
                         if (!bulkMode || event.button !== 0) return;
@@ -2610,7 +2685,35 @@ export default function TransactionsListPage() {
                       )}
                     </tr>
                   );
-                })
+                })}
+                {rowDisplayLimit < processedDeals.length && (
+                  <tr ref={sentinelRef}>
+                    <td
+                      colSpan={schemaFields.length + (canWriteTracker ? 3 : 0) + (bulkMode ? 1 : 0)}
+                      className="text-center py-3 bg-slate-50/60 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700/60"
+                    >
+                      <div className="flex items-center justify-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                        <span>Showing {displayedDeals.length} of {processedDeals.length} records</span>
+                        <button
+                          type="button"
+                          onClick={() => setRowDisplayLimit((prev) => Math.min(prev + 100, processedDeals.length))}
+                          className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                        >
+                          Load next 100
+                        </button>
+                        <span className="text-slate-300 dark:text-slate-600">•</span>
+                        <button
+                          type="button"
+                          onClick={() => setRowDisplayLimit(processedDeals.length)}
+                          className="font-semibold text-slate-600 dark:text-slate-300 hover:underline cursor-pointer"
+                        >
+                          Load all ({processedDeals.length})
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </>
               )}
             </tbody>
           </table>

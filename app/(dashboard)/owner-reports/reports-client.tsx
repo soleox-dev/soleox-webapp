@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, Check, ChevronDown, ChevronUp, Info, X } from 'lucide-react';
 import { pageFrame } from '@/lib/page-frame';
 import { FieldChevron, underlineControl, underlineShell } from '@/components/ui/underline-field';
+import { LoadingDataPage, type LoadingProgressInfo } from './loading-data-page';
 import {
   DATE_PRESETS,
   METRICS,
@@ -37,6 +38,7 @@ import {
   teamGciByTransaction,
   teamLeadNet,
   ownerMonthTable,
+  ownerProductionTransactions,
   formatProductionKey,
   priorProductionKey,
   productionKeyMatches,
@@ -49,6 +51,7 @@ import {
   type MetricId,
   type MonthRow,
   type OwnerMonthRow,
+  type ProductionDrilldownItem,
   type ProductionGrain,
   type RangePreset,
   type ReportDeal,
@@ -130,28 +133,188 @@ export default function OwnerReportsPage() {
   const [capOpen, setCapOpen] = useState<{ capId: string; agentId: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [loadProgress, setLoadProgress] = useState<LoadingProgressInfo>({
+    percent: 8,
+    stage: 'Initializing workspace…',
+    detail: 'Connecting to database and verifying session',
+    checks: {},
+    recordsCount: {},
+  });
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const handleRetry = () => {
+    setError('');
+    setLoading(true);
+    setLoadProgress({
+      percent: 8,
+      stage: 'Initializing workspace…',
+      detail: 'Connecting to database and verifying session',
+      checks: {},
+      recordsCount: {},
+    });
+    setReloadKey((k) => k + 1);
+  };
 
   useEffect(() => {
-    const headers = { 'x-client-id': 'DEMO' };
-    Promise.all([
-      fetch('/api/transactions', { headers }),
-      fetch('/api/agents?include_archived=true', { headers }),
-      fetch('/api/payments', { headers }),
-      fetch('/api/schema/transactions', { headers }),
-      fetch('/api/commission-entities', { headers }),
-      fetch('/api/transaction-commission-items?view=ledger', { headers }),
-      fetch('/api/agent-allocations', { headers }),
-      fetch('/api/transaction-team-caps?scope=client', { headers }),
-      fetch('/api/schema/agents', { headers }),
-    ]).then(async ([dealRes, agentRes, paymentRes, schemaRes, entityRes, ledgerRes, capRes, contributionRes, agentSchemaRes]) => {
-      if (!dealRes.ok) throw new Error('Could not load transactions.');
-      const dealData = await dealRes.json();
-      const rows = Array.isArray(dealData.transactions) ? dealData.transactions : [];
-      let teamGci = new Map<string, number>();
-      if (ledgerRes.ok) {
-        const ledgerData = await ledgerRes.json();
-        const items = Array.isArray(ledgerData.items) ? ledgerData.items : [];
-        teamGci = teamGciByTransaction(items);
+    const controller = new AbortController();
+    const fetchOptions = { signal: controller.signal };
+
+    let timer: ReturnType<typeof setInterval> | null = null;
+    let streamActive = false;
+
+    // Smooth progress tick while waiting for database queries to run
+    timer = setInterval(() => {
+      setLoadProgress((prev) => {
+        if (streamActive || prev.percent >= 55) return prev;
+        const inc = prev.percent < 25 ? 2.2 : 0.9;
+        return {
+          ...prev,
+          percent: Math.min(55, prev.percent + inc),
+        };
+      });
+    }, 120);
+
+    const pAgentSchema = fetch('/api/schema/agents', fetchOptions).then(async (res) => {
+      if (!res.ok) return null;
+      const data = await res.json();
+      setLoadProgress((prev) => ({
+        ...prev,
+        checks: { ...prev.checks, schemas: true },
+        percent: Math.max(prev.percent, 22),
+        detail: 'Agent fields verified',
+      }));
+      return data;
+    }).catch(() => null);
+
+    const pTxnSchema = fetch('/api/schema/transactions', fetchOptions).then(async (res) => {
+      if (!res.ok) return null;
+      const data = await res.json();
+      setLoadProgress((prev) => ({
+        ...prev,
+        checks: { ...prev.checks, schemas: true },
+        percent: Math.max(prev.percent, 32),
+        detail: 'Transaction schema verified',
+      }));
+      return data;
+    }).catch(() => null);
+
+    const pCaps = fetch('/api/agent-allocations', fetchOptions).then(async (res) => {
+      if (!res.ok) return null;
+      const data = await res.json();
+      const count = (Array.isArray(data.teamCaps) ? data.teamCaps.length : 0) + (Array.isArray(data.agentCaps) ? data.agentCaps.length : 0);
+      setLoadProgress((prev) => ({
+        ...prev,
+        checks: { ...prev.checks, caps: true },
+        percent: Math.max(prev.percent, 42),
+        detail: 'Cap rules & allocations loaded',
+        recordsCount: { ...prev.recordsCount, caps: count },
+      }));
+      return data;
+    }).catch(() => null);
+
+    const pAgents = fetch('/api/agents?include_archived=true', fetchOptions).then(async (res) => {
+      if (!res.ok) return null;
+      const data = await res.json();
+      const agents = Array.isArray(data.agents) ? data.agents : [];
+      setLoadProgress((prev) => ({
+        ...prev,
+        checks: { ...prev.checks, agents: true },
+        percent: Math.max(prev.percent, 50),
+        detail: `Loaded ${agents.length} agent profiles`,
+        recordsCount: { ...prev.recordsCount, agents: agents.length },
+      }));
+      return data;
+    }).catch(() => null);
+
+    const pSnapshot = (async () => {
+      const res = await fetch('/api/owner-reports/snapshot', fetchOptions);
+      if (!res.ok) throw new Error('Could not load transactions.');
+
+      const lengthHeader = res.headers.get('content-length');
+      const totalBytes = lengthHeader ? parseInt(lengthHeader, 10) : null;
+      streamActive = true;
+
+      setLoadProgress((prev) => ({
+        ...prev,
+        bytesTotal: totalBytes || undefined,
+        stage: 'Downloading dataset…',
+        detail: 'Receiving transaction and payment history',
+        percent: Math.max(prev.percent, 55),
+      }));
+
+      if (!res.body || typeof res.body.getReader !== 'function') {
+        return await res.json();
+      }
+
+      const reader = res.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let loadedBytes = 0;
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          chunks.push(value);
+          loadedBytes += value.length;
+
+          setLoadProgress((prev) => {
+            let nextPercent = prev.percent;
+            if (totalBytes && totalBytes > 0) {
+              const ratio = Math.min(1, loadedBytes / totalBytes);
+              nextPercent = Math.max(prev.percent, 55 + Math.round(ratio * 37));
+            } else {
+              const ratio = Math.min(1, loadedBytes / (4 * 1024 * 1024));
+              nextPercent = Math.max(prev.percent, 55 + Math.round(ratio * 37));
+            }
+            return {
+              ...prev,
+              bytesLoaded: loadedBytes,
+              bytesTotal: totalBytes || prev.bytesTotal,
+              percent: nextPercent,
+              stage: 'Downloading dataset…',
+              detail: `Streaming records: ${(loadedBytes / (1024 * 1024)).toFixed(1)} MB${totalBytes ? ` / ${(totalBytes / (1024 * 1024)).toFixed(1)} MB` : ''}`,
+            };
+          });
+        }
+      }
+
+      const allChunks = new Uint8Array(loadedBytes);
+      let offset = 0;
+      for (const chunk of chunks) {
+        allChunks.set(chunk, offset);
+        offset += chunk.length;
+      }
+      const text = new TextDecoder('utf-8').decode(allChunks);
+      return JSON.parse(text);
+    })();
+
+    Promise.all([pSnapshot, pAgents, pTxnSchema, pCaps, pAgentSchema])
+      .then(async ([snapshot, agentData, schemaData, capData, agentSchema]) => {
+        if (!snapshot) throw new Error('Could not load snapshot data.');
+        if (timer) clearInterval(timer);
+
+        const rows = Array.isArray(snapshot.transactions) ? snapshot.transactions : [];
+        const items = Array.isArray(snapshot.items) ? snapshot.items : [];
+        const paymentList = Array.isArray(snapshot.payments) ? snapshot.payments : [];
+        const contributionRows = Array.isArray(snapshot.contributions) ? snapshot.contributions : [];
+        const clientName = String(snapshot.clientName || snapshot.clientId || '');
+
+        setLoadProgress((prev) => ({
+          ...prev,
+          clientName: clientName || prev.clientName,
+          percent: 96,
+          stage: 'Processing records…',
+          detail: `Normalizing ${rows.length.toLocaleString()} transactions & waterfall splits`,
+          checks: { ...prev.checks, snapshot: true },
+          recordsCount: {
+            ...prev.recordsCount,
+            transactions: rows.length,
+            payments: paymentList.length,
+            items: items.length,
+          },
+        }));
+
+        const teamGci = teamGciByTransaction(items);
         setPostSplits(items.flatMap((item: Record<string, unknown>) => {
           if (!isPostSplitSection(item.section)) return [];
           const agentId = String(item.agent_id || '');
@@ -161,132 +324,147 @@ export default function OwnerReportsPage() {
           if (!agentId || !entityId || !transactionId || !amount) return [];
           return [{ transactionId, agentId, entityId, amount }];
         }));
-      }
-      setDeals(rows
-        .filter((row: Record<string, unknown>) => row.archived !== true && row.permanently_deleted !== true)
-        .map((row: Record<string, unknown>) => {
-          const deal = normalizeDeal(row);
-          deal.teamGci = teamGci.get(deal.id) || 0;
-          return deal;
-        }));
-      if (agentRes.ok) {
-        const agentData = await agentRes.json();
-        const next = new Map<string, string>();
-        const leads = new Set<string>();
-        const groups = new Map<string, string>();
-        const profiles: AgentProfile[] = [];
-        for (const agent of Array.isArray(agentData.agents) ? agentData.agents : []) {
-          const id = String(agent.id || '');
-          const name = String(agent.agent_name || agent.name || 'Agent');
-          next.set(id, name);
-          if (agent.is_team_lead === true) leads.add(id);
-          const group = String(agent.agent_group ?? agent.group_id ?? agent.group ?? '').trim();
-          if (id) groups.set(id, group);
-          const fields: Record<string, string> = {};
-          Object.entries(agent as Record<string, unknown>).forEach(([key, value]) => {
-            if (value == null || typeof value === 'object') return;
-            fields[key] = String(value);
-          });
-          if (id) profiles.push({ id, name, archived: agent.archived === true, fields });
+        setDeals(rows
+          .filter((row: Record<string, unknown>) => row.archived !== true && row.permanently_deleted !== true)
+          .map((row: Record<string, unknown>) => {
+            const deal = normalizeDeal(row);
+            deal.teamGci = teamGci.get(deal.id) || 0;
+            return deal;
+          }));
+        if (agentData) {
+          const next = new Map<string, string>();
+          const leads = new Set<string>();
+          const groups = new Map<string, string>();
+          const profiles: AgentProfile[] = [];
+          for (const agent of Array.isArray(agentData.agents) ? agentData.agents : []) {
+            const id = String(agent.id || '');
+            const name = String(agent.agent_name || agent.name || 'Agent');
+            next.set(id, name);
+            if (agent.is_team_lead === true) leads.add(id);
+            const group = String(agent.agent_group ?? agent.group_id ?? agent.group ?? '').trim();
+            if (id) groups.set(id, group);
+            const fields: Record<string, string> = {};
+            Object.entries(agent as Record<string, unknown>).forEach(([key, value]) => {
+              if (value == null || typeof value === 'object') return;
+              fields[key] = String(value);
+            });
+            if (id) profiles.push({ id, name, archived: agent.archived === true, fields });
+          }
+          setNames(next);
+          setTeamLeadIds(leads);
+          setAgentGroupById(groups);
+          setAgentProfiles(profiles);
         }
-        setNames(next);
-        setTeamLeadIds(leads);
-        setAgentGroupById(groups);
-        setAgentProfiles(profiles);
-      }
-      if (capRes.ok) {
-        const capData = await capRes.json();
-        const teamCaps = Array.isArray(capData.teamCaps) ? capData.teamCaps : [];
-        const agentCaps = Array.isArray(capData.agentCaps) ? capData.agentCaps : [];
-        const asCap = (cap: Record<string, unknown>, kind: 'team' | 'agent'): TeamCapDefinition => ({
-          id: String(cap.id || ''),
-          name: String(cap.name || (kind === 'agent' ? 'Agent Cap' : 'Team Cap')),
-          enabled: cap.enabled !== false,
-          kind,
-          splitPercentFieldKey: kind === 'team' && cap.split_percent_field_key ? String(cap.split_percent_field_key) : null,
-          capAmountFieldKey: cap.cap_amount_field_key ? String(cap.cap_amount_field_key) : null,
-          resetDateFieldKey: cap.reset_date_field_key ? String(cap.reset_date_field_key) : null,
-          recipientAgentId: kind === 'team' && cap.recipient_agent_id ? String(cap.recipient_agent_id) : null,
-          entityId: kind === 'agent' && cap.commission_entity_id ? String(cap.commission_entity_id) : null,
-          hideOverAllocations: kind === 'agent' && cap.hide_over_allocations === true,
-        });
-        setTeamCaps([
-          ...teamCaps.map((cap: Record<string, unknown>) => asCap(cap, 'team')),
-          ...agentCaps.map((cap: Record<string, unknown>) => asCap(cap, 'agent')),
-        ].filter((cap) => cap.id));
-      }
-      if (contributionRes.ok) {
-        const contributionData = await contributionRes.json();
-        const rows = Array.isArray(contributionData.contributions) ? contributionData.contributions : [];
-        setCapContributions(rows.map((row: Record<string, unknown>) => ({
+        if (capData) {
+          const teamCaps = Array.isArray(capData.teamCaps) ? capData.teamCaps : [];
+          const agentCaps = Array.isArray(capData.agentCaps) ? capData.agentCaps : [];
+          const asCap = (cap: Record<string, unknown>, kind: 'team' | 'agent'): TeamCapDefinition => ({
+            id: String(cap.id || ''),
+            name: String(cap.name || (kind === 'agent' ? 'Agent Cap' : 'Team Cap')),
+            enabled: cap.enabled !== false,
+            kind,
+            splitPercentFieldKey: kind === 'team' && cap.split_percent_field_key ? String(cap.split_percent_field_key) : null,
+            capAmountFieldKey: cap.cap_amount_field_key ? String(cap.cap_amount_field_key) : null,
+            resetDateFieldKey: cap.reset_date_field_key ? String(cap.reset_date_field_key) : null,
+            recipientAgentId: kind === 'team' && cap.recipient_agent_id ? String(cap.recipient_agent_id) : null,
+            entityId: kind === 'agent' && cap.commission_entity_id ? String(cap.commission_entity_id) : null,
+            hideOverAllocations: kind === 'agent' && cap.hide_over_allocations === true,
+          });
+          setTeamCaps([
+            ...teamCaps.map((cap: Record<string, unknown>) => asCap(cap, 'team')),
+            ...agentCaps.map((cap: Record<string, unknown>) => asCap(cap, 'agent')),
+          ].filter((cap) => cap.id));
+        }
+        setCapContributions(contributionRows.map((row: Record<string, unknown>) => ({
           agentId: String(row.agentId || ''),
           teamCapId: String(row.teamCapId || ''),
           amount: Number(row.amount) || 0,
           periodStart: row.periodStart ? String(row.periodStart) : null,
           transactionId: String(row.transactionId || ''),
         })).filter((row: CapContribution) => row.agentId && row.teamCapId && row.transactionId));
-      }
-      if (agentSchemaRes.ok) {
-        const agentSchema = await agentSchemaRes.json();
-        const catalog = Array.isArray(agentSchema.catalog) ? agentSchema.catalog : [];
-        const labels = new Map<string, string>();
-        catalog.forEach((field: { field_key?: string; field_label?: string }) => {
-          const key = String(field.field_key || '');
-          if (key) labels.set(key, String(field.field_label || key));
-        });
-        setAgentFieldLabels(labels);
-      }
-      if (paymentRes.ok) {
-        const paymentData = await paymentRes.json();
-        const list = Array.isArray(paymentData.payments) ? paymentData.payments : [];
-        setPayments(list.map((payment: Record<string, unknown>) => ({
+        if (agentSchema) {
+          const catalog = Array.isArray(agentSchema.catalog) ? agentSchema.catalog : [];
+          const labels = new Map<string, string>();
+          catalog.forEach((field: { field_key?: string; field_label?: string }) => {
+            const key = String(field.field_key || '');
+            if (key) labels.set(key, String(field.field_label || key));
+          });
+          setAgentFieldLabels(labels);
+        }
+        setPayments(paymentList.map((payment: Record<string, unknown>) => ({
           transactionId: String(payment.transaction_id || ''),
           agentId: String(payment.agent_id || ''),
           entityId: String(payment.payee_entity_id || ''),
           payeeType: String(payment.payee_type || ''),
           amount: Number(payment.amount_paid) || 0,
         })));
-      }
-      if (entityRes.ok) {
-        const entityData = await entityRes.json();
-        const next = new Map<string, string>();
+        const entityList = Array.isArray(snapshot.entities) ? snapshot.entities : [];
+        const nextEntities = new Map<string, string>();
         const earning: Array<{ id: string; name: string }> = [];
-        for (const entity of Array.isArray(entityData.entities) ? entityData.entities : []) {
+        for (const entity of entityList) {
           const id = String(entity.id || '');
           const name = String(entity.entity_name || entity.name || 'Entity');
           if (!id) continue;
-          next.set(id, name);
+          nextEntities.set(id, name);
           if (EARNING_ENTITY_TYPES.has(String(entity.entity_type || '').trim().toUpperCase())) earning.push({ id, name });
         }
-        setEntityNames(next);
+        setEntityNames(nextEntities);
         setEarningEntities(earning);
-      }
-      if (schemaRes.ok) {
-        const schemaData = await schemaRes.json();
-        const catalog = Array.isArray(schemaData.catalog) ? schemaData.catalog : [];
-        const fields = catalog
-          .filter((field: { is_enabled?: boolean; field_type?: string; field_key?: string }) => field.is_enabled !== false && (field.field_type === 'SELECT' || field.field_type === 'AGENT_PICKER') && field.field_key && !BOARD_METRIC_EXCLUDED.has(String(field.field_key)))
-          .map((field: { field_key: string; field_label?: string; field_type: string }) => ({
-            id: String(field.field_key),
-            label: String(field.field_label || field.field_key),
-            type: String(field.field_type),
-          }))
-          .sort((a: BoardField, b: BoardField) => a.label.localeCompare(b.label));
-        if (fields.length) setBoardMetrics([...PAYMENT_METRICS, ...fields]);
-        const labelOf = (key: string, fallback: string) => {
-          const match = catalog.find((field: { field_key?: string; field_label?: string }) => field.field_key === key);
-          const label = String(match?.field_label || '').trim();
-          return label || fallback;
-        };
-        setDateBases([
-          { id: 'closing', label: labelOf('closing_date', 'Closing Date'), type: 'DATE' },
-          { id: 'acceptance', label: labelOf('acceptance_date', 'Acceptance Date'), type: 'DATE' },
-        ]);
-      }
-    }).catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : 'Could not load reports.');
-    }).finally(() => setLoading(false));
-  }, []);
+        if (schemaData) {
+          const catalog = Array.isArray(schemaData.catalog) ? schemaData.catalog : [];
+          const fields = catalog
+            .filter((field: { is_enabled?: boolean; field_type?: string; field_key?: string }) => field.is_enabled !== false && (field.field_type === 'SELECT' || field.field_type === 'AGENT_PICKER') && field.field_key && !BOARD_METRIC_EXCLUDED.has(String(field.field_key)))
+            .map((field: { field_key: string; field_label?: string; field_type: string }) => ({
+              id: String(field.field_key),
+              label: String(field.field_label || field.field_key),
+              type: String(field.field_type),
+            }))
+            .sort((a: BoardField, b: BoardField) => a.label.localeCompare(b.label));
+          if (fields.length) setBoardMetrics([...PAYMENT_METRICS, ...fields]);
+          const labelOf = (key: string, fallback: string) => {
+            const match = catalog.find((field: { field_key?: string; field_label?: string }) => field.field_key === key);
+            const label = String(match?.field_label || '').trim();
+            return label || fallback;
+          };
+          setDateBases([
+            { id: 'closing', label: labelOf('closing_date', 'Closing Date'), type: 'DATE' },
+            { id: 'acceptance', label: labelOf('acceptance_date', 'Acceptance Date'), type: 'DATE' },
+          ]);
+        }
+
+        setLoadProgress((prev) => ({
+          ...prev,
+          percent: 100,
+          stage: 'Reports Ready!',
+          detail: 'All calculations compiled',
+          checks: { ...prev.checks, processing: true },
+        }));
+
+        await new Promise((resolve) => setTimeout(resolve, 320));
+        if (!controller.signal.aborted) {
+          setLoading(false);
+          if (!reportId) {
+            router.replace('/owner-reports/owner-summary', { scroll: false });
+          }
+        }
+      })
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return;
+        if (timer) clearInterval(timer);
+        const msg = err instanceof Error ? err.message : 'Could not load reports.';
+        setError(msg);
+        setLoadProgress((prev) => ({
+          ...prev,
+          stage: 'Failed to load data',
+          detail: msg,
+        }));
+      });
+
+    return () => {
+      controller.abort();
+      if (timer) clearInterval(timer);
+    };
+  }, [reloadKey]);
 
   useEffect(() => {
     if (!boardMetrics.some((field) => field.id === boardMetric)) {
@@ -595,10 +773,16 @@ export default function OwnerReportsPage() {
   }, [reportId]);
 
   return (
-    <main onClick={!report ? launch : undefined} className={`[overflow-anchor:none] text-slate-900 dark:text-slate-100 ${reportCanvas} ${!report ? 'cursor-pointer' : ''} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'h-dvh overflow-hidden' : 'min-h-screen'}`}>
+    <main onClick={!report && !loading ? launch : undefined} className={`[overflow-anchor:none] text-slate-900 dark:text-slate-100 ${reportCanvas} ${!report && !loading ? 'cursor-pointer' : ''} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'h-dvh overflow-hidden' : 'min-h-screen'}`}>
       <div className={`${pageFrame} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'flex h-full min-h-0 flex-col overflow-hidden pb-3' : 'pb-4'}`}>
         <section className={`min-w-0 ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'flex min-h-0 flex-1 flex-col' : `space-y-4 ${reveal ? 'report-arrive' : ''}`}`}>
-          {report ? (
+          {loading ? (
+            <LoadingDataPage
+              progress={loadProgress}
+              error={error}
+              onRetry={handleRetry}
+            />
+          ) : report ? (
             <ReportView
               onSelectReport={selectReport}
               reportName={report.name}
@@ -2044,6 +2228,7 @@ function ReportBody(props: {
         teamLeadIds={teamLeadIds}
         range={range}
         preset={preset}
+        names={names}
       />
     );
   }
@@ -2162,7 +2347,23 @@ function ProductionGrainTitle({ grain, enabled, onChange }: { grain: ProductionG
   );
 }
 
-function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, teamLeadIds, range, preset }: {
+const DRILLDOWN_METRIC_LABELS: Partial<Record<keyof OwnerMonthRow, string>> = {
+  closedUnits: 'Closed Units',
+  closedVolume: 'Closed Volume',
+  closedCommission: 'Closed Total Commission',
+  closedNet: 'Closed Net Commission',
+  listingsTaken: 'Listings Taken',
+  listingsPended: 'Listings Pended',
+  listingsClosed: 'Listings Closed',
+  buyersPended: 'Buyers Pended',
+  buyersClosed: 'Buyers Closed',
+  pendingUnits: 'Pending Units',
+  pendingVolume: 'Pending Volume',
+  pendingCommission: 'Pending Total Commission',
+  pendingNet: 'Pending Net Commission',
+};
+
+function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, teamLeadIds, range, preset, names }: {
   closed: ReportDeal[];
   closedPrior: ReportDeal[];
   net: number;
@@ -2172,8 +2373,10 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
   teamLeadIds: Set<string>;
   range: DateRange;
   preset: RangePreset;
+  names: Map<string, string>;
 }) {
   const [monthKey, setMonthKey] = useState<string | null>(null);
+  const [drilldown, setDrilldown] = useState<{ rowKey: string; column: keyof OwnerMonthRow } | null>(null);
   const [grainChoice, setGrainChoice] = useState<ProductionGrain | null>(null);
   const [scoresOpen, setScoresOpen] = useState(true);
   const [pulse, setPulse] = useState(0);
@@ -2183,6 +2386,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
 
   useEffect(() => {
     setMonthKey(null);
+    setDrilldown(null);
   }, [range.start, range.end, grain]);
 
   useEffect(() => {
@@ -2289,6 +2493,13 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
   }, [monthKey]);
 
   const selectMonth = (key: string) => {
+    if (drilldown) {
+      setDrilldown(null);
+      setScoresOpen(true);
+      setMonthKey(key === 'total' ? null : key);
+      return;
+    }
+    setScoresOpen(true);
     setMonthKey((current) => (key === 'total' || current === key ? null : key));
   };
 
@@ -2318,13 +2529,30 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
   const periodLabel = grain === 'day' ? 'Day' : grain === 'week' ? 'Week' : 'Month';
   const monthLabel = monthKey ? formatProductionKey(monthKey) : '';
   const priorLabel = monthKey ? formatProductionKey(priorProductionKey(monthKey)) : '';
+  const handleDrilldown = (rowKey: string, column: keyof OwnerMonthRow) => {
+    if (drilldown?.rowKey === rowKey && drilldown?.column === column) {
+      setDrilldown(null);
+      return;
+    }
+    setDrilldown({ rowKey, column });
+    setScoresOpen(false);
+  };
+
+  const drilldownItems = drilldown
+    ? ownerProductionTransactions(deals, payments, teamLeadIds, range, grain, drilldown.rowKey, drilldown.column)
+    : [];
+
+  const drilldownRowLabel = drilldown
+    ? (drilldown.rowKey === 'total' ? 'Total' : months.find((m) => m.key === drilldown.rowKey)?.label || drilldown.rowKey)
+    : '';
+
   return (
     <div
-      className={scoresOpen ? 'space-y-10' : `flex min-h-0 flex-col gap-4 ${reportCanvas}`}
-      style={scoresOpen ? undefined : { marginTop: '-1rem', height: 'calc(100dvh - var(--report-chrome-bottom, 0px) - 0.75rem)' }}
+      className={scoresOpen ? 'space-y-10' : `space-y-4 ${reportCanvas}`}
+      style={scoresOpen ? undefined : { marginTop: '-1rem' }}
     >
       {monthKey ? (
-        <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+        <p className="!mb-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
           Showing {monthLabel}, compared with {priorLabel}. Click the {periodWord} again to restore the full range.
         </p>
       ) : null}
@@ -2400,11 +2628,24 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
       ) : null}
       <div
         data-production-block=""
-        className={`flex min-h-0 flex-col overflow-hidden ${reportCanvas} ${scoresOpen ? '' : 'flex-1'}`}
-        style={scoresOpen ? { height: 'calc(100dvh - var(--report-chrome-bottom, 0px) - 0.75rem)' } : undefined}
+        className={`flex min-h-0 flex-col overflow-hidden ${reportCanvas} ${drilldown ? 'flex-1' : ''}`}
+        style={drilldown ? { height: 'calc(100dvh - var(--report-chrome-bottom, 0px) - 0.75rem)' } : { maxHeight: 'calc(100dvh - var(--report-chrome-bottom, 0px) - 0.75rem)' }}
       >
         <div data-production-heading="" className="relative z-30 shrink-0 bg-slate-100 pb-3 dark:bg-slate-950">
         <SectionHeading
+          action={drilldown ? (
+            <button
+              type="button"
+              onClick={() => {
+                setDrilldown(null);
+                setScoresOpen(true);
+              }}
+              className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/20 px-4 text-xs font-semibold normal-case tracking-normal text-white transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+              {periodLabel === 'Day' ? 'All Days' : periodLabel === 'Week' ? 'All Weeks' : 'All Months'}
+            </button>
+          ) : undefined}
           end={(
             <button
               type="button"
@@ -2425,7 +2666,29 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
           />
         </SectionHeading>
         </div>
-        <MonthTable rows={months} selectedMonth={monthKey} onSelectMonth={selectMonth} periodLabel={periodLabel} pinTotal />
+        <div className={drilldown ? 'shrink-0' : 'flex min-h-0 flex-col overflow-hidden'}>
+          <MonthTable
+            rows={months}
+            selectedMonth={monthKey}
+            onSelectMonth={selectMonth}
+            periodLabel={periodLabel}
+            pinTotal={!drilldown}
+            drilldown={drilldown}
+            onDrilldown={handleDrilldown}
+          />
+        </div>
+        {drilldown ? (
+          <div className="flex min-h-0 flex-1 flex-col gap-2 pt-2 overflow-hidden">
+            <p className="shrink-0 text-sm font-medium text-slate-700 dark:text-slate-300">
+              {drilldownRowLabel} · {DRILLDOWN_METRIC_LABELS[drilldown.column] || drilldown.column} ({drilldownItems.length} {drilldownItems.length === 1 ? 'transaction' : 'transactions'})
+            </p>
+            <ProductionDrilldownTable
+              items={drilldownItems}
+              metric={drilldown.column}
+              names={names}
+            />
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -4393,7 +4656,7 @@ function EarningTransactions({ lines, names, wrapRef }: { lines: Array<{ key: st
             {ordered.length === 0 ? (
               <tr><td className="px-3 py-6 text-slate-500" colSpan={11}>No transactions for this amount.</td></tr>
             ) : ordered.map((line, index) => (
-              <tr key={line.key} className={earningRowClass(index, false)}>
+              <tr key={line.key ? `${line.key}-${index}` : `${line.deal.id}-${index}`} className={earningRowClass(index, false)}>
                 <td className="px-2 py-1.5 text-right tabular-nums text-slate-500">{line.rank}</td>
                 <td className="px-3 py-1.5 whitespace-nowrap">{line.agentName}</td>
                 <td className="px-3 py-1.5 whitespace-nowrap">{names.get(line.deal.agentId) || '—'}</td>
@@ -4452,8 +4715,8 @@ function DealTable({ deals, names, detailed }: { deals: ReportDeal[]; names: Map
           </tr>
         </thead>
         <tbody>
-          {sorted.slice(0, 200).map((deal) => (
-            <tr key={deal.id} className="border-t border-slate-100 dark:border-slate-800">
+          {sorted.slice(0, 200).map((deal, idx) => (
+            <tr key={deal.id ? `${deal.id}-${idx}` : `deal-${idx}`} className="border-t border-slate-100 dark:border-slate-800">
               <td className="px-3 py-1.5">{deal.address || '—'}</td>
               <td className="px-3 py-1.5">{deal.side}</td>
               <td className="px-3 py-1.5">{deal.status}</td>
@@ -4502,8 +4765,8 @@ function PriceChange({ deals, names }: { deals: ReportDeal[]; names: Map<string,
             </tr>
           </thead>
           <tbody>
-            {ordered.slice(0, 100).map((deal) => (
-              <tr key={deal.id} className="border-t border-slate-100 dark:border-slate-800">
+            {ordered.slice(0, 100).map((deal, idx) => (
+              <tr key={deal.id ? `${deal.id}-${idx}` : `deal-${idx}`} className="border-t border-slate-100 dark:border-slate-800">
                 <td className="px-3 py-1.5">{deal.address}</td>
                 <td className="px-3 py-1.5">{names.get(deal.agentId) || '—'}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{money(deal.listPrice)}</td>
@@ -4823,7 +5086,61 @@ function Figure({ label, value, emphasis = false }: { label: string; value: stri
   );
 }
 
-function MonthTable({ rows, selectedMonth, onSelectMonth, periodLabel, pinTotal = false }: { rows: OwnerMonthRow[]; selectedMonth: string | null; onSelectMonth: (key: string) => void; periodLabel: string; pinTotal?: boolean }) {
+function CellNumber({
+  rowKey,
+  column,
+  display,
+  drilldown,
+  onDrilldown,
+  className = '',
+}: {
+  rowKey: string;
+  column: keyof OwnerMonthRow;
+  display: string;
+  drilldown?: { rowKey: string; column: keyof OwnerMonthRow } | null;
+  onDrilldown?: (rowKey: string, column: keyof OwnerMonthRow) => void;
+  className?: string;
+}) {
+  const isSelected = drilldown?.rowKey === rowKey && drilldown?.column === column;
+  if (!onDrilldown) {
+    return <span className={`tabular-nums ${className}`}>{display}</span>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onDrilldown(rowKey, column);
+      }}
+      aria-pressed={isSelected}
+      className={`cursor-pointer rounded px-1.5 py-0.5 tabular-nums transition-colors hover:underline hover:text-emerald-700 dark:hover:text-emerald-300 ${
+        isSelected
+          ? 'bg-emerald-500/20 font-bold text-emerald-800 dark:text-emerald-200 ring-1 ring-emerald-500/50'
+          : 'text-inherit'
+      } ${className}`}
+    >
+      {display}
+    </button>
+  );
+}
+
+function MonthTable({
+  rows,
+  selectedMonth,
+  onSelectMonth,
+  periodLabel,
+  pinTotal = false,
+  drilldown = null,
+  onDrilldown,
+}: {
+  rows: OwnerMonthRow[];
+  selectedMonth: string | null;
+  onSelectMonth: (key: string) => void;
+  periodLabel: string;
+  pinTotal?: boolean;
+  drilldown?: { rowKey: string; column: keyof OwnerMonthRow } | null;
+  onDrilldown?: (rowKey: string, column: keyof OwnerMonthRow) => void;
+}) {
   const { sort, toggle } = useColumnSort();
   const total = rows.reduce<OwnerMonthRow>((sum, row) => ({
     key: 'total',
@@ -4864,13 +5181,18 @@ function MonthTable({ rows, selectedMonth, onSelectMonth, periodLabel, pinTotal 
     if (key === 'closedNetIncome') return row.closedNet;
     return row[key as keyof OwnerMonthRow] as string | number;
   });
-  const body = pinTotal ? ordered : [...ordered, total];
+
+  const isTotalDrilldown = drilldown?.rowKey === 'total';
+  const body = drilldown
+    ? (isTotalDrilldown ? [total] : ordered.filter((r) => r.key === drilldown.rowKey))
+    : (pinTotal ? ordered : [...ordered, total]);
+
   const count = (value: number) => value.toLocaleString();
   const bodyRef = useRef<HTMLTableElement>(null);
   const footRef = useRef<HTMLTableElement>(null);
   const footScrollRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    if (!pinTotal) return;
+    if (!pinTotal || drilldown) return;
     const sync = () => {
       const table = bodyRef.current;
       const foot = footRef.current;
@@ -4892,13 +5214,13 @@ function MonthTable({ rows, selectedMonth, onSelectMonth, periodLabel, pinTotal 
       observer.disconnect();
       window.removeEventListener('resize', sync);
     };
-  }, [pinTotal, ordered, periodLabel]);
+  }, [pinTotal, ordered, periodLabel, drilldown]);
   const table = (
-    <div className={pinTotal ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900' : reportTableWrap}>
+    <div className={pinTotal && !drilldown ? 'flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900' : 'overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'}>
       <div
-        data-production-fit={pinTotal ? '' : undefined}
-        className={pinTotal ? 'report-table report-table-fit min-h-0 flex-1 rounded-none border-0' : undefined}
-        onScroll={pinTotal ? (event) => {
+        data-production-fit={pinTotal && !drilldown ? '' : undefined}
+        className={pinTotal && !drilldown ? 'report-table report-table-fit min-h-0 rounded-none border-0' : 'report-table rounded-none border-0'}
+        onScroll={pinTotal && !drilldown ? (event) => {
           if (footScrollRef.current) footScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
         } : undefined}
       >
@@ -4946,32 +5268,62 @@ function MonthTable({ rows, selectedMonth, onSelectMonth, periodLabel, pinTotal 
             <tr
               key={row.key}
               aria-selected={isSelected}
-              onClick={() => onSelectMonth(row.key)}
-              className={`group/month cursor-pointer ${rowClass}`}
+              className={`group/month ${rowClass}`}
             >
-              <td className={`sticky left-0 z-10 px-3 py-2 whitespace-nowrap ${stickyClass}`}>{row.label}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{count(row.closedUnits)}</td>
-              <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(row.closedVolume)}</td>
-              <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(row.closedCommission)}</td>
-              <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(row.closedNet)}</td>
+              <td
+                onClick={() => onSelectMonth(row.key)}
+                className={`sticky left-0 z-10 cursor-pointer px-3 py-2 whitespace-nowrap hover:underline hover:text-emerald-700 dark:hover:text-emerald-300 ${stickyClass}`}
+              >
+                {row.label}
+              </td>
+              <td className="px-3 py-2 text-right">
+                <CellNumber rowKey={row.key} column="closedUnits" display={count(row.closedUnits)} drilldown={drilldown} onDrilldown={onDrilldown} />
+              </td>
+              <td className="px-3 py-2 text-right whitespace-nowrap">
+                <CellNumber rowKey={row.key} column="closedVolume" display={fullMoney(row.closedVolume)} drilldown={drilldown} onDrilldown={onDrilldown} />
+              </td>
+              <td className="px-3 py-2 text-right whitespace-nowrap">
+                <CellNumber rowKey={row.key} column="closedCommission" display={fullMoney(row.closedCommission)} drilldown={drilldown} onDrilldown={onDrilldown} />
+              </td>
+              <td className="px-3 py-2 text-right whitespace-nowrap">
+                <CellNumber rowKey={row.key} column="closedNet" display={fullMoney(row.closedNet)} drilldown={drilldown} onDrilldown={onDrilldown} />
+              </td>
               <td className="px-3 py-2 text-right tabular-nums">—</td>
               <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(row.closedNet)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{count(row.listingsTaken)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{count(row.listingsPended)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{count(row.listingsClosed)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{count(row.buyersPended)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{count(row.buyersClosed)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{count(row.pendingUnits)}</td>
-              <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(row.pendingVolume)}</td>
-              <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(row.pendingCommission)}</td>
-              <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(row.pendingNet)}</td>
+              <td className="px-3 py-2 text-right">
+                <CellNumber rowKey={row.key} column="listingsTaken" display={count(row.listingsTaken)} drilldown={drilldown} onDrilldown={onDrilldown} />
+              </td>
+              <td className="px-3 py-2 text-right">
+                <CellNumber rowKey={row.key} column="listingsPended" display={count(row.listingsPended)} drilldown={drilldown} onDrilldown={onDrilldown} />
+              </td>
+              <td className="px-3 py-2 text-right">
+                <CellNumber rowKey={row.key} column="listingsClosed" display={count(row.listingsClosed)} drilldown={drilldown} onDrilldown={onDrilldown} />
+              </td>
+              <td className="px-3 py-2 text-right">
+                <CellNumber rowKey={row.key} column="buyersPended" display={count(row.buyersPended)} drilldown={drilldown} onDrilldown={onDrilldown} />
+              </td>
+              <td className="px-3 py-2 text-right">
+                <CellNumber rowKey={row.key} column="buyersClosed" display={count(row.buyersClosed)} drilldown={drilldown} onDrilldown={onDrilldown} />
+              </td>
+              <td className="px-3 py-2 text-right">
+                <CellNumber rowKey={row.key} column="pendingUnits" display={count(row.pendingUnits)} drilldown={drilldown} onDrilldown={onDrilldown} />
+              </td>
+              <td className="px-3 py-2 text-right whitespace-nowrap">
+                <CellNumber rowKey={row.key} column="pendingVolume" display={fullMoney(row.pendingVolume)} drilldown={drilldown} onDrilldown={onDrilldown} />
+              </td>
+              <td className="px-3 py-2 text-right whitespace-nowrap">
+                <CellNumber rowKey={row.key} column="pendingCommission" display={fullMoney(row.pendingCommission)} drilldown={drilldown} onDrilldown={onDrilldown} />
+              </td>
+              <td className="px-3 py-2 text-right whitespace-nowrap">
+                <CellNumber rowKey={row.key} column="pendingNet" display={fullMoney(row.pendingNet)} drilldown={drilldown} onDrilldown={onDrilldown} />
+              </td>
             </tr>
             );
           })}
         </tbody>
       </table>
       </div>
-      {pinTotal ? (
+      {pinTotal && !drilldown ? (
         <div
           ref={footScrollRef}
           data-production-foot=""
@@ -4983,23 +5335,54 @@ function MonthTable({ rows, selectedMonth, onSelectMonth, periodLabel, pinTotal 
         >
           <table ref={footRef} className="text-xs font-bold">
             <tbody>
-              <tr className="cursor-pointer" onClick={() => onSelectMonth(total.key)}>
-                <td className="sticky left-0 z-10 bg-slate-200 px-3 py-2 whitespace-nowrap dark:bg-slate-700">{total.label}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{count(total.closedUnits)}</td>
-                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(total.closedVolume)}</td>
-                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(total.closedCommission)}</td>
-                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(total.closedNet)}</td>
+              <tr>
+                <td
+                  onClick={() => onSelectMonth(total.key)}
+                  className="sticky left-0 z-10 cursor-pointer bg-slate-200 px-3 py-2 whitespace-nowrap hover:underline hover:text-emerald-700 dark:bg-slate-700 dark:hover:text-emerald-300"
+                >
+                  {total.label}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <CellNumber rowKey={total.key} column="closedUnits" display={count(total.closedUnits)} drilldown={drilldown} onDrilldown={onDrilldown} />
+                </td>
+                <td className="px-3 py-2 text-right whitespace-nowrap">
+                  <CellNumber rowKey={total.key} column="closedVolume" display={fullMoney(total.closedVolume)} drilldown={drilldown} onDrilldown={onDrilldown} />
+                </td>
+                <td className="px-3 py-2 text-right whitespace-nowrap">
+                  <CellNumber rowKey={total.key} column="closedCommission" display={fullMoney(total.closedCommission)} drilldown={drilldown} onDrilldown={onDrilldown} />
+                </td>
+                <td className="px-3 py-2 text-right whitespace-nowrap">
+                  <CellNumber rowKey={total.key} column="closedNet" display={fullMoney(total.closedNet)} drilldown={drilldown} onDrilldown={onDrilldown} />
+                </td>
                 <td className="px-3 py-2 text-right tabular-nums">—</td>
                 <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(total.closedNet)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{count(total.listingsTaken)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{count(total.listingsPended)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{count(total.listingsClosed)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{count(total.buyersPended)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{count(total.buyersClosed)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{count(total.pendingUnits)}</td>
-                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(total.pendingVolume)}</td>
-                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(total.pendingCommission)}</td>
-                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(total.pendingNet)}</td>
+                <td className="px-3 py-2 text-right">
+                  <CellNumber rowKey={total.key} column="listingsTaken" display={count(total.listingsTaken)} drilldown={drilldown} onDrilldown={onDrilldown} />
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <CellNumber rowKey={total.key} column="listingsPended" display={count(total.listingsPended)} drilldown={drilldown} onDrilldown={onDrilldown} />
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <CellNumber rowKey={total.key} column="listingsClosed" display={count(total.listingsClosed)} drilldown={drilldown} onDrilldown={onDrilldown} />
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <CellNumber rowKey={total.key} column="buyersPended" display={count(total.buyersPended)} drilldown={drilldown} onDrilldown={onDrilldown} />
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <CellNumber rowKey={total.key} column="buyersClosed" display={count(total.buyersClosed)} drilldown={drilldown} onDrilldown={onDrilldown} />
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <CellNumber rowKey={total.key} column="pendingUnits" display={count(total.pendingUnits)} drilldown={drilldown} onDrilldown={onDrilldown} />
+                </td>
+                <td className="px-3 py-2 text-right whitespace-nowrap">
+                  <CellNumber rowKey={total.key} column="pendingVolume" display={fullMoney(total.pendingVolume)} drilldown={drilldown} onDrilldown={onDrilldown} />
+                </td>
+                <td className="px-3 py-2 text-right whitespace-nowrap">
+                  <CellNumber rowKey={total.key} column="pendingCommission" display={fullMoney(total.pendingCommission)} drilldown={drilldown} onDrilldown={onDrilldown} />
+                </td>
+                <td className="px-3 py-2 text-right whitespace-nowrap">
+                  <CellNumber rowKey={total.key} column="pendingNet" display={fullMoney(total.pendingNet)} drilldown={drilldown} onDrilldown={onDrilldown} />
+                </td>
               </tr>
             </tbody>
           </table>
@@ -5008,6 +5391,187 @@ function MonthTable({ rows, selectedMonth, onSelectMonth, periodLabel, pinTotal 
     </div>
   );
   return table;
+}
+
+function ProductionDrilldownTable({
+  items,
+  metric,
+  names,
+}: {
+  items: ProductionDrilldownItem[];
+  metric: keyof OwnerMonthRow;
+  names: Map<string, string>;
+}) {
+  const dateColLabel = metric === 'listingsTaken'
+    ? 'List date'
+    : metric === 'listingsPended' || metric === 'buyersPended'
+      ? 'Pending date'
+      : 'Closing date';
+
+  const showNet = metric === 'closedNet' || metric === 'pendingNet';
+  const { sort, toggle } = useColumnSort({ key: 'date', direction: 'asc' });
+
+  const ranked = [...items]
+    .sort((a, b) => (a.date?.getTime() || 0) - (b.date?.getTime() || 0))
+    .map((item, index) => ({ ...item, rank: index + 1 }));
+
+  const ordered = sortBy(ranked, sort, (item, key) => {
+    if (key === 'rank') return item.rank;
+    if (key === 'status') return item.deal.status;
+    if (key === 'agent') return names.get(item.deal.agentId) || '';
+    if (key === 'side') return item.deal.side;
+    if (key === 'address') return item.deal.address;
+    if (key === 'date') return item.date?.getTime() || 0;
+    if (key === 'price') return item.deal.salesPrice || item.deal.listPrice || 0;
+    if (key === 'commission') return item.deal.totalCommission;
+    if (key === 'net') return item.net;
+    if (key === 'source') return item.deal.leadSource;
+    return 0;
+  });
+
+  const totalSalesPrice = items.reduce((sum, item) => sum + (item.deal.salesPrice || item.deal.listPrice || 0), 0);
+  const totalCommission = items.reduce((sum, item) => sum + (item.deal.totalCommission || 0), 0);
+  const totalNet = items.reduce((sum, item) => sum + item.net, 0);
+
+  const bodyRef = useRef<HTMLTableElement>(null);
+  const footRef = useRef<HTMLTableElement>(null);
+  const footScrollRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const body = bodyRef.current;
+    const foot = footRef.current;
+    if (!body || !foot) return;
+    const headerCells = [...body.querySelectorAll('thead th')] as HTMLElement[];
+    const footCells = [...foot.querySelectorAll('td')] as HTMLElement[];
+    const sync = () => {
+      headerCells.forEach((cell) => { cell.style.minWidth = ''; });
+      footCells.forEach((cell) => {
+        cell.style.width = '';
+        cell.style.minWidth = '';
+        cell.style.maxWidth = '';
+      });
+      foot.style.width = 'max-content';
+      const headerWidths = headerCells.map((cell) => cell.getBoundingClientRect().width);
+      const contentWidths = footCells.map((cell) => cell.getBoundingClientRect().width);
+      headerCells.forEach((cell, index) => {
+        const needed = contentWidths[index] || 0;
+        if (needed > headerWidths[index] + 1) cell.style.minWidth = `${Math.ceil(needed)}px`;
+      });
+      const fitted = headerCells.map((cell) => cell.getBoundingClientRect().width);
+      foot.style.width = `${body.scrollWidth}px`;
+      footCells.forEach((cell, index) => {
+        const width = `${fitted[index] || 0}px`;
+        cell.style.width = width;
+        cell.style.minWidth = width;
+        cell.style.maxWidth = width;
+      });
+    };
+    sync();
+    const scroller = body.parentElement;
+    if (!scroller) return;
+    const observer = new ResizeObserver(sync);
+    observer.observe(scroller);
+    return () => observer.disconnect();
+  }, [ordered, totalSalesPrice, totalCommission, totalNet]);
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div
+        className="report-table report-table-fit min-h-0 flex-1 rounded-none border-0"
+        onScroll={(event) => {
+          if (footScrollRef.current) footScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
+        }}
+      >
+        <table ref={bodyRef} className="w-full text-xs">
+          <thead className="report-head-dark text-xs font-medium normal-case text-white">
+            <tr>
+              <SortHead column="rank" label="#" sort={sort} onSort={toggle} align="right" className="px-2 py-2 text-xs font-medium" />
+              <SortHead column="status" label="Status" sort={sort} onSort={toggle} className="px-3 py-2 text-xs font-medium" />
+              <SortHead column="agent" label="Primary agent" sort={sort} onSort={toggle} className="px-3 py-2 text-xs font-medium" />
+              <SortHead column="side" label="Side" sort={sort} onSort={toggle} className="px-3 py-2 text-xs font-medium" />
+              <SortHead column="address" label="Property" sort={sort} onSort={toggle} className="px-3 py-2 text-xs font-medium" />
+              <SortHead column="date" label={dateColLabel} sort={sort} onSort={toggle} className="px-3 py-2 text-xs font-medium" />
+              <SortHead column="price" label="Sales price" sort={sort} onSort={toggle} align="right" className="px-3 py-2 text-xs font-medium" />
+              <SortHead column="commission" label="Total Comm." title="Total commission" sort={sort} onSort={toggle} align="right" className="px-3 py-2 text-xs font-medium" />
+              {showNet ? (
+                <SortHead column="net" label="Net Comm." title="Net commission to owner(s)" sort={sort} onSort={toggle} align="right" className="px-3 py-2 text-xs font-medium" />
+              ) : null}
+              <SortHead column="source" label="Lead source" sort={sort} onSort={toggle} className="px-3 py-2 text-xs font-medium" />
+            </tr>
+          </thead>
+          <tbody>
+            {ordered.length === 0 ? (
+              <tr>
+                <td className="px-3 py-6 text-center text-slate-500" colSpan={showNet ? 10 : 9}>
+                  No transactions for this selection.
+                </td>
+              </tr>
+            ) : (
+              ordered.map((item, index) => {
+                const statusLower = item.deal.status.trim().toLowerCase();
+                const isPending = statusLower === 'pending';
+                const isClosed = statusLower === 'closed';
+                const statusBadge = isClosed
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
+                  : isPending
+                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200'
+                    : 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200';
+                const striped = index % 2 === 1;
+                const rowClass = striped ? 'bg-slate-100 hover:bg-emerald-50 dark:bg-slate-800 dark:hover:bg-emerald-950/60' : 'bg-white hover:bg-emerald-50 dark:bg-slate-900 dark:hover:bg-emerald-950/60';
+                return (
+                  <tr key={item.deal.id + '-' + index} className={rowClass}>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-slate-500">{item.rank}</td>
+                    <td className="px-3 py-1.5 whitespace-nowrap">
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusBadge}`}>
+                        {item.deal.status || '—'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-1.5 whitespace-nowrap">{names.get(item.deal.agentId) || '—'}</td>
+                    <td className="px-3 py-1.5 whitespace-nowrap">{item.deal.side || '—'}</td>
+                    <td className="px-3 py-1.5 min-w-[12rem] whitespace-nowrap">{item.deal.address || '—'}</td>
+                    <td className="px-3 py-1.5 whitespace-nowrap tabular-nums">
+                      {item.date ? item.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                    </td>
+                    <td className="px-3 py-1.5 text-right tabular-nums whitespace-nowrap">{fullMoney(item.deal.salesPrice || item.deal.listPrice || 0)}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums whitespace-nowrap">{fullMoney(item.deal.totalCommission || 0)}</td>
+                    {showNet ? (
+                      <td className="px-3 py-1.5 text-right tabular-nums whitespace-nowrap font-medium">{fullMoney(item.net)}</td>
+                    ) : null}
+                    <td className="px-3 py-1.5 whitespace-nowrap">{item.deal.leadSource || '—'}</td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+      {ordered.length > 0 ? (
+        <div
+          ref={footScrollRef}
+          className="shrink-0 overflow-x-hidden border-t border-slate-200 bg-slate-200 font-bold dark:border-slate-700 dark:bg-slate-700"
+        >
+          <table ref={footRef} className="text-xs font-bold">
+            <tbody>
+              <tr>
+                <td className="px-2 py-2 text-right" />
+                <td className="px-3 py-2">Total ({ordered.length})</td>
+                <td className="px-3 py-2" />
+                <td className="px-3 py-2" />
+                <td className="px-3 py-2" />
+                <td className="px-3 py-2" />
+                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(totalSalesPrice)}</td>
+                <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{fullMoney(totalCommission)}</td>
+                {showNet ? (
+                  <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap font-bold">{fullMoney(totalNet)}</td>
+                ) : null}
+                <td className="px-3 py-2" />
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function sumOf(deals: ReportDeal[]): Totals {

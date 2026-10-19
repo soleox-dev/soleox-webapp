@@ -1,7 +1,8 @@
 // app/commission-tracker/transactions/[id]/hooks/useTransactionData.ts
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FieldSetting, SchemaField, CORE_REQUIRED_FIELDS, VisibilityRulesConfig, KnownAgentInfo, CommissionEntityOption } from '../types';
 import { StoredCommissionItem } from '../commissionItemState';
+import { clearCommissionModuleCache } from '../components/applyTemplateLogic';
 
 const AGENT_DIRECTORY_KEYS = new Set([
   'id',
@@ -32,8 +33,21 @@ const AGENT_DIRECTORY_KEYS = new Set([
 ]);
 
 function agentFormulaFields(agent: Record<string, unknown>): Record<string, string> {
+  const source: Record<string, unknown> = { ...agent };
+  const custom = source.custom_attributes;
+  if (typeof custom === 'string') {
+    try {
+      const parsed = JSON.parse(custom) as unknown;
+      if (parsed && typeof parsed === 'object') Object.assign(source, parsed);
+    } catch {
+      // Ignore invalid JSON string
+    }
+  } else if (custom && typeof custom === 'object') {
+    Object.assign(source, custom);
+  }
+
   const fields: Record<string, string> = {};
-  for (const [key, value] of Object.entries(agent)) {
+  for (const [key, value] of Object.entries(source)) {
     if (AGENT_DIRECTORY_KEYS.has(key) || value === null || value === undefined || value === '') continue;
     if (typeof value === 'object') continue;
     fields[key] = String(value);
@@ -195,7 +209,7 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
     payload: any,
     resolvedClientId: string,
     showToast: (msg: string, type: 'success' | 'error') => void,
-    onSuccess?: (savedTxn: any, commissionItems?: StoredCommissionItem[]) => void | false | Promise<void | false>
+    onSuccess?: (savedTxn: any, commissionItems?: StoredCommissionItem[]) => boolean | void | Promise<boolean | void>
   ) => {
     if (isSaving) return;
     try {
@@ -208,6 +222,7 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
 
       const responseData = await res.json().catch(() => ({}));
       if (res.ok && responseData.success !== false) {
+        clearCommissionModuleCache();
         const outcome = onSuccess && responseData.transaction
           ? await onSuccess(responseData.transaction, responseData.commissionItems)
           : undefined;
@@ -223,6 +238,29 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
     }
   };
 
+  const reloadAgents = useCallback(async () => {
+    try {
+      const agentsRes = await fetch('/api/agents?include_archived=true');
+      if (agentsRes.ok && agentsRes.headers.get('content-type')?.includes('application/json')) {
+        const agentsData = await agentsRes.json();
+        if (agentsData.success && agentsData.agents) {
+          setKnownAgents(
+            agentsData.agents.map((ag: any) => ({
+              id: ag.id || `AGT_${ag.agent_name}`,
+              name: ag.agent_name || ag.name || ag.full_name || 'Unnamed Agent',
+              email: ag.agent_email || ag.email,
+              isTeamLead: Boolean(ag.is_team_lead || ag.isTeamLead),
+              clientId: ag.client_id ? String(ag.client_id) : undefined,
+              fields: agentFormulaFields(ag),
+            }))
+          );
+        }
+      }
+    } catch (err) {
+      console.error('Error reloading agents:', err);
+    }
+  }, []);
+
   return {
     savedDeals,
     setSavedDeals,
@@ -236,5 +274,6 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
     isLoadingDeals,
     isSaving,
     saveTransaction,
+    reloadAgents,
   };
 }

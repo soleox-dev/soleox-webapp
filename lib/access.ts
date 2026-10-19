@@ -306,7 +306,8 @@ export function allowsRequest(access: AccessProfile, pathname: string, method: s
       || path.startsWith('/api/commission-entities')
       || path.startsWith('/api/client-lookup-values')
       || path.startsWith('/api/agent-allocations')
-      || path.startsWith('/api/transaction-team-caps');
+      || path.startsWith('/api/transaction-team-caps')
+      || path.startsWith('/api/owner-reports');
     if (operational) return true;
   }
   if (gate === 'tracker_read' && access.permissions.commissionTrackerSettings && isSettingsRead(pathname)) return true;

@@ -16,6 +16,11 @@ const contentSecurityPolicy = [
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  logging: {
+    incomingRequests: false,
+    serverFunctions: false,
+    browserToTerminal: false,
+  },
   onDemandEntries: {
     maxInactiveAge: 15 * 60 * 1000,
     pagesBufferLength: 50,

@@ -89,6 +89,9 @@ export function apiError(error: unknown, fallback: string, shape: 'plain' | 'suc
   return NextResponse.json(body, { status: failure.status });
 }
 
+const clientContextCache = new Map<string, { context: TenantContext; expires: number }>();
+const clientContextInflight = new Map<string, Promise<TenantContext>>();
+
 /**
  * Resolves the brokerage for this request from the signed-in user's chosen client.
  * A client id on the request does not select a different brokerage.
@@ -111,28 +114,44 @@ export async function getTenantContext(
   }
 
   const activeClientId = access.clientId;
-
-  const { data, error } = await supabaseAdmin
-    .from('clients')
-    .select(
-      'id, client_name, client_type, track_detailed_payments, require_compliance_approval, default_financial_visibility'
-    )
-    .eq('id', activeClientId)
-    .eq('status', 'ACTIVE')
-    .single();
-
-  if (error || !data) {
-    throw new TenantAccessError('Unauthorized: Active brokerage was not found for this account.', 403);
+  const now = Date.now();
+  const cached = clientContextCache.get(activeClientId);
+  if (cached && cached.expires > now) {
+    return cached.context;
   }
+  const inflight = clientContextInflight.get(activeClientId);
+  if (inflight) return inflight;
 
-  return {
-    clientId: data.id,
-    clientName: data.client_name,
-    clientType: data.client_type as TenantContext['clientType'],
-    trackDetailedPayments: Boolean(data.track_detailed_payments),
-    requireComplianceApproval: Boolean(data.require_compliance_approval),
-    defaultFinancialVisibility: data.default_financial_visibility || 'FULL',
-  };
+  const load = (async () => {
+    const { data, error } = await supabaseAdmin
+      .from('clients')
+      .select(
+        'id, client_name, client_type, track_detailed_payments, require_compliance_approval, default_financial_visibility'
+      )
+      .eq('id', activeClientId)
+      .eq('status', 'ACTIVE')
+      .single();
+
+    if (error || !data) {
+      throw new TenantAccessError('Unauthorized: Active brokerage was not found for this account.', 403);
+    }
+
+    const context: TenantContext = {
+      clientId: data.id,
+      clientName: data.client_name,
+      clientType: data.client_type as TenantContext['clientType'],
+      trackDetailedPayments: Boolean(data.track_detailed_payments),
+      requireComplianceApproval: Boolean(data.require_compliance_approval),
+      defaultFinancialVisibility: data.default_financial_visibility || 'FULL',
+    };
+    clientContextCache.set(activeClientId, { context, expires: Date.now() + 60_000 });
+    return context;
+  })().finally(() => {
+    clientContextInflight.delete(activeClientId);
+  });
+
+  clientContextInflight.set(activeClientId, load);
+  return load;
 }
 
 /** The signed-in user's chosen client. Request client ids are ignored. */

@@ -30,7 +30,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ToastBanner } from '@/components/ui/ToastBanner';
 import { AllocateCommissionModal } from './components/AllocateCommissionModal';
 import { toPercentPoints } from '@/lib/percent';
-import type { AppliedTemplateRules } from './components/applyTemplateLogic';
+import { clearCommissionModuleCache, type AppliedTemplateRules } from './components/applyTemplateLogic';
 import type { TemplateSubmissionDraft } from './components/CommissionTemplatePanel';
 import { qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection } from '@/lib/agent-allocations';
 import { isPrimaryAgent, resolvePrimaryAgentId, waterfallFromCommissionItems } from './commissionItemState';
@@ -77,6 +77,7 @@ export default function Dashboard() {
     isLoadingDeals,
     isSaving,
     saveTransaction,
+    reloadAgents,
   } = useTransactionData(routeId, isNewTransaction);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'commission' | 'disbursements'>('overview');
@@ -408,6 +409,8 @@ export default function Dashboard() {
   };
 
   const handleStartWaterfallEdit = () => {
+    clearCommissionModuleCache();
+    void reloadAgents();
     setWaterfallEditSnapshot({
       agents: agents.map((a) => ({ ...a })),
       offTheTopRules: cloneWaterfallRules(offTheTopRules),
@@ -421,6 +424,7 @@ export default function Dashboard() {
   };
 
   const handleCancelWaterfallEdit = () => {
+    clearCommissionModuleCache();
     const restoredCaps = waterfallEditSnapshot ? waterfallEditSnapshot.teamCapIds : selectedTeamCapIds;
     if (waterfallEditSnapshot) {
       setAgents(waterfallEditSnapshot.agents.map((a) => ({ ...a })));
@@ -451,6 +455,7 @@ export default function Dashboard() {
   };
 
   const handleApplyWaterfallEdit = () => {
+    clearCommissionModuleCache();
     const unchanged = !waterfallHasEdits();
     const baseline = capOverrideActions.current.baseline;
     const capChanged = baseline != null && !sameAllocationOverrides(capOverrideActions.current.current, baseline);
@@ -1340,7 +1345,7 @@ export default function Dashboard() {
 
       if (!savedTxn) return;
 
-      const capsSaved = await persistDealAllocations(String(savedTxn.id || payload.id));
+      const capsSaved = await persistDealAllocations(String(savedTxn.id || (payload as any).id));
       if (!capsSaved) {
         showToast('The transaction was saved, but the team cap amounts were not. Save again to store them.', 'error');
         return false;
@@ -1411,6 +1416,7 @@ export default function Dashboard() {
   );
 
   const handleResetWaterfall = () => {
+    clearCommissionModuleCache();
     const named = String(primaryAgent || '').trim();
     const known = knownAgents.find((agent) =>
       (primaryAgentId && (agent.id === primaryAgentId || agent.name.toLowerCase() === String(primaryAgentId).toLowerCase()))
@@ -1784,8 +1790,15 @@ export default function Dashboard() {
             onToggleSection={() => toggleSection('overview')}
             isEditing={overviewForm.isEditingOverview}
             hasChanges={!overviewForm.overviewValuesUnchanged()}
-            onStartEdit={overviewForm.handleStartOverviewEdit}
-            onCancelEdit={() => overviewForm.setIsEditingOverview(false)}
+            onStartEdit={() => {
+              clearCommissionModuleCache();
+              void reloadAgents();
+              overviewForm.handleStartOverviewEdit();
+            }}
+            onCancelEdit={() => {
+              clearCommissionModuleCache();
+              overviewForm.setIsEditingOverview(false);
+            }}
             onApplyEdit={overviewForm.handleApplyOverviewEdit}
             groupedSections={overviewForm.groupedOverviewSections}
             overviewFormValues={overviewForm.overviewFormValues}

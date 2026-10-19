@@ -1,6 +1,7 @@
 // app/commission-tracker/transactions/[id]/hooks/useOverviewForm.ts
 import { useState, useMemo } from 'react';
 import { FieldSetting, roundCurrency, evaluateFormula, readTransactionField, isOverviewFieldVisible } from '../types';
+import { clearCommissionModuleCache } from '../components/applyTemplateLogic';
 
 interface UseOverviewFormProps {
   overviewFields: FieldSetting[];
@@ -104,6 +105,7 @@ export function useOverviewForm({
 
     setOverviewFormValues(initialForm);
     setOverviewEditSnapshot(initialForm);
+    clearCommissionModuleCache();
     setIsEditingOverview(true);
   };
 
@@ -237,12 +239,14 @@ export function useOverviewForm({
       transaction_status: overviewFormValues.transaction_status || overviewFormValues.status || prevDeal?.transaction_status,
     }));
 
+    clearCommissionModuleCache();
     setIsEditingOverview(false);
     setShowRequiredFieldsWarningModal(false);
   };
 
   const handleApplyOverviewEdit = () => {
     if (overviewValuesUnchanged()) {
+      clearCommissionModuleCache();
       setIsEditingOverview(false);
       setShowRequiredFieldsWarningModal(false);
       setOverviewEditSnapshot(null);

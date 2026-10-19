@@ -122,13 +122,13 @@ export function useSubmittedTemplateReplay({
         if (!cancelled) setLoaded(null);
         return;
       }
-      const bundle = await loadTemplateBundle(templateId);
+      const bundle = await loadTemplateBundle(templateId, { refresh: true });
       const steps = bundle.steps;
       const parameterRows = bundle.parameters;
       const needs = formulaDataNeeds(templateFormulaSources(steps, parameterRows));
       const [ledger, lookups] = await Promise.all([
-        needs.needsLedger ? loadCommissionLedger(clientId, entitiesRef.current) : Promise.resolve([]),
-        needs.lookupTables.length > 0 ? loadFormulaLookups(clientId, needs.lookupTables) : Promise.resolve({ clientId, tables: {} }),
+        needs.needsLedger ? loadCommissionLedger(clientId, entitiesRef.current, { refresh: true }) : Promise.resolve([]),
+        needs.lookupTables.length > 0 ? loadFormulaLookups(clientId, needs.lookupTables, { refresh: true }) : Promise.resolve({ clientId, tables: {} }),
       ]);
       if (cancelled) return;
       const latestPending = pendingRef.current;

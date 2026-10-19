@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireSessionClient, apiError } from '@/lib/session';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { fetchAllPages } from '@/lib/supabase-pagination';
 
 // GET: Fetch non-archived template submissions (filterable by transaction_id or template_id)
 export async function GET(request: Request) {
@@ -11,24 +12,26 @@ export async function GET(request: Request) {
     const templateId = searchParams.get('template_id');
 
     const { clientId, supabase } = await requireSessionClient();
-    let query = supabase
-      .from('commission_template_submissions')
-      .select('*')
-      .eq('client_id', clientId)
-      .or('archived.is.null,archived.eq.false')
-      .order('created_at', { ascending: false });
 
-    if (transactionId) {
-      query = query.eq('transaction_id', transactionId);
-    }
-    if (templateId) {
-      query = query.eq('template_id', templateId);
-    }
+    const submissions = await fetchAllPages((offset, limit, withCount) => {
+      let query = supabase
+        .from('commission_template_submissions')
+        .select('*', withCount ? { count: 'exact' } : undefined)
+        .eq('client_id', clientId)
+        .or('archived.is.null,archived.eq.false')
+        .order('created_at', { ascending: false });
 
-    const { data, error } = await query;
-    if (error) throw error;
+      if (transactionId) {
+        query = query.eq('transaction_id', transactionId);
+      }
+      if (templateId) {
+        query = query.eq('template_id', templateId);
+      }
 
-    return NextResponse.json({ success: true, submissions: data || [] });
+      return query.range(offset, offset + limit - 1);
+    });
+
+    return NextResponse.json({ success: true, submissions });
   } catch (error: any) {
     return apiError(error, 'The request could not be completed.');
   }

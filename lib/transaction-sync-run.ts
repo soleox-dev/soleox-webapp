@@ -6,6 +6,7 @@ import { readGoogleSheet } from '@/lib/google-sheets';
 import { rememberSourceTmsIds } from '@/lib/google-sheet-connection';
 import { transactionDealLabel } from '@/lib/transaction-label';
 import { formatTablePercent } from '@/lib/percent';
+import { fetchAllPages } from '@/lib/supabase-pagination';
 import {
   SYNC_ACTOR,
   catalogFromFields,
@@ -275,14 +276,31 @@ export async function syncGoogleSheetConnection(
     return fail(error instanceof Error ? error.message : 'The spreadsheet could not be read.');
   }
 
-  const [{ data: transactions, error: transactionError }, { data: agents, error: agentError }, { data: protections, error: protectionError }] = await Promise.all([
-    sb.from('transactions').select('*').eq('client_id', clientId).not('tms_id', 'is', null),
-    sb.from('agents').select('id, tms_id, agent_email, agent_name').eq('client_id', clientId).or('archived.is.null,archived.eq.false'),
-    sb.from('transaction_field_protections').select('transaction_id, field_key, protection').eq('client_id', clientId),
+  const [transactions, agents, protections] = await Promise.all([
+    fetchAllPages((offset, limit, withCount) =>
+      sb
+        .from('transactions')
+        .select('*', withCount ? { count: 'exact' } : undefined)
+        .eq('client_id', clientId)
+        .not('tms_id', 'is', null)
+        .range(offset, offset + limit - 1)
+    ),
+    fetchAllPages((offset, limit, withCount) =>
+      sb
+        .from('agents')
+        .select('id, tms_id, agent_email, agent_name', withCount ? { count: 'exact' } : undefined)
+        .eq('client_id', clientId)
+        .or('archived.is.null,archived.eq.false')
+        .range(offset, offset + limit - 1)
+    ),
+    fetchAllPages((offset, limit, withCount) =>
+      sb
+        .from('transaction_field_protections')
+        .select('transaction_id, field_key, protection', withCount ? { count: 'exact' } : undefined)
+        .eq('client_id', clientId)
+        .range(offset, offset + limit - 1)
+    ),
   ]);
-  if (transactionError) return fail(transactionError.message);
-  if (agentError) return fail(agentError.message);
-  if (protectionError) return fail(protectionError.message);
 
   const existingByTmsId = new Map<string, ExistingSyncTransaction>();
   (transactions || []).forEach((row) => {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireSessionClient, apiError } from '@/lib/session';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { fetchAllPages } from '@/lib/supabase-pagination';
 
 type TeamCapBody = {
   agentId?: string;
@@ -22,17 +23,18 @@ export async function GET(request: Request) {
       const agentIds = (url.searchParams.get('agent_ids') || '').split(',').map((id) => id.trim()).filter(Boolean);
       const excludeId = url.searchParams.get('exclude_transaction_id') || '';
       if (agentIds.length === 0) return NextResponse.json({ success: true, history: [] });
-      let query = supabase
-        .from('transaction_team_caps')
-        .select('agent_id, amount, period_start, transaction_id, team_cap_id')
-        .eq('client_id', clientId)
-        .in('agent_id', agentIds);
-      if (excludeId) query = query.neq('transaction_id', excludeId);
-      const { data, error } = await query;
-      if (error) throw error;
+      const rows = await fetchAllPages((offset, limit, withCount) => {
+        let query = supabase
+          .from('transaction_team_caps')
+          .select('agent_id, amount, period_start, transaction_id, team_cap_id', withCount ? { count: 'exact' } : undefined)
+          .eq('client_id', clientId)
+          .in('agent_id', agentIds);
+        if (excludeId) query = query.neq('transaction_id', excludeId);
+        return query.order('id', { ascending: true }).range(offset, offset + limit - 1);
+      });
       return NextResponse.json({
         success: true,
-        history: (data || []).map((row) => ({
+        history: rows.map((row: any) => ({
           agentId: row.agent_id,
           amount: Number(row.amount) || 0,
           periodStart: row.period_start,
@@ -42,14 +44,17 @@ export async function GET(request: Request) {
       });
     }
     if (url.searchParams.get('scope') === 'client') {
-      const { data, error } = await supabase
-        .from('transaction_team_caps')
-        .select('agent_id, amount, period_start, transaction_id, team_cap_id')
-        .eq('client_id', clientId);
-      if (error) throw error;
+      const rows = await fetchAllPages((offset, limit, withCount) =>
+        supabase
+          .from('transaction_team_caps')
+          .select('agent_id, amount, period_start, transaction_id, team_cap_id', withCount ? { count: 'exact' } : undefined)
+          .eq('client_id', clientId)
+          .order('id', { ascending: true })
+          .range(offset, offset + limit - 1)
+      );
       return NextResponse.json({
         success: true,
-        contributions: (data || []).map((row) => ({
+        contributions: rows.map((row: any) => ({
           agentId: row.agent_id,
           amount: Number(row.amount) || 0,
           periodStart: row.period_start,

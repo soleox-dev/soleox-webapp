@@ -26,6 +26,9 @@ const FORMULA_FUNCTION_GROUPS: { title: string; items: { name: string; signature
   {
     title: 'Math',
     items: [
+      { name: 'ROUND', signature: 'ROUND(number, digits)', summary: 'Rounds a number to digits. Digits is optional and defaults to 0.' },
+      { name: 'ROUNDUP', signature: 'ROUNDUP(number, digits)', summary: 'Rounds a number up, away from zero. Digits is optional and defaults to 0.' },
+      { name: 'ROUNDDOWN', signature: 'ROUNDDOWN(number, digits)', summary: 'Rounds a number down, toward zero. Digits is optional and defaults to 0.' },
       { name: 'MIN', signature: 'MIN(value1, value2, ...)', summary: 'The smallest number.' },
       { name: 'MAX', signature: 'MAX(value1, value2, ...)', summary: 'The largest number.' },
       { name: 'NUMBERVALUE', signature: 'NUMBERVALUE(text)', summary: 'Turns text such as $1,200 or 35% into a number.' },
