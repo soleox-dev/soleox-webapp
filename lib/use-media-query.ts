@@ -8,6 +8,13 @@ export const DESKTOP_QUERY = '(min-width: 768px)';
 /** Same media query as the `screenfit:` variant in globals.css: wide and tall enough for full-screen report layouts. */
 export const FIT_SCREEN_QUERY = '(min-width: 768px) and (min-height: 560px)';
 
+/**
+ * Same media query as the `desktop-nav:` variant in globals.css: md and wider, except phones in
+ * landscape (touch with a short viewport), which keep the phone menu.
+ */
+export const DESKTOP_NAV_QUERY =
+  '(min-width: 768px) and (not ((hover: none) and (pointer: coarse) and (max-height: 500px)))';
+
 /** Same media query as the `touch:` variant in globals.css. */
 export const TOUCH_QUERY = '(hover: none) and (pointer: coarse)';
 
@@ -50,4 +57,9 @@ export function useIsTouch(): boolean {
 /** True when the screen is wide and tall enough for full-screen report layouts. Assumes so before hydration. */
 export function useFitsScreen(): boolean {
   return useMediaQuery(FIT_SCREEN_QUERY, true);
+}
+
+/** True where the desktop top bar shows (see DESKTOP_NAV_QUERY). Assumes desktop before hydration. */
+export function useIsDesktopNav(): boolean {
+  return useMediaQuery(DESKTOP_NAV_QUERY, true);
 }

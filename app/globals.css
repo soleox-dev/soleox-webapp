@@ -359,6 +359,11 @@ thead th.sticky[class*="left-"] {
    wide but short, so it scrolls the page like portrait. Keep in sync with FIT_SCREEN_QUERY. */
 @custom-variant screenfit (@media (min-width: 768px) and (min-height: 560px));
 
+/* The desktop top bar: md and wider, except phones in landscape (touch with a short viewport),
+   which keep the phone menu. Desktops never match the exception; iPads are too tall for it.
+   Same media query as DESKTOP_NAV_QUERY in lib/use-media-query.ts. */
+@custom-variant desktop-nav (@media (min-width: 48rem) and (not ((hover: none) and (pointer: coarse) and (max-height: 500px))));
+
 /* Underline fields. A faint fill at rest; the full grey on hover or focus.
    Full grey is slate-100 / slate-900. */
 .underline-field {
