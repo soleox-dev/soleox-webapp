@@ -71,6 +71,8 @@ From and To sit immediately to the right of the date range filter. No other filt
 
 Below `md`, line and bar charts draw on a 340-unit-wide canvas instead of 640, so axis labels render at about 11–12px and the chart fills its height. The plot runs nearly edge to edge: the y-axis labels stay left of the axis and the left margin is sized to that chart's widest label plus a small gap, the right margin is minimal, the first and last month labels align to the edges, and the chart card has no left padding and 6px on the right, so the widest label sits 1px from the card's edge (just inside its border). Month labels show every other month when there are more than 7. Desktop keeps the 640-unit canvas and its margins.
 
+Bar charts (Team Performance sales price and gross commission percentage) overlap the two years in each month: the previous year is a wide, soft grey bar behind, and the current period is a narrower bar in front with fully rounded ends and a gradient that fades toward the baseline. Gridlines are light and dashed, and the average lines are short dashes. Hovering or tapping a month puts a soft highlight column behind it and dims the other months while the tooltip shows. Bars grow up from the baseline when the chart appears, except with reduced motion.
+
 ### Cap progress
 
 A cap progress bar, the percent beside the goal, and Left to cap use the share of the goal. Past 100% is red. 100% is green. From 90% up to 100% is orange. From 70% up to 90% is yellow. Below 70% is blue. Every cap report uses this scale.

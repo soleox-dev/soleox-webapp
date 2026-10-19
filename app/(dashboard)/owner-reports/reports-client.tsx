@@ -3661,8 +3661,9 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
   const innerW = width - pad.left - pad.right;
   const innerH = height - pad.top - pad.bottom;
   const slot = months.length ? innerW / months.length : innerW;
-  const gap = 3;
-  const barWidth = Math.max(6, Math.min(32, (slot - gap - 6) / 2));
+  // The prior year is a wide, soft bar behind; this period is a narrower solid bar in front.
+  const ghostWidth = Math.max(8, Math.min(44, slot * 0.72));
+  const barWidth = Math.max(5, Math.min(26, ghostWidth * 0.55));
   const yAt = (value: number) => pad.top + innerH - (value / axisMax) * innerH;
   const baseline = yAt(0);
   const center = (index: number) => pad.left + slot * index + slot / 2;
@@ -3686,32 +3687,40 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
             setHover(Math.min(months.length - 1, Math.max(0, Math.floor((x - pad.left) / slot))));
           }}
         >
+          <defs>
+            <linearGradient id={`bar-fill-${metric}`} x1="0" y1="0" x2="0" y2="1" className={currentClass}>
+              <stop offset="0%" stopColor="currentColor" stopOpacity="1" />
+              <stop offset="100%" stopColor="currentColor" stopOpacity="0.6" />
+            </linearGradient>
+          </defs>
           {ticks.map((tick) => (
             <g key={tick}>
-              <line x1={pad.left} x2={width - pad.right} y1={yAt(tick)} y2={yAt(tick)} className="stroke-slate-100 dark:stroke-slate-800" strokeWidth="1" />
+              <line x1={pad.left} x2={width - pad.right} y1={yAt(tick)} y2={yAt(tick)} className="stroke-slate-200/70 dark:stroke-slate-800" strokeWidth="1" strokeDasharray={tick === 0 ? undefined : '3 5'} />
               <text x={pad.left - (isDesktop ? 8 : 3)} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>
                 {tickLabel(tick)}
               </text>
             </g>
           ))}
+          {hover !== null ? (
+            <rect x={pad.left + slot * hover + 2} y={pad.top - 6} width={Math.max(0, slot - 4)} height={baseline - pad.top + 6} rx={8} className="fill-slate-100 dark:fill-slate-800/70" />
+          ) : null}
           {months.map((row, index) => {
             const currentValue = currentValues[index] || 0;
             const previousValue = previousValues[index] || 0;
             const priorHeight = Math.max(0, baseline - yAt(previousValue));
             const currentHeight = Math.max(0, baseline - yAt(currentValue));
-            const currentX = center(index) - barWidth - gap / 2;
-            const priorX = center(index) + gap / 2;
-            const priorBar = roundedTopBar(priorX, baseline - priorHeight, barWidth, priorHeight, 6);
-            const currentBar = roundedTopBar(currentX, baseline - currentHeight, barWidth, currentHeight, 6);
+            const priorBar = roundedTopBar(center(index) - ghostWidth / 2, baseline - priorHeight, ghostWidth, priorHeight, ghostWidth / 2);
+            const currentBar = roundedTopBar(center(index) - barWidth / 2, baseline - currentHeight, barWidth, currentHeight, barWidth / 2);
+            const dimmed = hover !== null && hover !== index;
             return (
-              <g key={`bars-${row.key}`}>
-                <path d={currentBar} fill="currentColor" className={currentClass} />
-                <path d={priorBar} fill="currentColor" className={previousClass} />
+              <g key={`bars-${row.key}`} className="bar-grow transition-opacity duration-150" style={{ opacity: dimmed ? 0.45 : 1, animationDelay: `${index * 30}ms` }}>
+                <path d={priorBar} fill="currentColor" fillOpacity="0.35" className={previousClass} />
+                <path d={currentBar} fill={`url(#bar-fill-${metric})`} />
               </g>
             );
           })}
-          {average > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(average)} y2={yAt(average)} stroke="currentColor" strokeWidth="1.25" strokeDasharray="14 8" className={currentClass} /> : null}
-          {priorAverage > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(priorAverage)} y2={yAt(priorAverage)} stroke="currentColor" strokeWidth="1.25" strokeDasharray="14 8" className={previousClass} /> : null}
+          {average > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(average)} y2={yAt(average)} stroke="currentColor" strokeOpacity="0.7" strokeWidth="1.25" strokeDasharray="4 4" strokeLinecap="round" className={currentClass} /> : null}
+          {priorAverage > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(priorAverage)} y2={yAt(priorAverage)} stroke="currentColor" strokeOpacity="0.7" strokeWidth="1.25" strokeDasharray="4 4" strokeLinecap="round" className={previousClass} /> : null}
           {months.map((row, index) => (
             <text key={`label-${row.key}`} x={center(index)} y={height - 8} textAnchor="middle" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>
               {months.length > (isDesktop ? 14 : 7) && index % 2 ? '' : row.label}
@@ -3737,12 +3746,12 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
       </div>
       <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1 text-[11px] text-slate-500">
         <span className="inline-flex items-baseline gap-1.5">
-          <span className={`h-2 w-3 self-center rounded-t bg-current ${currentClass}`} />
+          <span className={`h-3 w-1.5 self-center rounded-full bg-current ${currentClass}`} />
           Current period. Average:
           <span className={`text-sm font-bold tabular-nums ${currentClass}`}>{formatTrend(average, metric, true)}</span>
         </span>
         <span className="inline-flex items-baseline gap-1.5">
-          <span className={`h-2 w-3 self-center rounded-t bg-current ${previousClass}`} />
+          <span className={`h-3 w-3 self-center rounded-full bg-current opacity-35 ${previousClass}`} />
           Previous year. Average:
           <span className={`text-sm font-bold tabular-nums ${previousClass}`}>{formatTrend(priorAverage, metric, true)}</span>
         </span>
