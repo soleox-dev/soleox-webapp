@@ -77,6 +77,8 @@ Below `md`, line and bar charts draw on a 340-unit-wide canvas instead of 640, s
 
 Bar charts (Team Performance sales price and gross commission percentage) overlap the two years in each month: the previous year is a wide grey bar behind (55% opacity), and the current period is a narrower bar in front with slightly rounded top corners (4 units) and a gradient that fades toward the baseline. Gridlines are light and dashed, and the average lines are short dashes. Hovering or tapping a month puts a soft highlight column behind it and dims the other months while the tooltip shows. Bars grow up from the baseline when the chart appears, except with reduced motion.
 
+Every line chart (Team Performance, Agent Earnings' timeline, Team Productivity, Listings by List Date, Net Commission Income Analysis) has the shiny peak effect on its current-period line: a thin white highlight that glows softly around each local peak. Use the shared `PeakShine` component for new line charts.
+
 ### Cap progress
 
 A cap progress bar, the percent beside the goal, and Left to cap use the share of the goal. Past 100% is red. 100% is green. From 90% up to 100% is orange. From 70% up to 90% is yellow. Below 70% is blue. Every cap report uses this scale.

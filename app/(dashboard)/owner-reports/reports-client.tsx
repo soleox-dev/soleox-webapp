@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, X } from 'lucide-react';
@@ -3163,6 +3163,34 @@ function linePeaks(points: Array<{ x: number; y: number }>, present: boolean[], 
   return peaks;
 }
 
+/**
+ * The shiny peak effect from the Team Performance charts: a thin white copy of a line that only shows in
+ * a soft glow around each local peak. Draw it right after the line it highlights.
+ */
+function PeakShine({ d, points, values, width, height }: { d: string; points: Array<{ x: number; y: number }>; values: number[]; width: number; height: number }) {
+  const id = useId().replace(/:/g, '');
+  const peaks = linePeaks(points, values.map(() => true), values);
+  if (!peaks.length || !d) return null;
+  return (
+    <>
+      <defs>
+        <radialGradient id={`peak-fade-${id}`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="white" />
+          <stop offset="40%" stopColor="white" />
+          <stop offset="100%" stopColor="black" />
+        </radialGradient>
+        <mask id={`peak-shine-${id}`}>
+          <rect width={width} height={height} fill="black" />
+          {peaks.map((peak, index) => (
+            <circle key={`peak-mask-${index}`} cx={peak.x} cy={peak.y} r="26" fill={`url(#peak-fade-${id})`} />
+          ))}
+        </mask>
+      </defs>
+      <path d={d} fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" strokeOpacity="0.8" mask={`url(#peak-shine-${id})`} />
+    </>
+  );
+}
+
 function smoothLine(points: Array<{ x: number; y: number }>): string {
   if (points.length === 0) return '';
   if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
@@ -3817,6 +3845,7 @@ function LineChart({ title, metric, current, previous }: { title: string; metric
           {priorAverage > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(priorAverage)} y2={yAt(priorAverage)} stroke="currentColor" strokeDasharray="14 8" className="text-[#d9dde2] dark:text-slate-400" /> : null}
           {previous.length > 0 ? <path d={pathFor(previousValues)} fill="none" stroke="currentColor" strokeWidth="2" className="text-[#d9dde2] dark:text-slate-400" /> : null}
           <path d={pathFor(currentValues)} fill="none" stroke="currentColor" strokeWidth="2.5" className="text-emerald-400 dark:text-emerald-600" />
+          <PeakShine d={pathFor(currentValues)} points={currentValues.map((value, index) => ({ x: xAt(index), y: yAt(value) }))} values={currentValues} width={width} height={height} />
           {current.map((row, index) => (
             <circle key={row.key} cx={xAt(index)} cy={yAt(currentValues[index])} r={hover === index ? 4.5 : 2.5} fill="currentColor" className="text-emerald-400 dark:text-emerald-600" />
           ))}
@@ -4549,6 +4578,7 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
           <path d={areaUnder(points, yAt(0))} fill="url(#area-fade-earnings)" stroke="none" />
           <path d={smoothLine(priorPoints)} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={previousClass} />
           <path d={smoothLine(points)} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={lineClass} />
+          <PeakShine d={smoothLine(points)} points={points} values={values} width={width} height={height} />
           <defs>
             <linearGradient id="area-fade-earnings" x1="0" y1="0" x2="0" y2="1" className={lineClass}>
               <stop offset="0%" stopColor="currentColor" stopOpacity="0.4" />
