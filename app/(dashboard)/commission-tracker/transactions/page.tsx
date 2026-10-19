@@ -1044,7 +1044,7 @@ export default function TransactionsListPage() {
       const [ledger, lookups, catalog, history] = await Promise.all([
         needs.needsLedger ? loadCommissionLedger(clientId, entities).catch(() => []) : Promise.resolve([]),
         needs.lookupTables.length > 0 ? loadFormulaLookups(clientId, needs.lookupTables).catch(() => ({ clientId, tables: {} })) : Promise.resolve({ clientId, tables: {} }),
-        loadAllocationCatalog(clientId).catch(() => ({ teamCaps: [], salesVolume: [] })),
+        loadAllocationCatalog(clientId).catch(() => ({ teamCaps: [], salesVolume: null })),
         loadAllocationHistory(clientId, agents.map((agent) => agent.id)).catch(() => []),
       ]);
       if (cancelled) return;

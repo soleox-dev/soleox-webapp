@@ -63,7 +63,7 @@ export function ClearableSelect({
         required={required}
         tabIndex={typeof tabIndex === 'number' ? tabIndex : undefined}
         title={title}
-        aria-invalid={ariaInvalid}
+        aria-invalid={ariaInvalid == null ? undefined : ariaInvalid !== false && ariaInvalid !== 'false'}
         aria-label={ariaLabel}
         value={current}
         options={options}
