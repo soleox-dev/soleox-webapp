@@ -2272,7 +2272,7 @@ function ChoiceFilter({ label, note, value, options, onChange }: {
         onClick={() => setOpen((current) => !current)}
         className={`${underlineShell} w-max max-w-full min-w-[9rem] cursor-pointer !pr-7 text-left max-md:w-full max-md:min-w-0`}
       >
-        <span className={`${underlineControl} !inline-flex !w-auto items-center normal-case tracking-normal`}>{selected?.label || ''}</span>
+        <span className={`${underlineControl} !inline-flex !w-auto items-center normal-case tracking-normal max-md:text-sm`}>{selected?.label || ''}</span>
         <FieldChevron />
       </button>
       {open ? (
@@ -2356,7 +2356,7 @@ function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date range
         onClick={() => setOpen((value) => !value)}
         className={`${underlineShell} w-max max-w-full cursor-pointer !pr-7 text-left max-md:w-full`}
       >
-        <span className={`${underlineControl} !inline-flex !w-auto items-center gap-2 normal-case tracking-normal max-md:!w-full max-md:whitespace-nowrap`}>
+        <span className={`${underlineControl} !inline-flex !w-auto items-center gap-2 normal-case tracking-normal max-md:!w-full max-md:whitespace-nowrap max-md:text-sm`}>
           <span className="max-md:shrink-0">{selected.label}</span>
           {preset !== 'custom' ? <span className="tabular-nums text-slate-400 dark:text-slate-500 max-md:min-w-0 max-md:truncate max-md:text-sm">{formatFilterSpan(range)}</span> : null}
         </span>
@@ -2489,7 +2489,7 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
         className={`${underlineShell} min-w-[9rem] max-w-[24rem] cursor-pointer !pr-7 text-left max-md:min-w-0 max-md:max-w-full ${options.length > 0 && selectedLabels.length === 0 ? '!border-b-amber-500 !bg-amber-50 dark:!border-b-amber-400 dark:!bg-amber-950' : ''}`}
         title={summary}
       >
-        <span className={`${underlineControl} block truncate normal-case tracking-normal ${options.length > 0 && selectedLabels.length === 0 ? '!text-amber-900 dark:!text-amber-100' : ''}`}>{summary}</span>
+        <span className={`${underlineControl} block truncate normal-case tracking-normal max-md:text-sm ${options.length > 0 && selectedLabels.length === 0 ? '!text-amber-900 dark:!text-amber-100' : ''}`}>{summary}</span>
         <FieldChevron />
       </button>
       {open ? (
