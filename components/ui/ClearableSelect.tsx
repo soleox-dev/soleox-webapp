@@ -74,6 +74,13 @@ export function ClearableSelect({
           history.record(current, next);
           emitChange(onChange, next);
         }}
+        // Touch has no Backspace, so the list offers a Clear row unless an option already clears.
+        onClear={disabled || current === clearValue || options.some((option) => option.value === clearValue)
+          ? undefined
+          : () => {
+            history.record(current, clearValue);
+            emitChange(onChange, clearValue);
+          }}
         onKeyDown={(event) => {
           onKeyDown?.(event as unknown as React.KeyboardEvent<HTMLSelectElement>);
           if (event.defaultPrevented || disabled) return;
