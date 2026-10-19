@@ -3709,12 +3709,12 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
             const previousValue = previousValues[index] || 0;
             const priorHeight = Math.max(0, baseline - yAt(previousValue));
             const currentHeight = Math.max(0, baseline - yAt(currentValue));
-            const priorBar = roundedTopBar(center(index) - ghostWidth / 2, baseline - priorHeight, ghostWidth, priorHeight, ghostWidth / 2);
-            const currentBar = roundedTopBar(center(index) - barWidth / 2, baseline - currentHeight, barWidth, currentHeight, barWidth / 2);
+            const priorBar = roundedTopBar(center(index) - ghostWidth / 2, baseline - priorHeight, ghostWidth, priorHeight, 4);
+            const currentBar = roundedTopBar(center(index) - barWidth / 2, baseline - currentHeight, barWidth, currentHeight, 4);
             const dimmed = hover !== null && hover !== index;
             return (
               <g key={`bars-${row.key}`} className="bar-grow transition-opacity duration-150" style={{ opacity: dimmed ? 0.45 : 1, animationDelay: `${index * 30}ms` }}>
-                <path d={priorBar} fill="currentColor" fillOpacity="0.35" className={previousClass} />
+                <path d={priorBar} fill="currentColor" fillOpacity="0.55" className={previousClass} />
                 <path d={currentBar} fill={`url(#bar-fill-${metric})`} />
               </g>
             );
@@ -3746,12 +3746,12 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
       </div>
       <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1 text-[11px] text-slate-500">
         <span className="inline-flex items-baseline gap-1.5">
-          <span className={`h-3 w-1.5 self-center rounded-full bg-current ${currentClass}`} />
+          <span className={`h-3 w-1.5 self-center rounded-t-[2px] bg-current ${currentClass}`} />
           Current period. Average:
           <span className={`text-sm font-bold tabular-nums ${currentClass}`}>{formatTrend(average, metric, true)}</span>
         </span>
         <span className="inline-flex items-baseline gap-1.5">
-          <span className={`h-3 w-3 self-center rounded-full bg-current opacity-35 ${previousClass}`} />
+          <span className={`h-3 w-3 self-center rounded-[3px] bg-current opacity-55 ${previousClass}`} />
           Previous year. Average:
           <span className={`text-sm font-bold tabular-nums ${previousClass}`}>{formatTrend(priorAverage, metric, true)}</span>
         </span>
