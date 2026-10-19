@@ -18,6 +18,8 @@ On a report page the top navigation is hidden. Hovering the top of the page slid
 
 On phones and narrow screens (below `md`, 768px), the top navigation is a normal header at the top of the page that scrolls away with it; it does not hide or listen for the pointer. Its menu button opens the phone navigation sheet.
 
+Below `md`, the phone menu sheet has a second level for a report section. Opened on an Owner Reports page, it starts on the Owner Reports level: an "Exit Owner Reports" row at the top returns to the first level, then the Owner Reports cover link and every report, numbered and grouped like the desktop reports menu, with the current report highlighted. On the first level, Owner Reports opens that second level. The numbered reports menu button beside the report title is hidden below `md`, so the title takes the full row. Later report sections (Agent Reports, Office Reports) follow the same pattern.
+
 ### Scrolling on phones
 
 Below `md`, every report scrolls the page natively by touch. Agent Earnings, Team Caps, and Owner Summary with hidden scorecards or an open drilldown do not lock `html` and `body` to `overflow: hidden` or forward wheel scrolling there; that full-screen layout applies only at `md` and wider.
@@ -47,6 +49,7 @@ From and To sit immediately to the right of the date range filter. No other filt
 - Select all checks every option currently listed.
 - Options stay dynamic. A value is listed only when the current report view still has records for it after the other filters.
 - The open list is taller when the screen has room, up to 36rem, and it stays within the viewport when the screen is shorter.
+- While any report dropdown is open (filters, the title metric and cap pickers, and the production period picker), wheel and touch scrolling move only that list. The report behind it does not scroll, on desktop and on phones.
 
 ### Tables
 
