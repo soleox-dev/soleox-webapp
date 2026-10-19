@@ -3475,7 +3475,7 @@ function svgUserX(svg: SVGSVGElement, clientX: number, clientY: number): number 
 
 let axisCanvas: HTMLCanvasElement | null = null;
 
-/** Room the y-axis labels need on a phone chart: the widest label, a 3-unit gap to the axis, and 1 unit of air. */
+/** Room the y-axis labels need on a phone chart: the widest label plus a 3-unit gap to the axis, so the widest label starts at the chart's left edge. */
 function axisLabelSpace(labels: string[], fontSize: number): number {
   let widest = 0;
   const context = typeof document === 'undefined' ? null : (axisCanvas ??= document.createElement('canvas')).getContext('2d');
@@ -3485,7 +3485,7 @@ function axisLabelSpace(labels: string[], fontSize: number): number {
   } else {
     widest = Math.max(0, ...labels.map((label) => label.length * fontSize * 0.6));
   }
-  return Math.ceil(widest) + 4;
+  return widest + 3;
 }
 
 function TrendChart({ metric, title, months, priorMonths, currentClass, previousClass, cumulative = false }: {
@@ -3529,7 +3529,7 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
   const hoverX = hover === null ? 0 : (xAt(hover) / width) * 100;
   const peaks = linePeaks(currentPoints, currentPresent, plottedCurrent);
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 max-md:pl-0.5 max-md:pr-1.5 dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-xl border border-slate-200 bg-white p-3 max-md:pl-0 max-md:pr-1.5 dark:border-slate-800 dark:bg-slate-900">
       <div className="relative">
         <svg
           viewBox={`0 0 ${width} ${height}`}
@@ -3674,7 +3674,7 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
   const prior = hover === null ? 0 : previousValues[hover] || 0;
   const hoverX = hover === null ? 0 : (center(hover) / width) * 100;
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 max-md:pl-0.5 max-md:pr-1.5 dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-xl border border-slate-200 bg-white p-3 max-md:pl-0 max-md:pr-1.5 dark:border-slate-800 dark:bg-slate-900">
       <div className="relative">
         <svg
           viewBox={`0 0 ${width} ${height}`}
@@ -4494,7 +4494,7 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
     else onSelect(key);
   };
   return (
-    <div className="h-full rounded-xl border border-slate-200 bg-white p-3 max-md:pl-0.5 max-md:pr-1.5 dark:border-slate-800 dark:bg-slate-900">
+    <div className="h-full rounded-xl border border-slate-200 bg-white p-3 max-md:pl-0 max-md:pr-1.5 dark:border-slate-800 dark:bg-slate-900">
       <div className="relative">
         <svg
           ref={svgRef}
