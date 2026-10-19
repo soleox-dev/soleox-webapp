@@ -159,6 +159,8 @@
 .report-table {
   overflow-x: auto;
   overflow-y: clip;
+  /* Stop at the table's edges: no rubber-band bounce sideways (iOS, macOS trackpads). */
+  overscroll-behavior-x: none;
 }
 
 .report-table.report-table-fit {
