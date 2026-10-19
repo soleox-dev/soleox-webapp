@@ -425,7 +425,7 @@ export default function Navbar() {
                   onClick={() => setPhoneNavLevel('main')}
                   className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-emerald-700 dark:text-emerald-400 cursor-pointer"
                 >
-                  <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden /> Exit Owner Reports
+                  <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden /> Back to Main Menu
                 </button>
                 <Link href="/owner-reports" className={sheetLinkClass(pathname === '/owner-reports')}>
                   <Briefcase className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden /> Owner Reports
