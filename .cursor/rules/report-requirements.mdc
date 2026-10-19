@@ -32,6 +32,8 @@ Group, Status, Side, Primary agent, and Lead source use the multi-select control
 
 Date range is a single-select dropdown in that same underline field.
 
+On every device the filters card can collapse to one line to give the report more room. An up arrow in its top-right corner collapses it. The collapsed line reads Filters, the date range (or the cap year), and how many other filters are set, such as "2 filters"; tapping or clicking it opens the card again. The choice is remembered in that browser.
+
 A dropdown filter does not accept typed text. The closed control is a button, and a choice is made from the open list. From and To are the only fields in the filters card that accept typed text.
 
 From and To sit immediately to the right of the date range filter. No other filter comes between the date range and those two fields.
@@ -59,6 +61,7 @@ From and To sit immediately to the right of the date range filter. No other filt
 - A table header stays fixed just below the report title and filters while that table is on screen. The stuck header stays square so the table body does not show past its corners. It scrolls away once the user has moved past the end of the table.
 - Every column header sorts that table when clicked. The first click sorts ascending. Clicking the same header again sorts descending. The active header shows the direction. Each table sorts on its own. Total and grand total rows stay at the bottom. A table keeps its original order until a header is clicked.
 - When a table has a # index column, that column is right-aligned, header and cells.
+- A frozen first column (`sticky left-*`) is frozen in the header row too: its header cell stays above the header cells that scroll under it and above the frozen body cells, through both sideways and vertical scrolling. `app/globals.css` does this for every `thead th.sticky` with a `left-*` class, so new tables with a frozen column get it automatically.
 - Keep each report table in a `report-table` wrapper so wide tables can scroll sideways. Pin the header from the page scroll while the table crosses the title and filters. Do not use CSS `top` sticky for that pin: horizontal scrolling makes the table its own scroll container, and the header then sticks inside the table. Do not put `overflow: hidden` on a table wrapper.
 
 ### Cap progress

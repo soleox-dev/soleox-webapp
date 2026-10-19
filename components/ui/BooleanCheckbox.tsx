@@ -40,7 +40,7 @@ export function BooleanCheckbox({
       checked={checked}
       disabled={disabled}
       onChange={(event) => onChange?.(event.target.checked)}
-      className="h-3.5 w-3.5 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:cursor-default dark:border-slate-600 dark:bg-slate-900"
+      className="h-3.5 w-3.5 shrink-0 rounded cursor-pointer disabled:cursor-default"
     />
   );
 }

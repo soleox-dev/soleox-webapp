@@ -1460,6 +1460,8 @@ function ReportView(props: {
 type FilterChoice = { value: string; label: string; count: number };
 type CapMenuChoice = FilterChoice & { group: 'team' | 'agent' };
 
+const FILTERS_COLLAPSED_KEY = 'soleox-report-filters-collapsed';
+
 function FilterBar(props: {
   preset: RangePreset;
   range: DateRange;
@@ -1505,8 +1507,55 @@ function FilterBar(props: {
   capShowPaid?: boolean;
   onCapShowPaid?: (value: boolean) => void;
 }) {
+  // The filters card collapses to one line to give the report more room. The choice is remembered per browser.
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      setCollapsed(window.localStorage.getItem(FILTERS_COLLAPSED_KEY) === '1');
+    } catch {
+      // Storage can be unavailable; the card stays open.
+    }
+  }, []);
+  const setCollapsedSaved = (next: boolean) => {
+    setCollapsed(next);
+    try {
+      window.localStorage.setItem(FILTERS_COLLAPSED_KEY, next ? '1' : '0');
+    } catch {
+      // Ignore: the choice just is not remembered.
+    }
+  };
+  if (collapsed) {
+    const active = [props.groupPicked, props.statusPicked, props.sidePicked, props.agentPicked, props.sourcePicked, props.payeePicked, props.earningsPicked]
+      .filter((value) => value != null).length + (props.excludeTeamLeads ? 1 : 0) + (props.cumulative ? 1 : 0) + (props.capShowPaid ? 1 : 0);
+    const span = props.hideDate ? (props.capYearOffset ? 'Previous cap year' : 'Current cap year') : formatFilterSpan(props.range);
+    return (
+      <button
+        type="button"
+        onClick={() => setCollapsedSaved(false)}
+        aria-expanded={false}
+        className="relative z-30 flex w-full cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left dark:border-slate-800 dark:bg-slate-900"
+      >
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Filters</span>
+        <span className="min-w-0 flex-1 truncate text-xs font-medium tabular-nums text-slate-700 dark:text-slate-200">
+          {span}{active > 0 ? ` · ${active} ${active === 1 ? 'filter' : 'filters'}` : ''}
+        </span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" strokeWidth={2.25} aria-hidden />
+        <span className="sr-only">Show filters</span>
+      </button>
+    );
+  }
   return (
-    <div className="relative z-30 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3">
+    <div className="relative z-30 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 pr-10">
+      <button
+        type="button"
+        onClick={() => setCollapsedSaved(true)}
+        aria-expanded
+        aria-label="Hide filters"
+        title="Hide filters"
+        className="absolute right-1.5 top-1.5 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+      >
+        <ChevronUp className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+      </button>
       {props.hideDate ? (
         <>
           {props.onCapYearOffset ? (

@@ -19,3 +19,7 @@ Commission waterfall text inputs keep their own compact underline. Do not restyl
 Owner Reports filters stay the multi-select, date-range, and metric controls specified in `.cursor/rules/report-requirements.mdc`. Do not replace those with `OptionMenu`. The formula editor’s suggestion list stays part of the formula field.
 
 The spreadsheet sync policy control stays a colored status button. Its color is the policy. It is not a form dropdown.
+
+## Checkboxes
+
+Every checkbox uses the shared style in `app/globals.css` (base layer): a rounded box with a slate border that fills emerald with a white check when checked (a white dash when indeterminate), an emerald focus ring, and a dark fill in dark mode. Size it with `h-*`/`w-*` utilities if needed, but do not add border or background color utilities to a checkbox: they override the checked state.
