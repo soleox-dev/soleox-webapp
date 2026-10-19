@@ -32,7 +32,7 @@ Group, Status, Side, Primary agent, and Lead source use the multi-select control
 
 Date range is a single-select dropdown in that same underline field.
 
-Below `md` the filters card is a fixed two-column grid; Date range spans both columns. Each filter fills its column and truncates long text with an ellipsis, so changing a selection never moves or resizes a filter. Date range stays on one line and truncates its dates.
+Below `md` the filters card is a fixed two-column grid; Date range spans both columns. Checkbox filters (Exclude Team Lead(s), Cumulative, Show all paid transactions) each take a full row, and their labels match the 14px filter values. Each filter fills its column and truncates long text with an ellipsis, so changing a selection never moves or resizes a filter. Date range stays on one line and truncates its dates.
 
 On every device the filters card can collapse to one line to give the report more room. An up arrow in its top-right corner collapses it. The collapsed line reads Filters, the date range (or the cap year), and how many other filters are set, such as "2 filters"; tapping or clicking it opens the card again. The choice is remembered in that browser.
 
@@ -66,6 +66,10 @@ From and To sit immediately to the right of the date range filter. No other filt
 - A frozen first column (`sticky left-*`) is frozen in the header row too: its header cell stays above the header cells that scroll under it and above the frozen body cells, through both sideways and vertical scrolling. `app/globals.css` does this for every `thead th.sticky` with a `left-*` class, so new tables with a frozen column get it automatically.
 - Keep each report table in a `report-table` wrapper so wide tables can scroll sideways. Pin the header from the page scroll while the table crosses the title and filters. Do not use CSS `top` sticky for that pin: horizontal scrolling makes the table its own scroll container, and the header then sticks inside the table. Do not put `overflow: hidden` on a table wrapper.
 - Sideways scrolling in a report table stops firmly at the table's edges, with no rubber-band bounce (`overscroll-behavior-x: none` on `.report-table`).
+
+### Charts
+
+Below `md`, line and bar charts draw on a 340-unit-wide canvas instead of 640, so axis labels render at about 11–12px and the chart fills its height. Month labels show every other month when there are more than 7. Desktop keeps the 640-unit canvas.
 
 ### Cap progress
 

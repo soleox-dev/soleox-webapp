@@ -1777,7 +1777,7 @@ function FilterBar(props: {
         <MultiFilter label={props.boardMetric === 'payment:entity' ? 'Entity' : 'Agent'} options={props.payeeChoices} picked={props.payeePicked ?? null} fallback={null} onChange={props.onPayees} />
       ) : null}
       {props.excludeTeamLeads !== undefined && props.onExcludeTeamLeads ? (
-        <label className="mb-1 flex h-5 cursor-pointer items-center gap-2 self-end text-xs font-medium normal-case tracking-normal text-slate-700 dark:text-slate-200">
+        <label className="mb-1 flex h-5 cursor-pointer items-center gap-2 self-end text-xs font-medium normal-case tracking-normal max-md:col-span-2 max-md:mb-0 max-md:text-sm max-md:whitespace-nowrap text-slate-700 dark:text-slate-200">
           <input
             type="checkbox"
             checked={Boolean(props.excludeTeamLeads)}
@@ -1788,7 +1788,7 @@ function FilterBar(props: {
         </label>
       ) : null}
       {props.cumulative !== undefined && props.onCumulative ? (
-        <label className="mb-1 flex h-5 cursor-pointer items-center gap-2 self-end text-xs font-medium normal-case tracking-normal text-slate-700 dark:text-slate-200">
+        <label className="mb-1 flex h-5 cursor-pointer items-center gap-2 self-end text-xs font-medium normal-case tracking-normal max-md:col-span-2 max-md:mb-0 max-md:text-sm max-md:whitespace-nowrap text-slate-700 dark:text-slate-200">
           <input
             type="checkbox"
             checked={props.cumulative}
@@ -1799,7 +1799,7 @@ function FilterBar(props: {
         </label>
       ) : null}
       {props.capShowPaid !== undefined && props.onCapShowPaid ? (
-        <label title="Lists every transaction in the agent’s cap year where the agent was paid. Rows that add nothing to this cap are grey." className="mb-1 flex h-5 cursor-pointer items-center gap-2 self-end text-xs font-medium normal-case tracking-normal text-slate-700 dark:text-slate-200">
+        <label title="Lists every transaction in the agent’s cap year where the agent was paid. Rows that add nothing to this cap are grey." className="mb-1 flex h-5 cursor-pointer items-center gap-2 self-end text-xs font-medium normal-case tracking-normal max-md:col-span-2 max-md:mb-0 max-md:text-sm max-md:whitespace-nowrap text-slate-700 dark:text-slate-200">
           <input
             type="checkbox"
             checked={props.capShowPaid}
@@ -3481,7 +3481,9 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
   cumulative?: boolean;
 }) {
   const [hover, setHover] = useState<number | null>(null);
-  const width = 640;
+  // Phones draw on a narrower canvas so axis labels keep a readable size after the chart scales to fit.
+  const isDesktop = useIsDesktop();
+  const width = isDesktop ? 640 : 340;
   const height = 250;
   const pad = { left: 52, right: 16, top: 16, bottom: 32 };
   const innerW = width - pad.left - pad.right;
@@ -3532,7 +3534,7 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
           {ticks.map((tick) => (
             <g key={tick}>
               <line x1={pad.left} x2={width - pad.right} y1={yAt(tick)} y2={yAt(tick)} className="stroke-slate-100 dark:stroke-slate-800" strokeWidth="1" />
-              <text x={pad.left - 8} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize="11">
+              <text x={pad.left - 8} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>
                 {metric === 'rate' ? `${(tick * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%` : metric === 'units' ? Math.round(tick).toLocaleString() : compactMoney(tick)}
               </text>
             </g>
@@ -3578,8 +3580,8 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
             </g>
           ) : null}
           {months.map((row, index) => (
-            <text key={row.key} x={xAt(index)} y={height - 8} textAnchor="middle" className="fill-slate-400" fontSize="11">
-              {months.length > 14 && index % 2 ? '' : row.label}
+            <text key={row.key} x={xAt(index)} y={height - 8} textAnchor="middle" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>
+              {months.length > (isDesktop ? 14 : 7) && index % 2 ? '' : row.label}
             </text>
           ))}
         </svg>
@@ -3625,7 +3627,9 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
   previousClass: string;
 }) {
   const [hover, setHover] = useState<number | null>(null);
-  const width = 640;
+  // Phones draw on a narrower canvas so axis labels keep a readable size after the chart scales to fit.
+  const isDesktop = useIsDesktop();
+  const width = isDesktop ? 640 : 340;
   const height = 250;
   const pad = { left: 52, right: 16, top: 16, bottom: 32 };
   const innerW = width - pad.left - pad.right;
@@ -3664,7 +3668,7 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
           {ticks.map((tick) => (
             <g key={tick}>
               <line x1={pad.left} x2={width - pad.right} y1={yAt(tick)} y2={yAt(tick)} className="stroke-slate-100 dark:stroke-slate-800" strokeWidth="1" />
-              <text x={pad.left - 8} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize="11">
+              <text x={pad.left - 8} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>
                 {metric === 'rate' ? `${(tick * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%` : compactMoney(tick)}
               </text>
             </g>
@@ -3688,8 +3692,8 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
           {average > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(average)} y2={yAt(average)} stroke="currentColor" strokeWidth="1.25" strokeDasharray="14 8" className={currentClass} /> : null}
           {priorAverage > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(priorAverage)} y2={yAt(priorAverage)} stroke="currentColor" strokeWidth="1.25" strokeDasharray="14 8" className={previousClass} /> : null}
           {months.map((row, index) => (
-            <text key={`label-${row.key}`} x={center(index)} y={height - 8} textAnchor="middle" className="fill-slate-400" fontSize="11">
-              {months.length > 14 && index % 2 ? '' : row.label}
+            <text key={`label-${row.key}`} x={center(index)} y={height - 8} textAnchor="middle" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>
+              {months.length > (isDesktop ? 14 : 7) && index % 2 ? '' : row.label}
             </text>
           ))}
         </svg>
@@ -3728,7 +3732,9 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
 
 function LineChart({ title, metric, current, previous }: { title: string; metric: MetricId; current: MonthRow[]; previous: MonthRow[] }) {
   const [hover, setHover] = useState<number | null>(null);
-  const width = 640;
+  // Phones draw on a narrower canvas so axis labels keep a readable size after the chart scales to fit.
+  const isDesktop = useIsDesktop();
+  const width = isDesktop ? 640 : 340;
   const height = 220;
   const pad = { left: 12, right: 12, top: 16, bottom: 28 };
   const innerW = width - pad.left - pad.right;
@@ -3778,8 +3784,8 @@ function LineChart({ title, metric, current, previous }: { title: string; metric
           ))}
           {hover !== null ? <line x1={xAt(hover)} x2={xAt(hover)} y1={pad.top} y2={height - pad.bottom} stroke="currentColor" strokeOpacity="0.35" className="text-emerald-400 dark:text-emerald-600" /> : null}
           {current.map((row, index) => (
-            <text key={`${row.key}-label`} x={xAt(index)} y={height - 8} textAnchor="middle" className="fill-slate-400" fontSize="10">
-              {current.length > 16 && index % 2 ? '' : row.label}
+            <text key={`${row.key}-label`} x={xAt(index)} y={height - 8} textAnchor="middle" className="fill-slate-400" fontSize={isDesktop ? 10 : 12}>
+              {current.length > (isDesktop ? 16 : 7) && index % 2 ? '' : row.label}
             </text>
           ))}
         </svg>
@@ -4395,7 +4401,9 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
   onClear: () => void;
 }) {
   const [hover, setHover] = useState<number | null>(null);
-  const width = 640;
+  // Phones draw on a narrower canvas so axis labels keep a readable size after the chart scales to fit.
+  const isDesktop = useIsDesktop();
+  const width = isDesktop ? 640 : 340;
   const height = 250;
   const pad = { left: 56, right: 16, top: 16, bottom: 32 };
   const innerW = width - pad.left - pad.right;
@@ -4495,7 +4503,7 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
           {ticks.map((tick) => (
             <g key={tick}>
               <line x1={pad.left} x2={width - pad.right} y1={yAt(tick)} y2={yAt(tick)} className="stroke-slate-100 dark:stroke-slate-800" strokeWidth="1" />
-              <text x={pad.left - 8} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize="11">{compactMoney(tick)}</text>
+              <text x={pad.left - 8} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>{compactMoney(tick)}</text>
             </g>
           ))}
           <path d={areaUnder(points, yAt(0))} fill="url(#area-fade-earnings)" stroke="none" />
@@ -4523,8 +4531,8 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
             </g>
           ) : null}
           {columns.map((column, index) => (
-            <text key={column.key} x={xAt(index)} y={height - 8} textAnchor="middle" className="fill-slate-400" fontSize="11">
-              {columns.length > 14 && index % 2 ? '' : column.label}
+            <text key={column.key} x={xAt(index)} y={height - 8} textAnchor="middle" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>
+              {columns.length > (isDesktop ? 14 : 7) && index % 2 ? '' : column.label}
             </text>
           ))}
         </svg>
