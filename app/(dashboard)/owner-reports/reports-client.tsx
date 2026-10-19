@@ -772,7 +772,7 @@ export default function OwnerReportsPage() {
     const WHEEL_COMMIT = 140;
     const neighbor = (dir: SwipeDirection) => OWNER_REPORTS[index + (dir === 'next' ? 1 : -1)] ?? null;
     const blocked = (target: EventTarget | null) => {
-      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"], [role="listbox"], [data-owner-menu], .app-modal')) return true;
+      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"], [role="listbox"], [data-owner-menu], [data-swipe-ignore], .app-modal')) return true;
       if (document.querySelector('[role="listbox"], [data-owner-menu], .app-modal')) return true;
       let node = target instanceof Element ? target : null;
       while (node && node !== document.body) {
@@ -4711,19 +4711,35 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
   const pivotBodyRef = useRef<HTMLTableElement>(null);
   const pivotFootRef = useRef<HTMLTableElement>(null);
   const pivotFootScrollRef = useRef<HTMLDivElement>(null);
+  const pivotHeadRef = useRef<HTMLTableElement>(null);
+  const pivotHeadScrollRef = useRef<HTMLDivElement>(null);
   const detailWrapRef = useRef<HTMLDivElement>(null);
+  const isDesktop = useIsDesktop();
+  // The Total row, and below md the pinned header copy, take their column widths from the table's own header.
   const syncPivotFoot = () => {
     const body = pivotBodyRef.current;
+    if (!body) return;
     const foot = pivotFootRef.current;
-    if (!body || !foot) return;
+    const head = pivotHeadRef.current;
+    if (!foot && !head) return;
     const widths = [...body.querySelectorAll('thead th')].map((cell) => cell.getBoundingClientRect().width);
-    foot.style.width = `${body.scrollWidth}px`;
-    [...foot.querySelectorAll('td')].forEach((cell, index) => {
-      const width = `${widths[index] || 0}px`;
-      cell.style.width = width;
-      cell.style.minWidth = width;
-      cell.style.maxWidth = width;
-    });
+    const fix = (table: HTMLTableElement, selector: string) => {
+      table.style.width = `${body.scrollWidth}px`;
+      [...table.querySelectorAll<HTMLElement>(selector)].forEach((cell, index) => {
+        const width = `${widths[index] || 0}px`;
+        cell.style.width = width;
+        cell.style.minWidth = width;
+        cell.style.maxWidth = width;
+      });
+    };
+    if (foot) fix(foot, 'td');
+    const headScroll = pivotHeadScrollRef.current;
+    if (head && headScroll) {
+      fix(head, 'th');
+      // Lies over the table's own header row, so the page looks the same until the pin kicks in.
+      headScroll.style.marginBottom = `-${body.tHead?.getBoundingClientRect().height ?? 0}px`;
+      headScroll.scrollLeft = body.parentElement?.scrollLeft ?? 0;
+    }
   };
   useEffect(() => {
     setPick(null);
@@ -4830,13 +4846,28 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
     };
     window.addEventListener('resize', onResize);
     window.addEventListener('scroll', onResize, { passive: true });
+    // Below md, keep the pinned header matched when the table's columns change width (new data, a font load).
+    const body = pivotBodyRef.current;
+    const observer = !isDesktop && body ? new ResizeObserver(syncPivotFoot) : null;
+    if (observer && body) observer.observe(body);
     return () => {
       window.removeEventListener('resize', onResize);
       window.removeEventListener('scroll', onResize);
+      observer?.disconnect();
     };
-  }, [pick, ordered.length, columns.length]);
+  }, [pick, ordered.length, columns.length, isDesktop]);
+  const headRow = (
+    <tr>
+      <SortHead column="rank" label="#" sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
+      <SortHead column="agent" label="Agent" sort={sort} onSort={toggle} className={earningHeadCell} />
+      {columns.map((column) => (
+        <SortHead key={column.key} column={column.key} label={column.label} sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
+      ))}
+      <SortHead column="total" label="Total" sort={sort} onSort={toggle} align="right" className={`${earningHeadCell} pivot-total`} />
+    </tr>
+  );
   return (
-    <div ref={blockRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+    <div ref={blockRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-clip md:overflow-hidden">
       <div className="shrink-0 space-y-4">
       <SectionHeading
         action={pick ? (
@@ -4882,23 +4913,28 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
       ) : null}
       </div>
       {pick ? null : (
-      <div ref={pivotWrapRef} className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div ref={pivotWrapRef} className="flex min-h-0 flex-1 flex-col overflow-clip rounded-xl border border-slate-200 bg-white md:overflow-hidden dark:border-slate-800 dark:bg-slate-900">
+        {/* Below md the page scrolls, not the table, so a copy of the header row pins to the top of the
+            screen (native sticky, no scroll handler) and follows the table sideways like the Total row. */}
+        {isDesktop ? null : (
+          <div ref={pivotHeadScrollRef} data-swipe-ignore="" className="report-table sticky top-0 z-30 shrink-0" style={{ overflowX: 'hidden' }}>
+            <table ref={pivotHeadRef} className="text-xs">
+              <thead className={earningHead}>
+                {headRow}
+              </thead>
+            </table>
+          </div>
+        )}
         <div
           className="report-table report-table-fit report-table-page min-h-0 flex-1 rounded-none border-0"
           onScroll={(event) => {
             if (pivotFootScrollRef.current) pivotFootScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
+            if (pivotHeadScrollRef.current) pivotHeadScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
           }}
         >
           <table ref={pivotBodyRef} className="w-full text-xs">
-            <thead className={earningHead}>
-              <tr>
-                <SortHead column="rank" label="#" sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
-                <SortHead column="agent" label="Agent" sort={sort} onSort={toggle} className={earningHeadCell} />
-                {columns.map((column) => (
-                  <SortHead key={column.key} column={column.key} label={column.label} sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
-                ))}
-                <SortHead column="total" label="Total" sort={sort} onSort={toggle} align="right" className={`${earningHeadCell} pivot-total`} />
-              </tr>
+            <thead className={earningHead} inert={!isDesktop}>
+              {headRow}
             </thead>
             <tbody>
               {visible.length === 0 && !showTotal ? (
