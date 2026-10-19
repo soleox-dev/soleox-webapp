@@ -693,7 +693,7 @@ export default function OwnerReportsPage() {
   const swipeRef = useRef<HTMLElement>(null);
   const arrivalRef = useRef<SwipeDirection | null>(null);
   const wheelCooldownRef = useRef(0);
-  const [swipeHint, setSwipeHint] = useState<{ dir: SwipeDirection; label: string; progress: number } | null>(null);
+  const hintRef = useRef<HTMLDivElement>(null);
   const selectReport = (id: string | null) => {
     const href = id ? `/owner-reports/${id}` : '/owner-reports';
     if (href === pathname) return;
@@ -786,32 +786,54 @@ export default function OwnerReportsPage() {
     const later = (fn: () => void, ms: number) => {
       timers.push(window.setTimeout(fn, ms));
     };
+    // The page itself stays still while swiping. A round arrow slides in from the edge the next report
+    // comes from and grows with the swipe; once releasing will page it turns emerald and names the report.
+    // It is driven straight through the DOM so a swipe never re-renders the report.
+    const hint = hintRef.current;
+    const circle = hint?.querySelector<HTMLElement>('[data-hint-circle]') ?? null;
+    const label = hint?.querySelector<HTMLElement>('[data-hint-label]') ?? null;
+    let frame = 0;
+    const paintHint = (dir: SwipeDirection | null, progress: number, name = '') => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (!hint || !circle || !label) return;
+        if (!dir) {
+          hint.style.transition = 'transform 180ms ease-out, opacity 180ms ease-out';
+          hint.style.opacity = '0';
+          hint.style.transform = `translate(${hint.dataset.dir === 'next' ? 56 : -56}px, -50%)`;
+          return;
+        }
+        const ready = progress >= 1;
+        hint.dataset.dir = dir;
+        hint.style.transition = 'none';
+        hint.style.left = dir === 'prev' ? '0' : '';
+        hint.style.right = dir === 'next' ? '0' : '';
+        hint.style.flexDirection = dir === 'next' ? 'row-reverse' : 'row';
+        hint.style.opacity = String(Math.min(1, progress * 2));
+        const travel = -56 + Math.min(1, progress) * 68;
+        hint.style.transform = `translate(${dir === 'next' ? -travel : travel}px, -50%)`;
+        circle.style.transform = `scale(${0.75 + Math.min(1, progress) * 0.25})`;
+        circle.dataset.ready = ready ? 'true' : 'false';
+        circle.querySelectorAll<SVGElement>('[data-arrow]').forEach((arrow) => {
+          arrow.style.display = arrow.dataset.arrow === dir ? '' : 'none';
+        });
+        label.textContent = name;
+        label.style.opacity = ready ? '1' : '0';
+        label.style.transform = ready ? 'translateX(0)' : `translateX(${dir === 'next' ? 8 : -8}px)`;
+      });
+    };
     const show = (dx: number, commitAt: number) => {
       const dir: SwipeDirection = dx < 0 ? 'next' : 'prev';
       const target = neighbor(dir);
-      // Past the first or last report the page only stretches a little.
-      const shift = target ? Math.max(-160, Math.min(160, dx * 0.55)) : Math.max(-28, Math.min(28, dx * 0.15));
-      if (!reduce) {
-        el.style.transition = 'none';
-        el.style.transform = `translateX(${shift}px)`;
-        el.style.opacity = String(1 - Math.min(0.4, Math.abs(shift) / 400));
-      }
-      if (!target || Math.abs(dx) < 12) {
-        setSwipeHint(null);
+      if (!target || Math.abs(dx) < 8) {
+        paintHint(null, 0);
         return;
       }
       const choice = reportChoice(target.id);
-      setSwipeHint({ dir, label: `${choice.number} ${choice.name}`, progress: Math.min(1, Math.abs(dx) / commitAt) });
+      paintHint(dir, Math.abs(dx) / commitAt, `${choice.number} ${choice.name}`);
     };
     const settle = () => {
-      setSwipeHint(null);
-      if (reduce) return;
-      el.style.transition = 'transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 240ms ease-out';
-      el.style.transform = '';
-      el.style.opacity = '';
-      later(() => {
-        el.style.transition = '';
-      }, 260);
+      paintHint(null, 0);
     };
     const commit = (dir: SwipeDirection) => {
       const target = neighbor(dir);
@@ -819,20 +841,18 @@ export default function OwnerReportsPage() {
         settle();
         return;
       }
-      setSwipeHint(null);
       arrivalRef.current = dir;
+      later(() => paintHint(null, 0), 120);
       if (reduce) {
         selectReport(target.id);
         return;
       }
-      el.style.transition = 'transform 170ms cubic-bezier(0.4, 0, 1, 1), opacity 170ms ease-in';
-      el.style.transform = `translateX(${dir === 'next' ? '-' : ''}30%)`;
-      el.style.opacity = '0';
-      later(() => selectReport(target.id), 150);
+      el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 110, easing: 'ease-in', fill: 'forwards' });
+      later(() => selectReport(target.id), 100);
       // If the new report never arrives, bring this one back.
       later(() => {
         arrivalRef.current = null;
-        settle();
+        el.getAnimations().forEach((animation) => animation.cancel());
       }, 2000);
     };
 
@@ -919,6 +939,7 @@ export default function OwnerReportsPage() {
       document.removeEventListener('touchcancel', onTouchCancel);
       window.removeEventListener('wheel', onWheel);
       window.clearTimeout(wheelIdle);
+      cancelAnimationFrame(frame);
       timers.forEach((timer) => window.clearTimeout(timer));
     };
   }, [pathname, reportId, router]);
@@ -929,17 +950,14 @@ export default function OwnerReportsPage() {
     const el = swipeRef.current;
     arrivalRef.current = null;
     if (!dir || !el) return;
-    el.style.transition = '';
-    el.style.transform = '';
-    el.style.opacity = '';
-    setSwipeHint(null);
+    el.getAnimations().forEach((animation) => animation.cancel());
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     el.animate(
       [
-        { transform: `translateX(${dir === 'next' ? '' : '-'}12%)`, opacity: 0 },
+        { transform: `translateX(${dir === 'next' ? '' : '-'}16px)`, opacity: 0 },
         { transform: 'translateX(0)', opacity: 1 },
       ],
-      { duration: 280, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
+      { duration: 220, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
     );
   }, [reportId]);
 
@@ -975,7 +993,7 @@ export default function OwnerReportsPage() {
 
   return (
     <main onClick={!report && !loading ? launch : undefined} className={`[overflow-anchor:none] text-slate-900 dark:text-slate-100 ${reportCanvas} ${!report && !loading ? 'cursor-pointer' : ''} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'min-h-screen md:min-h-0 md:h-dvh md:overflow-hidden' : 'min-h-screen'}`}>
-      {swipeHint ? <SwipeHint {...swipeHint} /> : null}
+      <SwipeHint ref={hintRef} />
       <div className={`${pageFrame} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'pb-3 md:flex md:h-full md:min-h-0 md:flex-col md:overflow-hidden' : 'pb-4'}`}>
         <section ref={swipeRef} className={`min-w-0 ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'md:flex md:min-h-0 md:flex-1 md:flex-col' : `space-y-4 ${reveal ? 'report-arrive' : ''}`}`}>
           {loading ? (
@@ -1078,25 +1096,27 @@ export default function OwnerReportsPage() {
 
 type SwipeDirection = 'next' | 'prev';
 
-/** Edge hint shown while swiping: the report a release will open. It fills emerald once a release will page. */
-function SwipeHint({ dir, label, progress }: { dir: SwipeDirection; label: string; progress: number }) {
-  const ready = progress >= 1;
-  const Arrow = dir === 'next' ? ChevronRight : ChevronLeft;
+/** Edge arrow shown while swiping between reports. The swipe effect positions and fills it directly. */
+function SwipeHint({ ref }: { ref: React.Ref<HTMLDivElement> }) {
   return (
     <div
+      ref={ref}
       aria-hidden
-      className={`pointer-events-none fixed top-1/2 z-[55] flex max-w-[70vw] items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-bold shadow-xl transition-colors duration-150 ${
-        dir === 'next' ? 'right-3 flex-row-reverse' : 'left-3'
-      } ${ready
-        ? 'border-emerald-500 bg-emerald-500 text-white'
-        : 'border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'}`}
-      style={{
-        opacity: 0.35 + progress * 0.65,
-        transform: `translate(${(1 - progress) * (dir === 'next' ? 24 : -24)}px, -50%) scale(${0.92 + progress * 0.08})`,
-      }}
+      className="pointer-events-none fixed top-1/2 z-[55] flex items-center gap-2 px-2"
+      style={{ opacity: 0, transform: 'translate(-56px, -50%)' }}
     >
-      <Arrow className="h-4 w-4 shrink-0" strokeWidth={2.5} />
-      <span className="truncate">{label}</span>
+      <span
+        data-hint-circle
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-lg transition-colors duration-150 data-[ready=true]:border-emerald-500 data-[ready=true]:bg-emerald-500 data-[ready=true]:text-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+      >
+        <ChevronLeft data-arrow="prev" className="h-5 w-5" strokeWidth={2.5} />
+        <ChevronRight data-arrow="next" className="h-5 w-5" strokeWidth={2.5} />
+      </span>
+      <span
+        data-hint-label
+        className="max-w-[60vw] truncate rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white shadow-lg transition-[opacity,transform] duration-150"
+        style={{ opacity: 0 }}
+      />
     </div>
   );
 }
@@ -1707,7 +1727,8 @@ function FilterBar(props: {
     );
   }
   return (
-    <div className="relative z-30 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 pr-10">
+    // Below md the card is a fixed two-column grid, so a filter whose text grows truncates instead of reflowing.
+    <div className="relative z-30 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 pr-10 max-md:grid max-md:grid-cols-2 max-md:gap-x-3">
       <button
         type="button"
         onClick={() => setCollapsedSaved(true)}
@@ -2238,7 +2259,7 @@ function ChoiceFilter({ label, note, value, options, onChange }: {
   }, [open]);
 
   return (
-    <div ref={ref} className={`relative ${filterLabel}`}>
+    <div ref={ref} className={`relative ${filterLabel} max-md:min-w-0`}>
       <span className="inline-flex items-center gap-1">
         {label}
         {note ? <ScoreNote label={label} text={note} className="relative inline-flex" align="left" /> : null}
@@ -2249,7 +2270,7 @@ function ChoiceFilter({ label, note, value, options, onChange }: {
         aria-haspopup="listbox"
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => setOpen((current) => !current)}
-        className={`${underlineShell} w-max max-w-full min-w-[9rem] cursor-pointer !pr-7 text-left`}
+        className={`${underlineShell} w-max max-w-full min-w-[9rem] cursor-pointer !pr-7 text-left max-md:w-full max-md:min-w-0`}
       >
         <span className={`${underlineControl} !inline-flex !w-auto items-center normal-case tracking-normal`}>{selected?.label || ''}</span>
         <FieldChevron />
@@ -2322,7 +2343,7 @@ function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date range
   }, [open]);
 
   return (
-    <div ref={ref} className={`relative ${filterLabel}`}>
+    <div ref={ref} className={`relative ${filterLabel} max-md:col-span-2 max-md:min-w-0`}>
       <span className="inline-flex items-center gap-1">
         {label}
         <ScoreNote label={label} text="This date range is shared across Owner Reports and stays in place when you open another report." className="relative inline-flex" align="left" />
@@ -2333,11 +2354,11 @@ function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date range
         aria-haspopup="listbox"
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => setOpen((value) => !value)}
-        className={`${underlineShell} w-max max-w-full cursor-pointer !pr-7 text-left`}
+        className={`${underlineShell} w-max max-w-full cursor-pointer !pr-7 text-left max-md:w-full`}
       >
-        <span className={`${underlineControl} !inline-flex !w-auto items-center gap-2 normal-case tracking-normal`}>
-          <span>{selected.label}</span>
-          {preset !== 'custom' ? <span className="tabular-nums text-slate-400 dark:text-slate-500">{formatFilterSpan(range)}</span> : null}
+        <span className={`${underlineControl} !inline-flex !w-auto items-center gap-2 normal-case tracking-normal max-md:!w-full max-md:whitespace-nowrap`}>
+          <span className="max-md:shrink-0">{selected.label}</span>
+          {preset !== 'custom' ? <span className="tabular-nums text-slate-400 dark:text-slate-500 max-md:min-w-0 max-md:truncate max-md:text-sm">{formatFilterSpan(range)}</span> : null}
         </span>
         <FieldChevron />
       </button>
@@ -2454,7 +2475,7 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
   }, [open]);
 
   return (
-    <div ref={ref} className={`relative ${filterLabel}`}>
+    <div ref={ref} className={`relative ${filterLabel} max-md:min-w-0`}>
       <span className="inline-flex items-center gap-1">
         {label}
         {note ? <ScoreNote label={label} text={note} className="relative inline-flex" align="left" /> : null}
@@ -2465,7 +2486,7 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
         aria-haspopup="listbox"
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => setOpen((value) => !value)}
-        className={`${underlineShell} min-w-[9rem] max-w-[24rem] cursor-pointer !pr-7 text-left ${options.length > 0 && selectedLabels.length === 0 ? '!border-b-amber-500 !bg-amber-50 dark:!border-b-amber-400 dark:!bg-amber-950' : ''}`}
+        className={`${underlineShell} min-w-[9rem] max-w-[24rem] cursor-pointer !pr-7 text-left max-md:min-w-0 max-md:max-w-full ${options.length > 0 && selectedLabels.length === 0 ? '!border-b-amber-500 !bg-amber-50 dark:!border-b-amber-400 dark:!bg-amber-950' : ''}`}
         title={summary}
       >
         <span className={`${underlineControl} block truncate normal-case tracking-normal ${options.length > 0 && selectedLabels.length === 0 ? '!text-amber-900 dark:!text-amber-100' : ''}`}>{summary}</span>
