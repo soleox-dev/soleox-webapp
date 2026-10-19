@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, Check, ChevronDown, ChevronUp, Info, X } from 'lucide-react';
 import { pageFrame } from '@/lib/page-frame';
+import { useIsDesktop } from '@/lib/use-media-query';
 import { FieldChevron, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { LoadingDataPage, type LoadingProgressInfo } from './loading-data-page';
 import {
@@ -782,9 +783,9 @@ export default function OwnerReportsPage() {
   }, [reportId]);
 
   return (
-    <main onClick={!report && !loading ? launch : undefined} className={`[overflow-anchor:none] text-slate-900 dark:text-slate-100 ${reportCanvas} ${!report && !loading ? 'cursor-pointer' : ''} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'h-dvh overflow-hidden' : 'min-h-screen'}`}>
-      <div className={`${pageFrame} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'flex h-full min-h-0 flex-col overflow-hidden pb-3' : 'pb-4'}`}>
-        <section className={`min-w-0 ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'flex min-h-0 flex-1 flex-col' : `space-y-4 ${reveal ? 'report-arrive' : ''}`}`}>
+    <main onClick={!report && !loading ? launch : undefined} className={`[overflow-anchor:none] text-slate-900 dark:text-slate-100 ${reportCanvas} ${!report && !loading ? 'cursor-pointer' : ''} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'min-h-screen md:min-h-0 md:h-dvh md:overflow-hidden' : 'min-h-screen'}`}>
+      <div className={`${pageFrame} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'pb-3 md:flex md:h-full md:min-h-0 md:flex-col md:overflow-hidden' : 'pb-4'}`}>
+        <section className={`min-w-0 ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'md:flex md:min-h-0 md:flex-1 md:flex-col' : `space-y-4 ${reveal ? 'report-arrive' : ''}`}`}>
           {loading ? (
             <LoadingDataPage
               progress={loadProgress}
@@ -1195,10 +1196,13 @@ function ReportView(props: {
   const { reportId, closed, pending, taken, closedPrior, pendingPrior, names, range, priorRange, metric, netCommission, priorNetCommission, allDeals, deals, payments, teamLeadIds } = props;
   const [cumulative, setCumulative] = useState(false);
   const capSection = props.reportId === 'team-caps' && props.capSections.length === 1 ? props.capSections[0] : null;
+  // Agent Earnings and Team Caps fill the screen and scroll inside their tables on desktop.
+  // Below md the page scrolls natively by touch instead.
   const locked = props.reportId === 'net-commission-income' || props.reportId === 'team-caps';
+  const isDesktop = useIsDesktop();
   const chromeRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!locked) return;
+    if (!locked || !isDesktop) return;
     const previousHtml = document.documentElement.style.overflow;
     const previousBody = document.body.style.overflow;
     document.documentElement.style.overflow = 'hidden';
@@ -1223,7 +1227,7 @@ function ReportView(props: {
       document.body.style.overflow = previousBody;
       window.removeEventListener('wheel', onWheel);
     };
-  }, [locked]);
+  }, [locked, isDesktop]);
   useLayoutEffect(() => {
     const chrome = chromeRef.current;
     const root = chrome?.closest('main');
@@ -1280,7 +1284,7 @@ function ReportView(props: {
     };
   }, []);
   return (
-    <div className={locked ? 'flex min-h-0 flex-1 flex-col' : undefined}>
+    <div className={locked ? 'md:flex md:min-h-0 md:flex-1 md:flex-col' : undefined}>
       <div ref={chromeRef} className={`z-40 shrink-0 border-b border-slate-200/80 px-0 dark:border-slate-700/80 ${reportCanvas} ${locked ? '' : 'sticky top-0'} ${capSection ? 'pb-3' : 'pb-4'}`}>
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-6">
           <div className="z-50 min-w-0 justify-self-start">
@@ -1366,7 +1370,7 @@ function ReportView(props: {
           />
         ) : null}
       </div>
-      <div className={locked ? `flex min-h-0 flex-1 flex-col overflow-hidden ${capSection ? 'pt-0' : 'pt-4'}` : `space-y-4 ${capSection ? 'pt-0' : 'pt-4'}`}>
+      <div className={locked ? `md:flex md:min-h-0 md:flex-1 md:flex-col md:overflow-hidden ${capSection ? 'pt-0' : 'pt-4'}` : `space-y-4 ${capSection ? 'pt-0' : 'pt-4'}`}>
         {props.loading ? <p className="text-sm text-slate-500">Loading transactions…</p> : null}
         {props.error ? <p className="text-sm text-rose-600">{props.error}</p> : null}
         {!props.loading && !props.ready ? <Unavailable note={props.note || 'This report needs data Soleox does not store yet.'} /> : null}
@@ -2411,6 +2415,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
   const [drilldown, setDrilldown] = useState<{ rowKey: string; column: keyof OwnerMonthRow } | null>(null);
   const [grainChoice, setGrainChoice] = useState<ProductionGrain | null>(null);
   const [scoresOpen, setScoresOpen] = useState(true);
+  const isDesktop = useIsDesktop();
   const [pulse, setPulse] = useState(0);
   const skipPulse = useRef(true);
   const grain = resolveProductionGrain(grainChoice, preset, range);
@@ -2487,8 +2492,9 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
     };
   }, [scoresOpen]);
 
+  // Below md the page keeps native touch scrolling; the wheel-only lock is desktop only.
   useEffect(() => {
-    if (scoresOpen) return;
+    if (scoresOpen || !isDesktop) return;
     const previousHtml = document.documentElement.style.overflow;
     const previousBody = document.body.style.overflow;
     document.documentElement.style.overflow = 'hidden';
@@ -2514,7 +2520,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
       document.body.style.overflow = previousBody;
       window.removeEventListener('wheel', onWheel);
     };
-  }, [scoresOpen]);
+  }, [scoresOpen, isDesktop]);
 
   useEffect(() => {
     if (skipPulse.current) {

@@ -6,8 +6,22 @@ export const underlineShell =
 export const underlineLabel =
   'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
 
+/* Phones get 16px text so iOS does not zoom on focus. Desktop sizes sit under `md:`. */
+const controlBase =
+  'w-full border-0 bg-transparent p-0 text-base md:h-5 md:text-xs md:leading-4 font-medium text-slate-900 focus:outline-none focus:ring-0 disabled:cursor-not-allowed dark:text-white';
+
+/** A control that keeps the browser's own placeholder tone. */
+export const underlineControlPlain = controlBase;
+
 export const underlineControl =
-  'w-full border-0 bg-transparent p-0 h-5 text-xs leading-4 font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 disabled:cursor-not-allowed dark:text-white dark:placeholder:text-slate-500';
+  `${controlBase} placeholder:text-slate-400 dark:placeholder:text-slate-500`;
+
+/** Compact underline field for list filter rows. */
+export const filterShell =
+  'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 px-2 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600';
+
+export const filterControl =
+  'w-full border-0 bg-transparent p-0 text-base md:h-5 md:text-[11px] md:leading-4 font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 dark:text-white dark:placeholder:text-slate-500';
 
 export function FieldChevron() {
   return (

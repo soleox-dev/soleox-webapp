@@ -12,7 +12,7 @@ import { pageFrame } from '@/lib/page-frame';
 import { formatPercentRate, formatTablePercent } from '@/lib/percent';
 import { BooleanMark, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
-import { underlineControl, underlineShell } from '@/components/ui/underline-field';
+import { filterControl, filterShell, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Archive, Check, Highlighter, Link2, ListChecks, ListFilter, Loader2, Plus, RefreshCw, RotateCcw, Rows3, Unlink, X, Zap, type LucideIcon } from 'lucide-react';
 import { HoverNote } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/HoverNote';
@@ -327,10 +327,6 @@ function FitVolume({ value, className }: { value: number; className: string }) {
   );
 }
 
-const filterShell =
-  'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 px-2 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600';
-const filterControl =
-  'w-full border-0 bg-transparent p-0 h-5 text-[11px] leading-4 font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 dark:text-white dark:placeholder:text-slate-500';
 
 export default function TransactionsListPage() {
   const router = useRouter();
