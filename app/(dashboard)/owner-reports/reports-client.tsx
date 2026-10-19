@@ -753,6 +753,60 @@ export default function OwnerReportsPage() {
     return () => window.removeEventListener('keydown', onKey, true);
   }, [pathname, reportId, router]);
 
+  // On touch screens a horizontal swipe pages between reports: left for the next, right for the previous.
+  // Swipes that start on something that scrolls sideways (wide tables), in a form field, near the screen
+  // edges (iOS back gesture), or while a menu or dropdown is open are left alone.
+  const touch = useIsTouch();
+  useEffect(() => {
+    if (!touch || !reportId) return;
+    let start: { x: number; y: number; time: number } | null = null;
+    const scrollsSideways = (target: EventTarget | null) => {
+      let node = target instanceof Element ? target : null;
+      while (node && node !== document.body) {
+        const style = getComputedStyle(node);
+        if (/(auto|scroll)/.test(style.overflowX) && node.scrollWidth > node.clientWidth + 1) return true;
+        node = node.parentElement;
+      }
+      return false;
+    };
+    const onStart = (event: TouchEvent) => {
+      start = null;
+      if (event.touches.length !== 1) return;
+      const point = event.touches[0];
+      const edge = 24;
+      if (point.clientX < edge || point.clientX > window.innerWidth - edge) return;
+      const target = event.target;
+      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"], [role="listbox"], [data-owner-menu], .app-modal')) return;
+      if (document.querySelector('[role="listbox"], [data-owner-menu], .app-modal')) return;
+      if (scrollsSideways(target)) return;
+      start = { x: point.clientX, y: point.clientY, time: event.timeStamp };
+    };
+    const onEnd = (event: TouchEvent) => {
+      const from = start;
+      start = null;
+      if (!from || event.changedTouches.length !== 1) return;
+      const point = event.changedTouches[0];
+      const dx = point.clientX - from.x;
+      const dy = point.clientY - from.y;
+      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5 || event.timeStamp - from.time > 700) return;
+      const index = OWNER_REPORTS.findIndex((item) => item.id === reportId);
+      const next = index + (dx < 0 ? 1 : -1);
+      if (index < 0 || next < 0 || next >= OWNER_REPORTS.length) return;
+      selectReport(OWNER_REPORTS[next].id);
+    };
+    const onCancel = () => {
+      start = null;
+    };
+    document.addEventListener('touchstart', onStart, { passive: true });
+    document.addEventListener('touchend', onEnd, { passive: true });
+    document.addEventListener('touchcancel', onCancel, { passive: true });
+    return () => {
+      document.removeEventListener('touchstart', onStart);
+      document.removeEventListener('touchend', onEnd);
+      document.removeEventListener('touchcancel', onCancel);
+    };
+  }, [touch, pathname, reportId, router]);
+
   useLayoutEffect(() => {
     const y = keptScroll.current;
     if (y == null) return;
@@ -1325,23 +1379,6 @@ function ReportView(props: {
             <p className="mt-1.5 text-sm text-slate-500">{props.reportId === 'team-caps' ? 'Each agent’s cap year comes from that cap’s reset date.' : `${formatRange(range)} compared with ${formatRange(priorRange)}`}</p>
           </div>
           <div className="justify-self-end max-md:justify-self-center max-md:empty:hidden">
-            {props.reportId === 'team-performance' ? (
-              <button
-                type="button"
-                aria-pressed={cumulative}
-                onClick={() => setCumulative((value) => !value)}
-                className={`inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-xl border px-3 text-sm font-semibold shadow-sm transition [outline:none] focus-visible:shadow-[0_1px_2px_rgb(0_0_0/0.05),0_0_0_3px_rgb(16_185_129/0.4)] ${
-                  cumulative
-                    ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400 dark:text-emerald-300'
-                    : 'border-slate-200 bg-white text-slate-800 hover:border-emerald-400 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-emerald-400'
-                }`}
-              >
-                {cumulative
-                  ? <Check aria-hidden="true" strokeWidth={2.5} className="h-4 w-4" />
-                  : <X aria-hidden="true" strokeWidth={2.5} className="h-4 w-4 text-slate-400" />}
-                Cumulative
-              </button>
-            ) : null}
           </div>
         </div>
         <FilterBar
@@ -1354,6 +1391,8 @@ function ReportView(props: {
           capShowPaid={props.reportId === 'team-caps' ? props.capShowPaid : undefined}
           boardMetrics={undefined}
           payeeChoices={(props.reportId === 'net-commission-income' || (props.reportId === 'lead-source-leaderboard' && (props.boardMetric === 'payment:agent' || props.boardMetric === 'payment:entity'))) ? props.payeeChoices : undefined}
+          cumulative={props.reportId === 'team-performance' ? cumulative : undefined}
+          onCumulative={setCumulative}
           excludeTeamLeads={(props.reportId === 'team-performance' || props.reportId === 'net-commission-income' || (props.reportId === 'lead-source-leaderboard' && props.boardMetric !== 'payment:entity')) ? props.excludeTeamLeads : undefined}
           dateRangeLabel={props.reportId === 'lead-source-leaderboard' || props.reportId === 'team-performance'
             ? `${props.dateBases.find((field) => field.id === props.boardDate)?.label || 'Closing Date'} Range`
@@ -1455,6 +1494,8 @@ function FilterBar(props: {
   onEarnings?: (value: string[] | null) => void;
   excludeTeamLeads?: boolean;
   onExcludeTeamLeads?: (value: boolean) => void;
+  cumulative?: boolean;
+  onCumulative?: (value: boolean) => void;
   dateRangeLabel?: string;
   dateOnly?: boolean;
   hideMetric?: boolean;
@@ -1512,6 +1553,17 @@ function FilterBar(props: {
             className="h-4 w-4 cursor-pointer accent-emerald-600"
           />
           Exclude Team Lead(s)
+        </label>
+      ) : null}
+      {props.cumulative !== undefined && props.onCumulative ? (
+        <label className="mb-1 flex h-5 cursor-pointer items-center gap-2 self-end text-xs font-medium normal-case tracking-normal text-slate-700 dark:text-slate-200">
+          <input
+            type="checkbox"
+            checked={props.cumulative}
+            onChange={(event) => props.onCumulative?.(event.target.checked)}
+            className="h-4 w-4 cursor-pointer accent-emerald-600"
+          />
+          Cumulative
         </label>
       ) : null}
       {props.capShowPaid !== undefined && props.onCapShowPaid ? (
@@ -1683,7 +1735,7 @@ function TitleMetric({ value, options, onChange }: { value: string; options: Boa
       {open ? (
         <div ref={listRef} role="listbox" aria-label="Metric" className="absolute left-0 top-full z-50 mt-2 max-h-[min(36rem,calc(100dvh-14rem))] w-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
           {options.length > 8 ? (
-            <div className="sticky top-0 z-10 bg-white px-1 py-1 dark:bg-slate-900">
+            <div className="sticky -top-1 z-10 bg-white px-1 py-1 dark:bg-slate-900">
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
@@ -1767,7 +1819,7 @@ function TitleCaps({ options, picked, onChange }: {
       </button>
       {open ? (
         <div ref={listRef} role="listbox" aria-label="Cap" className="absolute left-1/2 top-full z-50 mt-2 max-h-[min(36rem,calc(100dvh-14rem))] w-72 -translate-x-1/2 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
-          <div className="sticky top-0 z-10 bg-white px-1 py-1 dark:bg-slate-900">
+          <div className="sticky -top-1 z-10 bg-white px-1 py-1 dark:bg-slate-900">
             <div className="flex justify-end">
               <button type="button" onClick={() => { if (options[0]) choose(options[0].value); }} className="cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Reset</button>
             </div>
@@ -1994,7 +2046,7 @@ function ChoiceFilter({ label, note, value, options, onChange }: {
       {open ? (
         <div ref={listRef} role="listbox" aria-label={label} className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
           {options.length > 8 ? (
-            <div className="sticky top-0 z-10 bg-white px-1 py-1 dark:bg-slate-900">
+            <div className="sticky -top-1 z-10 bg-white px-1 py-1 dark:bg-slate-900">
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
@@ -2081,7 +2133,7 @@ function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date range
       {open ? (
         <div ref={listRef} role="listbox" aria-label="Date range" className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-80 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
           {DATE_PRESETS.length > 8 ? (
-            <div className="sticky top-0 z-10 bg-white px-1 py-1 dark:bg-slate-900">
+            <div className="sticky -top-1 z-10 bg-white px-1 py-1 dark:bg-slate-900">
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
@@ -2210,7 +2262,7 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
       </button>
       {open ? (
         <div ref={listRef} role="listbox" aria-label={label} aria-multiselectable="true" className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
-          <div className="sticky top-0 z-10 bg-white px-1 py-1 dark:bg-slate-900">
+          <div className="sticky -top-1 z-10 bg-white px-1 py-1 dark:bg-slate-900">
             <div className="flex items-center justify-between gap-2">
               <button type="button" onClick={() => commit(values)} className="cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950">Select all</button>
               <button type="button" onClick={() => onChange(null)} className="cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Reset</button>
