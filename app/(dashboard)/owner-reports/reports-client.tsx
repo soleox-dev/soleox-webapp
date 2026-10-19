@@ -1859,7 +1859,6 @@ function dealInReport(deal: ReportDeal, range: DateRange, reportId: string | nul
     case 'listings-by-list-date':
       return listed;
     case 'transaction-list':
-    case 'transaction-detail':
       return closed || pending;
     case 'daily-management':
       return closed || pending || listed;
@@ -2657,7 +2656,6 @@ function ReportBody(props: {
   }
   if (id === 'team-performance') return <TeamPerformance deals={deals} range={range} priorRange={priorRange} dateBasis={dateBasis} sidePicked={sidePicked} cumulative={cumulative} />;
   if (id === 'net-commission-income') return <AgentEarnings deals={deals} payments={payments} names={names} range={range} priorRange={priorRange} excludeTeamLeads={excludeTeamLeads} teamLeadIds={teamLeadIds} payeePicked={payeePicked} preset={preset} />;
-  if (id === 'net-commission-analysis') return <NetAnalysis range={range} priorRange={priorRange} closed={closed} closedPrior={closedPrior} />;
   if (id === 'team-productivity') {
     return (
       <div className="space-y-3">
@@ -2666,7 +2664,7 @@ function ReportBody(props: {
       </div>
     );
   }
-  if (id === 'net-agent-leaderboard' || id === 'agent-post-splits') return <AgentTable rows={agentPaidRows(closed)} caption="Closed transactions, split across the agents on each deal" paid />;
+  if (id === 'net-agent-leaderboard') return <AgentTable rows={agentPaidRows(closed)} caption="Closed transactions, split across the agents on each deal" paid />;
   if (id === 'lead-source-leaderboard') return <ProductionLeaderboard deals={deals} range={range} priorRange={priorRange} field={boardField} names={names} payments={payments} entityNames={entityNames} payeePicked={payeePicked} excludeTeamLeads={excludeTeamLeads} teamLeadIds={teamLeadIds} dateBasis={dateBasis} />;
   if (id === 'listings-by-list-date') {
     const listed = seriesBuckets(taken, (deal) => deal.listDate, range);
@@ -2677,7 +2675,7 @@ function ReportBody(props: {
       </div>
     );
   }
-  if (id === 'transaction-list' || id === 'transaction-detail') return <DealTable deals={[...closed, ...pending]} names={names} detailed={id === 'transaction-detail'} />;
+  if (id === 'transaction-list') return <DealTable deals={[...closed, ...pending]} names={names} />;
   if (id === 'price-change') return <PriceChange deals={closed} names={names} />;
   if (id === 'daily-management') return <DailyManagement range={range} closed={closed} pending={pending} taken={taken} />;
   return null;
@@ -3936,34 +3934,6 @@ function MonthlyTable({ title, rows, mode }: { title: string; rows: MonthRow[]; 
   );
 }
 
-function NetAnalysis({ range, priorRange, closed, closedPrior }: { range: DateRange; priorRange: DateRange; closed: ReportDeal[]; closedPrior: ReportDeal[] }) {
-  const totals = sumOf(closed);
-  const current = seriesBuckets(closed, (deal) => deal.closingDate, range);
-  const previous = seriesBuckets(closedPrior, (deal) => deal.closingDate, priorRange);
-  return (
-    <div className="space-y-4">
-      <p className="text-sm text-slate-500">Cost of sales is the agent-paid amount on closed deals. Net commission income is what remains with the company.</p>
-      <div className="grid md:grid-cols-3 gap-3">
-        <Equation left="Total commission" right="Cost of sales" result="Net commission income" leftValue={money(totals.commission)} rightValue={money(totals.agentPaid)} resultValue={money(totals.net)} />
-      </div>
-      <LineChart title="Net commission income" metric="net" current={current} previous={previous} />
-      <MonthlyTable title="Closed month" rows={current} mode="production" />
-    </div>
-  );
-}
-
-function Equation(props: { left: string; right: string; result: string; leftValue: string; rightValue: string; resultValue: string }) {
-  return (
-    <div className="md:col-span-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 flex flex-wrap items-center gap-3 text-sm">
-      <Figure label={props.left} value={props.leftValue} />
-      <span className="text-slate-400 text-lg">−</span>
-      <Figure label={props.right} value={props.rightValue} />
-      <span className="text-slate-400 text-lg">=</span>
-      <Figure label={props.result} value={props.resultValue} emphasis />
-    </div>
-  );
-}
-
 function AgentTable({ rows, caption, paid = false }: { rows: AgentRow[]; caption: string; paid?: boolean }) {
   const total = sumRows(rows);
   const { sort, toggle } = useColumnSort();
@@ -5196,7 +5166,7 @@ function EarningTransactions({ lines, names, wrapRef }: { lines: Array<{ key: st
   );
 }
 
-function DealTable({ deals, names, detailed }: { deals: ReportDeal[]; names: Map<string, string>; detailed: boolean }) {
+function DealTable({ deals, names }: { deals: ReportDeal[]; names: Map<string, string> }) {
   const { sort, toggle } = useColumnSort();
   const dated = [...deals].sort((a, b) => (b.closingDate?.getTime() || 0) - (a.closingDate?.getTime() || 0));
   const sorted = sortBy(dated, sort, (deal, key) => {
@@ -5204,10 +5174,8 @@ function DealTable({ deals, names, detailed }: { deals: ReportDeal[]; names: Map
     if (key === 'side') return deal.side;
     if (key === 'status') return deal.status;
     if (key === 'agent') return names.get(deal.agentId) || '';
-    if (key === 'source') return deal.leadSource;
     if (key === 'price') return deal.salesPrice;
-    if (key === 'gci') return deal.gciAmount;
-    return deal.totalCommission - deal.agentPaid;
+    return deal.gciAmount;
   });
   return (
     <div className={reportTableWrap}>
@@ -5218,10 +5186,8 @@ function DealTable({ deals, names, detailed }: { deals: ReportDeal[]; names: Map
             <SortHead column="side" label="Side" sort={sort} onSort={toggle} className="px-3 py-2" />
             <SortHead column="status" label="Status" sort={sort} onSort={toggle} className="px-3 py-2" />
             <SortHead column="agent" label="Agent" sort={sort} onSort={toggle} className="px-3 py-2" />
-            {detailed ? <SortHead column="source" label="Source" sort={sort} onSort={toggle} className="px-3 py-2" /> : null}
             <SortHead column="price" label="Sales price" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
             <SortHead column="gci" label="GCI" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
-            {detailed ? <SortHead column="net" label="Net" sort={sort} onSort={toggle} align="right" className="px-3 py-2" /> : null}
           </tr>
         </thead>
         <tbody>
@@ -5231,10 +5197,8 @@ function DealTable({ deals, names, detailed }: { deals: ReportDeal[]; names: Map
               <td className="px-3 py-1.5">{deal.side}</td>
               <td className="px-3 py-1.5">{deal.status}</td>
               <td className="px-3 py-1.5">{names.get(deal.agentId) || '—'}</td>
-              {detailed ? <td className="px-3 py-1.5">{deal.leadSource}</td> : null}
               <td className="px-3 py-1.5 text-right tabular-nums">{money(deal.salesPrice)}</td>
               <td className="px-3 py-1.5 text-right tabular-nums">{money(deal.gciAmount)}</td>
-              {detailed ? <td className="px-3 py-1.5 text-right tabular-nums">{money(deal.totalCommission - deal.agentPaid)}</td> : null}
             </tr>
           ))}
         </tbody>
