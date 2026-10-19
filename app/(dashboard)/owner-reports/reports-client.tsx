@@ -1059,8 +1059,7 @@ function Cover({ launching, onEnter }: { launching: boolean; onEnter: () => void
 const reportTableWrap = 'report-table rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900';
 const pairedReport = 'grid items-stretch gap-4 lg:grid-cols-2';
 const pairedSection = 'flex h-full min-w-0 flex-col gap-3';
-// Phones stack the three cards so full dollar amounts fit; sm and up keep three columns.
-const pairedScores = 'grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3';
+const pairedScores = 'grid grid-cols-3 gap-2 md:gap-3';
 
 type ColumnSort = { key: string; direction: 'asc' | 'desc' };
 
@@ -2906,6 +2905,10 @@ function signedTrend(value: number, metric: TrendMetric): string {
   return signedFull(value);
 }
 
+function signedTrendCompact(value: number, metric: TrendMetric): string {
+  return metric === 'units' || metric === 'rate' ? signedTrend(value, metric) : signedCompact(value);
+}
+
 function sumTrend(deals: ReportDeal[], metric: TrendMetric, status?: 'closed' | 'pending'): number {
   return deals.reduce((total, deal) => {
     if (status && deal.status.trim().toLowerCase() !== status) return total;
@@ -3053,9 +3056,9 @@ function TrendPanel({ metric, title, tone, currentClass, previousClass, accentCl
       ) : (
         <>
       <div className={pairedScores}>
-        <TrendScore tone={tone} label="Total" amount={formatTrend(total, metric)} toneClass="" dollar={signedTrend(total - priorTotal, metric)} percent={signedChangePercent(total, priorTotal)} current={total} prior={priorTotal} selected={statusFilter === 'all'} onSelect={() => onSelectStatus('all')} />
-        <TrendScore tone={tone} label="Closed" amount={formatTrend(closed, metric)} toneClass={accentClass} dollar={signedTrend(closed - priorClosed, metric)} percent={signedChangePercent(closed, priorClosed)} current={closed} prior={priorClosed} selected={statusFilter === 'closed'} onSelect={() => onSelectStatus('closed')} />
-        <TrendScore tone={tone} label="Pending" amount={formatTrend(pending, metric)} toneClass={pendingClass} selected={statusFilter === 'pending'} onSelect={() => onSelectStatus('pending')} />
+        <TrendScore tone={tone} label="Total" amount={formatTrend(total, metric)} compactAmount={formatTrend(total, metric, true)} toneClass="" dollar={signedTrend(total - priorTotal, metric)} compactDollar={signedTrendCompact(total - priorTotal, metric)} percent={signedChangePercent(total, priorTotal)} current={total} prior={priorTotal} selected={statusFilter === 'all'} onSelect={() => onSelectStatus('all')} />
+        <TrendScore tone={tone} label="Closed" amount={formatTrend(closed, metric)} compactAmount={formatTrend(closed, metric, true)} toneClass={accentClass} dollar={signedTrend(closed - priorClosed, metric)} compactDollar={signedTrendCompact(closed - priorClosed, metric)} percent={signedChangePercent(closed, priorClosed)} current={closed} prior={priorClosed} selected={statusFilter === 'closed'} onSelect={() => onSelectStatus('closed')} />
+        <TrendScore tone={tone} label="Pending" amount={formatTrend(pending, metric)} compactAmount={formatTrend(pending, metric, true)} toneClass={pendingClass} selected={statusFilter === 'pending'} onSelect={() => onSelectStatus('pending')} />
       </div>
       {chart === 'bars' ? <PriceBars {...chartProps} /> : <TrendChart {...chartProps} cumulative={cumulative} />}
         </>
@@ -3076,12 +3079,16 @@ function metricEdge(label: string, tone: 'volume' | 'blue' | 'emerald' | 'units'
   return closed ? 'border-emerald-700 ring-emerald-700 dark:border-emerald-200 dark:ring-emerald-200' : 'border-emerald-500 ring-emerald-500 dark:border-emerald-400 dark:ring-emerald-400';
 }
 
-function TrendScore({ tone, label, amount, toneClass, dollar, percent, current = 0, prior = 0, selected, onSelect }: {
+function TrendScore({ tone, label, amount, compactAmount, toneClass, dollar, compactDollar, percent, current = 0, prior = 0, selected, onSelect }: {
   tone: 'volume' | 'blue' | 'emerald' | 'units' | 'rate' | 'price' | 'team';
   label: string;
   amount: string;
+  /** Shorter amount for phones, used when the full one does not fit. */
+  compactAmount?: string;
   toneClass: string;
   dollar?: string;
+  /** Shorter change for phones. */
+  compactDollar?: string;
   percent?: string;
   current?: number;
   prior?: number;
@@ -3102,21 +3109,23 @@ function TrendScore({ tone, label, amount, toneClass, dollar, percent, current =
             ? 'bg-rose-50 dark:bg-rose-950/80'
             : 'bg-emerald-50 dark:bg-emerald-950/80';
   const focusClass = tone === 'blue' ? 'focus-visible:ring-blue-400' : tone === 'volume' ? 'focus-visible:ring-teal-400' : tone === 'units' ? 'focus-visible:ring-purple-400' : tone === 'rate' ? 'focus-visible:ring-sky-400' : tone === 'price' ? 'focus-visible:ring-amber-400' : tone === 'team' ? 'focus-visible:ring-rose-400' : 'focus-visible:ring-emerald-400';
+  const isDesktop = useIsDesktop();
   return (
     <button
       type="button"
       aria-pressed={selected}
       onClick={onSelect}
-      className={`w-full min-w-0 cursor-pointer appearance-none rounded-xl border px-3 py-2 text-center shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? `ring-2 ring-inset ${metricEdge(label, tone)} ${selectedFill}` : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
+      data-score-card
+      className={`w-full min-w-0 cursor-pointer appearance-none rounded-xl border px-1.5 py-2 text-center md:px-3 shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? `ring-2 ring-inset ${metricEdge(label, tone)} ${selectedFill}` : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
     >
-      <p className={`text-xs font-medium uppercase ${toneClass || 'text-slate-500 dark:text-white'}`}>{label}</p>
-      <p className={`mt-0.5 text-xl font-extrabold tabular-nums ${toneClass}`}>{amount}</p>
+      <p className={`text-[10px] font-medium uppercase md:text-xs ${toneClass || 'text-slate-500 dark:text-white'}`}>{label}</p>
+      <FitText full={amount} compact={isDesktop ? undefined : compactAmount} className={`mt-0.5 whitespace-nowrap text-base font-extrabold tabular-nums md:whitespace-normal md:text-xl ${toneClass}`} />
       {dollar && percent ? (
-          <div className={`mt-1 flex items-baseline justify-center gap-8 text-xs font-semibold tabular-nums ${changeClass(current, prior)}`}>
+          <div className={`mt-1 flex flex-col items-center justify-center text-[11px] font-semibold tabular-nums md:flex-row md:items-baseline md:gap-8 md:text-xs ${changeClass(current, prior)}`}>
           <span>{percent}</span>
-          <span>{dollar}</span>
+          <span>{isDesktop ? dollar : compactDollar ?? dollar}</span>
         </div>
-      ) : <div className="mt-1 h-4" />}
+      ) : <div className="mt-1 h-8 md:h-4" />}
     </button>
   );
 }
@@ -3830,7 +3839,7 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
   const formatValue = (value: number, compact = false) => (
     metric === 'volume' ? (compact ? compactMoney(value) : fullMoney(value)) : Math.round(value).toLocaleString()
   );
-  const formatDelta = (value: number) => (metric === 'volume' ? signedFull(value) : signedCount(value));
+  const formatDelta = (value: number, compact = false) => (metric === 'volume' ? (compact ? signedCompact(value) : signedFull(value)) : signedCount(value));
   const max = rows.reduce((highest, row) => Math.max(highest, row.value), 0);
   const total = scores ? scores.total : statusTotal(current, 'all', metric);
   const priorTotal = scores ? scores.priorTotal : statusTotal(prior, 'all', metric);
@@ -3857,9 +3866,9 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
     <section className={pairedSection}>
       <SectionHeading tone={tone}>{title}</SectionHeading>
       <div className={pairedScores}>
-        <BoardScore tone={tone} label="Total" amount={formatValue(total)} dollar={formatDelta(total - priorTotal)} percent={signedChangePercent(total, priorTotal)} toneClass="" current={total} prior={priorTotal} selected={statusFilter === 'all'} onSelect={() => onSelectStatus('all')} />
-        <BoardScore tone={tone} label="Closed" amount={formatValue(closedValue)} dollar={formatDelta(closedValue - priorClosed)} percent={signedChangePercent(closedValue, priorClosed)} toneClass={accent} current={closedValue} prior={priorClosed} selected={statusFilter === 'closed'} onSelect={() => onSelectStatus('closed')} />
-        <BoardScore tone={tone} label="Pending" amount={formatValue(pendingValue)} toneClass={pendingTone} selected={statusFilter === 'pending'} onSelect={() => onSelectStatus('pending')} />
+        <BoardScore tone={tone} label="Total" amount={formatValue(total)} compactAmount={formatValue(total, true)} dollar={formatDelta(total - priorTotal)} compactDollar={formatDelta(total - priorTotal, true)} percent={signedChangePercent(total, priorTotal)} toneClass="" current={total} prior={priorTotal} selected={statusFilter === 'all'} onSelect={() => onSelectStatus('all')} />
+        <BoardScore tone={tone} label="Closed" amount={formatValue(closedValue)} compactAmount={formatValue(closedValue, true)} dollar={formatDelta(closedValue - priorClosed)} compactDollar={formatDelta(closedValue - priorClosed, true)} percent={signedChangePercent(closedValue, priorClosed)} toneClass={accent} current={closedValue} prior={priorClosed} selected={statusFilter === 'closed'} onSelect={() => onSelectStatus('closed')} />
+        <BoardScore tone={tone} label="Pending" amount={formatValue(pendingValue)} compactAmount={formatValue(pendingValue, true)} toneClass={pendingTone} selected={statusFilter === 'pending'} onSelect={() => onSelectStatus('pending')} />
       </div>
       <div className="report-table rounded-xl">
       <table className="w-full text-sm">
@@ -3913,11 +3922,15 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
   );
 }
 
-function BoardScore({ tone, label, amount, dollar, percent, toneClass, current = 0, prior = 0, selected, onSelect }: {
+function BoardScore({ tone, label, amount, compactAmount, dollar, compactDollar, percent, toneClass, current = 0, prior = 0, selected, onSelect }: {
   tone: 'volume' | 'units';
   label: string;
   amount: string;
+  /** Shorter amount for phones, used when the full one does not fit. */
+  compactAmount?: string;
   dollar?: string;
+  /** Shorter change for phones. */
+  compactDollar?: string;
   percent?: string;
   toneClass: string;
   current?: number;
@@ -3930,21 +3943,23 @@ function BoardScore({ tone, label, amount, dollar, percent, toneClass, current =
     ? 'border-teal-500 bg-[#d7f6fa] ring-2 ring-teal-400 dark:border-teal-300 dark:bg-teal-950/80 dark:ring-teal-400'
     : 'border-purple-400 bg-[#f3e8ff] ring-2 ring-purple-300 dark:border-purple-300 dark:bg-purple-950/80 dark:ring-purple-400';
   const focusClass = tone === 'volume' ? 'focus-visible:ring-teal-400' : 'focus-visible:ring-purple-400';
+  const isDesktop = useIsDesktop();
   return (
     <button
       type="button"
       aria-pressed={selected}
       onClick={onSelect}
-      className={`flex h-full w-full min-w-0 flex-col justify-start cursor-pointer appearance-none rounded-xl border px-3 py-2 text-center shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? `ring-inset ${selectedClass}` : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
+      data-score-card
+      className={`flex h-full w-full min-w-0 flex-col justify-start cursor-pointer appearance-none rounded-xl border px-1.5 py-2 text-center md:px-3 shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? `ring-inset ${selectedClass}` : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
     >
-        <p className={`text-xs font-medium uppercase ${toneClass || 'text-slate-500 dark:text-white'}`}>{label}</p>
-        <p className={`mt-0.5 text-xl font-extrabold tabular-nums ${toneClass}`}>{amount}</p>
+        <p className={`text-[10px] font-medium uppercase md:text-xs ${toneClass || 'text-slate-500 dark:text-white'}`}>{label}</p>
+        <FitText full={amount} compact={isDesktop ? undefined : compactAmount} className={`mt-0.5 whitespace-nowrap text-base font-extrabold tabular-nums md:whitespace-normal md:text-xl ${toneClass}`} />
         {dollar && percent ? (
-          <div className={`mt-1 flex items-baseline justify-center gap-8 text-xs font-semibold tabular-nums ${deltaClass}`}>
+          <div className={`mt-1 flex flex-col items-center justify-center text-[11px] font-semibold tabular-nums md:flex-row md:items-baseline md:gap-8 md:text-xs ${deltaClass}`}>
             <span>{percent}</span>
-            <span>{dollar}</span>
+            <span>{isDesktop ? dollar : compactDollar ?? dollar}</span>
           </div>
-        ) : <div className="mt-1 h-4" aria-hidden="true" />}
+        ) : <div className="mt-1 h-8 md:h-4" aria-hidden="true" />}
       </button>
   );
 }
@@ -4235,9 +4250,9 @@ function EarningScoreRow({ sums, prior, statusFilter, onSelect }: {
   const closedClass = 'text-emerald-700 dark:text-emerald-200';
   return (
     <div className={pairedScores}>
-      <TrendScore tone="emerald" label="Total" amount={fullMoney(sums.total)} toneClass="" dollar={signedFull(sums.total - prior.total)} percent={signedChangePercent(sums.total, prior.total)} current={sums.total} prior={prior.total} selected={statusFilter === 'all'} onSelect={() => onSelect('all')} />
-      <TrendScore tone="emerald" label="Closed" amount={fullMoney(sums.closed)} toneClass={closedClass} dollar={signedFull(sums.closed - prior.closed)} percent={signedChangePercent(sums.closed, prior.closed)} current={sums.closed} prior={prior.closed} selected={statusFilter === 'closed'} onSelect={() => onSelect('closed')} />
-      <TrendScore tone="emerald" label="Pending" amount={fullMoney(sums.pending)} toneClass="text-emerald-500 dark:text-emerald-400" selected={statusFilter === 'pending'} onSelect={() => onSelect('pending')} />
+      <TrendScore tone="emerald" label="Total" amount={fullMoney(sums.total)} compactAmount={compactMoney(sums.total)} toneClass="" dollar={signedFull(sums.total - prior.total)} compactDollar={signedCompact(sums.total - prior.total)} percent={signedChangePercent(sums.total, prior.total)} current={sums.total} prior={prior.total} selected={statusFilter === 'all'} onSelect={() => onSelect('all')} />
+      <TrendScore tone="emerald" label="Closed" amount={fullMoney(sums.closed)} compactAmount={compactMoney(sums.closed)} toneClass={closedClass} dollar={signedFull(sums.closed - prior.closed)} compactDollar={signedCompact(sums.closed - prior.closed)} percent={signedChangePercent(sums.closed, prior.closed)} current={sums.closed} prior={prior.closed} selected={statusFilter === 'closed'} onSelect={() => onSelect('closed')} />
+      <TrendScore tone="emerald" label="Pending" amount={fullMoney(sums.pending)} compactAmount={compactMoney(sums.pending)} toneClass="text-emerald-500 dark:text-emerald-400" selected={statusFilter === 'pending'} onSelect={() => onSelect('pending')} />
     </div>
   );
 }
