@@ -841,6 +841,9 @@ export type ReportDefinition = {
   note?: string;
 };
 
+/** Section headings of the Owner Reports menu, in display order. */
+export const OWNER_REPORT_GROUPS = ['Your Business', 'Your Agents', 'Transactions', 'Add-ons', 'My Custom Reports'];
+
 export const OWNER_REPORTS: ReportDefinition[] = [
   { id: 'owner-summary', name: 'Owner Summary', group: 'Your Business', ready: true },
   { id: 'operating-expenses', name: 'Operating Expenses', group: 'Your Business', ready: false, note: 'Operating expenses are not recorded in Soleox yet, so net income and expense ROI stay out of this report.' },

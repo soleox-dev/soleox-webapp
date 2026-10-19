@@ -11,7 +11,8 @@ import { SoleoxLogo } from '@/components/ui/logo';
 import { useAccess } from '@/components/access-provider';
 import { pageFrame } from '@/lib/page-frame';
 import { useIsDesktop } from '@/lib/use-media-query';
-import { ArrowLeft, Briefcase, Building2, House, List, Menu, Monitor, Moon, Settings, Sun, Users, X, type LucideIcon } from 'lucide-react';
+import { OWNER_REPORTS, OWNER_REPORT_GROUPS } from '@/lib/owner-reports';
+import { ArrowLeft, Briefcase, Building2, ChevronLeft, ChevronRight, House, List, Menu, Monitor, Moon, Settings, Sun, Users, X, type LucideIcon } from 'lucide-react';
 import type { ThemePreference } from '@/app/providers';
 
 export default function Navbar() {
@@ -29,6 +30,8 @@ export default function Navbar() {
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [phoneNavOpen, setPhoneNavOpen] = useState(false);
+  // The sheet's second level lists a report section's reports. It opens there while inside that section.
+  const [phoneNavLevel, setPhoneNavLevel] = useState<'main' | 'owner-reports'>('main');
   const [reportsNavOpen, setReportsNavOpen] = useState(false);
   const [closedMenu, setClosedMenu] = useState<'tracker' | 'reports' | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -270,7 +273,10 @@ export default function Navbar() {
           {/* Phone menu button. Desktop keeps the pill nav and the avatar menu. */}
           <button
             type="button"
-            onClick={() => setPhoneNavOpen(true)}
+            onClick={() => {
+              setPhoneNavLevel(isOwnerReports && showOwnerReports ? 'owner-reports' : 'main');
+              setPhoneNavOpen(true);
+            }}
             aria-label="Open menu"
             aria-expanded={phoneNavOpen}
             className="me-0 inline-flex h-10 w-10 items-center justify-center rounded-lg text-slate-700 dark:text-slate-200 md:hidden cursor-pointer"
@@ -412,6 +418,40 @@ export default function Navbar() {
               </button>
             </div>
 
+            {phoneNavLevel === 'owner-reports' ? (
+              <nav className="px-2 py-2" aria-label="Owner Reports">
+                <button
+                  type="button"
+                  onClick={() => setPhoneNavLevel('main')}
+                  className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-emerald-700 dark:text-emerald-400 cursor-pointer"
+                >
+                  <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden /> Exit Owner Reports
+                </button>
+                <Link href="/owner-reports" className={sheetLinkClass(pathname === '/owner-reports')}>
+                  <Briefcase className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden /> Owner Reports
+                </Link>
+                {OWNER_REPORT_GROUPS.map((group) => {
+                  const reports = OWNER_REPORTS.filter((item) => item.group === group);
+                  if (reports.length === 0) return null;
+                  return (
+                    <div key={group}>
+                      <p className={sheetHeadingClass}>{group}</p>
+                      {reports.map((item) => {
+                        const number = String(OWNER_REPORTS.findIndex((entry) => entry.id === item.id) + 1).padStart(2, '0');
+                        const href = `/owner-reports/${item.id}`;
+                        return (
+                          <Link key={item.id} href={href} className={sheetLinkClass(pathname === href)}>
+                            <span className="w-5 shrink-0 text-xs font-medium tabular-nums text-slate-400">{number}</span>
+                            <span className="min-w-0 truncate">{item.name}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </nav>
+            ) : (
+            <>
             <nav className="px-2 py-2" aria-label="Main">
               <Link href="/" className={sheetLinkClass(isMainMenu)}>
                 <House className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden /> Main Menu
@@ -434,9 +474,14 @@ export default function Navbar() {
               )}
               {showReports && <p className={sheetHeadingClass}>Reports</p>}
               {showOwnerReports && (
-                <Link href="/owner-reports" className={sheetLinkClass(isOwnerReports)}>
+                <button
+                  type="button"
+                  onClick={() => setPhoneNavLevel('owner-reports')}
+                  className={`${sheetLinkClass(isOwnerReports)} w-full text-left cursor-pointer`}
+                >
                   <Briefcase className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden /> Owner Reports
-                </Link>
+                  <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-slate-400" strokeWidth={2} aria-hidden />
+                </button>
               )}
               {showDeferred && (
                 <Link href="/agent-reports" className={sheetLinkClass(isAgentReports)}>
@@ -511,6 +556,8 @@ export default function Navbar() {
                 Sign Out
               </button>
             </div>
+            </>
+            )}
           </div>
         </div>
       )}

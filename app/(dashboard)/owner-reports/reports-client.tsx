@@ -12,6 +12,7 @@ import {
   DATE_PRESETS,
   METRICS,
   OWNER_REPORTS,
+  OWNER_REPORT_GROUPS,
   addTotals,
   agentPaidRows,
   byAgent,
@@ -72,7 +73,7 @@ import {
   type TeamCapDefinition,
 } from '@/lib/team-cap-report';
 
-const GROUPS = ['Your Business', 'Your Agents', 'Transactions', 'Add-ons', 'My Custom Reports'];
+const GROUPS = OWNER_REPORT_GROUPS;
 
 type BoardField = { id: string; label: string; type: string };
 
@@ -1286,8 +1287,9 @@ function ReportView(props: {
   return (
     <div className={locked ? 'md:flex md:min-h-0 md:flex-1 md:flex-col' : undefined}>
       <div ref={chromeRef} className={`z-40 shrink-0 border-b border-slate-200/80 px-0 dark:border-slate-700/80 ${reportCanvas} ${locked ? '' : 'sticky top-0'} ${capSection ? 'pb-3' : 'pb-4'}`}>
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-6">
-          <div className="z-50 min-w-0 justify-self-start">
+        {/* Below md the report menu moves into the header's menu sheet, so the title gets the full row. */}
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-6 max-md:grid-cols-1">
+          <div className="z-50 min-w-0 justify-self-start max-md:hidden">
             <OwnerReportNav reportId={props.reportId} onSelect={props.onSelectReport} />
           </div>
           <div className="min-w-0 px-2 text-center">
@@ -1322,7 +1324,7 @@ function ReportView(props: {
             </h2>
             <p className="mt-1.5 text-sm text-slate-500">{props.reportId === 'team-caps' ? 'Each agent’s cap year comes from that cap’s reset date.' : `${formatRange(range)} compared with ${formatRange(priorRange)}`}</p>
           </div>
-          <div className="justify-self-end">
+          <div className="justify-self-end max-md:justify-self-center max-md:empty:hidden">
             {props.reportId === 'team-performance' ? (
               <button
                 type="button"
@@ -1636,6 +1638,8 @@ function formatFilterSpan(range: DateRange): string {
 
 function TitleMetric({ value, options, onChange }: { value: string; options: BoardField[]; onChange: (id: string) => void }) {
   const [open, setOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  useDropdownScrollLock(listRef, open);
   const [query, setQuery] = useState('');
   const ref = useRef<HTMLSpanElement>(null);
   const selected = options.find((field) => field.id === value) || options[0];
@@ -1677,7 +1681,7 @@ function TitleMetric({ value, options, onChange }: { value: string; options: Boa
         {selected.label}
       </button>
       {open ? (
-        <div role="listbox" aria-label="Metric" className="absolute left-0 top-full z-50 mt-2 max-h-[min(36rem,calc(100dvh-14rem))] w-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+        <div ref={listRef} role="listbox" aria-label="Metric" className="absolute left-0 top-full z-50 mt-2 max-h-[min(36rem,calc(100dvh-14rem))] w-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
           {options.length > 8 ? (
             <div className="sticky top-0 z-10 bg-white px-1 py-1 dark:bg-slate-900">
               <input
@@ -1716,6 +1720,8 @@ function TitleCaps({ options, picked, onChange }: {
   onChange: (value: string[] | null) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  useDropdownScrollLock(listRef, open);
   const [query, setQuery] = useState('');
   const ref = useRef<HTMLSpanElement>(null);
   const selected = options.find((option) => option.value === picked?.[0]) || options[0];
@@ -1760,7 +1766,7 @@ function TitleCaps({ options, picked, onChange }: {
         {selected?.label || 'Caps'}
       </button>
       {open ? (
-        <div role="listbox" aria-label="Cap" className="absolute left-1/2 top-full z-50 mt-2 max-h-[min(36rem,calc(100dvh-14rem))] w-72 -translate-x-1/2 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+        <div ref={listRef} role="listbox" aria-label="Cap" className="absolute left-1/2 top-full z-50 mt-2 max-h-[min(36rem,calc(100dvh-14rem))] w-72 -translate-x-1/2 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
           <div className="sticky top-0 z-10 bg-white px-1 py-1 dark:bg-slate-900">
             <div className="flex justify-end">
               <button type="button" onClick={() => { if (options[0]) choose(options[0].value); }} className="cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Reset</button>
@@ -1901,6 +1907,35 @@ function useViewportClamp(ref: React.RefObject<HTMLDivElement | null>, open: boo
       el.style.maxWidth = '';
     };
   }, [ref, open, isDesktop]);
+  useDropdownScrollLock(ref, open);
+}
+
+/**
+ * While a dropdown is open, wheel and touch scrolling move only that dropdown, never the report behind it.
+ * A list too short to scroll swallows the gesture as well.
+ */
+function useDropdownScrollLock(ref: React.RefObject<HTMLElement | null>, open: boolean) {
+  useEffect(() => {
+    if (!open) return;
+    const list = ref.current;
+    const previous = list?.style.overscrollBehavior ?? '';
+    if (list) list.style.overscrollBehavior = 'contain';
+    const onScrollGesture = (event: Event) => {
+      const el = ref.current;
+      if (el && event.target instanceof Node && el.contains(event.target) && el.scrollHeight > el.clientHeight + 1) return;
+      if (event instanceof WheelEvent && event.ctrlKey) return;
+      event.preventDefault();
+      // Keeps the locked report layouts from forwarding this wheel to their tables.
+      event.stopPropagation();
+    };
+    document.addEventListener('wheel', onScrollGesture, { passive: false });
+    document.addEventListener('touchmove', onScrollGesture, { passive: false });
+    return () => {
+      document.removeEventListener('wheel', onScrollGesture);
+      document.removeEventListener('touchmove', onScrollGesture);
+      if (list) list.style.overscrollBehavior = previous;
+    };
+  }, [ref, open]);
 }
 
 function ChoiceFilter({ label, note, value, options, onChange }: {
@@ -2364,6 +2399,7 @@ function ProductionGrainTitle({ grain, enabled, onChange }: { grain: ProductionG
   const [box, setBox] = useState<{ top: number; left: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  useDropdownScrollLock(menuRef, open);
   const selected = PRODUCTION_GRAINS.find((option) => option.id === grain) || PRODUCTION_GRAINS[0];
 
   useEffect(() => {
