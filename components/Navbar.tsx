@@ -149,7 +149,7 @@ export default function Navbar() {
   const barClass = 'w-full bg-white text-slate-900 border-b border-slate-200 dark:bg-[#0b1329] dark:text-white dark:border-slate-800/80';
   // Below md the report header stays in place; the hover-reveal bar is desktop only.
   const reportsBarClass = `relative z-50 md:fixed md:inset-x-0 md:top-0 md:transition-transform md:duration-200 md:ease-out md:motion-reduce:transition-none ${reportsNavOpen ? 'md:translate-y-0 md:shadow-lg' : 'md:-translate-y-full md:pointer-events-none'}`;
-  const sheetLinkClass = (active: boolean) => `flex min-h-11 items-center gap-3 rounded-lg px-3 text-base font-semibold ${
+  const sheetLinkClass = (active: boolean) => `flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold ${
     active
       ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400'
       : 'text-slate-700 dark:text-slate-200'
@@ -429,7 +429,7 @@ export default function Navbar() {
                   onClick={() => setPhoneNavLevel('main')}
                   className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-emerald-700 dark:text-emerald-400 cursor-pointer"
                 >
-                  <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden /> Exit Owner Reports
+                  <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden /> Back to Main Menu
                 </button>
                 <Link href="/owner-reports" className={sheetLinkClass(pathname === '/owner-reports')}>
                   <Briefcase className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden /> Owner Reports
@@ -552,7 +552,7 @@ export default function Navbar() {
                   window.sessionStorage.removeItem('soleox-transactions-list');
                   void signOut({ callbackUrl: '/login' });
                 }}
-                className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-base font-semibold text-red-600 dark:text-red-400 cursor-pointer"
+                className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-semibold text-red-600 dark:text-red-400 cursor-pointer"
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V5" />

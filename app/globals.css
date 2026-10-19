@@ -324,6 +324,16 @@ thead th.sticky[class*="left-"] {
   }
 }
 
+/* Report table header cells stack above the rows' positioned bars and values. iOS Safari does not
+   reliably position or layer a whole <thead>, so each cell carries the stacking itself. In the base
+   layer so `sticky` utilities and the sticky rule for fit tables still win. */
+@layer base {
+  .report-table thead th {
+    position: relative;
+    z-index: 2;
+  }
+}
+
 /* Report bar charts grow up from the baseline when they appear. */
 @keyframes bar-grow {
   from { transform: scaleY(0); }
@@ -344,6 +354,10 @@ thead th.sticky[class*="left-"] {
 
 /* Touch screens: no hover and a coarse pointer. A desktop mouse never matches, even in a narrow window. */
 @custom-variant touch (@media (hover: none) and (pointer: coarse));
+
+/* Wide and tall enough for full-screen report layouts (Agent Earnings, Team Caps). A phone in landscape is
+   wide but short, so it scrolls the page like portrait. Keep in sync with FIT_SCREEN_QUERY. */
+@custom-variant screenfit (@media (min-width: 768px) and (min-height: 560px));
 
 /* The desktop top bar: md and wider, except phones in landscape (touch with a short viewport),
    which keep the phone menu. Desktops never match the exception; iPads are too tall for it.

@@ -18,13 +18,15 @@ On a report page the top navigation is hidden. Hovering the top of the page slid
 
 On phones and narrow screens (below `md`, 768px), the top navigation is a normal header at the top of the page that scrolls away with it; it does not hide or listen for the pointer. Its menu button opens the phone navigation sheet.
 
-Below `md`, the phone menu sheet has a second level for a report section. Opened on an Owner Reports page, it starts on the Owner Reports level: an "Exit Owner Reports" row at the top returns to the first level, then the Owner Reports cover link and every report, numbered and grouped like the desktop reports menu, with the current report highlighted. On the first level, Owner Reports opens that second level. The numbered reports menu button beside the report title is hidden below `md`, so the title takes the full row. Later report sections (Agent Reports, Office Reports) follow the same pattern.
+Below `md`, the phone menu sheet has a second level for a report section. Opened on an Owner Reports page, it starts on the Owner Reports level: a "Back to Main Menu" row at the top returns to the sheet's first level, then the Owner Reports cover link and every report, numbered and grouped like the desktop reports menu, with the current report highlighted. On the first level, Owner Reports opens that second level. The numbered reports menu button beside the report title is hidden below `md`, so the title takes the full row. Later report sections (Agent Reports, Office Reports) follow the same pattern.
 
 On every device a horizontal swipe pages between reports in menu order: a finger on touch screens, or a two-finger sideways swipe on a trackpad. Swipe left for the next report, right for the previous one. While swiping, the report stays still and a round arrow slides in from the edge the next report comes from, growing with the swipe. Once releasing will page, the arrow turns emerald and a pill beside it names that report. Releasing then fades the report out and the new one fades in with a short nudge from that side; a shorter swipe lets the arrow slide back out. There is no arrow past the first or last report. Arrow-key paging uses the same fade-in. A swipe that starts on something that scrolls sideways (a wide table), in a form field, within 24px of a touch screen's left or right edge, or while a menu or dropdown is open does nothing, so those keep their own scrolling and the iOS back gesture. Shift + mouse wheel scrolls sideways as usual and does not page. With reduced motion turned on, paging happens without the slide.
 
+Below `md` the report title is 20px instead of 30px (the clickable metric and cap pickers in it too), its date line is 12px, and the title row has tighter spacing, so the report starts higher on the screen. Section header pills are shorter there too: 14px text with normal letter spacing and less vertical padding, 28px tall on one line. The longest titles wrap to two lines.
+
 ### Scrolling on phones
 
-Below `md`, every report scrolls the page natively by touch. Agent Earnings, Team Caps, and Owner Summary with hidden scorecards or an open drilldown do not lock `html` and `body` to `overflow: hidden` or forward wheel scrolling there; that full-screen layout applies only at `md` and wider.
+Below `md`, every report scrolls the page natively by touch. Agent Earnings, Team Caps, and Owner Summary with hidden scorecards or an open drilldown do not lock `html` and `body` to `overflow: hidden` or forward wheel scrolling there; that full-screen layout applies only when the screen is at least 768px wide and 560px tall (the `screenfit:` variant and `useFitsScreen`). A phone in landscape is wide but short, so it scrolls the page like portrait.
 
 ### Filters
 
@@ -60,9 +62,11 @@ From and To sit immediately to the right of the date range filter. No other filt
 
 ### Tables
 
-- A table header stays fixed just below the report title and filters while that table is on screen. The stuck header stays square so the table body does not show past its corners. It scrolls away once the user has moved past the end of the table.
+- Below `md` table headers are not pinned: each header stays at the top of its own table and scrolls with it. A header moved by script trails iOS momentum scrolling, so rows peeked out and showed through it.
+- At `md` and wider a table header stays fixed just below the report title and filters while that table is on screen. The stuck header stays square so the table body does not show past its corners. It scrolls away once the user has moved past the end of the table.
 - Every column header sorts that table when clicked. The first click sorts ascending. Clicking the same header again sorts descending. The active header shows the direction. Each table sorts on its own. Total and grand total rows stay at the bottom. A table keeps its original order until a header is clicked.
 - When a table has a # index column, that column is right-aligned, header and cells.
+- Header cells are opaque and always paint above the rows, including the rows' bars and values. Each `thead th` in a `.report-table` is positioned with its own stacking (base layer in `app/globals.css`), because iOS Safari does not reliably layer a whole `<thead>`.
 - A frozen first column (`sticky left-*`) is frozen in the header row too: its header cell stays above the header cells that scroll under it and above the frozen body cells, through both sideways and vertical scrolling. `app/globals.css` does this for every `thead th.sticky` with a `left-*` class, so new tables with a frozen column get it automatically.
 - Keep each report table in a `report-table` wrapper so wide tables can scroll sideways. Pin the header from the page scroll while the table crosses the title and filters. Do not use CSS `top` sticky for that pin: horizontal scrolling makes the table its own scroll container, and the header then sticks inside the table. Do not put `overflow: hidden` on a table wrapper.
 - Sideways scrolling in a report table stops firmly at the table's edges, with no rubber-band bounce (`overscroll-behavior-x: none` on `.report-table`).
@@ -72,6 +76,8 @@ From and To sit immediately to the right of the date range filter. No other filt
 Below `md`, line and bar charts draw on a 340-unit-wide canvas instead of 640, so axis labels render at about 11–12px and the chart fills its height. The plot runs nearly edge to edge: the y-axis labels stay left of the axis and the left margin is sized to that chart's widest label plus a small gap, the right margin is minimal, the first and last month labels align to the edges, and the chart card has no left padding and 6px on the right, so the widest label sits 1px from the card's edge (just inside its border). Month labels show every other month when there are more than 7. Desktop keeps the 640-unit canvas and its margins.
 
 Bar charts (Team Performance sales price and gross commission percentage) overlap the two years in each month: the previous year is a wide grey bar behind (55% opacity), and the current period is a narrower bar in front with slightly rounded top corners (4 units) and a gradient that fades toward the baseline. Gridlines are light and dashed, and the average lines are short dashes. Hovering or tapping a month puts a soft highlight column behind it and dims the other months while the tooltip shows. Bars grow up from the baseline when the chart appears, except with reduced motion.
+
+Every line chart (Team Performance, Agent Earnings' timeline, Team Productivity, Listings by List Date) has the shiny peak effect on its current-period line: a thin white highlight that glows softly around each local peak. Use the shared `PeakShine` component for new line charts.
 
 ### Cap progress
 
