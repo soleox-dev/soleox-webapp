@@ -69,7 +69,7 @@ From and To sit immediately to the right of the date range filter. No other filt
 
 ### Charts
 
-Below `md`, line and bar charts draw on a 340-unit-wide canvas instead of 640, so axis labels render at about 11–12px and the chart fills its height. Month labels show every other month when there are more than 7. Desktop keeps the 640-unit canvas.
+Below `md`, line and bar charts draw on a 340-unit-wide canvas instead of 640, so axis labels render at about 11–12px and the chart fills its height. The plot runs nearly edge to edge: the y-axis labels stay left of the axis with only the margin they need, the right margin is minimal, the first and last month labels align to the edges, and the chart card's side padding is 6px. Month labels show every other month when there are more than 7. Desktop keeps the 640-unit canvas and its margins.
 
 ### Cap progress
 

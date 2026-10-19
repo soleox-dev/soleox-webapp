@@ -17,7 +17,13 @@ export function useMediaQuery(query: string, serverValue = false): boolean {
     (onChange: () => void) => {
       const list = window.matchMedia(query);
       list.addEventListener('change', onChange);
-      return () => list.removeEventListener('change', onChange);
+      // Some environments (device emulation, older WebKit) skip `change`; a resize re-checks too.
+      // React only re-renders when the boolean actually flips.
+      window.addEventListener('resize', onChange);
+      return () => {
+        list.removeEventListener('change', onChange);
+        window.removeEventListener('resize', onChange);
+      };
     },
     [query],
   );

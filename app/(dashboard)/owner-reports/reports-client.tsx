@@ -3487,7 +3487,8 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
   const isDesktop = useIsDesktop();
   const width = isDesktop ? 640 : 340;
   const height = 250;
-  const pad = { left: 52, right: 16, top: 16, bottom: 32 };
+  // Phones keep only the margin the y-axis labels need so the plot runs nearly edge to edge.
+  const pad = isDesktop ? { left: 52, right: 16, top: 16, bottom: 32 } : { left: 42, right: 6, top: 16, bottom: 28 };
   const innerW = width - pad.left - pad.right;
   const innerH = height - pad.top - pad.bottom;
   const currentValues = months.map((row) => trendValue(row, metric));
@@ -3512,7 +3513,7 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
   const hoverX = hover === null ? 0 : (xAt(hover) / width) * 100;
   const peaks = linePeaks(currentPoints, currentPresent, plottedCurrent);
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-xl border border-slate-200 bg-white p-3 max-md:px-1.5 dark:border-slate-800 dark:bg-slate-900">
       <div className="relative">
         <svg
           viewBox={`0 0 ${width} ${height}`}
@@ -3536,7 +3537,7 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
           {ticks.map((tick) => (
             <g key={tick}>
               <line x1={pad.left} x2={width - pad.right} y1={yAt(tick)} y2={yAt(tick)} className="stroke-slate-100 dark:stroke-slate-800" strokeWidth="1" />
-              <text x={pad.left - 8} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>
+              <text x={pad.left - (isDesktop ? 8 : 4)} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>
                 {metric === 'rate' ? `${(tick * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%` : metric === 'units' ? Math.round(tick).toLocaleString() : compactMoney(tick)}
               </text>
             </g>
@@ -3582,7 +3583,7 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
             </g>
           ) : null}
           {months.map((row, index) => (
-            <text key={row.key} x={xAt(index)} y={height - 8} textAnchor="middle" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>
+            <text key={row.key} x={xAt(index)} y={height - 8} textAnchor={isDesktop ? 'middle' : index === 0 ? 'start' : index === months.length - 1 ? 'end' : 'middle'} className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>
               {months.length > (isDesktop ? 14 : 7) && index % 2 ? '' : row.label}
             </text>
           ))}
@@ -3633,7 +3634,8 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
   const isDesktop = useIsDesktop();
   const width = isDesktop ? 640 : 340;
   const height = 250;
-  const pad = { left: 52, right: 16, top: 16, bottom: 32 };
+  // Phones put the y-axis labels inside the plot so the bars run nearly edge to edge.
+  const pad = isDesktop ? { left: 52, right: 16, top: 16, bottom: 32 } : { left: 42, right: 6, top: 16, bottom: 28 };
   const innerW = width - pad.left - pad.right;
   const innerH = height - pad.top - pad.bottom;
   const currentValues = months.map((row) => trendValue(row, metric));
@@ -3655,7 +3657,7 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
   const prior = hover === null ? 0 : previousValues[hover] || 0;
   const hoverX = hover === null ? 0 : (center(hover) / width) * 100;
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-xl border border-slate-200 bg-white p-3 max-md:px-1.5 dark:border-slate-800 dark:bg-slate-900">
       <div className="relative">
         <svg
           viewBox={`0 0 ${width} ${height}`}
@@ -3670,7 +3672,7 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
           {ticks.map((tick) => (
             <g key={tick}>
               <line x1={pad.left} x2={width - pad.right} y1={yAt(tick)} y2={yAt(tick)} className="stroke-slate-100 dark:stroke-slate-800" strokeWidth="1" />
-              <text x={pad.left - 8} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>
+              <text x={pad.left - (isDesktop ? 8 : 4)} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>
                 {metric === 'rate' ? `${(tick * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%` : compactMoney(tick)}
               </text>
             </g>
@@ -3738,7 +3740,7 @@ function LineChart({ title, metric, current, previous }: { title: string; metric
   const isDesktop = useIsDesktop();
   const width = isDesktop ? 640 : 340;
   const height = 220;
-  const pad = { left: 12, right: 12, top: 16, bottom: 28 };
+  const pad = isDesktop ? { left: 12, right: 12, top: 16, bottom: 28 } : { left: 6, right: 6, top: 16, bottom: 28 };
   const innerW = width - pad.left - pad.right;
   const innerH = height - pad.top - pad.bottom;
   const currentValues = current.map((row) => metricValue(row, metric));
@@ -3786,7 +3788,7 @@ function LineChart({ title, metric, current, previous }: { title: string; metric
           ))}
           {hover !== null ? <line x1={xAt(hover)} x2={xAt(hover)} y1={pad.top} y2={height - pad.bottom} stroke="currentColor" strokeOpacity="0.35" className="text-emerald-400 dark:text-emerald-600" /> : null}
           {current.map((row, index) => (
-            <text key={`${row.key}-label`} x={xAt(index)} y={height - 8} textAnchor="middle" className="fill-slate-400" fontSize={isDesktop ? 10 : 12}>
+            <text key={`${row.key}-label`} x={xAt(index)} y={height - 8} textAnchor={isDesktop ? 'middle' : index === 0 ? 'start' : index === current.length - 1 ? 'end' : 'middle'} className="fill-slate-400" fontSize={isDesktop ? 10 : 12}>
               {current.length > (isDesktop ? 16 : 7) && index % 2 ? '' : row.label}
             </text>
           ))}
@@ -4407,7 +4409,8 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
   const isDesktop = useIsDesktop();
   const width = isDesktop ? 640 : 340;
   const height = 250;
-  const pad = { left: 56, right: 16, top: 16, bottom: 32 };
+  // Phones keep only the margin the y-axis labels need so the plot runs nearly edge to edge.
+  const pad = isDesktop ? { left: 56, right: 16, top: 16, bottom: 32 } : { left: 42, right: 6, top: 16, bottom: 28 };
   const innerW = width - pad.left - pad.right;
   const innerH = height - pad.top - pad.bottom;
   const previous = columns.map((_, index) => priorValues[index] || 0);
@@ -4473,7 +4476,7 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
     else onSelect(key);
   };
   return (
-    <div className="h-full rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+    <div className="h-full rounded-xl border border-slate-200 bg-white p-3 max-md:px-1.5 dark:border-slate-800 dark:bg-slate-900">
       <div className="relative">
         <svg
           ref={svgRef}
@@ -4505,7 +4508,7 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
           {ticks.map((tick) => (
             <g key={tick}>
               <line x1={pad.left} x2={width - pad.right} y1={yAt(tick)} y2={yAt(tick)} className="stroke-slate-100 dark:stroke-slate-800" strokeWidth="1" />
-              <text x={pad.left - 8} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>{compactMoney(tick)}</text>
+              <text x={pad.left - (isDesktop ? 8 : 4)} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>{compactMoney(tick)}</text>
             </g>
           ))}
           <path d={areaUnder(points, yAt(0))} fill="url(#area-fade-earnings)" stroke="none" />
@@ -4533,7 +4536,7 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
             </g>
           ) : null}
           {columns.map((column, index) => (
-            <text key={column.key} x={xAt(index)} y={height - 8} textAnchor="middle" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>
+            <text key={column.key} x={xAt(index)} y={height - 8} textAnchor={isDesktop ? 'middle' : index === 0 ? 'start' : index === columns.length - 1 ? 'end' : 'middle'} className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>
               {columns.length > (isDesktop ? 14 : 7) && index % 2 ? '' : column.label}
             </text>
           ))}
