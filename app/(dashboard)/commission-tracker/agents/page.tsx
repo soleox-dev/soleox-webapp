@@ -16,6 +16,7 @@ import { EditPencil } from '@/components/ui/edit-pencil';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { useAccess } from '@/components/access-provider';
 import { useRegisterSave } from '@/components/save-leave-guard';
+import { filterControl, filterShell, underlineControlPlain as underlineControl } from '@/components/ui/underline-field';
 
 type FieldType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
 
@@ -73,12 +74,6 @@ const underlineShell =
   'group/field relative underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600';
 const underlineLabel =
   'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
-const underlineControl =
-  'w-full border-0 bg-transparent p-0 h-5 text-xs leading-4 font-medium text-slate-900 focus:outline-none focus:ring-0 disabled:cursor-not-allowed dark:text-white';
-const filterShell =
-  'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 px-2 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600';
-const filterControl =
-  'w-full border-0 bg-transparent p-0 h-5 text-[11px] leading-4 font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 dark:text-white dark:placeholder:text-slate-500';
 
 function agentGroupValue(agent: AgentRecord): string {
   const direct = agent.group_id ?? agent.group;

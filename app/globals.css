@@ -254,6 +254,9 @@
 /* Enable class-based dark mode for Tailwind v4 */
 @variant dark (&:where(.dark, .dark *));
 
+/* Touch screens: no hover and a coarse pointer. A desktop mouse never matches, even in a narrow window. */
+@custom-variant touch (@media (hover: none) and (pointer: coarse));
+
 /* Underline fields. A faint fill at rest; the full grey on hover or focus.
    Full grey is slate-100 / slate-900. */
 .underline-field {
@@ -261,18 +264,28 @@
   transition: background-color 150ms ease;
 }
 
-.underline-field:hover,
 .underline-field:focus-within {
   background-color: #f1f5f9;
+}
+
+@media (hover: hover) {
+  .underline-field:hover {
+    background-color: #f1f5f9;
+  }
 }
 
 html.dark .underline-field {
   background-color: color-mix(in srgb, #0f172a 18%, transparent);
 }
 
-html.dark .underline-field:hover,
 html.dark .underline-field:focus-within {
   background-color: #0f172a;
+}
+
+@media (hover: hover) {
+  html.dark .underline-field:hover {
+    background-color: #0f172a;
+  }
 }
 
 /* A value that differs from its formula default. Quiet wash plus a short left mark. */
@@ -291,9 +304,14 @@ html.dark .underline-field:focus-within {
   background-color: color-mix(in srgb, #fbbf24 14%, transparent);
 }
 
-.underline-field.is-changed:not(.is-locked):hover,
 .underline-field.is-changed:not(.is-locked):focus-within {
   background-color: color-mix(in srgb, #fef3c7 72%, #f1f5f9);
+}
+
+@media (hover: hover) {
+  .underline-field.is-changed:not(.is-locked):hover {
+    background-color: color-mix(in srgb, #fef3c7 72%, #f1f5f9);
+  }
 }
 
 html.dark .underline-field.is-changed::before {
@@ -304,9 +322,14 @@ html.dark .underline-field.is-changed:not(.is-locked) {
   background-color: color-mix(in srgb, #fbbf24 12%, transparent);
 }
 
-html.dark .underline-field.is-changed:not(.is-locked):hover,
 html.dark .underline-field.is-changed:not(.is-locked):focus-within {
   background-color: color-mix(in srgb, #fbbf24 18%, #0f172a);
+}
+
+@media (hover: hover) {
+  html.dark .underline-field.is-changed:not(.is-locked):hover {
+    background-color: color-mix(in srgb, #fbbf24 18%, #0f172a);
+  }
 }
 
 /* Read-only parameters stay flat and do not brighten on hover. */

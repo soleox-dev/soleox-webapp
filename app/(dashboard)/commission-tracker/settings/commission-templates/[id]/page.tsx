@@ -14,6 +14,7 @@ import { interpretValidationRule } from '@/lib/parameter-validation';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { Rows3 } from 'lucide-react';
 import { useRegisterSave } from '@/components/save-leave-guard';
+import { underlineControl } from '@/components/ui/underline-field';
 
 type ParameterType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
 
@@ -83,8 +84,6 @@ const underlineShell =
   'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600';
 const underlineLabel =
   'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
-const underlineControl =
-  'w-full border-0 bg-transparent p-0 h-5 text-xs leading-4 font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 dark:text-white dark:placeholder:text-slate-500';
 const fieldColumn = 'w-full max-w-[39rem]';
 const sideLabel = 'pt-1 text-xs font-bold leading-4 text-slate-900 dark:text-white';
 
@@ -2025,7 +2024,7 @@ export default function CommissionTemplateDetailPage() {
                 required
                 value={editName}
                 onChange={(event) => setEditName(event.target.value)}
-                className={`${underlineControl} h-5`}
+                className={underlineControl}
               />
             </label>
             <label className={underlineShell}>
