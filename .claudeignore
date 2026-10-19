@@ -1,0 +1,41 @@
+# Environment & Secrets (CRITICAL - Keeps API keys and secrets private)
+.env
+.env*
+config/secrets.json
+*.pem
+*.key
+gcp-key.json
+
+# Dependencies & Build Artifacts (Prevents scanning heavy compiled folders)
+node_modules/
+.next/
+dist/
+build/
+*.tsbuildinfo
+
+# Raw Data, Imports & Database Seeds/Dumps
+data/
+db/seeds/
+db/*.json
+*.xlsx
+*.csv
+*.tsv
+
+# Large Generated Metadata & Logs
+structure.txt
+*.log
+
+# Backups and Temporary Files
+*_backup.*
+*backup*
+*.bak
+*.tmp
+__pycache__/
+.DS_Store
+
+# Static Assets
+*.html
+
+# IDE Metadata & Cache Folders
+.cursor/
+.vscode/
