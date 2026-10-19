@@ -26,7 +26,7 @@ Below `md` the report title is 20px instead of 30px (the clickable metric and ca
 
 ### Scrolling on phones
 
-Below `md`, every report scrolls the page natively by touch. Agent Earnings, Team Caps, and Owner Summary with hidden scorecards or an open drilldown do not lock `html` and `body` to `overflow: hidden` or forward wheel scrolling there; that full-screen layout applies only at `md` and wider.
+Below `md`, every report scrolls the page natively by touch. Agent Earnings, Team Caps, and Owner Summary with hidden scorecards or an open drilldown do not lock `html` and `body` to `overflow: hidden` or forward wheel scrolling there; that full-screen layout applies only when the screen is at least 768px wide and 560px tall (the `screenfit:` variant and `useFitsScreen`). A phone in landscape is wide but short, so it scrolls the page like portrait.
 
 ### Filters
 

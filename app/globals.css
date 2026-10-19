@@ -355,6 +355,10 @@ thead th.sticky[class*="left-"] {
 /* Touch screens: no hover and a coarse pointer. A desktop mouse never matches, even in a narrow window. */
 @custom-variant touch (@media (hover: none) and (pointer: coarse));
 
+/* Wide and tall enough for full-screen report layouts (Agent Earnings, Team Caps). A phone in landscape is
+   wide but short, so it scrolls the page like portrait. Keep in sync with FIT_SCREEN_QUERY. */
+@custom-variant screenfit (@media (min-width: 768px) and (min-height: 560px));
+
 /* Underline fields. A faint fill at rest; the full grey on hover or focus.
    Full grey is slate-100 / slate-900. */
 .underline-field {

@@ -5,6 +5,9 @@ import { useCallback, useSyncExternalStore } from 'react';
 /** Tailwind's `md` breakpoint. Desktop layout starts here. */
 export const DESKTOP_QUERY = '(min-width: 768px)';
 
+/** Same media query as the `screenfit:` variant in globals.css: wide and tall enough for full-screen report layouts. */
+export const FIT_SCREEN_QUERY = '(min-width: 768px) and (min-height: 560px)';
+
 /** Same media query as the `touch:` variant in globals.css. */
 export const TOUCH_QUERY = '(hover: none) and (pointer: coarse)';
 
@@ -42,4 +45,9 @@ export function useIsDesktop(): boolean {
 /** True on touch screens (no hover, coarse pointer). False before hydration, matching desktop. */
 export function useIsTouch(): boolean {
   return useMediaQuery(TOUCH_QUERY, false);
+}
+
+/** True when the screen is wide and tall enough for full-screen report layouts. Assumes so before hydration. */
+export function useFitsScreen(): boolean {
+  return useMediaQuery(FIT_SCREEN_QUERY, true);
 }
