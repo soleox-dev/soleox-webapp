@@ -345,6 +345,11 @@ thead th.sticky[class*="left-"] {
 /* Touch screens: no hover and a coarse pointer. A desktop mouse never matches, even in a narrow window. */
 @custom-variant touch (@media (hover: none) and (pointer: coarse));
 
+/* The desktop top bar: md and wider, except phones in landscape (touch with a short viewport),
+   which keep the phone menu. Desktops never match the exception; iPads are too tall for it.
+   Same media query as DESKTOP_NAV_QUERY in lib/use-media-query.ts. */
+@custom-variant desktop-nav (@media (min-width: 48rem) and (not ((hover: none) and (pointer: coarse) and (max-height: 500px))));
+
 /* Underline fields. A faint fill at rest; the full grey on hover or focus.
    Full grey is slate-100 / slate-900. */
 .underline-field {

@@ -5,6 +5,13 @@ import { useCallback, useSyncExternalStore } from 'react';
 /** Tailwind's `md` breakpoint. Desktop layout starts here. */
 export const DESKTOP_QUERY = '(min-width: 768px)';
 
+/**
+ * Same media query as the `desktop-nav:` variant in globals.css: md and wider, except phones in
+ * landscape (touch with a short viewport), which keep the phone menu.
+ */
+export const DESKTOP_NAV_QUERY =
+  '(min-width: 768px) and (not ((hover: none) and (pointer: coarse) and (max-height: 500px)))';
+
 /** Same media query as the `touch:` variant in globals.css. */
 export const TOUCH_QUERY = '(hover: none) and (pointer: coarse)';
 
@@ -42,4 +49,9 @@ export function useIsDesktop(): boolean {
 /** True on touch screens (no hover, coarse pointer). False before hydration, matching desktop. */
 export function useIsTouch(): boolean {
   return useMediaQuery(TOUCH_QUERY, false);
+}
+
+/** True where the desktop top bar shows (see DESKTOP_NAV_QUERY). Assumes desktop before hydration. */
+export function useIsDesktopNav(): boolean {
+  return useMediaQuery(DESKTOP_NAV_QUERY, true);
 }
