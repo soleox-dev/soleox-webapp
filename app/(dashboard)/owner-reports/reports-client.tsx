@@ -3,7 +3,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
-import { ArrowLeft, Calendar, Check, ChevronDown, ChevronUp, Info, X } from 'lucide-react';
+import { ArrowLeft, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, X } from 'lucide-react';
 import { pageFrame } from '@/lib/page-frame';
 import { useIsDesktop, useIsTouch } from '@/lib/use-media-query';
 import { FieldChevron, underlineControl, underlineShell } from '@/components/ui/underline-field';
@@ -690,6 +690,10 @@ export default function OwnerReportsPage() {
   const [reveal, setReveal] = useState(false);
   const launchLock = useRef(false);
   const keptScroll = useRef<number | null>(null);
+  const swipeRef = useRef<HTMLElement>(null);
+  const arrivalRef = useRef<SwipeDirection | null>(null);
+  const wheelCooldownRef = useRef(0);
+  const [swipeHint, setSwipeHint] = useState<{ dir: SwipeDirection; label: string; progress: number } | null>(null);
   const selectReport = (id: string | null) => {
     const href = id ? `/owner-reports/${id}` : '/owner-reports';
     if (href === pathname) return;
@@ -747,20 +751,29 @@ export default function OwnerReportsPage() {
       if (horizontal) event.preventDefault();
       if (next < 0 || next >= OWNER_REPORTS.length) return;
       if (!horizontal) event.preventDefault();
+      arrivalRef.current = forward ? 'next' : 'prev';
       selectReport(OWNER_REPORTS[next].id);
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [pathname, reportId, router]);
 
-  // On touch screens a horizontal swipe pages between reports: left for the next, right for the previous.
-  // Swipes that start on something that scrolls sideways (wide tables), in a form field, near the screen
-  // edges (iOS back gesture), or while a menu or dropdown is open are left alone.
-  const touch = useIsTouch();
+  // A horizontal swipe pages between reports in menu order on every device: a finger on touch screens,
+  // a two-finger sideways swipe on a trackpad. Left goes to the next report, right to the previous one.
+  // The report follows the gesture with a hint naming the destination, slides out when it pages, and the
+  // new report slides in. Swipes on something that scrolls sideways (wide tables), in a form field, near
+  // a touch screen's edges (iOS back gesture), or while a menu or dropdown is open are left alone.
   useEffect(() => {
-    if (!touch || !reportId) return;
-    let start: { x: number; y: number; time: number } | null = null;
-    const scrollsSideways = (target: EventTarget | null) => {
+    const el = swipeRef.current;
+    const index = OWNER_REPORTS.findIndex((item) => item.id === reportId);
+    if (!reportId || !el || index < 0) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const TOUCH_COMMIT = 90;
+    const WHEEL_COMMIT = 140;
+    const neighbor = (dir: SwipeDirection) => OWNER_REPORTS[index + (dir === 'next' ? 1 : -1)] ?? null;
+    const blocked = (target: EventTarget | null) => {
+      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"], [role="listbox"], [data-owner-menu], .app-modal')) return true;
+      if (document.querySelector('[role="listbox"], [data-owner-menu], .app-modal')) return true;
       let node = target instanceof Element ? target : null;
       while (node && node !== document.body) {
         const style = getComputedStyle(node);
@@ -769,43 +782,166 @@ export default function OwnerReportsPage() {
       }
       return false;
     };
-    const onStart = (event: TouchEvent) => {
-      start = null;
+    const timers: number[] = [];
+    const later = (fn: () => void, ms: number) => {
+      timers.push(window.setTimeout(fn, ms));
+    };
+    const show = (dx: number, commitAt: number) => {
+      const dir: SwipeDirection = dx < 0 ? 'next' : 'prev';
+      const target = neighbor(dir);
+      // Past the first or last report the page only stretches a little.
+      const shift = target ? Math.max(-160, Math.min(160, dx * 0.55)) : Math.max(-28, Math.min(28, dx * 0.15));
+      if (!reduce) {
+        el.style.transition = 'none';
+        el.style.transform = `translateX(${shift}px)`;
+        el.style.opacity = String(1 - Math.min(0.4, Math.abs(shift) / 400));
+      }
+      if (!target || Math.abs(dx) < 12) {
+        setSwipeHint(null);
+        return;
+      }
+      const choice = reportChoice(target.id);
+      setSwipeHint({ dir, label: `${choice.number} ${choice.name}`, progress: Math.min(1, Math.abs(dx) / commitAt) });
+    };
+    const settle = () => {
+      setSwipeHint(null);
+      if (reduce) return;
+      el.style.transition = 'transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 240ms ease-out';
+      el.style.transform = '';
+      el.style.opacity = '';
+      later(() => {
+        el.style.transition = '';
+      }, 260);
+    };
+    const commit = (dir: SwipeDirection) => {
+      const target = neighbor(dir);
+      if (!target) {
+        settle();
+        return;
+      }
+      setSwipeHint(null);
+      arrivalRef.current = dir;
+      if (reduce) {
+        selectReport(target.id);
+        return;
+      }
+      el.style.transition = 'transform 170ms cubic-bezier(0.4, 0, 1, 1), opacity 170ms ease-in';
+      el.style.transform = `translateX(${dir === 'next' ? '-' : ''}30%)`;
+      el.style.opacity = '0';
+      later(() => selectReport(target.id), 150);
+      // If the new report never arrives, bring this one back.
+      later(() => {
+        arrivalRef.current = null;
+        settle();
+      }, 2000);
+    };
+
+    let touchStart: { x: number; y: number; time: number } | null = null;
+    let touchMode: 'pending' | 'horizontal' = 'pending';
+    const onTouchStart = (event: TouchEvent) => {
+      touchStart = null;
       if (event.touches.length !== 1) return;
       const point = event.touches[0];
-      const edge = 24;
-      if (point.clientX < edge || point.clientX > window.innerWidth - edge) return;
-      const target = event.target;
-      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"], [role="listbox"], [data-owner-menu], .app-modal')) return;
-      if (document.querySelector('[role="listbox"], [data-owner-menu], .app-modal')) return;
-      if (scrollsSideways(target)) return;
-      start = { x: point.clientX, y: point.clientY, time: event.timeStamp };
+      if (point.clientX < 24 || point.clientX > window.innerWidth - 24) return;
+      if (blocked(event.target)) return;
+      touchStart = { x: point.clientX, y: point.clientY, time: event.timeStamp };
+      touchMode = 'pending';
     };
-    const onEnd = (event: TouchEvent) => {
-      const from = start;
-      start = null;
-      if (!from || event.changedTouches.length !== 1) return;
+    const onTouchMove = (event: TouchEvent) => {
+      if (!touchStart || event.touches.length !== 1) return;
+      const point = event.touches[0];
+      const dx = point.clientX - touchStart.x;
+      const dy = point.clientY - touchStart.y;
+      if (touchMode === 'pending') {
+        if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.5) touchMode = 'horizontal';
+        else if (Math.abs(dy) > 10) {
+          touchStart = null;
+          return;
+        } else return;
+      }
+      show(dx, TOUCH_COMMIT);
+    };
+    const onTouchEnd = (event: TouchEvent) => {
+      const from = touchStart;
+      touchStart = null;
+      if (!from || touchMode !== 'horizontal') return;
       const point = event.changedTouches[0];
-      const dx = point.clientX - from.x;
-      const dy = point.clientY - from.y;
-      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5 || event.timeStamp - from.time > 700) return;
-      const index = OWNER_REPORTS.findIndex((item) => item.id === reportId);
-      const next = index + (dx < 0 ? 1 : -1);
-      if (index < 0 || next < 0 || next >= OWNER_REPORTS.length) return;
-      selectReport(OWNER_REPORTS[next].id);
+      const dx = point ? point.clientX - from.x : 0;
+      const fast = Math.abs(dx) > 40 && Math.abs(dx) / Math.max(1, event.timeStamp - from.time) > 0.4;
+      if (Math.abs(dx) >= TOUCH_COMMIT || fast) commit(dx < 0 ? 'next' : 'prev');
+      else settle();
     };
-    const onCancel = () => {
-      start = null;
+    const onTouchCancel = () => {
+      if (touchStart && touchMode === 'horizontal') settle();
+      touchStart = null;
     };
-    document.addEventListener('touchstart', onStart, { passive: true });
-    document.addEventListener('touchend', onEnd, { passive: true });
-    document.addEventListener('touchcancel', onCancel, { passive: true });
+
+    let wheelTotal = 0;
+    let wheelIdle = 0;
+    const onWheel = (event: WheelEvent) => {
+      // Shift + wheel is a mouse scrolling sideways, not a swipe; ctrl + wheel is pinch zoom.
+      if (event.ctrlKey || event.shiftKey || Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+      if (blocked(event.target)) return;
+      // Keeps the browser's own back/forward swipe from firing on top of ours.
+      event.preventDefault();
+      const now = performance.now();
+      if (now < wheelCooldownRef.current) {
+        wheelCooldownRef.current = now + 350;
+        return;
+      }
+      const delta = event.deltaMode === 1 ? event.deltaX * 16 : event.deltaX;
+      wheelTotal -= delta;
+      show(wheelTotal, WHEEL_COMMIT);
+      window.clearTimeout(wheelIdle);
+      if (Math.abs(wheelTotal) >= WHEEL_COMMIT) {
+        const dir: SwipeDirection = wheelTotal < 0 ? 'next' : 'prev';
+        wheelTotal = 0;
+        // Trackpad momentum keeps sending wheel events; ignore them until the gesture is over.
+        wheelCooldownRef.current = now + 350;
+        commit(dir);
+        return;
+      }
+      wheelIdle = window.setTimeout(() => {
+        wheelTotal = 0;
+        settle();
+      }, 180);
+    };
+
+    document.addEventListener('touchstart', onTouchStart, { passive: true });
+    document.addEventListener('touchmove', onTouchMove, { passive: true });
+    document.addEventListener('touchend', onTouchEnd, { passive: true });
+    document.addEventListener('touchcancel', onTouchCancel, { passive: true });
+    window.addEventListener('wheel', onWheel, { passive: false });
     return () => {
-      document.removeEventListener('touchstart', onStart);
-      document.removeEventListener('touchend', onEnd);
-      document.removeEventListener('touchcancel', onCancel);
+      document.removeEventListener('touchstart', onTouchStart);
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', onTouchEnd);
+      document.removeEventListener('touchcancel', onTouchCancel);
+      window.removeEventListener('wheel', onWheel);
+      window.clearTimeout(wheelIdle);
+      timers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [touch, pathname, reportId, router]);
+  }, [pathname, reportId, router]);
+
+  // The report that a swipe or arrow key paged to slides in from the side it came from.
+  useLayoutEffect(() => {
+    const dir = arrivalRef.current;
+    const el = swipeRef.current;
+    arrivalRef.current = null;
+    if (!dir || !el) return;
+    el.style.transition = '';
+    el.style.transform = '';
+    el.style.opacity = '';
+    setSwipeHint(null);
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    el.animate(
+      [
+        { transform: `translateX(${dir === 'next' ? '' : '-'}12%)`, opacity: 0 },
+        { transform: 'translateX(0)', opacity: 1 },
+      ],
+      { duration: 280, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
+    );
+  }, [reportId]);
 
   useLayoutEffect(() => {
     const y = keptScroll.current;
@@ -839,8 +975,9 @@ export default function OwnerReportsPage() {
 
   return (
     <main onClick={!report && !loading ? launch : undefined} className={`[overflow-anchor:none] text-slate-900 dark:text-slate-100 ${reportCanvas} ${!report && !loading ? 'cursor-pointer' : ''} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'min-h-screen md:min-h-0 md:h-dvh md:overflow-hidden' : 'min-h-screen'}`}>
+      {swipeHint ? <SwipeHint {...swipeHint} /> : null}
       <div className={`${pageFrame} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'pb-3 md:flex md:h-full md:min-h-0 md:flex-col md:overflow-hidden' : 'pb-4'}`}>
-        <section className={`min-w-0 ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'md:flex md:min-h-0 md:flex-1 md:flex-col' : `space-y-4 ${reveal ? 'report-arrive' : ''}`}`}>
+        <section ref={swipeRef} className={`min-w-0 ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'md:flex md:min-h-0 md:flex-1 md:flex-col' : `space-y-4 ${reveal ? 'report-arrive' : ''}`}`}>
           {loading ? (
             <LoadingDataPage
               progress={loadProgress}
@@ -936,6 +1073,31 @@ export default function OwnerReportsPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+type SwipeDirection = 'next' | 'prev';
+
+/** Edge hint shown while swiping: the report a release will open. It fills emerald once a release will page. */
+function SwipeHint({ dir, label, progress }: { dir: SwipeDirection; label: string; progress: number }) {
+  const ready = progress >= 1;
+  const Arrow = dir === 'next' ? ChevronRight : ChevronLeft;
+  return (
+    <div
+      aria-hidden
+      className={`pointer-events-none fixed top-1/2 z-[55] flex max-w-[70vw] items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-bold shadow-xl transition-colors duration-150 ${
+        dir === 'next' ? 'right-3 flex-row-reverse' : 'left-3'
+      } ${ready
+        ? 'border-emerald-500 bg-emerald-500 text-white'
+        : 'border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'}`}
+      style={{
+        opacity: 0.35 + progress * 0.65,
+        transform: `translate(${(1 - progress) * (dir === 'next' ? 24 : -24)}px, -50%) scale(${0.92 + progress * 0.08})`,
+      }}
+    >
+      <Arrow className="h-4 w-4 shrink-0" strokeWidth={2.5} />
+      <span className="truncate">{label}</span>
+    </div>
   );
 }
 
