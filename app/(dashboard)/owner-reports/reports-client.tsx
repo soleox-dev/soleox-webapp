@@ -3473,6 +3473,21 @@ function svgUserX(svg: SVGSVGElement, clientX: number, clientY: number): number 
   return point.matrixTransform(matrix.inverse()).x;
 }
 
+let axisCanvas: HTMLCanvasElement | null = null;
+
+/** Room the y-axis labels need on a phone chart: the widest label, a 4-unit gap to the axis, and 2 units of air. */
+function axisLabelSpace(labels: string[], fontSize: number): number {
+  let widest = 0;
+  const context = typeof document === 'undefined' ? null : (axisCanvas ??= document.createElement('canvas')).getContext('2d');
+  if (context) {
+    context.font = `${fontSize}px ${getComputedStyle(document.body).fontFamily}`;
+    widest = Math.max(0, ...labels.map((label) => context.measureText(label).width));
+  } else {
+    widest = Math.max(0, ...labels.map((label) => label.length * fontSize * 0.6));
+  }
+  return Math.ceil(widest) + 6;
+}
+
 function TrendChart({ metric, title, months, priorMonths, currentClass, previousClass, cumulative = false }: {
   metric: TrendMetric;
   title: string;
@@ -3487,10 +3502,6 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
   const isDesktop = useIsDesktop();
   const width = isDesktop ? 640 : 340;
   const height = 250;
-  // Phones keep only the margin the y-axis labels need so the plot runs nearly edge to edge.
-  const pad = isDesktop ? { left: 52, right: 16, top: 16, bottom: 32 } : { left: 42, right: 6, top: 16, bottom: 28 };
-  const innerW = width - pad.left - pad.right;
-  const innerH = height - pad.top - pad.bottom;
   const currentValues = months.map((row) => trendValue(row, metric));
   const previousValues = months.map((_, index) => trendValue(priorMonths[index] || emptyTotals(), metric));
   const plottedCurrent = cumulative ? runningTotal(currentValues) : currentValues;
@@ -3500,6 +3511,11 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
   const max = Math.max(metric === 'rate' ? 0.01 : 1, ...plottedCurrent, ...plottedPrevious);
   const ticks = trendTicks(max);
   const axisMax = ticks[ticks.length - 1] || 1;
+  const tickLabel = (tick: number) => (metric === 'rate' ? `${(tick * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%` : metric === 'units' ? Math.round(tick).toLocaleString() : compactMoney(tick));
+  // Phones keep only the margin the y-axis labels need (left of the axis) so the plot runs nearly edge to edge.
+  const pad = isDesktop ? { left: 52, right: 16, top: 16, bottom: 32 } : { left: axisLabelSpace(ticks.map(tickLabel), 12), right: 6, top: 16, bottom: 28 };
+  const innerW = width - pad.left - pad.right;
+  const innerH = height - pad.top - pad.bottom;
   const xAt = (index: number) => pad.left + (months.length <= 1 ? innerW / 2 : (index / (months.length - 1)) * innerW);
   const yAt = (value: number) => pad.top + innerH - (value / axisMax) * innerH;
   const currentPoints = plottedCurrent.map((value, index) => ({ x: xAt(index), y: yAt(value) }));
@@ -3513,7 +3529,7 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
   const hoverX = hover === null ? 0 : (xAt(hover) / width) * 100;
   const peaks = linePeaks(currentPoints, currentPresent, plottedCurrent);
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 max-md:px-1.5 dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-xl border border-slate-200 bg-white p-3 max-md:pl-1 max-md:pr-1.5 dark:border-slate-800 dark:bg-slate-900">
       <div className="relative">
         <svg
           viewBox={`0 0 ${width} ${height}`}
@@ -3538,7 +3554,7 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
             <g key={tick}>
               <line x1={pad.left} x2={width - pad.right} y1={yAt(tick)} y2={yAt(tick)} className="stroke-slate-100 dark:stroke-slate-800" strokeWidth="1" />
               <text x={pad.left - (isDesktop ? 8 : 4)} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>
-                {metric === 'rate' ? `${(tick * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%` : metric === 'units' ? Math.round(tick).toLocaleString() : compactMoney(tick)}
+                {tickLabel(tick)}
               </text>
             </g>
           ))}
@@ -3634,15 +3650,16 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
   const isDesktop = useIsDesktop();
   const width = isDesktop ? 640 : 340;
   const height = 250;
-  // Phones put the y-axis labels inside the plot so the bars run nearly edge to edge.
-  const pad = isDesktop ? { left: 52, right: 16, top: 16, bottom: 32 } : { left: 42, right: 6, top: 16, bottom: 28 };
-  const innerW = width - pad.left - pad.right;
-  const innerH = height - pad.top - pad.bottom;
   const currentValues = months.map((row) => trendValue(row, metric));
   const previousValues = months.map((_, index) => trendValue(priorMonths[index] || emptyTotals(), metric));
   const max = Math.max(metric === 'rate' ? 0.01 : 1, ...currentValues, ...previousValues);
   const ticks = trendTicks(max);
   const axisMax = ticks[ticks.length - 1] || 1;
+  const tickLabel = (tick: number) => (metric === 'rate' ? `${(tick * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%` : compactMoney(tick));
+  // Phones keep only the margin the y-axis labels need (left of the axis) so the plot runs nearly edge to edge.
+  const pad = isDesktop ? { left: 52, right: 16, top: 16, bottom: 32 } : { left: axisLabelSpace(ticks.map(tickLabel), 12), right: 6, top: 16, bottom: 28 };
+  const innerW = width - pad.left - pad.right;
+  const innerH = height - pad.top - pad.bottom;
   const slot = months.length ? innerW / months.length : innerW;
   const gap = 3;
   const barWidth = Math.max(6, Math.min(32, (slot - gap - 6) / 2));
@@ -3657,7 +3674,7 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
   const prior = hover === null ? 0 : previousValues[hover] || 0;
   const hoverX = hover === null ? 0 : (center(hover) / width) * 100;
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 max-md:px-1.5 dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-xl border border-slate-200 bg-white p-3 max-md:pl-1 max-md:pr-1.5 dark:border-slate-800 dark:bg-slate-900">
       <div className="relative">
         <svg
           viewBox={`0 0 ${width} ${height}`}
@@ -3673,7 +3690,7 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
             <g key={tick}>
               <line x1={pad.left} x2={width - pad.right} y1={yAt(tick)} y2={yAt(tick)} className="stroke-slate-100 dark:stroke-slate-800" strokeWidth="1" />
               <text x={pad.left - (isDesktop ? 8 : 4)} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>
-                {metric === 'rate' ? `${(tick * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%` : compactMoney(tick)}
+                {tickLabel(tick)}
               </text>
             </g>
           ))}
@@ -4409,16 +4426,17 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
   const isDesktop = useIsDesktop();
   const width = isDesktop ? 640 : 340;
   const height = 250;
-  // Phones keep only the margin the y-axis labels need so the plot runs nearly edge to edge.
-  const pad = isDesktop ? { left: 56, right: 16, top: 16, bottom: 32 } : { left: 42, right: 6, top: 16, bottom: 28 };
-  const innerW = width - pad.left - pad.right;
-  const innerH = height - pad.top - pad.bottom;
   const previous = columns.map((_, index) => priorValues[index] || 0);
   const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
   const priorAverage = previous.length ? previous.reduce((sum, value) => sum + value, 0) / previous.length : 0;
   const max = Math.max(1, ...values, ...previous, average, priorAverage);
   const ticks = trendTicks(max);
   const axisMax = ticks[ticks.length - 1] || 1;
+  const tickLabel = (tick: number) => compactMoney(tick);
+  // Phones keep only the margin the y-axis labels need (left of the axis) so the plot runs nearly edge to edge.
+  const pad = isDesktop ? { left: 56, right: 16, top: 16, bottom: 32 } : { left: axisLabelSpace(ticks.map(tickLabel), 12), right: 6, top: 16, bottom: 28 };
+  const innerW = width - pad.left - pad.right;
+  const innerH = height - pad.top - pad.bottom;
   const xAt = (index: number) => pad.left + (columns.length <= 1 ? innerW / 2 : (index / (columns.length - 1)) * innerW);
   const yAt = (value: number) => pad.top + innerH - (value / axisMax) * innerH;
   const points = values.map((value, index) => ({ x: xAt(index), y: yAt(value) }));
@@ -4476,7 +4494,7 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
     else onSelect(key);
   };
   return (
-    <div className="h-full rounded-xl border border-slate-200 bg-white p-3 max-md:px-1.5 dark:border-slate-800 dark:bg-slate-900">
+    <div className="h-full rounded-xl border border-slate-200 bg-white p-3 max-md:pl-1 max-md:pr-1.5 dark:border-slate-800 dark:bg-slate-900">
       <div className="relative">
         <svg
           ref={svgRef}
@@ -4508,7 +4526,7 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
           {ticks.map((tick) => (
             <g key={tick}>
               <line x1={pad.left} x2={width - pad.right} y1={yAt(tick)} y2={yAt(tick)} className="stroke-slate-100 dark:stroke-slate-800" strokeWidth="1" />
-              <text x={pad.left - (isDesktop ? 8 : 4)} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>{compactMoney(tick)}</text>
+              <text x={pad.left - (isDesktop ? 8 : 4)} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize={isDesktop ? 11 : 12}>{tickLabel(tick)}</text>
             </g>
           ))}
           <path d={areaUnder(points, yAt(0))} fill="url(#area-fade-earnings)" stroke="none" />
