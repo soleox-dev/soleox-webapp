@@ -131,6 +131,7 @@ export default function OwnerReportsPage() {
   const [capPicked, setCapPicked] = useState<string[] | null>(null);
   const [capYearOffset, setCapYearOffset] = useState(0);
   const [capOpen, setCapOpen] = useState<{ capId: string; agentId: string } | null>(null);
+  const [capShowPaid, setCapShowPaid] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [loadProgress, setLoadProgress] = useState<LoadingProgressInfo>({
@@ -651,6 +652,13 @@ export default function OwnerReportsPage() {
       });
     });
     const contributions = [...capContributions, ...agentContributions];
+    const paid = new Map<string, Set<string>>();
+    payments.forEach((payment) => {
+      if (!payment.agentId || !payment.transactionId || payeeKind(payment) !== 'agent' || Math.abs(payment.amount) < 0.01) return;
+      const ids = paid.get(payment.agentId) || new Set<string>();
+      ids.add(payment.transactionId);
+      paid.set(payment.agentId, ids);
+    });
     const activeCaps = teamCaps.filter((cap) => cap.enabled || contributions.some((row) => row.teamCapId === cap.id));
     return activeCaps.flatMap((cap) => {
       const rows = teamCapStandings({
@@ -660,11 +668,12 @@ export default function OwnerReportsPage() {
         deals: dealMap,
         names,
         asOf: capAsOf,
+        paid,
       });
       if (rows.length === 0) return [];
       return [{ cap, rows, count: rows.reduce((sum, row) => sum + row.lines.length, 0) }];
     });
-  }, [agentProfiles, capAsOf, capContributions, filtered, names, postSplits, reportId, teamCaps]);
+  }, [agentProfiles, capAsOf, capContributions, filtered, names, payments, postSplits, reportId, teamCaps]);
   const capChoices = capSections.map((section) => ({ value: section.cap.id, label: section.cap.name, count: section.count, group: section.cap.kind }));
   const capFallback = capSections[0] ? [capSections[0].cap.id] : null;
   const visibleCapSections = capSections.filter((section) => pickMatches(capPicked, capFallback, section.cap.id, false));
@@ -857,6 +866,8 @@ export default function OwnerReportsPage() {
               capAsOf={capAsOf}
               capOpen={capOpen}
               onCapOpen={setCapOpen}
+              capShowPaid={capShowPaid}
+              onCapShowPaid={setCapShowPaid}
               capEmpty={teamCaps.length === 0
                 ? 'No caps are set up yet.'
                 : capPicked?.length === 0
@@ -1177,6 +1188,8 @@ function ReportView(props: {
   capAsOf: string;
   capOpen: { capId: string; agentId: string } | null;
   onCapOpen: (value: { capId: string; agentId: string } | null) => void;
+  capShowPaid: boolean;
+  onCapShowPaid: (value: boolean) => void;
   capEmpty: string;
 }) {
   const { reportId, closed, pending, taken, closedPrior, pendingPrior, names, range, priorRange, metric, netCommission, priorNetCommission, allDeals, deals, payments, teamLeadIds } = props;
@@ -1332,6 +1345,7 @@ function ReportView(props: {
           hideDate={props.reportId === 'team-caps'}
           capYearOffset={props.capYearOffset}
           onCapYearOffset={props.onCapYearOffset}
+          capShowPaid={props.reportId === 'team-caps' ? props.capShowPaid : undefined}
           boardMetrics={undefined}
           payeeChoices={(props.reportId === 'net-commission-income' || (props.reportId === 'lead-source-leaderboard' && (props.boardMetric === 'payment:agent' || props.boardMetric === 'payment:entity'))) ? props.payeeChoices : undefined}
           excludeTeamLeads={(props.reportId === 'team-performance' || props.reportId === 'net-commission-income' || (props.reportId === 'lead-source-leaderboard' && props.boardMetric !== 'payment:entity')) ? props.excludeTeamLeads : undefined}
@@ -1388,6 +1402,8 @@ function ReportView(props: {
             capYearOffset={props.capYearOffset}
             capOpen={props.capOpen}
             onCapOpen={props.onCapOpen}
+            capShowPaid={props.capShowPaid}
+            onCapShowPaid={props.onCapShowPaid}
             capEmpty={props.capEmpty}
           />
         ) : null}
@@ -1439,6 +1455,8 @@ function FilterBar(props: {
   hideDate?: boolean;
   capYearOffset?: number;
   onCapYearOffset?: (value: number) => void;
+  capShowPaid?: boolean;
+  onCapShowPaid?: (value: boolean) => void;
 }) {
   return (
     <div className="relative z-30 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3">
@@ -1488,6 +1506,17 @@ function FilterBar(props: {
             className="h-4 w-4 cursor-pointer accent-emerald-600"
           />
           Exclude Team Lead(s)
+        </label>
+      ) : null}
+      {props.capShowPaid !== undefined && props.onCapShowPaid ? (
+        <label title="Lists every transaction in the agent’s cap year where the agent was paid. Rows that add nothing to this cap are grey." className="mb-1 flex h-5 cursor-pointer items-center gap-2 self-end text-xs font-medium normal-case tracking-normal text-slate-700 dark:text-slate-200">
+          <input
+            type="checkbox"
+            checked={props.capShowPaid}
+            onChange={(event) => props.onCapShowPaid?.(event.target.checked)}
+            className="h-4 w-4 cursor-pointer accent-emerald-600"
+          />
+          Show all paid transactions
         </label>
       ) : null}
       {props.hideMetric ? null : (
@@ -2201,6 +2230,8 @@ function ReportBody(props: {
   capYearOffset: number;
   capOpen: { capId: string; agentId: string } | null;
   onCapOpen: (value: { capId: string; agentId: string } | null) => void;
+  capShowPaid: boolean;
+  onCapShowPaid: (value: boolean) => void;
   capEmpty: string;
 }) {
   const { id, closed, pending, taken, closedPrior, pendingPrior, names, range, priorRange, metric, netCommission, priorNetCommission, allDeals, deals, payments, entityNames, teamLeadIds, boardField, payeePicked, excludeTeamLeads, dateBasis, sidePicked, cumulative, preset } = props;
@@ -2212,6 +2243,7 @@ function ReportBody(props: {
         sections={props.capSections}
         open={props.capOpen}
         onOpen={props.onCapOpen}
+        showPaid={props.capShowPaid}
         empty={props.capEmpty}
       />
     );

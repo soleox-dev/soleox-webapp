@@ -146,17 +146,37 @@ function lineValue(row: CapDealLine, key: string): string | number | null {
   return null;
 }
 
-function CapSection({ cap, rows, openAgentId, onOpen }: {
+/** Contribution lines with the paid-only lines merged in by closing date. A paid-only line carries the cumulative before it. */
+function withPaidLines(open: CapStanding): CapDealLine[] {
+  const merged = [...open.lines, ...open.paidLines].sort((a, b) => {
+    const date = (a.closingDate || '').localeCompare(b.closingDate || '');
+    if (date) return date;
+    if (Boolean(a.paidOnly) !== Boolean(b.paidOnly)) return a.paidOnly ? 1 : -1;
+    return a.transactionId.localeCompare(b.transactionId);
+  });
+  let running = 0;
+  return merged.map((line) => {
+    if (!line.paidOnly) {
+      running = line.cumulative;
+      return line;
+    }
+    return { ...line, cumulative: running };
+  });
+}
+
+function CapSection({ cap, rows, openAgentId, onOpen, showPaid }: {
   cap: TeamCapDefinition;
   rows: CapStanding[];
   openAgentId: string | null;
   onOpen: (agentId: string) => void;
+  showPaid: boolean;
 }) {
   const standingsSort = useColumnSort();
   const detailSort = useColumnSort();
   const ordered = sortBy(rows, standingsSort.sort, standingValue);
   const open = rows.find((row) => row.agentId === openAgentId) || null;
-  const rankedLines = (open?.lines || []).map((line, index) => ({ ...line, rank: index + 1 }));
+  const openLines = open ? (showPaid ? withPaidLines(open) : open.lines) : [];
+  const rankedLines = openLines.map((line, index) => ({ ...line, rank: index + 1 }));
   const detail = sortBy(rankedLines, detailSort.sort, (row, key) => {
     if (key === 'rank') return row.rank;
     if (key === 'left') return open?.goal == null ? null : open.goal - row.cumulative;
@@ -225,13 +245,17 @@ function CapSection({ cap, rows, openAgentId, onOpen }: {
             <tbody>
               {detail.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-3 py-6 text-center text-sm text-slate-500">No contributions in this cap year.</td>
+                  <td colSpan={12} className="px-3 py-6 text-center text-sm text-slate-500">{showPaid ? 'No paid transactions in this cap year.' : 'No contributions in this cap year.'}</td>
                 </tr>
               ) : detail.map((line, index) => {
                 const percent = open.goal ? line.cumulative / open.goal : null;
                 const left = open.goal == null ? null : open.goal - line.cumulative;
                 return (
-                <tr key={line.transactionId ? `${line.transactionId}-${index}` : `cap-line-${index}`} className={rowStripe(index)}>
+                <tr
+                  key={line.transactionId ? `${line.transactionId}-${index}` : `cap-line-${index}`}
+                  className={line.paidOnly ? 'bg-zinc-200 text-slate-500 dark:bg-zinc-700/60 dark:text-slate-400' : rowStripe(index)}
+                  title={line.paidOnly ? 'The agent was paid on this transaction, but it added nothing to this cap.' : undefined}
+                >
                   <td className="px-3 py-2 text-right tabular-nums text-slate-400">{line.rank}</td>
                   <td className="px-3 py-2">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${line.pending ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'}`}>{line.status || '—'}</span>
@@ -242,7 +266,7 @@ function CapSection({ cap, rows, openAgentId, onOpen }: {
                   <td className="px-3 py-2 whitespace-nowrap tabular-nums">{formatUs(line.closingDate)}</td>
                   <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{capMoney(line.salesPrice)}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{line.leadSource || '—'}</td>
-                  <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{capMoney(line.amount)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{line.paidOnly ? '—' : capMoney(line.amount)}</td>
                   <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{capMoney(line.cumulative)}</td>
                   <td className="px-3 py-2"><GoalMeter total={line.cumulative} goal={open.goal} percent={percent} /></td>
                   <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap"><LeftAmount left={left} percent={percent} /></td>
@@ -331,10 +355,11 @@ function CapSection({ cap, rows, openAgentId, onOpen }: {
   );
 }
 
-export function TeamCapsReport({ sections, open, onOpen, empty }: {
+export function TeamCapsReport({ sections, open, onOpen, showPaid, empty }: {
   sections: Array<{ cap: TeamCapDefinition; rows: CapStanding[] }>;
   open: { capId: string; agentId: string } | null;
   onOpen: (value: { capId: string; agentId: string } | null) => void;
+  showPaid: boolean;
   empty: string;
 }) {
   if (sections.length === 0) {
@@ -349,6 +374,7 @@ export function TeamCapsReport({ sections, open, onOpen, empty }: {
           rows={section.rows}
           openAgentId={open?.capId === section.cap.id ? open.agentId : null}
           onOpen={(agentId) => onOpen({ capId: section.cap.id, agentId })}
+          showPaid={showPaid}
         />
       ))}
     </div>

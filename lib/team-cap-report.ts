@@ -41,6 +41,8 @@ export type CapDealLine = {
   amount: number;
   cumulative: number;
   pending: boolean;
+  /** The agent was paid on this transaction but it added nothing to this cap. */
+  paidOnly?: boolean;
 };
 
 export type CapStanding = {
@@ -57,6 +59,8 @@ export type CapStanding = {
   left: number | null;
   percent: number | null;
   lines: CapDealLine[];
+  /** Transactions in the cap year where the agent was paid and nothing went to this cap. */
+  paidLines: CapDealLine[];
 };
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -186,8 +190,10 @@ export function teamCapStandings(args: {
   deals: Map<string, ReportDeal>;
   names: Map<string, string>;
   asOf: string;
+  /** Transaction ids where each agent received a payment. */
+  paid?: Map<string, Set<string>>;
 }): CapStanding[] {
-  const { cap, agents, contributions, deals, names, asOf } = args;
+  const { cap, agents, contributions, deals, names, asOf, paid } = args;
   const byAgent = new Map<string, CapContribution[]>();
   contributions.forEach((row) => {
     if (row.teamCapId !== cap.id || !row.agentId) return;
@@ -204,7 +210,9 @@ export function teamCapStandings(args: {
     const profile = profiles.get(agentId);
     const rows = byAgent.get(agentId) || [];
     const isRecipient = cap.recipientAgentId === agentId;
-    const goal = profile ? moneyField(cap.capAmountFieldKey ? profile.fields[cap.capAmountFieldKey] : null) : null;
+    const goalText = profile && cap.capAmountFieldKey ? profile.fields[cap.capAmountFieldKey] : undefined;
+    if (goalText == null || goalText.trim() === '') return;
+    const goal = moneyField(goalText);
     if (cap.kind === 'agent' && goal != null && Math.abs(goal) < 0.005) return;
     const percentText = profile && cap.splitPercentFieldKey ? profile.fields[cap.splitPercentFieldKey] : undefined;
     const hasPercent = percentText != null && percentText.trim() !== '';
@@ -251,6 +259,28 @@ export function teamCapStandings(args: {
       if (date) return date;
       return a.transactionId.localeCompare(b.transactionId);
     });
+    const paidLines: CapDealLine[] = [];
+    if (window) {
+      paid?.get(agentId)?.forEach((transactionId) => {
+        const deal = deals.get(transactionId);
+        if (!deal || merged.has(deal.id) || !inWindow(dealIso(deal), window)) return;
+        paidLines.push({
+          transactionId: deal.id,
+          status: deal.status,
+          primaryAgent: names.get(deal.agentId) || deal.agentId || '—',
+          side: deal.side,
+          address: deal.address,
+          closingDate: deal.closingDate ? dateKey(deal.closingDate) : null,
+          salesPrice: deal.salesPrice,
+          leadSource: deal.leadSource,
+          amount: 0,
+          cumulative: 0,
+          pending: deal.status.trim().toLowerCase() === 'pending',
+          paidOnly: true,
+        });
+      });
+    }
+
     let running = 0;
     lines.forEach((line) => {
       running = roundCurrency(running + line.amount);
@@ -288,6 +318,7 @@ export function teamCapStandings(args: {
       left: hasGoal && goal != null ? roundCurrency(goal - total) : null,
       percent: hasGoal && goal ? total / goal : null,
       lines,
+      paidLines,
     });
   });
 
