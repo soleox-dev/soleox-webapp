@@ -1465,6 +1465,11 @@ function ReportView(props: {
       window.removeEventListener('wheel', onWheel);
     };
   }, [locked, isDesktop]);
+  // Below md the locked reports' chrome scrolls away with the page, so its bottom changes on every
+  // scroll frame. Nothing on those reports reads --report-chrome-bottom (only Owner Summary does), and
+  // rewriting an inherited custom property on <main> restyles the whole table each frame.
+  const skipChromeVar = useRef(false);
+  skipChromeVar.current = locked && !isDesktop;
   useLayoutEffect(() => {
     const chrome = chromeRef.current;
     const root = chrome?.closest('main');
@@ -1472,7 +1477,10 @@ function ReportView(props: {
     let frame = 0;
     const apply = () => {
       const bottom = Math.max(0, chrome.getBoundingClientRect().bottom);
-      root.style.setProperty('--report-chrome-bottom', `${bottom}px`);
+      const value = `${bottom}px`;
+      if (!skipChromeVar.current && root.style.getPropertyValue('--report-chrome-bottom') !== value) {
+        root.style.setProperty('--report-chrome-bottom', value);
+      }
       root.querySelectorAll<HTMLElement>('.report-table').forEach((wrap) => {
         if (wrap.closest('[data-production-block]')) return;
         const head = wrap.querySelector('thead');
@@ -4876,7 +4884,7 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
       {pick ? null : (
       <div ref={pivotWrapRef} className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div
-          className="report-table report-table-fit min-h-0 flex-1 rounded-none border-0"
+          className="report-table report-table-fit report-table-page min-h-0 flex-1 rounded-none border-0"
           onScroll={(event) => {
             if (pivotFootScrollRef.current) pivotFootScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
           }}
@@ -5102,7 +5110,7 @@ function EarningTransactions({ lines, names, wrapRef }: { lines: Array<{ key: st
   return (
     <div ref={wrapRef} className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div
-        className="report-table report-table-fit min-h-0 flex-1 rounded-none border-0"
+        className="report-table report-table-fit report-table-page min-h-0 flex-1 rounded-none border-0"
         onScroll={(event) => {
           if (footScrollRef.current) footScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
         }}

@@ -224,7 +224,7 @@ function CapSection({ cap, rows, openAgentId, onOpen, showPaid }: {
   return (
     <section className="flex min-h-0 flex-1 flex-col">
       {open ? (
-        <div className="report-table report-table-fit min-h-0 flex-1 rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <div className="report-table report-table-fit report-table-page min-h-0 flex-1 rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
           <table className="w-full min-w-[960px] text-xs">
             <thead className="report-head-dark text-xs font-medium normal-case text-white">
               <tr>
@@ -279,7 +279,7 @@ function CapSection({ cap, rows, openAgentId, onOpen, showPaid }: {
       ) : (
         <div ref={standingsWrapRef} className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
           <div
-            className="report-table report-table-fit min-h-0 flex-1 rounded-none border-0"
+            className="report-table report-table-fit report-table-page min-h-0 flex-1 rounded-none border-0"
             onScroll={(event) => {
               if (standingsFootScrollRef.current) standingsFootScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
             }}
