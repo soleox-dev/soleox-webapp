@@ -167,10 +167,11 @@
   overflow-y: auto;
 }
 
-/* Below md the locked reports (Agent Earnings, Team Caps) grow with their rows and the page scrolls.
+/* Without the full-screen layout (below md, or a short landscape phone; see the `screenfit` variant)
+   the locked reports (Agent Earnings, Team Caps) grow with their rows and the page scrolls.
    Their tables scroll only sideways there, like every other report table, so a vertical swipe on a
    table always moves the page instead of starting a scroll inside a box that cannot move. */
-@media (max-width: 767.98px) {
+@media not all and (min-width: 768px) and (min-height: 560px) {
   .report-table.report-table-fit.report-table-page {
     overflow-y: hidden;
   }
@@ -333,6 +334,16 @@ thead th.sticky[class*="left-"] {
   }
 }
 
+/* Report table header cells stack above the rows' positioned bars and values. iOS Safari does not
+   reliably position or layer a whole <thead>, so each cell carries the stacking itself. In the base
+   layer so `sticky` utilities and the sticky rule for fit tables still win. */
+@layer base {
+  .report-table thead th {
+    position: relative;
+    z-index: 2;
+  }
+}
+
 /* Report bar charts grow up from the baseline when they appear. */
 @keyframes bar-grow {
   from { transform: scaleY(0); }
@@ -353,6 +364,15 @@ thead th.sticky[class*="left-"] {
 
 /* Touch screens: no hover and a coarse pointer. A desktop mouse never matches, even in a narrow window. */
 @custom-variant touch (@media (hover: none) and (pointer: coarse));
+
+/* Wide and tall enough for full-screen report layouts (Agent Earnings, Team Caps). A phone in landscape is
+   wide but short, so it scrolls the page like portrait. Keep in sync with FIT_SCREEN_QUERY. */
+@custom-variant screenfit (@media (min-width: 768px) and (min-height: 560px));
+
+/* The desktop top bar: md and wider, except phones in landscape (touch with a short viewport),
+   which keep the phone menu. Desktops never match the exception; iPads are too tall for it.
+   Same media query as DESKTOP_NAV_QUERY in lib/use-media-query.ts. */
+@custom-variant desktop-nav (@media (min-width: 48rem) and (not ((hover: none) and (pointer: coarse) and (max-height: 500px))));
 
 /* Underline fields. A faint fill at rest; the full grey on hover or focus.
    Full grey is slate-100 / slate-900. */

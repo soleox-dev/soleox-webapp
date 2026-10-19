@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, X } from 'lucide-react';
 import { pageFrame } from '@/lib/page-frame';
-import { useIsDesktop, useIsTouch } from '@/lib/use-media-query';
+import { DESKTOP_QUERY, useFitsScreen, useIsDesktop, useIsTouch } from '@/lib/use-media-query';
 import { FieldChevron, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { LoadingDataPage, type LoadingProgressInfo } from './loading-data-page';
 import {
@@ -992,10 +992,10 @@ export default function OwnerReportsPage() {
   }, [reportId]);
 
   return (
-    <main onClick={!report && !loading ? launch : undefined} className={`[overflow-anchor:none] text-slate-900 dark:text-slate-100 ${reportCanvas} ${!report && !loading ? 'cursor-pointer' : ''} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'min-h-screen md:min-h-0 md:h-dvh md:overflow-hidden' : 'min-h-screen'}`}>
+    <main onClick={!report && !loading ? launch : undefined} className={`[overflow-anchor:none] text-slate-900 dark:text-slate-100 ${reportCanvas} ${!report && !loading ? 'cursor-pointer' : ''} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'min-h-screen screenfit:min-h-0 screenfit:h-dvh screenfit:overflow-hidden' : 'min-h-screen'}`}>
       <SwipeHint ref={hintRef} />
-      <div className={`${pageFrame} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'pb-3 md:flex md:h-full md:min-h-0 md:flex-col md:overflow-hidden' : 'pb-4'}`}>
-        <section ref={swipeRef} className={`min-w-0 ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'md:flex md:min-h-0 md:flex-1 md:flex-col' : `space-y-4 ${reveal ? 'report-arrive' : ''}`}`}>
+      <div className={`${pageFrame} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'pb-3 screenfit:flex screenfit:h-full screenfit:min-h-0 screenfit:flex-col screenfit:overflow-hidden' : 'pb-4'}`}>
+        <section ref={swipeRef} className={`min-w-0 ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'screenfit:flex screenfit:min-h-0 screenfit:flex-1 screenfit:flex-col' : `space-y-4 ${reveal ? 'report-arrive' : ''}`}`}>
           {loading ? (
             <LoadingDataPage
               progress={loadProgress}
@@ -1434,12 +1434,13 @@ function ReportView(props: {
   const [cumulative, setCumulative] = useState(false);
   const capSection = props.reportId === 'team-caps' && props.capSections.length === 1 ? props.capSections[0] : null;
   // Agent Earnings and Team Caps fill the screen and scroll inside their tables on desktop.
-  // Below md the page scrolls natively by touch instead.
+  // Below md, or on a short screen, the page scrolls natively instead.
+  // A phone in landscape is wide but short, so the full-screen layout also needs a tall screen.
   const locked = props.reportId === 'net-commission-income' || props.reportId === 'team-caps';
-  const isDesktop = useIsDesktop();
+  const fitsScreen = useFitsScreen();
   const chromeRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!locked || !isDesktop) return;
+    if (!locked || !fitsScreen) return;
     const previousHtml = document.documentElement.style.overflow;
     const previousBody = document.body.style.overflow;
     document.documentElement.style.overflow = 'hidden';
@@ -1464,12 +1465,13 @@ function ReportView(props: {
       document.body.style.overflow = previousBody;
       window.removeEventListener('wheel', onWheel);
     };
-  }, [locked, isDesktop]);
-  // Below md the locked reports' chrome scrolls away with the page, so its bottom changes on every
-  // scroll frame. Nothing on those reports reads --report-chrome-bottom (only Owner Summary does), and
-  // rewriting an inherited custom property on <main> restyles the whole table each frame.
+  }, [locked, fitsScreen]);
+  // Without the full-screen layout (below md, or a short landscape phone) the locked reports' chrome
+  // scrolls away with the page, so its bottom changes on every scroll frame. Nothing on those reports
+  // reads --report-chrome-bottom (only Owner Summary does), and rewriting an inherited custom property
+  // on <main> restyles the whole table each frame.
   const skipChromeVar = useRef(false);
-  skipChromeVar.current = locked && !isDesktop;
+  skipChromeVar.current = locked && !fitsScreen;
   useLayoutEffect(() => {
     const chrome = chromeRef.current;
     const root = chrome?.closest('main');
@@ -1481,8 +1483,17 @@ function ReportView(props: {
       if (!skipChromeVar.current && root.style.getPropertyValue('--report-chrome-bottom') !== value) {
         root.style.setProperty('--report-chrome-bottom', value);
       }
+      // Phones do not pin table headers: a header moved by script trails iOS momentum scrolling,
+      // so rows peek out and show through. Each header stays at the top of its own table instead.
+      if (!window.matchMedia(DESKTOP_QUERY).matches) {
+        root.querySelectorAll<HTMLElement>('.report-table thead, [data-production-heading]').forEach((element) => {
+          element.style.transform = '';
+        });
+        return;
+      }
       root.querySelectorAll<HTMLElement>('.report-table').forEach((wrap) => {
-        if (wrap.closest('[data-production-block]')) return;
+        // Agent Earnings' pinned header copy is native sticky; it never moves by script.
+        if (wrap.closest('[data-production-block]') || wrap.hasAttribute('data-pinned-head')) return;
         const head = wrap.querySelector('thead');
         if (!head) return;
         const wrapRect = wrap.getBoundingClientRect();
@@ -1529,15 +1540,15 @@ function ReportView(props: {
     };
   }, []);
   return (
-    <div className={locked ? 'md:flex md:min-h-0 md:flex-1 md:flex-col' : undefined}>
+    <div className={locked ? 'screenfit:flex screenfit:min-h-0 screenfit:flex-1 screenfit:flex-col' : undefined}>
       <div ref={chromeRef} className={`z-40 shrink-0 border-b border-slate-200/80 px-0 dark:border-slate-700/80 ${reportCanvas} ${locked ? '' : 'sticky top-0'} ${capSection ? 'pb-3' : 'pb-4'}`}>
         {/* Below md the report menu moves into the header's menu sheet, so the title gets the full row. */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-6 max-md:grid-cols-1">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-6 max-md:grid-cols-1 max-md:gap-2 max-md:py-3">
           <div className="z-50 min-w-0 justify-self-start max-md:hidden">
             <OwnerReportNav reportId={props.reportId} onSelect={props.onSelectReport} />
           </div>
           <div className="min-w-0 px-2 text-center">
-            <h2 className="text-balance text-3xl font-extrabold leading-tight tracking-tight">
+            <h2 className="text-balance text-3xl font-extrabold leading-tight tracking-tight max-md:text-xl">
               {props.reportId === 'lead-source-leaderboard' ? (
                 <>
                   <TitleMetric
@@ -1566,7 +1577,7 @@ function ReportView(props: {
                 <TitleCaps options={props.capChoices} picked={props.capPicked} onChange={props.onCaps} />
               ) : props.reportName}
             </h2>
-            <p className="mt-1.5 text-sm text-slate-500">{props.reportId === 'team-caps' ? 'Each agent’s cap year comes from that cap’s reset date.' : `${formatRange(range)} compared with ${formatRange(priorRange)}`}</p>
+            <p className="mt-1.5 text-sm text-slate-500 max-md:mt-1 max-md:text-xs">{props.reportId === 'team-caps' ? 'Each agent’s cap year comes from that cap’s reset date.' : `${formatRange(range)} compared with ${formatRange(priorRange)}`}</p>
           </div>
           <div className="justify-self-end max-md:justify-self-center max-md:empty:hidden">
           </div>
@@ -1601,7 +1612,7 @@ function ReportView(props: {
           />
         ) : null}
       </div>
-      <div className={locked ? `md:flex md:min-h-0 md:flex-1 md:flex-col md:overflow-hidden ${capSection ? 'pt-0' : 'pt-4'}` : `space-y-4 ${capSection ? 'pt-0' : 'pt-4'}`}>
+      <div className={locked ? `screenfit:flex screenfit:min-h-0 screenfit:flex-1 screenfit:flex-col screenfit:overflow-hidden ${capSection ? 'pt-0' : 'pt-4'}` : `space-y-4 ${capSection ? 'pt-0' : 'pt-4'}`}>
         {props.loading ? <p className="text-sm text-slate-500">Loading transactions…</p> : null}
         {props.error ? <p className="text-sm text-rose-600">{props.error}</p> : null}
         {!props.loading && !props.ready ? <Unavailable note={props.note || 'This report needs data Soleox does not store yet.'} /> : null}
@@ -1858,7 +1869,6 @@ function dealInReport(deal: ReportDeal, range: DateRange, reportId: string | nul
     case 'listings-by-list-date':
       return listed;
     case 'transaction-list':
-    case 'transaction-detail':
       return closed || pending;
     case 'daily-management':
       return closed || pending || listed;
@@ -1970,7 +1980,7 @@ function TitleMetric({ value, options, onChange }: { value: string; options: Boa
         aria-haspopup="listbox"
         aria-label={`Metric ${selected.label}`}
         onClick={() => setOpen((current) => !current)}
-        className="cursor-pointer appearance-none whitespace-nowrap border-0 bg-transparent p-0 text-3xl font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
+        className="cursor-pointer appearance-none whitespace-nowrap border-0 bg-transparent p-0 text-3xl max-md:text-xl font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
       >
         {selected.label}
       </button>
@@ -2055,7 +2065,7 @@ function TitleCaps({ options, picked, onChange }: {
         aria-haspopup="listbox"
         aria-label={`Cap ${selected?.label || 'Caps'}`}
         onClick={() => setOpen((current) => !current)}
-        className="cursor-pointer appearance-none border-0 bg-transparent p-0 text-3xl font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
+        className="cursor-pointer appearance-none border-0 bg-transparent p-0 text-3xl max-md:text-xl font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
       >
         {selected?.label || 'Caps'}
       </button>
@@ -2656,7 +2666,6 @@ function ReportBody(props: {
   }
   if (id === 'team-performance') return <TeamPerformance deals={deals} range={range} priorRange={priorRange} dateBasis={dateBasis} sidePicked={sidePicked} cumulative={cumulative} />;
   if (id === 'net-commission-income') return <AgentEarnings deals={deals} payments={payments} names={names} range={range} priorRange={priorRange} excludeTeamLeads={excludeTeamLeads} teamLeadIds={teamLeadIds} payeePicked={payeePicked} preset={preset} />;
-  if (id === 'net-commission-analysis') return <NetAnalysis range={range} priorRange={priorRange} closed={closed} closedPrior={closedPrior} />;
   if (id === 'team-productivity') {
     return (
       <div className="space-y-3">
@@ -2665,7 +2674,7 @@ function ReportBody(props: {
       </div>
     );
   }
-  if (id === 'net-agent-leaderboard' || id === 'agent-post-splits') return <AgentTable rows={agentPaidRows(closed)} caption="Closed transactions, split across the agents on each deal" paid />;
+  if (id === 'net-agent-leaderboard') return <AgentTable rows={agentPaidRows(closed)} caption="Closed transactions, split across the agents on each deal" paid />;
   if (id === 'lead-source-leaderboard') return <ProductionLeaderboard deals={deals} range={range} priorRange={priorRange} field={boardField} names={names} payments={payments} entityNames={entityNames} payeePicked={payeePicked} excludeTeamLeads={excludeTeamLeads} teamLeadIds={teamLeadIds} dateBasis={dateBasis} />;
   if (id === 'listings-by-list-date') {
     const listed = seriesBuckets(taken, (deal) => deal.listDate, range);
@@ -2676,7 +2685,7 @@ function ReportBody(props: {
       </div>
     );
   }
-  if (id === 'transaction-list' || id === 'transaction-detail') return <DealTable deals={[...closed, ...pending]} names={names} detailed={id === 'transaction-detail'} />;
+  if (id === 'transaction-list') return <DealTable deals={[...closed, ...pending]} names={names} />;
   if (id === 'price-change') return <PriceChange deals={closed} names={names} />;
   if (id === 'daily-management') return <DailyManagement range={range} closed={closed} pending={pending} taken={taken} />;
   return null;
@@ -2802,7 +2811,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
   const [drilldown, setDrilldown] = useState<{ rowKey: string; column: keyof OwnerMonthRow } | null>(null);
   const [grainChoice, setGrainChoice] = useState<ProductionGrain | null>(null);
   const [scoresOpen, setScoresOpen] = useState(true);
-  const isDesktop = useIsDesktop();
+  const fitsScreen = useFitsScreen();
   const [pulse, setPulse] = useState(0);
   const skipPulse = useRef(true);
   const grain = resolveProductionGrain(grainChoice, preset, range);
@@ -2879,9 +2888,9 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
     };
   }, [scoresOpen]);
 
-  // Below md the page keeps native touch scrolling; the wheel-only lock is desktop only.
+  // Below md, or on a short screen, the page keeps native scrolling; the wheel-only lock needs a tall desktop screen.
   useEffect(() => {
-    if (scoresOpen || !isDesktop) return;
+    if (scoresOpen || !fitsScreen) return;
     const previousHtml = document.documentElement.style.overflow;
     const previousBody = document.body.style.overflow;
     document.documentElement.style.overflow = 'hidden';
@@ -2907,7 +2916,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
       document.body.style.overflow = previousBody;
       window.removeEventListener('wheel', onWheel);
     };
-  }, [scoresOpen, isDesktop]);
+  }, [scoresOpen, fitsScreen]);
 
   useEffect(() => {
     if (skipPulse.current) {
@@ -3161,6 +3170,34 @@ function linePeaks(points: Array<{ x: number; y: number }>, present: boolean[], 
     peaks.push(points[index]);
   });
   return peaks;
+}
+
+/**
+ * The shiny peak effect from the Team Performance charts: a thin white copy of a line that only shows in
+ * a soft glow around each local peak. Draw it right after the line it highlights.
+ */
+function PeakShine({ d, points, values, width, height }: { d: string; points: Array<{ x: number; y: number }>; values: number[]; width: number; height: number }) {
+  const id = useId().replace(/:/g, '');
+  const peaks = linePeaks(points, values.map(() => true), values);
+  if (!peaks.length || !d) return null;
+  return (
+    <>
+      <defs>
+        <radialGradient id={`peak-fade-${id}`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="white" />
+          <stop offset="40%" stopColor="white" />
+          <stop offset="100%" stopColor="black" />
+        </radialGradient>
+        <mask id={`peak-shine-${id}`}>
+          <rect width={width} height={height} fill="black" />
+          {peaks.map((peak, index) => (
+            <circle key={`peak-mask-${index}`} cx={peak.x} cy={peak.y} r="26" fill={`url(#peak-fade-${id})`} />
+          ))}
+        </mask>
+      </defs>
+      <path d={d} fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" strokeOpacity="0.8" mask={`url(#peak-shine-${id})`} />
+    </>
+  );
 }
 
 function smoothLine(points: Array<{ x: number; y: number }>): string {
@@ -3817,6 +3854,7 @@ function LineChart({ title, metric, current, previous }: { title: string; metric
           {priorAverage > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(priorAverage)} y2={yAt(priorAverage)} stroke="currentColor" strokeDasharray="14 8" className="text-[#d9dde2] dark:text-slate-400" /> : null}
           {previous.length > 0 ? <path d={pathFor(previousValues)} fill="none" stroke="currentColor" strokeWidth="2" className="text-[#d9dde2] dark:text-slate-400" /> : null}
           <path d={pathFor(currentValues)} fill="none" stroke="currentColor" strokeWidth="2.5" className="text-emerald-400 dark:text-emerald-600" />
+          <PeakShine d={pathFor(currentValues)} points={currentValues.map((value, index) => ({ x: xAt(index), y: yAt(value) }))} values={currentValues} width={width} height={height} />
           {current.map((row, index) => (
             <circle key={row.key} cx={xAt(index)} cy={yAt(currentValues[index])} r={hover === index ? 4.5 : 2.5} fill="currentColor" className="text-emerald-400 dark:text-emerald-600" />
           ))}
@@ -3902,34 +3940,6 @@ function MonthlyTable({ title, rows, mode }: { title: string; rows: MonthRow[]; 
           </tr>
         </tbody>
       </table>
-    </div>
-  );
-}
-
-function NetAnalysis({ range, priorRange, closed, closedPrior }: { range: DateRange; priorRange: DateRange; closed: ReportDeal[]; closedPrior: ReportDeal[] }) {
-  const totals = sumOf(closed);
-  const current = seriesBuckets(closed, (deal) => deal.closingDate, range);
-  const previous = seriesBuckets(closedPrior, (deal) => deal.closingDate, priorRange);
-  return (
-    <div className="space-y-4">
-      <p className="text-sm text-slate-500">Cost of sales is the agent-paid amount on closed deals. Net commission income is what remains with the company.</p>
-      <div className="grid md:grid-cols-3 gap-3">
-        <Equation left="Total commission" right="Cost of sales" result="Net commission income" leftValue={money(totals.commission)} rightValue={money(totals.agentPaid)} resultValue={money(totals.net)} />
-      </div>
-      <LineChart title="Net commission income" metric="net" current={current} previous={previous} />
-      <MonthlyTable title="Closed month" rows={current} mode="production" />
-    </div>
-  );
-}
-
-function Equation(props: { left: string; right: string; result: string; leftValue: string; rightValue: string; resultValue: string }) {
-  return (
-    <div className="md:col-span-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 flex flex-wrap items-center gap-3 text-sm">
-      <Figure label={props.left} value={props.leftValue} />
-      <span className="text-slate-400 text-lg">−</span>
-      <Figure label={props.right} value={props.rightValue} />
-      <span className="text-slate-400 text-lg">=</span>
-      <Figure label={props.result} value={props.resultValue} emphasis />
     </div>
   );
 }
@@ -4549,6 +4559,7 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
           <path d={areaUnder(points, yAt(0))} fill="url(#area-fade-earnings)" stroke="none" />
           <path d={smoothLine(priorPoints)} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={previousClass} />
           <path d={smoothLine(points)} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={lineClass} />
+          <PeakShine d={smoothLine(points)} points={points} values={values} width={width} height={height} />
           <defs>
             <linearGradient id="area-fade-earnings" x1="0" y1="0" x2="0" y2="1" className={lineClass}>
               <stop offset="0%" stopColor="currentColor" stopOpacity="0.4" />
@@ -4714,8 +4725,8 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
   const pivotHeadRef = useRef<HTMLTableElement>(null);
   const pivotHeadScrollRef = useRef<HTMLDivElement>(null);
   const detailWrapRef = useRef<HTMLDivElement>(null);
-  const isDesktop = useIsDesktop();
-  // The Total row, and below md the pinned header copy, take their column widths from the table's own header.
+  const fitsScreen = useFitsScreen();
+  // The Total row, and without the full-screen layout the pinned header copy, take their column widths from the table's own header.
   const syncPivotFoot = () => {
     const body = pivotBodyRef.current;
     if (!body) return;
@@ -4846,16 +4857,16 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
     };
     window.addEventListener('resize', onResize);
     window.addEventListener('scroll', onResize, { passive: true });
-    // Below md, keep the pinned header matched when the table's columns change width (new data, a font load).
+    // Without the full-screen layout, keep the pinned header matched when the table's columns change width (new data, a font load).
     const body = pivotBodyRef.current;
-    const observer = !isDesktop && body ? new ResizeObserver(syncPivotFoot) : null;
+    const observer = !fitsScreen && body ? new ResizeObserver(syncPivotFoot) : null;
     if (observer && body) observer.observe(body);
     return () => {
       window.removeEventListener('resize', onResize);
       window.removeEventListener('scroll', onResize);
       observer?.disconnect();
     };
-  }, [pick, ordered.length, columns.length, isDesktop]);
+  }, [pick, ordered.length, columns.length, fitsScreen]);
   const headRow = (
     <tr>
       <SortHead column="rank" label="#" sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
@@ -4867,7 +4878,7 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
     </tr>
   );
   return (
-    <div ref={blockRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-clip md:overflow-hidden">
+    <div ref={blockRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-clip screenfit:overflow-hidden">
       <div className="shrink-0 space-y-4">
       <SectionHeading
         action={pick ? (
@@ -4913,11 +4924,11 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
       ) : null}
       </div>
       {pick ? null : (
-      <div ref={pivotWrapRef} className="flex min-h-0 flex-1 flex-col overflow-clip rounded-xl border border-slate-200 bg-white md:overflow-hidden dark:border-slate-800 dark:bg-slate-900">
-        {/* Below md the page scrolls, not the table, so a copy of the header row pins to the top of the
+      <div ref={pivotWrapRef} className="flex min-h-0 flex-1 flex-col overflow-clip rounded-xl border border-slate-200 bg-white screenfit:overflow-hidden dark:border-slate-800 dark:bg-slate-900">
+        {/* Without the full-screen layout (phones, short landscape screens) the page scrolls, not the table, so a copy of the header row pins to the top of the
             screen (native sticky, no scroll handler) and follows the table sideways like the Total row. */}
-        {isDesktop ? null : (
-          <div ref={pivotHeadScrollRef} data-swipe-ignore="" className="report-table sticky top-0 z-30 shrink-0" style={{ overflowX: 'hidden' }}>
+        {fitsScreen ? null : (
+          <div ref={pivotHeadScrollRef} data-swipe-ignore="" data-pinned-head="" className="report-table sticky top-0 z-30 shrink-0" style={{ overflowX: 'hidden' }}>
             <table ref={pivotHeadRef} className="text-xs">
               <thead className={earningHead}>
                 {headRow}
@@ -4933,7 +4944,7 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
           }}
         >
           <table ref={pivotBodyRef} className="w-full text-xs">
-            <thead className={earningHead} inert={!isDesktop}>
+            <thead className={earningHead} inert={!fitsScreen}>
               {headRow}
             </thead>
             <tbody>
@@ -5201,7 +5212,7 @@ function EarningTransactions({ lines, names, wrapRef }: { lines: Array<{ key: st
   );
 }
 
-function DealTable({ deals, names, detailed }: { deals: ReportDeal[]; names: Map<string, string>; detailed: boolean }) {
+function DealTable({ deals, names }: { deals: ReportDeal[]; names: Map<string, string> }) {
   const { sort, toggle } = useColumnSort();
   const dated = [...deals].sort((a, b) => (b.closingDate?.getTime() || 0) - (a.closingDate?.getTime() || 0));
   const sorted = sortBy(dated, sort, (deal, key) => {
@@ -5209,10 +5220,8 @@ function DealTable({ deals, names, detailed }: { deals: ReportDeal[]; names: Map
     if (key === 'side') return deal.side;
     if (key === 'status') return deal.status;
     if (key === 'agent') return names.get(deal.agentId) || '';
-    if (key === 'source') return deal.leadSource;
     if (key === 'price') return deal.salesPrice;
-    if (key === 'gci') return deal.gciAmount;
-    return deal.totalCommission - deal.agentPaid;
+    return deal.gciAmount;
   });
   return (
     <div className={reportTableWrap}>
@@ -5223,10 +5232,8 @@ function DealTable({ deals, names, detailed }: { deals: ReportDeal[]; names: Map
             <SortHead column="side" label="Side" sort={sort} onSort={toggle} className="px-3 py-2" />
             <SortHead column="status" label="Status" sort={sort} onSort={toggle} className="px-3 py-2" />
             <SortHead column="agent" label="Agent" sort={sort} onSort={toggle} className="px-3 py-2" />
-            {detailed ? <SortHead column="source" label="Source" sort={sort} onSort={toggle} className="px-3 py-2" /> : null}
             <SortHead column="price" label="Sales price" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
             <SortHead column="gci" label="GCI" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
-            {detailed ? <SortHead column="net" label="Net" sort={sort} onSort={toggle} align="right" className="px-3 py-2" /> : null}
           </tr>
         </thead>
         <tbody>
@@ -5236,10 +5243,8 @@ function DealTable({ deals, names, detailed }: { deals: ReportDeal[]; names: Map
               <td className="px-3 py-1.5">{deal.side}</td>
               <td className="px-3 py-1.5">{deal.status}</td>
               <td className="px-3 py-1.5">{names.get(deal.agentId) || '—'}</td>
-              {detailed ? <td className="px-3 py-1.5">{deal.leadSource}</td> : null}
               <td className="px-3 py-1.5 text-right tabular-nums">{money(deal.salesPrice)}</td>
               <td className="px-3 py-1.5 text-right tabular-nums">{money(deal.gciAmount)}</td>
-              {detailed ? <td className="px-3 py-1.5 text-right tabular-nums">{money(deal.totalCommission - deal.agentPaid)}</td> : null}
             </tr>
           ))}
         </tbody>
@@ -5483,9 +5488,9 @@ function SectionHeading({ children, tone = 'emerald', note, action, end }: { chi
                   : 'report-pill-emerald';
   return (
     <h3 className="relative w-full">
-      <div className={`rounded-full text-center text-sm font-bold uppercase tracking-wide ${fill} ${action || end ? 'grid grid-cols-[1fr_auto_1fr] items-stretch overflow-hidden' : 'px-4 py-2'}`}>
+      <div className={`rounded-full text-center text-sm font-bold uppercase tracking-wide max-md:tracking-normal ${fill} ${action || end ? 'grid grid-cols-[1fr_auto_1fr] items-stretch overflow-hidden' : 'px-4 py-2 max-md:px-3 max-md:py-1'}`}>
         {action || end ? <div className="justify-self-start">{action}</div> : null}
-        {action || end ? <span className="flex items-center justify-center px-4 py-2">{children}</span> : children}
+        {action || end ? <span className="flex items-center justify-center px-4 py-2 max-md:px-2 max-md:py-1">{children}</span> : children}
         {end ? <div className="justify-self-end self-stretch">{end}</div> : null}
       </div>
       {note ? (

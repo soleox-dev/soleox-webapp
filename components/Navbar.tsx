@@ -3,6 +3,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
@@ -10,7 +11,7 @@ import { useSoleoxTheme } from '@/app/providers';
 import { SoleoxLogo } from '@/components/ui/logo';
 import { useAccess } from '@/components/access-provider';
 import { pageFrame } from '@/lib/page-frame';
-import { useIsDesktop } from '@/lib/use-media-query';
+import { useIsDesktop, useIsDesktopNav } from '@/lib/use-media-query';
 import { OWNER_REPORTS, OWNER_REPORT_GROUPS } from '@/lib/owner-reports';
 import { ArrowLeft, Briefcase, Building2, ChevronLeft, ChevronRight, House, List, Menu, Monitor, Moon, Settings, Sun, Users, X, type LucideIcon } from 'lucide-react';
 import type { ThemePreference } from '@/app/providers';
@@ -21,6 +22,8 @@ export default function Navbar() {
   const { access, chooseClient } = useAccess();
   const { theme, setTheme } = useSoleoxTheme();
   const isDesktop = useIsDesktop();
+  // Phones in landscape are md wide but keep the phone menu; see DESKTOP_NAV_QUERY.
+  const isDesktopNav = useIsDesktopNav();
 
   const themeOptions: { id: ThemePreference; label: string; icon: LucideIcon }[] = [
     { id: 'light', label: 'Light', icon: Sun },
@@ -87,10 +90,10 @@ export default function Navbar() {
     setIsUserMenuOpen(false);
   }, [pathname, isOwnerReports]);
 
-  // The phone sheet closes on navigation and when the window widens to desktop.
+  // The phone sheet closes on navigation and when the window switches to the desktop nav.
   useEffect(() => {
     setPhoneNavOpen(false);
-  }, [pathname, isDesktop]);
+  }, [pathname, isDesktopNav]);
 
   useEffect(() => {
     if (!phoneNavOpen) return;
@@ -146,7 +149,7 @@ export default function Navbar() {
   const barClass = 'w-full bg-white text-slate-900 border-b border-slate-200 dark:bg-[#0b1329] dark:text-white dark:border-slate-800/80';
   // Below md the report header stays in place; the hover-reveal bar is desktop only.
   const reportsBarClass = `relative z-50 md:fixed md:inset-x-0 md:top-0 md:transition-transform md:duration-200 md:ease-out md:motion-reduce:transition-none ${reportsNavOpen ? 'md:translate-y-0 md:shadow-lg' : 'md:-translate-y-full md:pointer-events-none'}`;
-  const sheetLinkClass = (active: boolean) => `flex min-h-11 items-center gap-3 rounded-lg px-3 text-base font-semibold ${
+  const sheetLinkClass = (active: boolean) => `flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold ${
     active
       ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400'
       : 'text-slate-700 dark:text-slate-200'
@@ -174,7 +177,7 @@ export default function Navbar() {
             <Link
               href="/commission-tracker/transactions"
               aria-label="Back to Transactions"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 transition hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300 md:hidden"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 transition hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300 desktop-nav:hidden"
             >
               <ArrowLeft className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
               Transactions
@@ -183,7 +186,7 @@ export default function Navbar() {
         </div>
 
         {/* Central Nav Container with Pill Outline */}
-        <nav className="hidden md:flex items-center space-x-2 bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-1 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400">
+        <nav className="hidden desktop-nav:flex items-center space-x-2 bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-1 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400">
           {showTracker && <div className="group/tracker relative" onMouseLeave={() => releaseMenu('tracker')}>
             <Link
               href={isTransactionDetail ? '/commission-tracker/transactions' : trackerHref}
@@ -279,7 +282,7 @@ export default function Navbar() {
             }}
             aria-label="Open menu"
             aria-expanded={phoneNavOpen}
-            className="me-0 inline-flex h-10 w-10 items-center justify-center rounded-lg text-slate-700 dark:text-slate-200 md:hidden cursor-pointer"
+            className="me-0 inline-flex h-10 w-10 items-center justify-center rounded-lg text-slate-700 dark:text-slate-200 desktop-nav:hidden cursor-pointer"
           >
             <Menu className="h-5 w-5" strokeWidth={2} aria-hidden />
           </button>
@@ -287,7 +290,7 @@ export default function Navbar() {
           {!isMainMenu && (
             <Link
               href="/"
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:text-slate-900 dark:hover:text-white transition"
+              className="hidden desktop-nav:flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:text-slate-900 dark:hover:text-white transition"
             >
               <House className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Main Menu
             </Link>
@@ -295,11 +298,11 @@ export default function Navbar() {
 
           {/* Vertical Divider */}
           {!isMainMenu && (
-            <div className="hidden md:block h-4 w-px bg-slate-200 dark:bg-slate-800 my-auto" />
+            <div className="hidden desktop-nav:block h-4 w-px bg-slate-200 dark:bg-slate-800 my-auto" />
           )}
 
           {/* User Badge & Sign Out Dropdown */}
-          <div className="relative hidden md:block" ref={dropdownRef}>
+          <div className="relative hidden desktop-nav:block" ref={dropdownRef}>
             <button
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
               className="w-8 h-8 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800 font-bold rounded-full flex items-center justify-center text-xs hover:ring-2 hover:ring-emerald-500/40 transition cursor-pointer"
@@ -392,9 +395,10 @@ export default function Navbar() {
         </div>
 
       </div>
-      {/* Phone navigation sheet. Same permission checks as the pill nav and avatar menu. */}
-      {phoneNavOpen && (
-        <div className="app-modal fixed inset-0 z-[60] md:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+      {/* Phone navigation sheet. Same permission checks as the pill nav and avatar menu.
+          Portaled to <body>: on a landscape phone the Owner Reports bar is transformed, which would trap a fixed sheet inside it. */}
+      {phoneNavOpen && createPortal(
+        <div className="app-modal fixed inset-0 z-[60] desktop-nav:hidden" role="dialog" aria-modal="true" aria-label="Menu">
           <button
             type="button"
             aria-label="Close menu"
@@ -425,7 +429,7 @@ export default function Navbar() {
                   onClick={() => setPhoneNavLevel('main')}
                   className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-emerald-700 dark:text-emerald-400 cursor-pointer"
                 >
-                  <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden /> Exit Owner Reports
+                  <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden /> Back to Main Menu
                 </button>
                 <Link href="/owner-reports" className={sheetLinkClass(pathname === '/owner-reports')}>
                   <Briefcase className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden /> Owner Reports
@@ -548,7 +552,7 @@ export default function Navbar() {
                   window.sessionStorage.removeItem('soleox-transactions-list');
                   void signOut({ callbackUrl: '/login' });
                 }}
-                className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-base font-semibold text-red-600 dark:text-red-400 cursor-pointer"
+                className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-semibold text-red-600 dark:text-red-400 cursor-pointer"
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V5" />
@@ -559,7 +563,8 @@ export default function Navbar() {
             </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </header>
   );
