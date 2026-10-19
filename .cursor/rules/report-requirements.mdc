@@ -42,6 +42,7 @@ From and To sit immediately to the right of the date range filter. No other filt
 - Show a search box when there are more than 8 options.
 - Each option shows a right-aligned record count: transactions with that value after the other filters, not after this filter.
 - Hovering an option shows ONLY over its count. ONLY keeps that value and clears the others.
+- On touch screens, tapping an option's checkbox or name checks or unchecks it. Tapping the rest of the row (the blank space or the count) shows ONLY over the count, and tapping ONLY applies it. Below `md` an open filter list stays within the screen width.
 - Reset restores that filter’s default for the current report.
 - Select all checks every option currently listed.
 - Options stay dynamic. A value is listed only when the current report view still has records for it after the other filters.
