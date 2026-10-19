@@ -1524,12 +1524,12 @@ function ReportView(props: {
     <div className={locked ? 'md:flex md:min-h-0 md:flex-1 md:flex-col' : undefined}>
       <div ref={chromeRef} className={`z-40 shrink-0 border-b border-slate-200/80 px-0 dark:border-slate-700/80 ${reportCanvas} ${locked ? '' : 'sticky top-0'} ${capSection ? 'pb-3' : 'pb-4'}`}>
         {/* Below md the report menu moves into the header's menu sheet, so the title gets the full row. */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-6 max-md:grid-cols-1">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-6 max-md:grid-cols-1 max-md:gap-2 max-md:py-3">
           <div className="z-50 min-w-0 justify-self-start max-md:hidden">
             <OwnerReportNav reportId={props.reportId} onSelect={props.onSelectReport} />
           </div>
           <div className="min-w-0 px-2 text-center">
-            <h2 className="text-balance text-3xl font-extrabold leading-tight tracking-tight">
+            <h2 className="text-balance text-3xl font-extrabold leading-tight tracking-tight max-md:text-xl">
               {props.reportId === 'lead-source-leaderboard' ? (
                 <>
                   <TitleMetric
@@ -1558,7 +1558,7 @@ function ReportView(props: {
                 <TitleCaps options={props.capChoices} picked={props.capPicked} onChange={props.onCaps} />
               ) : props.reportName}
             </h2>
-            <p className="mt-1.5 text-sm text-slate-500">{props.reportId === 'team-caps' ? 'Each agent’s cap year comes from that cap’s reset date.' : `${formatRange(range)} compared with ${formatRange(priorRange)}`}</p>
+            <p className="mt-1.5 text-sm text-slate-500 max-md:mt-1 max-md:text-xs">{props.reportId === 'team-caps' ? 'Each agent’s cap year comes from that cap’s reset date.' : `${formatRange(range)} compared with ${formatRange(priorRange)}`}</p>
           </div>
           <div className="justify-self-end max-md:justify-self-center max-md:empty:hidden">
           </div>
@@ -1962,7 +1962,7 @@ function TitleMetric({ value, options, onChange }: { value: string; options: Boa
         aria-haspopup="listbox"
         aria-label={`Metric ${selected.label}`}
         onClick={() => setOpen((current) => !current)}
-        className="cursor-pointer appearance-none whitespace-nowrap border-0 bg-transparent p-0 text-3xl font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
+        className="cursor-pointer appearance-none whitespace-nowrap border-0 bg-transparent p-0 text-3xl max-md:text-xl font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
       >
         {selected.label}
       </button>
@@ -2047,7 +2047,7 @@ function TitleCaps({ options, picked, onChange }: {
         aria-haspopup="listbox"
         aria-label={`Cap ${selected?.label || 'Caps'}`}
         onClick={() => setOpen((current) => !current)}
-        className="cursor-pointer appearance-none border-0 bg-transparent p-0 text-3xl font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
+        className="cursor-pointer appearance-none border-0 bg-transparent p-0 text-3xl max-md:text-xl font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
       >
         {selected?.label || 'Caps'}
       </button>

@@ -324,6 +324,16 @@ thead th.sticky[class*="left-"] {
   }
 }
 
+/* Report table header cells stack above the rows' positioned bars and values. iOS Safari does not
+   reliably position or layer a whole <thead>, so each cell carries the stacking itself. In the base
+   layer so `sticky` utilities and the sticky rule for fit tables still win. */
+@layer base {
+  .report-table thead th {
+    position: relative;
+    z-index: 2;
+  }
+}
+
 /* Report bar charts grow up from the baseline when they appear. */
 @keyframes bar-grow {
   from { transform: scaleY(0); }
