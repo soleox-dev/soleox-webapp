@@ -324,6 +324,24 @@ thead th.sticky[class*="left-"] {
   }
 }
 
+/* Report bar charts grow up from the baseline when they appear. */
+@keyframes bar-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+.bar-grow {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: bar-grow 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar-grow {
+    animation: none;
+  }
+}
+
 /* Touch screens: no hover and a coarse pointer. A desktop mouse never matches, even in a narrow window. */
 @custom-variant touch (@media (hover: none) and (pointer: coarse));
 
