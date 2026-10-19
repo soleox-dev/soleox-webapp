@@ -679,7 +679,7 @@ export default function CommissionEntitiesPage() {
                     disabled={isSubmitting}
                     checked={Boolean(formData.is_active)}
                     onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                    className="rounded border-slate-300 dark:border-slate-700 text-emerald-500 focus:ring-emerald-500 disabled:opacity-50"
+                    className="rounded text-emerald-500 focus:ring-emerald-500 disabled:opacity-50"
                   />
                   <span className="font-bold text-slate-700 dark:text-slate-300">Active Entity</span>
                 </label>
