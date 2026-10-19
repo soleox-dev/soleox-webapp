@@ -31,7 +31,11 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (OPEN_PATH.test(pathname)) return NextResponse.next();
 
-  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+  // Without NEXTAUTH_URL (AUTH_TRUST_HOST in dev), NextAuth picks the cookie name from each request's protocol.
+  const secureCookie = process.env.NEXTAUTH_URL
+    ? undefined
+    : (request.headers.get('x-forwarded-proto') ?? request.nextUrl.protocol.replace(':', '')) === 'https';
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET, secureCookie });
   const email = emailFromToken(token);
   if (!email) {
     if (pathname.startsWith('/api/')) {

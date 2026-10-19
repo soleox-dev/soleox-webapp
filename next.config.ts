@@ -15,6 +15,7 @@ const contentSecurityPolicy = [
 ].join('; ');
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ['utility-exile-aftermost.ngrok-free.dev'],
   devIndicators: false,
   logging: {
     incomingRequests: false,
