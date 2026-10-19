@@ -34,6 +34,8 @@ type OptionMenuProps = {
 const PHONE_MIN_MENU_WIDTH = 224;
 /** Gap kept between a phone list and the screen edges. */
 const PHONE_EDGE = 8;
+/** Same as the list's `max-h-72` class; the inline cap below must not exceed it. */
+const PHONE_MAX_MENU_HEIGHT = 288;
 
 function optionText(option: MenuOption): string {
   return option.label || option.value;
@@ -104,7 +106,7 @@ export function OptionMenu({
     const below = viewBottom - rect.bottom - 6 - PHONE_EDGE;
     const above = rect.top - viewTop - 6 - PHONE_EDGE;
     const openUp = menuHeight > below && above > below;
-    const room = Math.max(openUp ? above : below, 96);
+    const room = Math.min(Math.max(openUp ? above : below, 96), PHONE_MAX_MENU_HEIGHT);
     const height = Math.min(menuHeight, room);
     const width = Math.min(Math.max(rect.width, PHONE_MIN_MENU_WIDTH), viewWidth - PHONE_EDGE * 2);
     const left = Math.min(Math.max(rect.left, viewLeft + PHONE_EDGE), viewLeft + viewWidth - PHONE_EDGE - width);
