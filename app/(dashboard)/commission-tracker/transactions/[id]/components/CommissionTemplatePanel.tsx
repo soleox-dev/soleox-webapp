@@ -632,11 +632,22 @@ function resolveDefaults(
   );
   const ordered = [...parameters].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   const resolved: Record<string, string> = {};
-  return ordered.map((parameter) => {
-    const result = defaultFromFormula(parameter.autofill_formula || '', parameter.data_type, deal, agents, resolved, lookups, booleanKeys);
-    if (!result.pending) resolved[parameter.parameter_key.toLowerCase()] = result.raw;
-    return { parameter, raw: result.pending ? '' : result.raw };
-  });
+  // A parameter can read one listed after it (TC 1 FEE $ reads TC 2), so passes repeat until nothing new
+  // resolves. A formula that still cannot be calculated stays blank, as before.
+  const done = new Map<string, string>();
+  for (let pass = 0; pass < Math.max(ordered.length, 1); pass += 1) {
+    let progress = false;
+    for (const parameter of ordered) {
+      if (done.has(parameter.id)) continue;
+      const result = defaultFromFormula(parameter.autofill_formula || '', parameter.data_type, deal, agents, resolved, lookups, booleanKeys);
+      if (result.pending) continue;
+      resolved[parameter.parameter_key.toLowerCase()] = result.raw;
+      done.set(parameter.id, result.raw);
+      progress = true;
+    }
+    if (!progress) break;
+  }
+  return ordered.map((parameter) => ({ parameter, raw: done.get(parameter.id) ?? '' }));
 }
 
 function refreshLockedValues(
