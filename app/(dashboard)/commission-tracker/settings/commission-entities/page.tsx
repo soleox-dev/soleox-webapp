@@ -36,7 +36,7 @@ interface DialogState {
 const ENTITY_TYPES = ['REFERRAL', 'FRANCHISE', 'BROKERAGE', 'CLIENT', 'TEAM', 'VENDOR', 'EQUITY', 'TAXES', 'OTHER'];
 
 const underlineShell =
-  'group/field relative underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600';
+  'group/field relative underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600';
 const underlineLabel =
   'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
 
@@ -418,7 +418,7 @@ export default function CommissionEntitiesPage() {
 
           <button
             onClick={handleOpenAdd}
-            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-lg shadow-sm transition flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+            className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-lg shadow-sm transition flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
           >
             <span>+ Add New Entity</span>
           </button>
@@ -518,7 +518,7 @@ export default function CommissionEntitiesPage() {
                           onClick={() => toggleStatus(ent)}
                           className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1 mx-auto ${
                             ent.is_active
-                              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+                              ? 'bg-brand-500/10 text-brand-700 dark:text-brand-400 border-brand-500/30'
                               : 'bg-slate-200 dark:bg-slate-900 text-slate-400 border-slate-300 dark:border-slate-700'
                           }`}
                         >
@@ -679,7 +679,7 @@ export default function CommissionEntitiesPage() {
                     disabled={isSubmitting}
                     checked={Boolean(formData.is_active)}
                     onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                    className="rounded text-emerald-500 focus:ring-emerald-500 disabled:opacity-50"
+                    className="rounded text-emerald-500 focus:ring-brand-500 disabled:opacity-50"
                   />
                   <span className="font-bold text-slate-700 dark:text-slate-300">Active Entity</span>
                 </label>
@@ -699,7 +699,7 @@ export default function CommissionEntitiesPage() {
                   type="submit"
                   tabIndex={7}
                   disabled={isSubmitting || !entityDirty}
-                  className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-1.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-lg shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {isSubmitting ? (
                     <>
@@ -749,7 +749,7 @@ export default function CommissionEntitiesPage() {
                   dialog.confirmVariant === 'danger'
                     ? 'bg-rose-600 hover:bg-rose-500 text-white'
                     : dialog.confirmVariant === 'emerald'
-                    ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
+                    ? 'bg-brand-600 hover:bg-brand-500 text-white'
                     : 'bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:hover:bg-slate-200 dark:text-slate-900'
                 }`}
               >

@@ -223,8 +223,8 @@ export function OptionMenu({
                 onMouseEnter={() => setActiveIndex(index)}
                 className={`w-full cursor-pointer px-2.5 py-1.5 text-left text-xs font-medium disabled:cursor-not-allowed disabled:opacity-40 ${
                   index === activeIndex
-                    ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200'
-                    : 'text-slate-900 hover:bg-emerald-500/15 hover:text-emerald-800 dark:text-white dark:hover:text-emerald-200'
+                    ? 'bg-brand-500/15 text-brand-800 dark:text-brand-200'
+                    : 'text-slate-900 hover:bg-brand-500/15 hover:text-brand-800 dark:text-white dark:hover:text-brand-200'
                 }`}
               >
                 {optionText(option)}

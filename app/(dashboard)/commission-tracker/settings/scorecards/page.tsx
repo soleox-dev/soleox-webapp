@@ -229,7 +229,7 @@ export default function ScorecardsSettingsPage() {
                 type="button"
                 onClick={save}
                 disabled={isSaving}
-                className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-md transition hover:bg-emerald-400 disabled:opacity-50 cursor-pointer"
+                className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-bold text-white shadow-md transition hover:bg-brand-500 disabled:opacity-50 cursor-pointer"
               >
                 {isSaving ? 'Saving…' : 'Save Scorecards'}
               </button>
@@ -306,7 +306,7 @@ export default function ScorecardsSettingsPage() {
                     placeholder="New scorecard"
                     aria-label="Scorecard name"
                     style={{ width: `${Math.min(32, Math.max((card.name || 'New scorecard').length + 1, 8))}ch` }}
-                    className="max-w-full border-0 border-b border-b-slate-300 bg-transparent px-0.5 py-0 text-sm font-semibold text-slate-900 placeholder:font-semibold placeholder:text-slate-400 focus:border-b-emerald-500 focus:outline-none focus:ring-0 dark:border-b-slate-600 dark:text-white dark:placeholder:text-slate-500"
+                    className="max-w-full border-0 border-b border-b-slate-300 bg-transparent px-0.5 py-0 text-sm font-semibold text-slate-900 placeholder:font-semibold placeholder:text-slate-400 focus:border-b-brand-500 focus:outline-none focus:ring-0 dark:border-b-slate-600 dark:text-white dark:placeholder:text-slate-500"
                   />
                   {!expanded && summary && (
                     <span className="min-w-0 flex-1 truncate text-xs text-slate-500 dark:text-slate-400">{summary}</span>

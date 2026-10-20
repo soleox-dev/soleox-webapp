@@ -116,7 +116,7 @@ function PaymentShareCard({
           {name}
         </span>
         {isPrimary && (
-          <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
+          <span className="shrink-0 rounded-full border border-brand-500/30 bg-brand-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-brand-800 dark:text-brand-300">
             Primary
           </span>
         )}

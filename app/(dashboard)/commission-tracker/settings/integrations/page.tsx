@@ -488,7 +488,7 @@ export default function TransactionIntegrationsPage() {
           type="button"
           onClick={syncNow}
           disabled={!canManage || isSyncing || isLoading || !syncReady}
-          className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-md transition hover:bg-emerald-400 disabled:opacity-50 cursor-pointer"
+          className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-bold text-white shadow-md transition hover:bg-brand-500 disabled:opacity-50 cursor-pointer"
         >
           {isSyncing ? 'Syncing…' : 'Sync now'}
         </button>
@@ -533,15 +533,15 @@ export default function TransactionIntegrationsPage() {
           </div>
 
           <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-            <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} disabled={!canManage} className="h-4 w-4 accent-emerald-500" />
+            <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} disabled={!canManage} className="h-4 w-4 accent-brand-600" />
             Sync this spreadsheet every hour
           </label>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button type="button" onClick={preview} disabled={!canManage || isPreviewing} className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-md transition hover:bg-emerald-400 disabled:opacity-50 cursor-pointer">
+            <button type="button" onClick={preview} disabled={!canManage || isPreviewing} className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-bold text-white shadow-md transition hover:bg-brand-500 disabled:opacity-50 cursor-pointer">
               {isPreviewing ? 'Loading columns…' : 'Load columns'}
             </button>
-            <button type="button" onClick={save} disabled={!canManage || isSaving || !isDirty} className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-md transition hover:bg-emerald-400 disabled:opacity-50 cursor-pointer">
+            <button type="button" onClick={save} disabled={!canManage || isSaving || !isDirty} className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-bold text-white shadow-md transition hover:bg-brand-500 disabled:opacity-50 cursor-pointer">
               {isSaving ? 'Saving…' : 'Save integration'}
             </button>
             {message && <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{message}</span>}

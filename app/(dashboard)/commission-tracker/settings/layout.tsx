@@ -128,7 +128,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
       nested ? 'px-3 py-2' : 'px-3.5 py-2.5'
     } ${
       isActive
-        ? 'bg-emerald-500/10 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 font-bold'
+        ? 'bg-brand-500/10 dark:bg-brand-950/80 text-brand-700 dark:text-brand-400 border border-brand-500/30 font-bold'
         : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 border border-transparent'
     }`;
   };
@@ -137,7 +137,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     <main className={`${pageFrame} space-y-6 py-6 md:py-8`}>
       {/* Settings Master Banner */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-md transition-colors">
-        <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
+        <div className="flex items-center gap-2 text-xs font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider mb-1">
           <span>Commission Tracker</span>
           <span>•</span>
           <span className="text-slate-500 dark:text-slate-400">Settings & Rules Hub</span>
@@ -178,7 +178,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                   onClick={hideMenu}
                   className={`w-10 h-10 rounded-lg flex items-center justify-center transition ${
                     isActive
-                      ? 'bg-emerald-500/10 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30'
+                      ? 'bg-brand-500/10 dark:bg-brand-950/80 text-brand-700 dark:text-brand-400 border border-brand-500/30'
                       : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 border border-transparent'
                   }`}
                 >

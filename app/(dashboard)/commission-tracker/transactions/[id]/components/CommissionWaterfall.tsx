@@ -259,7 +259,7 @@ export function CommissionWaterfall({
         onClick={() => chooseAgentLayout('table')}
         title="Table"
         aria-label="Table"
-        className={`inline-flex h-full w-8 items-center justify-center rounded-md cursor-pointer transition ${agentLayout === 'table' ? 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}
+        className={`inline-flex h-full w-8 items-center justify-center rounded-md cursor-pointer transition ${agentLayout === 'table' ? 'bg-brand-500/10 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}
       >
         <Table2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
       </button>
@@ -268,7 +268,7 @@ export function CommissionWaterfall({
         onClick={() => chooseAgentLayout('cards')}
         title="Cards"
         aria-label="Cards"
-        className={`inline-flex h-full w-8 items-center justify-center rounded-md cursor-pointer transition ${agentLayout === 'cards' ? 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}
+        className={`inline-flex h-full w-8 items-center justify-center rounded-md cursor-pointer transition ${agentLayout === 'cards' ? 'bg-brand-500/10 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}
       >
         <LayoutGrid className="h-4 w-4" strokeWidth={1.75} aria-hidden />
       </button>
@@ -585,7 +585,7 @@ export function CommissionWaterfall({
                   onClick={onApplyEdit}
                   disabled={agentSplitsExceedPool}
                   title={agentSplitsExceedPool ? "Agent splits can't exceed 100% of the remaining commission." : undefined}
-                  className={`text-xs bg-emerald-500 text-slate-950 px-3 py-1.5 rounded-lg font-bold transition shadow-md ${agentSplitsExceedPool ? 'opacity-40 cursor-not-allowed' : 'hover:bg-emerald-400 cursor-pointer'}`}
+                  className={`text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg font-bold transition shadow-md ${agentSplitsExceedPool ? 'opacity-40 cursor-not-allowed' : 'hover:bg-brand-500 cursor-pointer'}`}
                 >
                   Apply Changes
                 </button>
@@ -640,7 +640,7 @@ export function CommissionWaterfall({
                   <ClearableSelect
                     value={newOffTopEntity}
                     onChange={(e) => setNewOffTopEntity(e.target.value)}
-                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
+                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
                   >
                     {knownEntities.map((ent) => (
                       <option key={ent.id} value={ent.name}>{ent.name}</option>
@@ -652,7 +652,7 @@ export function CommissionWaterfall({
                     placeholder="Entity Name (e.g. Soleox Realty)"
                     value={newOffTopEntity}
                     onChange={(e) => setNewOffTopEntity(e.target.value)}
-                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
+                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
                   />
                 )}
                 <SplitPair
@@ -721,7 +721,7 @@ export function CommissionWaterfall({
                         <ClearableSelect
                           value={rule.entity}
                           onChange={(e) => onUpdateOffTopRuleEntity?.(rule.id, e.target.value)}
-                          className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[150px] sm:max-w-[190px]"
+                          className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] cursor-pointer max-w-[150px] sm:max-w-[190px]"
                           title="Switch entity"
                         >
                           <option value={rule.entity}>{rule.entity}</option>
@@ -734,7 +734,7 @@ export function CommissionWaterfall({
                           type="text"
                           value={rule.entity}
                           onChange={(e) => onUpdateOffTopRuleEntity?.(rule.id, e.target.value)}
-                          className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] w-28"
+                          className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] w-28"
                         />
                       )
                     ) : (
@@ -805,7 +805,7 @@ export function CommissionWaterfall({
                   <ClearableSelect
                     value={newPreSplitEntity}
                     onChange={(e) => setNewPreSplitEntity(e.target.value)}
-                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
+                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
                   >
                     {knownEntities.map((ent) => (
                       <option key={ent.id} value={ent.name}>{ent.name}</option>
@@ -817,7 +817,7 @@ export function CommissionWaterfall({
                     placeholder="Entity Name (e.g. TC Fee, Referral)"
                     value={newPreSplitEntity}
                     onChange={(e) => setNewPreSplitEntity(e.target.value)}
-                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
+                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
                   />
                 )}
                 <SplitPair
@@ -886,7 +886,7 @@ export function CommissionWaterfall({
                         <ClearableSelect
                           value={rule.entity}
                           onChange={(e) => onUpdatePreSplitRuleEntity?.(rule.id, e.target.value)}
-                          className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[150px] sm:max-w-[190px]"
+                          className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] cursor-pointer max-w-[150px] sm:max-w-[190px]"
                           title="Switch entity"
                         >
                           <option value={rule.entity}>{rule.entity}</option>
@@ -899,7 +899,7 @@ export function CommissionWaterfall({
                           type="text"
                           value={rule.entity}
                           onChange={(e) => onUpdatePreSplitRuleEntity?.(rule.id, e.target.value)}
-                          className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] w-28"
+                          className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] w-28"
                         />
                       )
                     ) : (
@@ -1031,7 +1031,7 @@ export function CommissionWaterfall({
                           <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                             👤 {agent.name}
                           </span>
-                          <span className="text-[10px] bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                          <span className="text-[10px] bg-brand-500/20 text-brand-800 dark:text-brand-300 border border-brand-500/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
                             PRIMARY
                           </span>
                           <span className="relative inline-flex group/painfo">
@@ -1110,7 +1110,7 @@ export function CommissionWaterfall({
                           <ClearableSelect
                             value={agent.name}
                             onChange={(e) => onSwitchAgent?.(agent.id, e.target.value)}
-                            className="bg-transparent border-b border-slate-300 dark:border-slate-600 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] py-0.5 cursor-pointer max-w-[160px] sm:max-w-[220px]"
+                            className="bg-transparent border-b border-slate-300 dark:border-slate-600 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] py-0.5 cursor-pointer max-w-[160px] sm:max-w-[220px]"
                             title="Switch agent"
                           >
                             <option value={agent.name}>{agent.name}</option>
@@ -1284,7 +1284,7 @@ export function CommissionWaterfall({
                             <ClearableSelect
                               value={newPostSplitEntity}
                               onChange={(e) => setNewPostSplitEntity(e.target.value)}
-                              className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
+                              className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
                             >
                               {knownEntities.map((ent) => (
                                 <option key={ent.id} value={ent.name}>{ent.name}</option>
@@ -1296,7 +1296,7 @@ export function CommissionWaterfall({
                               placeholder="Entity Name (e.g. Soleox Realty)"
                               value={newPostSplitEntity}
                               onChange={(e) => setNewPostSplitEntity(e.target.value)}
-                              className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
+                              className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
                             />
                           )}
                           <SplitPair
@@ -1367,7 +1367,7 @@ export function CommissionWaterfall({
                                   <ClearableSelect
                                     value={rule.entity}
                                     onChange={(e) => onUpdateAgentPostSplitEntity?.(agentName, rule.id, e.target.value)}
-                                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[140px] sm:max-w-[170px]"
+                                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] cursor-pointer max-w-[140px] sm:max-w-[170px]"
                                     title="Switch entity"
                                   >
                                     <option value={rule.entity}>{rule.entity}</option>
@@ -1380,7 +1380,7 @@ export function CommissionWaterfall({
                                     type="text"
                                     value={rule.entity}
                                     onChange={(e) => onUpdateAgentPostSplitEntity?.(agentName, rule.id, e.target.value)}
-                                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] w-24"
+                                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] w-24"
                                   />
                                 )
                               ) : (
@@ -1490,7 +1490,7 @@ export function CommissionWaterfall({
                             <ClearableSelect
                               value={newPostSplit2Entity}
                               onChange={(e) => setNewPostSplit2Entity(e.target.value)}
-                              className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
+                              className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
                             >
                               {knownEntities.map((ent) => (
                                 <option key={ent.id} value={ent.name}>{ent.name}</option>
@@ -1502,7 +1502,7 @@ export function CommissionWaterfall({
                               placeholder="Payee Entity (e.g. Stock)"
                               value={newPostSplit2Entity}
                               onChange={(e) => setNewPostSplit2Entity(e.target.value)}
-                              className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
+                              className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
                             />
                           )}
                           <SplitPair
@@ -1573,7 +1573,7 @@ export function CommissionWaterfall({
                                   <ClearableSelect
                                     value={rule.entity}
                                     onChange={(e) => onUpdateAgentPostSplit2Entity?.(agentName, rule.id, e.target.value)}
-                                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[140px] sm:max-w-[170px]"
+                                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] cursor-pointer max-w-[140px] sm:max-w-[170px]"
                                     title="Switch entity"
                                   >
                                     <option value={rule.entity}>{rule.entity}</option>
@@ -1586,7 +1586,7 @@ export function CommissionWaterfall({
                                     type="text"
                                     value={rule.entity}
                                     onChange={(e) => onUpdateAgentPostSplit2Entity?.(agentName, rule.id, e.target.value)}
-                                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] w-24"
+                                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] w-24"
                                   />
                                 )
                               ) : (

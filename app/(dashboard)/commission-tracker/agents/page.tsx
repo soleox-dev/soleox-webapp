@@ -71,7 +71,7 @@ interface AgentRecord {
 }
 
 const underlineShell =
-  'group/field relative underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600';
+  'group/field relative underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600';
 const underlineLabel =
   'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
 
@@ -959,7 +959,7 @@ export default function AgentsPage() {
     <main className={`${pageFrame} min-h-screen bg-slate-100 py-6 text-slate-900 transition-colors duration-200 space-y-6 dark:bg-slate-900 dark:text-slate-100 md:py-8`}>
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl flex flex-wrap justify-between items-start sm:items-center gap-4 transition-colors">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
+          <div className="flex items-center gap-2 text-xs font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider mb-1">
             <span>Commission Tracker</span>
           </div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Agents</h1>
@@ -1145,7 +1145,7 @@ export default function AgentsPage() {
         >
           <table className="w-full text-left text-xs border-separate border-spacing-0">
             <thead className="sticky top-0 z-20 select-none bg-slate-100 dark:bg-slate-900">
-              <tr className="bg-slate-200 dark:bg-slate-950 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+              <tr className="bg-slate-200 dark:bg-slate-950 text-[10px] font-bold uppercase tracking-widest text-brand-600 dark:text-brand-400">
                 {bulkMode && <th className={`${pinCheckSection} border-b border-slate-300 dark:border-slate-800`} />}
                 {sectionHeaderGroups.map((group, index) => {
                   const span = index === 0 ? group.span - 1 : group.span;
@@ -1154,7 +1154,7 @@ export default function AgentsPage() {
                       {index === 0 && (
                         <th className={`${pinHead} bg-slate-200 p-0 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800 border-r border-slate-300/60 dark:border-slate-800/80`}>
                           <div className="absolute inset-0 flex items-center gap-1.5 px-4">
-                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" />
                             <span className="truncate">{group.name}</span>
                           </div>
                         </th>
@@ -1166,7 +1166,7 @@ export default function AgentsPage() {
                         >
                           {index === 0 ? null : (
                             <div className="flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              <span className="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
                               <span>{group.name}</span>
                             </div>
                           )}
@@ -1187,7 +1187,7 @@ export default function AgentsPage() {
                         checked={allVisibleSelected}
                         onChange={toggleVisibleSelection}
                         aria-label="Select all agents in this view"
-                        className="block h-3.5 w-3.5 accent-emerald-500 cursor-pointer"
+                        className="block h-3.5 w-3.5 accent-brand-600 cursor-pointer"
                       />
                     </span>
                   </th>
@@ -1317,7 +1317,7 @@ export default function AgentsPage() {
                             checked={selectedIds.has(String(ag.id || ''))}
                             onChange={() => toggleRowSelection(String(ag.id || ''))}
                             aria-label={`Select ${ag.agent_name || ag.id}`}
-                            className="block h-3.5 w-3.5 accent-emerald-500 cursor-pointer"
+                            className="block h-3.5 w-3.5 accent-brand-600 cursor-pointer"
                           />
                         </span>
                       </td>
@@ -1536,7 +1536,7 @@ export default function AgentsPage() {
 
                 return (
                   <div key={secName} className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-700/60 first:border-t-0 first:pt-0">
-                    <h4 className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                    <h4 className="text-[11px] font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider">
                       {secName}
                     </h4>
 
@@ -1715,7 +1715,7 @@ export default function AgentsPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting || !agentDirty}
-                  className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-1.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-lg shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {isSubmitting ? (
                     <>

@@ -130,7 +130,7 @@ export const DecimalInput = React.forwardRef<HTMLInputElement, DecimalInputProps
         : 'text-emerald-600 dark:text-emerald-400 placeholder-slate-400 dark:placeholder-slate-500'
       : isPercent
         ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/30 border-blue-300 dark:border-blue-700/80 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 placeholder-slate-400 dark:placeholder-slate-500'
-        : 'text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700/80 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 placeholder-slate-400 dark:placeholder-slate-500';
+        : 'text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700/80 focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30 placeholder-slate-400 dark:placeholder-slate-500';
 
   return (
     <input

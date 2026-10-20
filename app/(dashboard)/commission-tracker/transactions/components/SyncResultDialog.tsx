@@ -326,7 +326,7 @@ export function SyncErrorsDialog({
           <button
             type="button"
             onClick={onClose}
-            className="cursor-pointer rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400"
+            className="cursor-pointer rounded-lg bg-brand-600 px-4 py-2 text-xs font-bold text-white hover:bg-brand-500"
           >
             Close
           </button>
@@ -392,7 +392,7 @@ export function SyncResultDialog({
             onClick={onClose}
             aria-label="Close"
             title="Close"
-            className="group -mr-1.5 inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 dark:text-slate-400 dark:hover:bg-slate-700/70 dark:hover:text-white"
+            className="group -mr-1.5 inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 dark:text-slate-400 dark:hover:bg-slate-700/70 dark:hover:text-white"
           >
             <X className="h-4 w-4 transition-transform duration-200 group-hover:rotate-90" strokeWidth={2} aria-hidden />
           </button>

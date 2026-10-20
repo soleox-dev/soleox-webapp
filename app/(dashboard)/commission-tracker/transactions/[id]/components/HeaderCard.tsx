@@ -43,7 +43,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
   return (
     <>
       <div className="!mb-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-6 py-4 shadow-xl transition-colors">
-        <h1 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">Transaction Detail</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Transaction Detail</h1>
         <p className="text-slate-500 dark:text-slate-400 text-sm">Overview, commission waterfall, and payments</p>
       </div>
 

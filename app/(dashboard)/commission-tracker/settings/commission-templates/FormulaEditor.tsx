@@ -639,7 +639,7 @@ export function FormulaEditor({
                   onClick={() => setActiveGroup(group.id)}
                   className={`px-2 py-1 rounded text-[10px] font-bold cursor-pointer ${
                     selectedGroup?.id === group.id
-                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                      ? 'bg-brand-500/15 text-brand-700 dark:text-brand-300'
                       : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                   }`}
                 >
@@ -649,7 +649,7 @@ export function FormulaEditor({
             </div>
           </div>
           <div className="p-2">
-            <label className="group/field underline-field mb-2 block rounded-t-md border-b border-b-slate-300 px-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600">
+            <label className="group/field underline-field mb-2 block rounded-t-md border-b border-b-slate-300 px-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600">
               <span className="block truncate text-[10px] leading-3 font-medium text-slate-500 group-focus-within/field:text-emerald-600 dark:text-slate-400 dark:group-focus-within/field:text-emerald-400">Search</span>
               <input
                 value={fieldQuery}
@@ -684,7 +684,7 @@ export function FormulaEditor({
 
   const formulaColumn = (
     <div className={`min-w-0 space-y-2 ${fieldsAside && !containFields ? 'w-full max-w-[39rem] shrink-0' : ''}`}>
-      <div ref={formulaShellRef} className="group/field underline-field rounded-t-md border-b border-b-slate-300 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600">
+      <div ref={formulaShellRef} className="group/field underline-field rounded-t-md border-b border-b-slate-300 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600">
       <div className="flex items-center justify-between gap-2 px-2.5 pt-1">
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="truncate text-[10px] leading-3 font-medium text-slate-500 group-focus-within/field:text-emerald-600 dark:text-slate-400 dark:group-focus-within/field:text-emerald-400">{label}</span>
@@ -825,7 +825,7 @@ export function FormulaEditor({
                   applySuggestion(suggestion.insert);
                 }}
                 className={`w-full px-3 py-1.5 flex items-center justify-between gap-3 text-left text-xs cursor-pointer ${
-                  index === suggestionIndex ? 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-300' : 'text-slate-700 dark:text-slate-200'
+                  index === suggestionIndex ? 'bg-brand-500/10 text-brand-800 dark:text-brand-300' : 'text-slate-700 dark:text-slate-200'
                 }`}
               >
                 <span className="font-mono font-medium">{suggestion.label}</span>

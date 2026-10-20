@@ -69,7 +69,7 @@ export function SplitPair({
   const dollarPrefix = deduction && (dollarAmount || 0) > -0.005 ? '-$' : '$';
   const boxChrome = 'h-7 border-t-0 border-x-0 border-b rounded-t-md px-2 text-xs text-right font-semibold focus:outline-none transition-colors duration-150 shrink-0';
   const quietInput = 'h-7 border-0 bg-transparent text-xs text-right font-semibold focus:outline-none shrink-0';
-  const quietField = 'underline-field rounded-t-md border-b border-b-slate-300 transition-colors dark:border-b-slate-600 focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)]';
+  const quietField = 'underline-field rounded-t-md border-b border-b-slate-300 transition-colors dark:border-b-slate-600 focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)]';
   const invalidField = 'rounded-t-md border-b border-b-rose-400 bg-rose-50 transition-colors dark:border-b-rose-500 dark:bg-rose-950/40 focus-within:border-b-rose-600 focus-within:shadow-[0_1px_0_rgb(225_29_72/0.45),0_6px_12px_-6px_rgb(225_29_72/0.8)]';
   const shownPercent = Number(percentPoints || 0);
   const percentUnexpected = !deduction && shownPercent < -0.004;

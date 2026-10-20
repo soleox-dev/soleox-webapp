@@ -227,7 +227,7 @@ export function CommandPalette({
                     data-index={index}
                     onMouseMove={() => setActiveIndex(index)}
                     onClick={() => choose(result)}
-                    className={`flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left text-[13px] ${active ? 'bg-emerald-500/10 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300' : 'text-slate-700 dark:text-slate-200'}`}
+                    className={`flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left text-[13px] ${active ? 'bg-brand-500/10 text-brand-800 dark:bg-brand-500/15 dark:text-brand-300' : 'text-slate-700 dark:text-slate-200'}`}
                   >
                     <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`} strokeWidth={1.75} aria-hidden />
                     <span className="min-w-0 flex-1 truncate font-medium">{result.title}</span>

@@ -241,7 +241,7 @@ export default function Navbar() {
   const reportsBarClass = `relative z-50 md:fixed md:inset-x-0 md:top-0 md:transition-transform md:duration-200 md:ease-out md:motion-reduce:transition-none ${reportsNavOpen ? 'md:translate-y-0 md:shadow-lg' : 'md:-translate-y-full md:pointer-events-none'}`;
   const sheetLinkClass = (active: boolean) => `flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold ${
     active
-      ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400'
+      ? 'bg-brand-500/10 font-bold text-brand-700 dark:bg-brand-950/80 dark:text-brand-400'
       : 'text-slate-700 dark:text-slate-200'
   }`;
   const sheetHeadingClass = 'px-3 pb-1 pt-3 text-[11px] font-bold uppercase tracking-wider text-slate-400';
@@ -288,9 +288,9 @@ export default function Navbar() {
         <div className="flex items-center gap-4">
           <Link href="/" className="flex items-center space-x-2">
             <SoleoxLogo className="h-7 w-auto" />
-            <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800/80">
-              REBI
-            </span>
+            {/* REBI reads as the product name beside the logo, after a thin divider. */}
+            <span aria-hidden className="mx-1 h-[18px] w-px bg-slate-300 dark:bg-slate-700" />
+            <span className="text-[15px] font-medium tracking-[0.02em] text-slate-500 dark:text-slate-400">REBI</span>
           </Link>
 
           {/* Module switcher and the current module's pages. Desktop only; phones use the menu sheet. */}
@@ -304,7 +304,7 @@ export default function Navbar() {
                 aria-expanded={moduleMenuOpen}
                 className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-[13px] font-semibold transition cursor-pointer ${moduleMenuOpen ? 'bg-slate-200 text-slate-900 dark:bg-slate-800 dark:text-white' : 'bg-slate-100 text-slate-800 hover:bg-slate-200 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-800'}`}
               >
-                <CurrentModuleIcon className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} aria-hidden />
+                <CurrentModuleIcon className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" strokeWidth={1.75} aria-hidden />
                 {currentModule?.label ?? 'Modules'}
                 <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${moduleMenuOpen ? 'rotate-180' : ''}`} strokeWidth={2} aria-hidden />
               </button>
@@ -327,7 +327,7 @@ export default function Navbar() {
                         href={item.href}
                         role="menuitem"
                         onClick={() => setModuleMenuOpen(false)}
-                        className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${item.active ? 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400' : 'text-slate-800 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}
+                        className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${item.active ? 'bg-brand-500/10 text-brand-700 dark:bg-brand-950/80 dark:text-brand-400' : 'text-slate-800 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}
                       >
                         <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
                         {item.label}
@@ -339,7 +339,7 @@ export default function Navbar() {
                     href="/"
                     role="menuitem"
                     onClick={() => setModuleMenuOpen(false)}
-                    className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${isMainMenu ? 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400' : 'text-slate-800 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}
+                    className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${isMainMenu ? 'bg-brand-500/10 text-brand-700 dark:bg-brand-950/80 dark:text-brand-400' : 'text-slate-800 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}
                   >
                     <LayoutGrid className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
                     All modules
@@ -355,7 +355,7 @@ export default function Navbar() {
                   key={page.href}
                   href={page.href}
                   aria-current={page.active ? 'page' : undefined}
-                  className={`flex items-center border-b-2 pt-0.5 text-[13px] font-semibold transition ${page.active ? 'border-emerald-500 text-emerald-700 dark:text-emerald-400' : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
+                  className={`flex items-center border-b-2 pt-0.5 text-[13px] font-semibold transition ${page.active ? 'border-brand-500 text-brand-700 dark:text-brand-400' : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
                 >
                   {page.label}
                 </Link>
@@ -419,7 +419,7 @@ export default function Navbar() {
                     {session?.user?.email || 'user@soleox.com'}
                   </p>
                   {access?.clientName && (
-                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400 truncate mt-1">{access.clientName}</p>
+                    <p className="text-[11px] text-brand-700 dark:text-brand-400 truncate mt-1">{access.clientName}</p>
                   )}
                 </div>
                 {access && access.clients.length > 1 && (
@@ -435,7 +435,7 @@ export default function Navbar() {
                         }}
                         className={`w-full text-left px-4 py-2 text-xs font-semibold truncate cursor-pointer ${
                           client.id === access.clientId
-                            ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-500/10'
+                            ? 'text-brand-700 dark:text-brand-400 bg-brand-500/10'
                             : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                         }`}
                       >
@@ -461,7 +461,7 @@ export default function Navbar() {
                         aria-pressed={selected}
                         className={`w-full text-left px-4 py-2 text-xs font-semibold flex items-center gap-2 transition cursor-pointer ${
                           selected
-                            ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-500/10'
+                            ? 'text-brand-700 dark:text-brand-400 bg-brand-500/10'
                             : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                         }`}
                       >
@@ -514,7 +514,7 @@ export default function Navbar() {
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">{session?.user?.name || 'Authenticated User'}</p>
                 <p className="truncate text-xs text-slate-500 dark:text-slate-400">{session?.user?.email || 'user@soleox.com'}</p>
-                {access?.clientName && <p className="truncate text-xs text-emerald-700 dark:text-emerald-400">{access.clientName}</p>}
+                {access?.clientName && <p className="truncate text-xs text-brand-700 dark:text-brand-400">{access.clientName}</p>}
               </div>
               <button
                 type="button"
@@ -531,7 +531,7 @@ export default function Navbar() {
                 <button
                   type="button"
                   onClick={() => setPhoneNavLevel('main')}
-                  className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-emerald-700 dark:text-emerald-400 cursor-pointer"
+                  className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-brand-700 dark:text-brand-400 cursor-pointer"
                 >
                   <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden /> Back to Main Menu
                 </button>
@@ -637,7 +637,7 @@ export default function Navbar() {
                       aria-pressed={selected}
                       className={`flex min-h-11 flex-col items-center justify-center gap-1 rounded-lg border text-xs font-semibold cursor-pointer ${
                         selected
-                          ? 'border-emerald-500/80 bg-emerald-500/10 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400'
+                          ? 'border-brand-500/80 bg-brand-500/10 text-brand-700 dark:bg-brand-950/80 dark:text-brand-400'
                           : 'border-slate-200 text-slate-700 dark:border-slate-800 dark:text-slate-300'
                       }`}
                     >

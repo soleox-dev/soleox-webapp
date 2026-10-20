@@ -143,7 +143,7 @@ export default function CommissionRulesSettingsPage() {
       {/* Header Card */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl flex justify-between items-center transition-colors">
         <div>
-          <h1 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
             Global Commission Rules & Waterfall Templates
           </h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
@@ -220,7 +220,7 @@ export default function CommissionRulesSettingsPage() {
                       onClick={() => toggleRuleStatus(rule.id)}
                       className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition ${
                         rule.status === 'Active'
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                          ? 'bg-brand-500/10 text-brand-600 dark:text-brand-400 border-brand-500/30'
                           : 'bg-slate-200 dark:bg-slate-700 text-slate-500 border-slate-300 dark:border-slate-600'
                       }`}
                     >

@@ -222,7 +222,7 @@ export function CommissionWaterfallTable({
     accent: 'emerald' | 'violet',
   ) => {
     const available = knownEntities.filter((item) => !taken.includes(item.name));
-    const fieldClass = 'bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-1 text-[11px] text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)]';
+    const fieldClass = 'bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-1 text-[11px] text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)]';
     return (
       <div className="flex items-center gap-1.5">
         {knownEntities.length > 0 ? (
@@ -276,7 +276,7 @@ export function CommissionWaterfallTable({
         <ClearableSelect
           value={entity}
           onChange={(event) => onChange(event.target.value)}
-          className="max-w-[10rem] bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer"
+          className="max-w-[10rem] bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] cursor-pointer"
           title="Switch entity"
         >
           <option value={entity}>{entity}</option>
@@ -291,7 +291,7 @@ export function CommissionWaterfallTable({
         type="text"
         value={entity}
         onChange={(event) => onChange(event.target.value)}
-        className="w-24 bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)]"
+        className="w-24 bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)]"
       />
     );
   };
@@ -405,7 +405,7 @@ export function CommissionWaterfallTable({
                     <div className="ml-auto flex w-max max-w-full flex-col items-end gap-1 pr-2">
                       <div className="flex h-5 items-center justify-end gap-1">
                         {agentIsPrimary && (
-                          <span className="text-[9px] bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-bold uppercase">Primary</span>
+                          <span className="text-[9px] bg-brand-500/20 text-brand-800 dark:text-brand-300 border border-brand-500/30 px-1.5 py-0.5 rounded-full font-bold uppercase">Primary</span>
                         )}
                         {agent.isTeamLead && (
                           <span className="text-[9px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-bold uppercase">Lead</span>
@@ -419,7 +419,7 @@ export function CommissionWaterfallTable({
                           <ClearableSelect
                             value={agent.name}
                             onChange={(event) => onSwitchAgent?.(agent.id, event.target.value)}
-                            className="w-max max-w-none bg-transparent border-b border-slate-300 dark:border-slate-600 text-right text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer"
+                            className="w-max max-w-none bg-transparent border-b border-slate-300 dark:border-slate-600 text-right text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] cursor-pointer"
                           >
                             <option value={agent.name}>{agent.name}</option>
                             {knownAgents

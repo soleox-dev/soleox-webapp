@@ -125,7 +125,7 @@ export function AgentPickerModal({
                     }}
                     className={`w-full text-left p-2.5 text-xs font-semibold transition flex justify-between items-center cursor-pointer ${
                       isSelected
-                        ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-l-4 border-emerald-500'
+                        ? 'bg-brand-500/15 text-brand-800 dark:text-brand-300 border-l-4 border-brand-500'
                         : 'text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
@@ -220,7 +220,7 @@ export function AgentPickerModal({
                 className={`w-full border rounded-lg pl-8 pr-12 py-2 text-sm focus:outline-none font-semibold placeholder-slate-400 dark:placeholder-slate-500 transition ${
                   splitType === 'PERCENT'
                     ? 'bg-blue-50/50 dark:bg-blue-950/30 border-blue-300 dark:border-blue-700/80 text-blue-600 dark:text-blue-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30'
-                    : 'bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700/80 text-emerald-600 dark:text-emerald-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30'
+                    : 'bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700/80 text-emerald-600 dark:text-emerald-400 focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30'
                 }`}
               />
               <span className={`absolute left-3 top-2.5 text-xs font-bold ${

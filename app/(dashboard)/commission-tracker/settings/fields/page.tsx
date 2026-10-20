@@ -113,7 +113,7 @@ const MANDATORY_SYSTEM_KEYS = new Set([
 ]);
 
 const underlineShell =
-  'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600';
+  'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600';
 const underlineLabel =
   'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
 
@@ -1115,7 +1115,7 @@ export default function FieldCustomizationsPage() {
             onClick={() => setActiveTab('transactions')}
             className={`px-4 py-2 rounded-md text-xs font-bold transition inline-flex items-center gap-1.5 ${
               activeTab === 'transactions'
-                ? 'bg-emerald-500/10 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30'
+                ? 'bg-brand-500/10 dark:bg-brand-950/80 text-brand-700 dark:text-brand-400 border border-brand-500/30'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
@@ -1127,7 +1127,7 @@ export default function FieldCustomizationsPage() {
             onClick={() => setActiveTab('agents')}
             className={`px-4 py-2 rounded-md text-xs font-bold transition inline-flex items-center gap-1.5 ${
               activeTab === 'agents'
-                ? 'bg-emerald-500/10 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30'
+                ? 'bg-brand-500/10 dark:bg-brand-950/80 text-brand-700 dark:text-brand-400 border border-brand-500/30'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
@@ -1140,7 +1140,7 @@ export default function FieldCustomizationsPage() {
           <button
             onClick={handleOpenAdd}
             disabled={isSavingField}
-            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
             <span>+ Add Field Config</span>
           </button>
@@ -1180,7 +1180,7 @@ export default function FieldCustomizationsPage() {
               <div key={secName} className="p-4 space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
                   <div className="flex items-center gap-3">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-700 dark:text-brand-400 uppercase tracking-wider">
                       <Folder className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
                       Section:
                     </span>
@@ -1276,7 +1276,7 @@ export default function FieldCustomizationsPage() {
                                 disabled={isAudit}
                                 checked={isAudit ? false : f.is_enabled}
                                 onChange={(e) => handleInlineToggle(f, 'is_enabled', e.target.checked)}
-                                className="rounded text-emerald-500 focus:ring-emerald-500 disabled:cursor-not-allowed cursor-pointer"
+                                className="rounded text-emerald-500 focus:ring-brand-500 disabled:cursor-not-allowed cursor-pointer"
                               />
                               <span className="text-slate-600 dark:text-slate-400 font-medium">Enabled</span>
                             </label>
@@ -1292,7 +1292,7 @@ export default function FieldCustomizationsPage() {
                                 disabled={isSystemMandatory}
                                 checked={f.is_required}
                                 onChange={(e) => handleInlineToggle(f, 'is_required', e.target.checked)}
-                                className="rounded text-emerald-500 focus:ring-emerald-500 disabled:cursor-not-allowed cursor-pointer"
+                                className="rounded text-emerald-500 focus:ring-brand-500 disabled:cursor-not-allowed cursor-pointer"
                               />
                               <span className="text-slate-600 dark:text-slate-400 font-medium">Required</span>
                             </label>
@@ -1895,7 +1895,7 @@ export default function FieldCustomizationsPage() {
                       disabled={isCurrentAuditField}
                       checked={isCurrentAuditField ? false : Boolean(formData.is_enabled)}
                       onChange={(e) => setFormData({ ...formData, is_enabled: e.target.checked })}
-                      className="rounded text-emerald-500 focus:ring-emerald-500 disabled:cursor-not-allowed"
+                      className="rounded text-emerald-500 focus:ring-brand-500 disabled:cursor-not-allowed"
                     />
                     <span className="font-bold text-slate-700 dark:text-slate-300">Enabled (Active in Forms)</span>
                   </label>
@@ -1906,7 +1906,7 @@ export default function FieldCustomizationsPage() {
                       disabled={Boolean(formData.is_system) || isSystemMandatoryField}
                       checked={Boolean(formData.is_required)}
                       onChange={(e) => setFormData({ ...formData, is_required: e.target.checked })}
-                      className="rounded text-emerald-500 focus:ring-emerald-500"
+                      className="rounded text-emerald-500 focus:ring-brand-500"
                     />
                     <span className="font-bold text-slate-700 dark:text-slate-300">Required</span>
                   </label>
@@ -1923,7 +1923,7 @@ export default function FieldCustomizationsPage() {
                   <button
                     type="submit"
                     disabled={isSavingField || !fieldDirty}
-                    className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                    className="px-4 py-1.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-lg shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                   >
                     {isSavingField ? (
                       <>

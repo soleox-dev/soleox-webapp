@@ -86,7 +86,7 @@ export function SearchableTransactionPicker({
                     setIsDropdownOpen(false);
                   }}
                   className={`p-3 text-xs cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition flex justify-between items-center ${
-                    selectedDealId === deal.id ? 'bg-emerald-500/10 border-l-4 border-emerald-500' : ''
+                    selectedDealId === deal.id ? 'bg-brand-500/10 border-l-4 border-brand-500' : ''
                   }`}
                 >
                   <div>

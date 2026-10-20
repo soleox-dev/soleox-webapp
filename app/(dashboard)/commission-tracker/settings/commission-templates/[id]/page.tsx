@@ -81,7 +81,7 @@ const PARAMETER_TYPES: { value: ParameterType; label: string }[] = [
 ];
 
 const underlineShell =
-  'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] dark:border-b-slate-600';
+  'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600';
 const underlineLabel =
   'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
 const fieldColumn = 'w-full max-w-[39rem]';
@@ -1285,7 +1285,7 @@ export default function CommissionTemplateDetailPage() {
                     setEditingParameterId(null);
                     setParameterForm({ ...emptyParameter });
                   }}
-                  className="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer whitespace-nowrap"
+                  className="px-3 py-1.5 text-xs font-bold rounded-lg bg-brand-600 hover:bg-brand-500 text-white cursor-pointer whitespace-nowrap"
                 >
                   Add parameter
                 </button>
@@ -1338,7 +1338,7 @@ export default function CommissionTemplateDetailPage() {
                             if (sourceId) void dropParameter(sourceId, { sectionName: group.name });
                           }}
                         >
-                          <td colSpan={8} className={`px-4 py-2 ${dropTarget && 'sectionName' in dropTarget && dropTarget.sectionName === group.name ? (isUnsectioned ? 'bg-amber-500/20' : 'bg-emerald-500/15') : 'bg-slate-50 dark:bg-slate-900/60'}`}>
+                          <td colSpan={8} className={`px-4 py-2 ${dropTarget && 'sectionName' in dropTarget && dropTarget.sectionName === group.name ? (isUnsectioned ? 'bg-amber-500/20' : 'bg-brand-500/15') : 'bg-slate-50 dark:bg-slate-900/60'}`}>
                             <div className="flex items-center gap-2">
                               <span className={`w-2 h-2 rounded-full ${isUnsectioned ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                               <span className={`text-[10px] font-bold uppercase tracking-wider ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
@@ -1483,7 +1483,7 @@ export default function CommissionTemplateDetailPage() {
                     setEditingLogicId(null);
                     setLogicForm({ ...emptyLogic });
                   }}
-                  className="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer whitespace-nowrap"
+                  className="px-3 py-1.5 text-xs font-bold rounded-lg bg-brand-600 hover:bg-brand-500 text-white cursor-pointer whitespace-nowrap"
                 >
                   Add rule
                 </button>
@@ -1539,7 +1539,7 @@ export default function CommissionTemplateDetailPage() {
                             if (sourceId) void dropLogic(sourceId, { sectionName: group.name });
                           }}
                         >
-                          <td colSpan={11} className={`px-4 py-2 ${logicDropTarget && 'sectionName' in logicDropTarget && logicDropTarget.sectionName === group.name ? (isUnsectioned ? 'bg-amber-500/20' : 'bg-emerald-500/15') : 'bg-slate-50 dark:bg-slate-900/60'}`}>
+                          <td colSpan={11} className={`px-4 py-2 ${logicDropTarget && 'sectionName' in logicDropTarget && logicDropTarget.sectionName === group.name ? (isUnsectioned ? 'bg-amber-500/20' : 'bg-brand-500/15') : 'bg-slate-50 dark:bg-slate-900/60'}`}>
                             <div className="flex items-center gap-2">
                               <span className={`w-2 h-2 rounded-full ${isUnsectioned ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                               <span className={`text-[10px] font-bold uppercase tracking-wider ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
@@ -1661,7 +1661,7 @@ export default function CommissionTemplateDetailPage() {
                   onClick={() => setShowParameterFields((open) => !open)}
                   className={`shrink-0 px-2.5 py-1 text-[11px] font-bold rounded-lg border cursor-pointer ${
                     showParameterFields
-                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                      ? 'border-brand-500 bg-brand-500/15 text-brand-700 dark:text-brand-300'
                       : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700'
                   }`}
                 >
@@ -2057,7 +2057,7 @@ export default function CommissionTemplateDetailPage() {
               <button
                 type="submit"
                 disabled={isSaving || !templateDirty || !editName.trim()}
-                className="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer disabled:opacity-50"
+                className="px-4 py-1.5 text-xs font-bold rounded-lg bg-brand-600 hover:bg-brand-500 text-white cursor-pointer disabled:opacity-50"
               >
                 {isSaving ? 'Saving...' : 'Save Template'}
               </button>

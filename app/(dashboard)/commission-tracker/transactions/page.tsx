@@ -87,12 +87,12 @@ function tmsLinkMark(
 type TmsLinkFilter = 'connected' | 'disconnected';
 
 const TMS_FILTERS: { value: TmsLinkFilter; label: string; iconClass: string; activeClass: string; buttonClass: string }[] = [
-  { value: 'connected', label: 'Connected to TMS', iconClass: 'text-emerald-500', activeClass: 'bg-emerald-500/20 border-emerald-500/40', buttonClass: 'bg-emerald-500 text-white hover:bg-emerald-600 dark:bg-emerald-500 dark:hover:bg-emerald-400' },
+  { value: 'connected', label: 'Connected to TMS', iconClass: 'text-emerald-500', activeClass: 'bg-emerald-500/20 border-emerald-500/40', buttonClass: 'bg-brand-600 text-white hover:bg-emerald-600 dark:bg-brand-600 dark:hover:bg-brand-500' },
   { value: 'disconnected', label: 'Disconnected from TMS', iconClass: 'text-rose-500', activeClass: 'bg-rose-500/20 border-rose-500/40', buttonClass: 'bg-rose-500 text-white hover:bg-rose-600 dark:bg-rose-500 dark:hover:bg-rose-400' },
 ];
 
 const BOLT_FILTERS: { tone: BoltTone; label: string; icon: LucideIcon; iconClass: string; activeClass: string; buttonClass: string }[] = [
-  { tone: 'submitted', label: 'Submitted', icon: Check, iconClass: 'text-emerald-500', activeClass: 'bg-emerald-500/20 border-emerald-500/40', buttonClass: 'bg-emerald-500 text-white hover:bg-emerald-600 dark:bg-emerald-500 dark:hover:bg-emerald-400' },
+  { tone: 'submitted', label: 'Submitted', icon: Check, iconClass: 'text-emerald-500', activeClass: 'bg-emerald-500/20 border-emerald-500/40', buttonClass: 'bg-brand-600 text-white hover:bg-emerald-600 dark:bg-brand-600 dark:hover:bg-brand-500' },
   { tone: 'ready', label: 'Ready to submit', icon: Plus, iconClass: 'text-blue-500', activeClass: 'bg-blue-500/20 border-blue-500/40', buttonClass: 'bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-500 dark:hover:bg-blue-400' },
   { tone: 'ineligible', label: 'No longer eligible', icon: X, iconClass: 'text-rose-500', activeClass: 'bg-rose-500/20 border-rose-500/40', buttonClass: 'bg-rose-500 text-white hover:bg-rose-600 dark:bg-rose-500 dark:hover:bg-rose-400' },
   { tone: 'drift', label: 'Payments would change', icon: RefreshCw, iconClass: 'text-violet-400', activeClass: 'bg-violet-500/20 border-violet-500/40', buttonClass: 'bg-violet-500 text-white hover:bg-violet-600 dark:bg-violet-500 dark:hover:bg-violet-400' },
@@ -1901,7 +1901,7 @@ export default function TransactionsListPage() {
       {/* Top Banner */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl flex flex-wrap justify-between items-start sm:items-center gap-4 transition-colors">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
+          <div className="flex items-center gap-2 text-xs font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider mb-1">
             <span>Commission Tracker</span>
           </div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Transactions</h1>
@@ -2206,7 +2206,7 @@ export default function TransactionsListPage() {
           Displaying {processedDeals.length} of {showingDeleted ? deletedDeals.length : deals.length} records
           {syncNotice && (syncNotice.tone === 'error' || syncChangesOn) && (
             <>
-              <span className="mx-2 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 align-middle" aria-hidden />
+              <span className="mx-2 inline-block h-1.5 w-1.5 rounded-full bg-brand-500 align-middle" aria-hidden />
               <span className={syncNotice.tone === 'error' ? 'text-rose-600 dark:text-rose-300' : 'text-slate-600 dark:text-slate-300'}>
                 <SyncSummaryLine
                   text={syncNotice.tone === 'ok' && syncNotice.finishedAt
@@ -2252,7 +2252,7 @@ export default function TransactionsListPage() {
             <thead className="sticky top-0 z-20 select-none bg-slate-100 dark:bg-slate-900">
               
               {/* Section Group Header Row */}
-              <tr className="bg-slate-200 dark:bg-slate-950 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+              <tr className="bg-slate-200 dark:bg-slate-950 text-[10px] font-bold uppercase tracking-widest text-brand-600 dark:text-brand-400">
                 {bulkMode && <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />}
                 {canWriteTracker && <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />}
                 {canWriteTracker && <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />}
@@ -2263,7 +2263,7 @@ export default function TransactionsListPage() {
                     className="py-1.5 px-4 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800 border-r border-slate-300/60 dark:border-slate-800/80"
                   >
                     <div className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
                       <span>{group.name}</span>
                     </div>
                   </th>
@@ -2282,7 +2282,7 @@ export default function TransactionsListPage() {
                         checked={allVisibleSelected}
                         onChange={toggleVisibleSelection}
                         aria-label="Select all transactions in this view"
-                        className="block h-3.5 w-3.5 accent-emerald-500 cursor-pointer"
+                        className="block h-3.5 w-3.5 accent-brand-600 cursor-pointer"
                       />
                     </span>
                   </th>
@@ -2579,7 +2579,7 @@ export default function TransactionsListPage() {
                               checked={selectedIds.has(String(deal.id || dealId))}
                               onChange={() => toggleRowSelection(String(deal.id || dealId))}
                               aria-label={`Select ${transactionDealLabel(deal) || String(deal.id || dealId)}`}
-                              className="block h-3.5 w-3.5 accent-emerald-500 cursor-pointer"
+                              className="block h-3.5 w-3.5 accent-brand-600 cursor-pointer"
                             />
                           </span>
                         </td>

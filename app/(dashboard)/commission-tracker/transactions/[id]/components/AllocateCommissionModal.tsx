@@ -65,7 +65,7 @@ export function AllocateCommissionModal({
               type="button"
               onClick={onYes}
               disabled={isSaving}
-              className="shrink-0 whitespace-nowrap px-3 py-2 text-xs font-bold rounded-lg bg-emerald-500 text-slate-950 hover:bg-emerald-400 cursor-pointer disabled:opacity-50"
+              className="shrink-0 whitespace-nowrap px-3 py-2 text-xs font-bold rounded-lg bg-brand-600 text-white hover:bg-brand-500 cursor-pointer disabled:opacity-50"
             >
               {isSaving ? 'Saving...' : `Yes, pay ${agentName}`}
             </button>

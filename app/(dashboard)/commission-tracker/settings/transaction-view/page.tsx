@@ -381,7 +381,7 @@ export default function TransactionViewsPage() {
               type="button"
               onClick={save}
               disabled={!viewDirty || isSaving}
-              className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-md transition hover:bg-emerald-400 disabled:opacity-50 cursor-pointer"
+              className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-bold text-white shadow-md transition hover:bg-brand-500 disabled:opacity-50 cursor-pointer"
             >
               {isSaving ? 'Saving…' : 'Save Views'}
             </button>

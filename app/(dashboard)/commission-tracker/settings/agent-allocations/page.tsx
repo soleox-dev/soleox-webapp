@@ -116,7 +116,7 @@ export default function AgentAllocationsPage() {
           type="button"
           onClick={() => void save()}
           disabled={!dirty || isSaving || isLoading}
-          className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-sm transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+          className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
         >
           {isSaving ? 'Saving...' : 'Save'}
         </button>
@@ -125,8 +125,8 @@ export default function AgentAllocationsPage() {
       {error && <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">{error}</p>}
 
       <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-700 dark:bg-slate-800">
-        <label className={`inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-bold cursor-pointer ${volume.enabled ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200' : 'bg-amber-500/15 text-amber-900 dark:text-amber-100'}`}>
-          <input type="checkbox" checked={volume.enabled} onChange={(event) => setVolume({ ...volume, enabled: event.target.checked })} className="h-4 w-4 cursor-pointer accent-emerald-500" />
+        <label className={`inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-bold cursor-pointer ${volume.enabled ? 'bg-brand-500/15 text-brand-800 dark:text-brand-200' : 'bg-amber-500/15 text-amber-900 dark:text-amber-100'}`}>
+          <input type="checkbox" checked={volume.enabled} onChange={(event) => setVolume({ ...volume, enabled: event.target.checked })} className="h-4 w-4 cursor-pointer accent-brand-600" />
           {`${label} is ${volume.enabled ? 'enabled' : 'disabled'}`}
         </label>
         <div className="grid gap-3 md:grid-cols-2">

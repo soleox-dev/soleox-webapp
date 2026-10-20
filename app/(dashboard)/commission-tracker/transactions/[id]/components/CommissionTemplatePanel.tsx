@@ -217,7 +217,7 @@ function LabeledParameter({
     ? 'border-b-rose-400 dark:border-b-rose-500 focus-within:border-b-rose-600 focus-within:shadow-[0_1px_0_rgb(225_29_72/0.45),0_6px_12px_-6px_rgb(225_29_72/0.8)]'
     : locked
     ? 'border-b-slate-200 dark:border-b-slate-700'
-    : 'border-b-slate-300 dark:border-b-slate-600 focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)]';
+    : 'border-b-slate-300 dark:border-b-slate-600 focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)]';
 
   return (
     <div key={flashToken || undefined} className={`group/field relative underline-field rounded-t-md pl-2.5 pr-2.5 pt-1 pb-0.5 border-b transition-colors ${locked ? 'is-locked' : ''} ${changed ? 'is-changed' : ''} ${flashToken ? 'is-recalculated' : ''} ${shellBorder}`}>
@@ -1534,9 +1534,9 @@ export function CommissionTemplatePanel({
           aria-haspopup="listbox"
           aria-expanded={templateMenuOpen}
           onClick={() => setTemplateMenuOpen((open) => !open)}
-          className="group underline-field relative block w-full rounded-t-md pl-2.5 pr-8 pt-1 pb-0.5 border-b border-b-slate-300 dark:border-b-slate-600 text-left transition-colors cursor-pointer focus:outline-none focus-visible:border-b-emerald-500 focus-visible:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="group underline-field relative block w-full rounded-t-md pl-2.5 pr-8 pt-1 pb-0.5 border-b border-b-slate-300 dark:border-b-slate-600 text-left transition-colors cursor-pointer focus:outline-none focus-visible:border-b-brand-500 focus-visible:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <span className="block text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-visible:text-emerald-600 dark:group-focus-visible:text-emerald-400">
+          <span className="block text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-visible:text-brand-600 dark:group-focus-visible:text-brand-400">
             Template
           </span>
           <span className="block h-5 truncate text-xs leading-4 font-medium text-slate-900 dark:text-white">
@@ -1558,7 +1558,7 @@ export function CommissionTemplatePanel({
                 <button
                   type="button"
                   onClick={() => openTemplate(template.id)}
-                  className={`block w-full cursor-pointer px-2.5 py-1.5 text-left text-xs font-medium ${template.id === shownTemplateId ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200' : 'text-slate-800 hover:bg-emerald-500/15 hover:text-emerald-800 dark:text-slate-100 dark:hover:text-emerald-200'}`}
+                  className={`block w-full cursor-pointer px-2.5 py-1.5 text-left text-xs font-medium ${template.id === shownTemplateId ? 'bg-brand-500/15 text-brand-800 dark:text-brand-200' : 'text-slate-800 hover:bg-brand-500/15 hover:text-brand-800 dark:text-slate-100 dark:hover:text-brand-200'}`}
                 >
                   {template.template_name}
                 </button>
@@ -1612,7 +1612,7 @@ export function CommissionTemplatePanel({
                   className="flex w-full items-center gap-2 px-3 py-2 text-left cursor-pointer"
                 >
                   <span className="w-3 shrink-0 text-center text-sm font-bold leading-none text-emerald-600 dark:text-emerald-400">{parametersOpen ? '−' : '+'}</span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Parameters</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">Parameters</span>
                 </button>
               {parametersOpen && (
                 <div className="border-t border-slate-200 px-3 py-2 dark:border-slate-700">
@@ -1674,7 +1674,7 @@ export function CommissionTemplatePanel({
               {qualifyingCaps.length > 0 && (
                 <section className="rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800">
                   <div className="flex w-full items-center gap-2 px-3 py-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Team Caps</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">Team Caps</span>
                   </div>
                   <div className="flex flex-wrap items-center border-t border-slate-200 dark:border-slate-700">
                     {qualifyingCaps.map((cap, index) => (
@@ -1706,7 +1706,7 @@ export function CommissionTemplatePanel({
                     className="flex w-full items-center gap-2 px-3 py-2 text-left cursor-pointer"
                   >
                     <span className="w-3 shrink-0 text-center text-sm font-bold leading-none text-emerald-600 dark:text-emerald-400">{logicOpen ? '−' : '+'}</span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Calculations</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">Calculations</span>
                     <span className="text-[10px] font-semibold tracking-wide text-slate-400 dark:text-slate-500">(Read only)</span>
                   </button>
                   {logicOpen && (
@@ -1825,7 +1825,7 @@ export function CommissionTemplatePanel({
                 type="button"
                 onClick={() => void submitTemplate()}
                 disabled={isSubmitting || isLoadingParameters || !draftTemplateId}
-                className="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 text-slate-950 transition hover:bg-emerald-400 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-4 py-1.5 text-xs font-bold rounded-lg bg-brand-600 text-white transition hover:bg-brand-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Submitting...' : 'Submit'}
               </button>

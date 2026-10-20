@@ -171,7 +171,7 @@ export function TransactionOverview({
               {hasChanges && (
                 <button
                   onClick={onApplyEdit}
-                  className="text-xs bg-emerald-500 text-slate-950 px-3 py-1.5 rounded-lg font-bold transition hover:bg-emerald-400 shadow-md cursor-pointer"
+                  className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg font-bold transition hover:bg-brand-500 shadow-md cursor-pointer"
                 >
                   Apply Changes
                 </button>
@@ -205,8 +205,8 @@ export function TransactionOverview({
             return (
               <div key={sectionName} className="mb-6 break-inside-avoid space-y-2">
                 <div className="border-b border-slate-300 dark:border-slate-700 pb-1 flex items-start gap-2">
-                  <span className="mt-1 w-2 h-2 shrink-0 rounded-full bg-emerald-500"></span>
-                  <span className="min-w-0 text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                  <span className="mt-1 w-2 h-2 shrink-0 rounded-full bg-brand-500"></span>
+                  <span className="min-w-0 text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
                     {sectionName}
                   </span>
                   <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500 font-semibold ml-auto">
@@ -254,7 +254,7 @@ export function TransactionOverview({
                       ? 'border-b-rose-500'
                       : showWarning
                       ? 'border-b-amber-500'
-                      : 'border-b-slate-300 dark:border-b-slate-600 focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)]';
+                      : 'border-b-slate-300 dark:border-b-slate-600 focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)]';
                     const labelTone = showError
                       ? 'text-rose-600 dark:text-rose-400'
                       : showWarning
@@ -284,7 +284,7 @@ export function TransactionOverview({
                       <div key={field.id} className="min-w-0">
                         <div className={`group relative underline-field rounded-t-md pl-2.5 ${isSystemLocked && isEditing ? 'pr-14' : 'pr-2.5'} pt-1 pb-0.5 border-b transition-colors ${shellBorder} ${isInputDisabled && isEditing ? 'opacity-70' : ''}`}>
                           <div className="flex items-center gap-1.5">
-                            <span className={`text-[10px] leading-3 font-medium truncate ${labelTone} ${!showError && !showWarning ? 'group-focus-within:text-emerald-600 dark:group-focus-within:text-emerald-400' : ''}`}>
+                            <span className={`text-[10px] leading-3 font-medium truncate ${labelTone} ${!showError && !showWarning ? 'group-focus-within:text-brand-600 dark:group-focus-within:text-brand-400' : ''}`}>
                               {field.label}
                               {field.is_required && <span className="text-rose-500" title="Required Field">*</span>}
                             </span>
