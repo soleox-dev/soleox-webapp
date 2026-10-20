@@ -275,16 +275,17 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
       if (agentsRes.ok && agentsRes.headers.get('content-type')?.includes('application/json')) {
         const agentsData = await agentsRes.json();
         if (agentsData.success && agentsData.agents) {
-          setKnownAgents(
-            agentsData.agents.map((ag: any) => ({
-              id: ag.id || `AGT_${ag.agent_name}`,
-              name: ag.agent_name || ag.name || ag.full_name || 'Unnamed Agent',
-              email: ag.agent_email || ag.email,
-              isTeamLead: Boolean(ag.is_team_lead || ag.isTeamLead),
-              clientId: ag.client_id ? String(ag.client_id) : undefined,
-              fields: agentFormulaFields(ag),
-            }))
-          );
+          const fresh: KnownAgentInfo[] = agentsData.agents.map((ag: any) => ({
+            id: ag.id || `AGT_${ag.agent_name}`,
+            name: ag.agent_name || ag.name || ag.full_name || 'Unnamed Agent',
+            email: ag.agent_email || ag.email,
+            isTeamLead: Boolean(ag.is_team_lead || ag.isTeamLead),
+            clientId: ag.client_id ? String(ag.client_id) : undefined,
+            fields: agentFormulaFields(ag),
+          }));
+          // Keep the same list when nothing changed. A new array re-runs the page's deal load, which ends a
+          // waterfall edit that was just started, since starting one reloads the agents.
+          setKnownAgents((current) => (JSON.stringify(current) === JSON.stringify(fresh) ? current : fresh));
         }
       }
     } catch (err) {
