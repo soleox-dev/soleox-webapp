@@ -23,6 +23,23 @@ import {
 } from '@/lib/transaction-sync';
 
 const DETAIL_LIMIT = 500;
+const WRITE_CONCURRENCY = 8;
+const LINK_CHUNK = 100;
+
+/** Runs worker over items with at most `limit` in flight, keeping results in input order. */
+async function runPool<T, R>(items: T[], limit: number, worker: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  const run = async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await worker(items[index]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => run()));
+  return results;
+}
 
 export interface SyncFieldChange {
   fieldKey: string;
@@ -357,20 +374,15 @@ export async function syncGoogleSheetConnection(
 
   let created = 0;
   let updated = 0;
-  const applied: PlannedSyncRow[] = [];
 
-  for (const row of plannedRows) {
+  const applied = await runPool(plannedRows, WRITE_CONCURRENCY, async (row): Promise<PlannedSyncRow> => {
     try {
-      if (row.outcome === 'skip' || row.outcome === 'error') {
-        applied.push(row);
-        continue;
-      }
+      if (row.outcome === 'skip' || row.outcome === 'error') return row;
       if (row.outcome === 'unchanged') {
         if (row.clearProtections.length > 0 && row.transactionId) {
           await clearProtections(sb, clientId, row.transactionId, row.clearProtections);
         }
-        applied.push(row);
-        continue;
+        return row;
       }
       if (row.outcome === 'create') {
         const id = generatePrefixedId('TXN');
@@ -378,12 +390,10 @@ export async function syncGoogleSheetConnection(
         const { error } = await sb.from('transactions').insert(payload);
         if (error) throw new Error(error.message);
         created += 1;
-        applied.push({ ...row, transactionId: id });
-        continue;
+        return { ...row, transactionId: id };
       }
       if (!row.transactionId) {
-        applied.push({ ...row, outcome: 'error', reason: 'This transaction could not be matched.', writes: [] });
-        continue;
+        return { ...row, outcome: 'error', reason: 'This transaction could not be matched.', writes: [] };
       }
       const current = existingByTmsId.get(String(row.tmsId || '').toLowerCase());
       const payload = rowPayload(clientId, row.transactionId, row, current?.deal ?? null, false);
@@ -392,16 +402,16 @@ export async function syncGoogleSheetConnection(
       if (current) current.deal.tms_connection = 'connected';
       if (row.clearProtections.length > 0) await clearProtections(sb, clientId, row.transactionId, row.clearProtections);
       updated += 1;
-      applied.push(row);
+      return row;
     } catch (error) {
-      applied.push({
+      return {
         ...row,
         outcome: 'error',
         reason: error instanceof Error ? error.message : 'This row could not be saved.',
         writes: [],
-      });
+      };
     }
-  }
+  });
 
   const linkUpdates = planTmsLinkUpdates({
     formula,
@@ -414,17 +424,26 @@ export async function syncGoogleSheetConnection(
   );
   let connected = 0;
   let disconnected = 0;
-  for (const update of linkUpdates) {
+  const linkBatches: { tmsConnection: string; ids: string[] }[] = [];
+  (['connected', 'disconnected'] as const).forEach((tmsConnection) => {
+    const ids = linkUpdates.filter((update) => update.tmsConnection === tmsConnection).map((update) => update.transactionId);
+    for (let index = 0; index < ids.length; index += LINK_CHUNK) {
+      linkBatches.push({ tmsConnection, ids: ids.slice(index, index + LINK_CHUNK) });
+    }
+  });
+  await runPool(linkBatches, WRITE_CONCURRENCY, async (batch) => {
     const { error } = await sb
       .from('transactions')
-      .update({ tms_connection: update.tmsConnection })
-      .eq('id', update.transactionId)
-      .eq('client_id', clientId);
+      .update({ tms_connection: batch.tmsConnection })
+      .eq('client_id', clientId)
+      .in('id', batch.ids);
     if (error) throw new Error(error.message);
+  });
+  linkUpdates.forEach((update) => {
     const previous = previousConnection.get(update.transactionId);
     if (update.tmsConnection === 'connected' && previous === 'disconnected') connected += 1;
     if (update.tmsConnection === 'disconnected' && previous === 'connected') disconnected += 1;
-  }
+  });
 
   const skipped = applied.filter((row) => row.outcome === 'skip').length;
   const unchanged = applied.filter((row) => row.outcome === 'unchanged').length;
