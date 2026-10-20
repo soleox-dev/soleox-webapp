@@ -20,11 +20,45 @@ import {
   type SyncMapping,
   type SyncProtection,
   type ExistingSyncTransaction,
+  type SheetSyncRow,
 } from '@/lib/transaction-sync';
 
 const DETAIL_LIMIT = 500;
 const WRITE_CONCURRENCY = 8;
 const LINK_CHUNK = 100;
+/** Waits before each re-read when the sheet is still calculating. */
+const SHEET_RETRY_DELAYS_MS = [2000, 4000];
+/** Values Google Sheets shows in a formula cell that has not finished, or failed. */
+const SHEET_ERROR_VALUE = /^(#N\/A|#REF!|#VALUE!|#ERROR!|#NAME\?|#DIV\/0!|#NUM!|#NULL!|#SPILL!|#CALC!|Loading\.{3}|Loading…)$/i;
+
+/** How the integration tab read went. Recorded on the audit event, never shown to the user. */
+export interface SheetReadHealth {
+  attempts: number;
+  errorRows: number;
+  notReady: boolean;
+}
+
+function sheetCell(row: SheetSyncRow, header: string): string {
+  const key = Object.keys(row.cells).find((item) => item.toLowerCase() === header.toLowerCase());
+  return key ? String(row.cells[key] ?? '').trim() : '';
+}
+
+/** Counts TMS ID cells holding a sheet error and TMS ID cells holding a real id. */
+export function inspectSheet(rows: SheetSyncRow[], tmsHeader: string): { errorRows: number; validRows: number } {
+  let errorRows = 0;
+  let validRows = 0;
+  rows.forEach((row) => {
+    const value = sheetCell(row, tmsHeader);
+    if (!value) return;
+    if (SHEET_ERROR_VALUE.test(value)) errorRows += 1;
+    else validRows += 1;
+  });
+  return { errorRows, validRows };
+}
+
+export function isSheetErrorRow(row: SheetSyncRow, tmsHeader: string): boolean {
+  return SHEET_ERROR_VALUE.test(sheetCell(row, tmsHeader));
+}
 
 /** Runs worker over items with at most `limit` in flight, keeping results in input order. */
 async function runPool<T, R>(items: T[], limit: number, worker: (item: T) => Promise<R>): Promise<R[]> {
@@ -79,6 +113,7 @@ export interface SyncRunRecord {
   message: string | null;
   details: SyncRunDetail[];
   highlights: SyncHighlight[];
+  sheet?: SheetReadHealth;
 }
 
 function displaySyncValue(
@@ -286,11 +321,40 @@ export async function syncGoogleSheetConnection(
   const blocked = blockMessage(formula, formulaError, mappings.some((mapping) => mapping.fieldKey === 'tms_id' && mapping.policy !== 'disconnected'));
   if (blocked) return fail(blocked, 'blocked');
 
-  let table;
-  try {
-    table = await readGoogleSheet(String(connection.spreadsheet_id), String(connection.tab_name || 'SOLEOX Integration'));
-  } catch (error) {
-    return fail(error instanceof Error ? error.message : 'The spreadsheet could not be read.');
+  // A formula-driven tab can briefly return #N/A while it calculates. A TMS ID hidden by an error
+  // reads as missing and would disconnect that transaction, so read again, then stop the run
+  // before any write if the tab still shows errors.
+  const tmsHeader = mappings.find((mapping) => mapping.fieldKey === 'tms_id' && mapping.policy !== 'disconnected')?.sourceHeader || '';
+  const tabName = String(connection.tab_name || 'SOLEOX Integration');
+  let table: Awaited<ReturnType<typeof readGoogleSheet>>;
+  let inspected = { errorRows: 0, validRows: 0 };
+  let attempts = 0;
+  for (;;) {
+    attempts += 1;
+    try {
+      table = await readGoogleSheet(String(connection.spreadsheet_id), tabName);
+    } catch (error) {
+      return fail(error instanceof Error ? error.message : 'The spreadsheet could not be read.');
+    }
+    inspected = inspectSheet(table.rows, tmsHeader);
+    const ready = inspected.validRows > 0 && inspected.errorRows === 0;
+    if (ready || attempts > SHEET_RETRY_DELAYS_MS.length) break;
+    console.warn(`[sync] ${clientId} ${connectionId}: "${tabName}" read ${attempts} had ${inspected.errorRows} TMS ID errors and ${inspected.validRows} TMS IDs. Reading again.`);
+    await new Promise((resolve) => setTimeout(resolve, SHEET_RETRY_DELAYS_MS[attempts - 1]));
+  }
+  const sheet: SheetReadHealth = {
+    attempts,
+    errorRows: inspected.errorRows,
+    notReady: inspected.validRows === 0 || inspected.errorRows > 0,
+  };
+  if (sheet.notReady) {
+    console.warn(`[sync] ${clientId} ${connectionId}: stopped after ${attempts} reads of "${tabName}" (${inspected.errorRows} TMS ID errors, ${inspected.validRows} TMS IDs). Nothing was changed.`);
+    const errorRowNumbers = table.rows.filter((row) => isSheetErrorRow(row, tmsHeader)).map((row) => row.rowNumber);
+    const message = inspected.validRows === 0
+      ? `The ${tabName} tab was still loading, so nothing was changed. Try again in a minute.`
+      : `${errorRowNumbers.length === 1 ? 'Row' : 'Rows'} ${errorRowNumbers.slice(0, 10).join(', ')}${errorRowNumbers.length > 10 ? ` and ${errorRowNumbers.length - 10} more` : ''} of the ${tabName} tab ${errorRowNumbers.length === 1 ? 'shows' : 'show'} a sheet error in ${tmsHeader}, so nothing was changed. Fix ${errorRowNumbers.length === 1 ? 'it' : 'them'} or try again in a minute.`;
+    const blockedRun = await fail(message, 'blocked');
+    return { ...blockedRun, sheet };
   }
 
   const [transactions, agents, protections] = await Promise.all([
@@ -488,6 +552,7 @@ export async function syncGoogleSheetConnection(
     message,
     details,
     highlights,
+    sheet,
   };
 }
 

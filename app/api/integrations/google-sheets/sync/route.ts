@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       entity: 'sync',
       entityId: result.id,
       summary: `Ran Sync with TMS. ${result.createdCount ?? 0} added, ${result.updatedCount ?? 0} updated, ${result.errorCount ?? 0} errors.`,
-      detail: { status: result.status, created: result.createdCount ?? 0, updated: result.updatedCount ?? 0, errors: result.errorCount ?? 0 },
+      detail: { status: result.status, created: result.createdCount ?? 0, updated: result.updatedCount ?? 0, errors: result.errorCount ?? 0, ...(result.sheet ? { sheet: result.sheet } : {}) },
     });
     const status = result.status === 'failed' ? 500 : result.status === 'blocked' ? 400 : 200;
     return NextResponse.json({ success: result.status === 'succeeded', run: result }, { status });
