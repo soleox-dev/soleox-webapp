@@ -1659,10 +1659,8 @@ export function CommissionTemplatePanel({
               <div className="space-y-6">
               {qualifyingCaps.length > 0 && (
                 <section className="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
-                  <div className="px-3 py-2">
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-3 py-2">
                     <span className="text-[11px] font-bold text-brand-600 dark:text-brand-400">Team Caps</span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-slate-200 px-3 py-2.5 dark:border-slate-700">
                     {qualifyingCaps.map((cap) => (
                       <BooleanField
                         key={cap.id}
