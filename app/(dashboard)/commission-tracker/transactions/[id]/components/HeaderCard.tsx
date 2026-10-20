@@ -87,7 +87,8 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
       <div
         ref={stripRef}
         id="transaction-detail-header"
-        className="sticky top-[var(--app-nav-offset,4rem)] z-40 !mb-3 -mx-4 bg-slate-100 px-4 py-3 md:-mx-6 md:px-6 transition-[top] duration-200 ease-out motion-reduce:transition-none dark:bg-slate-900"
+        className={`sticky top-[var(--app-nav-offset,4rem)] z-40 !mb-3 -mx-4 bg-slate-100 px-4 pt-3 md:-mx-6 md:px-6 transition-[top,padding] duration-200 ease-out motion-reduce:transition-none dark:bg-slate-900 ${scrolled ? 'pb-2' : 'pb-3'}`}
+        data-scrolled={scrolled ? '1' : undefined}
       >
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-slate-200 bg-white py-1.5 pl-5 pr-2 shadow-xl transition-colors md:flex-nowrap md:rounded-full dark:border-slate-700 dark:bg-slate-800">
           {onBack && (

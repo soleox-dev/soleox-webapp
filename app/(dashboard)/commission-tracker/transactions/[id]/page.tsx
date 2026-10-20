@@ -109,13 +109,16 @@ export default function Dashboard() {
 
     const el = document.getElementById(sectionId);
     if (el) {
-      // Land 12px below the pinned search strip. On desktop the top bar hides while scrolling
+      // Land right at the bottom of the pinned strip in its scrolled, compact form, so the gap under
+      // the section links matches the gap above them. On desktop the top bar hides while scrolling
       // down and shows while scrolling up, so leave room for it only when going up.
       const strip = document.getElementById('transaction-detail-header');
+      // At the top of the page the strip is taller, but it shrinks by the same amount as it scrolls and
+      // the sections move up with it, so its current height still gives the right landing spot.
       const stripHeight = strip?.offsetHeight ?? 0;
       const sectionTop = el.getBoundingClientRect().top + window.scrollY;
       const root = document.documentElement;
-      const goingDown = sectionTop - stripHeight - 12 > window.scrollY;
+      const goingDown = sectionTop - stripHeight > window.scrollY;
       const barHidden = root.style.getPropertyValue('--app-nav-offset').trim() === '0px';
       const barHides = (goingDown || barHidden) && window.matchMedia('(min-width: 768px)').matches;
       const barHeight = barHides ? 0 : (document.querySelector('header')?.offsetHeight ?? 64);
@@ -134,7 +137,7 @@ export default function Dashboard() {
       };
       window.addEventListener('scrollend', release);
       window.setTimeout(release, 3000);
-      window.scrollTo({ top: Math.max(0, sectionTop - stripHeight - barHeight - 12), behavior: 'smooth' });
+      window.scrollTo({ top: Math.max(0, sectionTop - stripHeight - barHeight), behavior: 'smooth' });
     } else {
       isProgrammaticScrollRef.current = false;
     }
