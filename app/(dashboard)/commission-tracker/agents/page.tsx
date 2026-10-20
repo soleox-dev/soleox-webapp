@@ -990,7 +990,7 @@ export default function AgentsPage() {
             onClick={handleOpenAdd}
             className="border border-slate-300 bg-white px-4 py-2.5 rounded-lg text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700 flex items-center gap-2 whitespace-nowrap cursor-pointer"
           >
-            <Plus className="h-3.5 w-3.5 text-emerald-500" strokeWidth={1.75} aria-hidden />
+            <Plus className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" strokeWidth={1.75} aria-hidden />
             <span>New Agent</span>
           </button>
         )}
@@ -1009,23 +1009,25 @@ export default function AgentsPage() {
               count: groupCounts.get(option) || 0,
             }))].map((tab) => {
               const selected = activeGroup.toLowerCase() === tab.key.toLowerCase();
-              const tone = tab.key === 'ALL' ? null : groupTone(tab.key);
-              const tabClass = !tone
-                ? selected
-                  ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-transparent'
-                  : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-slate-300 dark:border-slate-600'
-                : selected
-                  ? tone.selected
-                  : tone.pill;
+              // Every tab looks the same; the group's own color is a small dot, taken from its badge text color.
+              const dotTone = tab.key === 'ALL'
+                ? ''
+                : groupTone(tab.key).pill.split(' ').filter((name) => name.includes('text-')).join(' ');
               return (
                 <button
                   key={tab.key}
                   type="button"
+                  aria-pressed={selected}
                   onClick={() => setActiveGroup(tab.key)}
-                  className={`inline-flex items-center px-3.5 py-1.5 rounded-md border text-xs font-bold transition whitespace-nowrap cursor-pointer ${tabClass}`}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+                    selected
+                      ? 'bg-white text-slate-900 shadow-xs ring-1 ring-slate-200 dark:bg-slate-700 dark:text-white dark:ring-slate-600'
+                      : 'text-slate-600 hover:bg-white/70 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+                  }`}
                 >
+                  {dotTone && <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full bg-current ${dotTone}`} />}
                   {tab.label}
-                  <span className="ml-1.5 tabular-nums opacity-70">
+                  <span className={`tabular-nums ${selected ? 'text-slate-500 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500'}`}>
                     {tab.count}
                   </span>
                 </button>
