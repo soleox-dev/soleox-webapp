@@ -1269,6 +1269,9 @@ export function CommissionTemplatePanel({
     capChoiceSet.current = true;
   }, [popupOpen, capsLoaded, schemaReady, qualifyingCaps, draftTemplateId, submittedTemplateId, submittedParameters]);
 
+  // Every listed cap passed its qualifying formula, so its box should be checked; an unchecked one was overridden by hand.
+  const capChoiceOverridden = qualifyingCaps.some((cap) => !checkedCapIds.includes(cap.id));
+
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
   useEffect(() => {
@@ -1658,8 +1661,11 @@ export function CommissionTemplatePanel({
             <div className="@container/params mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl bg-slate-100 p-4 dark:bg-slate-900">
               <div className="space-y-6">
               {qualifyingCaps.length > 0 && (
-                // The card lights up in the brand blue while any team cap is checked.
-                <section className={`rounded-xl border shadow-xs transition-colors ${qualifyingCaps.some((cap) => checkedCapIds.includes(cap.id))
+                // Yellow, like a parameter changed by hand, when a box doesn't match its cap's qualifying formula;
+                // otherwise the brand blue while any team cap is checked.
+                <section className={`rounded-xl border shadow-xs transition-colors ${capChoiceOverridden
+                  ? 'border-amber-400/70 bg-amber-400/15 ring-1 ring-amber-400/25 dark:border-amber-400/50 dark:bg-amber-400/12'
+                  : qualifyingCaps.some((cap) => checkedCapIds.includes(cap.id))
                   ? 'border-brand-500/60 bg-brand-500/10 ring-1 ring-brand-500/20 dark:border-brand-400/60 dark:bg-brand-500/15'
                   : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800'}`}>
                   {/* Same columns as the parameter sections below, so the blue line under the title lines up with theirs. */}
