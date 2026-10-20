@@ -48,6 +48,8 @@ interface TransactionOverviewProps {
 
 /** Field types that make a section read as a strip of dates and amounts. */
 const STRIP_TYPES = new Set(['DATE', 'CURRENCY', 'NUMBER', 'PERCENT']);
+/** A solid pill marks the date and amount strips as their own sub-section; other sections use the light tint. */
+const STRIP_PILL = 'flex items-center gap-2 rounded-full bg-brand-600 px-3 py-1 text-white dark:bg-brand-500 dark:text-slate-950';
 
 export function TransactionOverview({
   isEditing,
@@ -172,8 +174,8 @@ export function TransactionOverview({
                   className="min-w-0 space-y-2 lg:[flex:var(--strip-fields)_1_0%]"
                   style={{ '--strip-fields': visibleFields.length } as React.CSSProperties}
                 >
-                  <div className="flex items-center gap-2 rounded-full bg-brand-500/10 px-3 py-1 dark:bg-brand-500/15">
-                    <span className="min-w-0 text-xs font-bold text-brand-700 dark:text-brand-400">{sectionName}</span>
+                  <div className={STRIP_PILL}>
+                    <span className="min-w-0 text-xs font-bold">{sectionName}</span>
                   </div>
                   {/* The grid sits 1px outside its frame so the outer edges of the cell borders are clipped. */}
                   <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
@@ -220,8 +222,8 @@ export function TransactionOverview({
                 style={strip ? ({ '--strip-fields': visibleFields.length } as React.CSSProperties) : undefined}
               >
                 {/* A full-width pill so each section title is easy to follow across the columns. */}
-                <div className="flex items-center gap-2 rounded-full bg-brand-500/10 px-3 py-1 dark:bg-brand-500/15">
-                  <span className="min-w-0 text-xs font-bold text-brand-700 dark:text-brand-400">
+                <div className={strip ? STRIP_PILL : 'flex items-center gap-2 rounded-full bg-brand-500/10 px-3 py-1 dark:bg-brand-500/15'}>
+                  <span className={`min-w-0 text-xs font-bold ${strip ? '' : 'text-brand-700 dark:text-brand-400'}`}>
                     {sectionName}
                   </span>
                 </div>
