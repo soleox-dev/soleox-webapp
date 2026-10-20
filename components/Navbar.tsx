@@ -236,7 +236,7 @@ export default function Navbar() {
     return null;
   }
 
-  const barClass = 'w-full bg-white text-slate-900 border-b border-slate-200 dark:bg-[#0d1015] dark:text-white dark:border-slate-800/80';
+  const barClass = 'w-full bg-white text-slate-900 border-b border-slate-200 dark:bg-[#0e131c] dark:text-white dark:border-slate-800/80';
   // Below md the report header stays in place; the hover-reveal bar is desktop only.
   const reportsBarClass = `relative z-50 md:fixed md:inset-x-0 md:top-0 md:transition-transform md:duration-200 md:ease-out md:motion-reduce:transition-none ${reportsNavOpen ? 'md:translate-y-0 md:shadow-lg' : 'md:-translate-y-full md:pointer-events-none'}`;
   const sheetLinkClass = (active: boolean) => `flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold ${
@@ -509,7 +509,7 @@ export default function Navbar() {
             onClick={() => setPhoneNavOpen(false)}
             className="absolute inset-0 h-full w-full cursor-default bg-slate-950/50"
           />
-          <div className="absolute inset-y-0 right-0 flex w-[min(20rem,calc(100%-3rem))] flex-col overflow-y-auto overscroll-contain bg-white pb-[env(safe-area-inset-bottom)] text-slate-900 shadow-2xl dark:bg-[#0d1015] dark:text-white">
+          <div className="absolute inset-y-0 right-0 flex w-[min(20rem,calc(100%-3rem))] flex-col overflow-y-auto overscroll-contain bg-white pb-[env(safe-area-inset-bottom)] text-slate-900 shadow-2xl dark:bg-[#0e131c] dark:text-white">
             <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">{session?.user?.name || 'Authenticated User'}</p>

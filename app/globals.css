@@ -16,11 +16,12 @@
   --color-brand-900: #0c4a6e;
   --color-brand-950: #082f49;
 
-  /* Dark surfaces: a warmer near-black instead of navy. These also darken light-mode text a touch. */
-  --color-slate-700: #2a3039;
-  --color-slate-800: #171b22;
-  --color-slate-900: #101318;
-  --color-slate-950: #0a0c10;
+  /* Dark surfaces: a midnight slate, cool like the brand but half as saturated as the old navy,
+     with clear steps between page (900), card (800), and border (700). */
+  --color-slate-700: #2c3647;
+  --color-slate-800: #1b2230;
+  --color-slate-900: #121823;
+  --color-slate-950: #0e131c;
 }
 
 @theme inline {
@@ -256,20 +257,20 @@ thead th.sticky[class*="left-"] {
 }
 
 .report-table thead.report-head-dark th {
-  background: #171b22;
+  background: #1b2230;
   color: #fff;
 }
 
 .leader-head-volume,
 .leader-head-volume th {
   background: #d7f6fa;
-  color: #101318;
+  color: #121823;
 }
 
 .leader-head-units,
 .leader-head-units th {
   background: #f3e8ff;
-  color: #101318;
+  color: #121823;
 }
 
 .leader-row-volume {
@@ -281,12 +282,12 @@ thead th.sticky[class*="left-"] {
 }
 
 .dark .report-table thead.report-head th {
-  background: #171b22;
+  background: #1b2230;
 }
 
 .dark .leader-head-volume,
 .dark .leader-head-volume th {
-  background: #171b22;
+  background: #1b2230;
   color: #e2e8f0;
 }
 
@@ -297,11 +298,11 @@ thead th.sticky[class*="left-"] {
 }
 
 .dark .leader-row-volume {
-  background: color-mix(in srgb, #101318 var(--rank-fade), #334155);
+  background: color-mix(in srgb, #121823 var(--rank-fade), #334155);
 }
 
 .dark .leader-row-units {
-  background: color-mix(in srgb, #101318 var(--rank-fade), #3b2a5a);
+  background: color-mix(in srgb, #121823 var(--rank-fade), #3b2a5a);
 }
 
 /* Enable class-based dark mode for Tailwind v4 */
@@ -358,7 +359,7 @@ thead th.sticky[class*="left-"] {
 
   html.dark input[type="checkbox"]:not(:checked):not(:indeterminate) {
     border-color: #64748b;
-    background-color: #101318;
+    background-color: #121823;
   }
 }
 
@@ -420,16 +421,16 @@ thead th.sticky[class*="left-"] {
 }
 
 html.dark .underline-field {
-  background-color: color-mix(in srgb, #101318 18%, transparent);
+  background-color: color-mix(in srgb, #121823 18%, transparent);
 }
 
 html.dark .underline-field:focus-within {
-  background-color: #101318;
+  background-color: #121823;
 }
 
 @media (hover: hover) {
   html.dark .underline-field:hover {
-    background-color: #101318;
+    background-color: #121823;
   }
 }
 
@@ -468,12 +469,12 @@ html.dark .underline-field.is-changed:not(.is-locked) {
 }
 
 html.dark .underline-field.is-changed:not(.is-locked):focus-within {
-  background-color: color-mix(in srgb, #fbbf24 18%, #101318);
+  background-color: color-mix(in srgb, #fbbf24 18%, #121823);
 }
 
 @media (hover: hover) {
   html.dark .underline-field.is-changed:not(.is-locked):hover {
-    background-color: color-mix(in srgb, #fbbf24 18%, #101318);
+    background-color: color-mix(in srgb, #fbbf24 18%, #121823);
   }
 }
 
@@ -487,7 +488,7 @@ html.dark .underline-field.is-changed:not(.is-locked):focus-within {
 html.dark .underline-field.is-locked,
 html.dark .underline-field.is-locked:hover,
 html.dark .underline-field.is-locked:focus-within {
-  background-color: color-mix(in srgb, #0a0c10 42%, transparent);
+  background-color: color-mix(in srgb, #0e131c 42%, transparent);
 }
 
 /* A read-only value that was just recalculated from another parameter. */
@@ -535,11 +536,11 @@ html.dark .underline-field.is-locked.is-recalculated .parameter-recalc-value {
 @layer base {
   html, body {
     background-color: #f1f5f9; /* Slate 100 for Light Mode */
-    color: #101318;
+    color: #121823;
   }
 
   html.dark, html.dark body {
-    background-color: #101318; /* Slate 900 for Dark Mode */
+    background-color: #121823; /* Slate 900 for Dark Mode */
     color: #f8fafc;
   }
 }

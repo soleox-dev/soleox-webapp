@@ -44,7 +44,7 @@ const themeInitializerScript = `
 
       if (isDark) {
         document.documentElement.classList.add('dark');
-        document.documentElement.style.backgroundColor = '#101318';
+        document.documentElement.style.backgroundColor = '#121823';
       } else {
         document.documentElement.classList.remove('dark');
         document.documentElement.style.backgroundColor = '#f1f5f9';

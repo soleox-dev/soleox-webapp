@@ -40,7 +40,7 @@ function applyResolvedTheme(resolved: ResolvedTheme, animate = true) {
   const commit = () => {
     root.classList.remove('theme-transition');
     root.classList.toggle('dark', dark);
-    root.style.backgroundColor = dark ? '#101318' : '#f1f5f9';
+    root.style.backgroundColor = dark ? '#121823' : '#f1f5f9';
     root.style.colorScheme = dark ? 'dark' : 'light';
   };
 
