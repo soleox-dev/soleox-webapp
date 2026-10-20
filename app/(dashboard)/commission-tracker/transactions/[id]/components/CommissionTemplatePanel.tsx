@@ -117,6 +117,24 @@ function calculationField(row: AppliedCalculation): { kind: 'text' | 'currency' 
   return { kind: 'text', value: '', checked: false, error: false };
 }
 
+const calculationMoney = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+
+/** A calculation as short text for the line under its section, such as "$16,000.00" or "11/01/2026". */
+function calculationText(row: AppliedCalculation): { text: string; error: boolean } {
+  const field = calculationField(row);
+  if (field.error) return { text: field.value, error: true };
+  if (field.kind === 'boolean') return { text: field.checked ? 'Yes' : 'No', error: false };
+  if (field.kind === 'date') {
+    const [year, month, day] = field.value.split('-');
+    return { text: year && month && day ? `${month}/${day}/${year}` : field.value, error: false };
+  }
+  const amount = Number(field.value);
+  if (field.kind === 'currency') return { text: Number.isFinite(amount) ? calculationMoney.format(amount) : field.value, error: false };
+  if (field.kind === 'percent') return { text: Number.isFinite(amount) ? `${amount.toLocaleString('en-US', { maximumFractionDigits: 3 })}%` : field.value, error: false };
+  if (field.kind === 'number') return { text: Number.isFinite(amount) ? amount.toLocaleString('en-US', { maximumFractionDigits: 4 }) : field.value, error: false };
+  return { text: field.value || '—', error: false };
+}
+
 function CalculationField({ row }: { row: AppliedCalculation }) {
   const field = calculationField(row);
   const id = `template-calculation-${row.id}`;
@@ -263,8 +281,26 @@ const WIDE_PARAMETER_TYPES = new Set<string>(['TEXT', 'AGENT_PICKER']);
 /** About what fits in one narrow column of the template popup. */
 const NARROW_FIELD_CHARS = 14;
 
-/** True when an agent or text parameter shows more than a narrow column fits, so it takes two. */
-function parameterNeedsRoom(parameter: { data_type?: string | null }, value: string, agents: { id: string; name: string }[]): boolean {
+/** Roughly how wide a label is at the popup's 10px label size: capitals and digits run wider than lowercase. */
+function labelWidthPx(label: string): number {
+  let width = 0;
+  for (const char of label) width += /[A-Z0-9$%]/.test(char) ? 6.6 : /\s/.test(char) ? 2.8 : 5.3;
+  return width;
+}
+/** The label room in one narrow column, after the field's padding and the reset button. */
+const NARROW_LABEL_PX = 100;
+
+/** True when a label does not fit on one line of a narrow column. */
+function labelNeedsRoom(label: string): boolean {
+  return labelWidthPx(label.trim()) > NARROW_LABEL_PX;
+}
+
+/**
+ * True when a parameter takes two columns: its label does not fit on one line, or an agent or text value
+ * shows more than a narrow column fits.
+ */
+function parameterNeedsRoom(parameter: { data_type?: string | null; parameter_name?: string | null }, value: string, agents: { id: string; name: string }[]): boolean {
+  if (labelNeedsRoom(parameter.parameter_name || '')) return true;
   const type = canonicalParameterType(parameter.data_type);
   if (!WIDE_PARAMETER_TYPES.has(type)) return false;
   const shown = type === 'AGENT_PICKER'
@@ -1295,6 +1331,19 @@ export function CommissionTemplatePanel({
     return groups.sort((a, b) => Number(a.name === 'No Section') - Number(b.name === 'No Section'));
   }, [shownCalculations]);
 
+  // Rules whose form section matches a parameter section read as one line of text under that section.
+  // The rest stay in the Calculations block.
+  const parameterSectionNames = useMemo(() => new Set(groups.map((group) => group.name)), [groups]);
+  const inlineCalculations = useMemo(() => {
+    const bySection = new Map<string, AppliedCalculation[]>();
+    for (const group of logicGroups) {
+      if (parameterSectionNames.has(group.name)) bySection.set(group.name, group.rows);
+    }
+    return bySection;
+  }, [logicGroups, parameterSectionNames]);
+  const blockLogicGroups = useMemo(() => logicGroups.filter((group) => !parameterSectionNames.has(group.name)), [logicGroups, parameterSectionNames]);
+  const popupStepsOutsideSections = logicSteps.some((step) => step.show_in_popup && !parameterSectionNames.has(step.popup_section?.trim() || 'No Section'));
+
   const parameterIssues = useMemo(() => parameterIssuesFor(parameters, values, deal), [parameters, values, deal]);
 
   const publishParameterValue = (id: string, next: string) => {
@@ -1672,7 +1721,8 @@ export function CommissionTemplatePanel({
                       {!isCollapsed && (
                         <div className="mt-1.5 grid gap-x-3 gap-y-1.5 px-1 [grid-template-columns:repeat(auto-fill,minmax(7.5rem,1fr))] @min-[720px]/params:mt-0 @min-[720px]/params:px-0">
                           {group.rows.map(({ parameter, raw }) => (
-                            // Every field starts in one narrow column. An agent or text field widens to two only when what it shows doesn't fit.
+                            // Every field starts in one narrow column. It widens to two when its label doesn't fit on one line,
+                            // or when an agent or text value doesn't fit.
                             <div key={parameter.id} className={parameterNeedsRoom(parameter, values[parameter.id] ?? '', uniqueAgents) ? 'col-span-2' : 'min-w-0'}>
                             <ParameterControl
                               parameter={parameter}
@@ -1688,6 +1738,20 @@ export function CommissionTemplatePanel({
                             </div>
                           ))}
                         </div>
+                      )}
+                      {!isCollapsed && (inlineCalculations.get(group.name)?.length ?? 0) > 0 && (
+                        <p className="mt-1.5 px-1 text-[11px] leading-5 text-slate-500 @min-[720px]/params:col-start-2 @min-[720px]/params:mt-0 @min-[720px]/params:px-0 dark:text-slate-400">
+                          {inlineCalculations.get(group.name)!.map((row, index) => {
+                            const { text, error } = calculationText(row);
+                            return (
+                              <React.Fragment key={row.id}>
+                                {index > 0 && <span aria-hidden className="px-1.5 text-slate-300 dark:text-slate-600">—</span>}
+                                <span className="whitespace-nowrap">{row.name}:</span>{' '}
+                                <span className={`font-semibold tabular-nums ${error ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}>{text}</span>
+                              </React.Fragment>
+                            );
+                          })}
+                        </p>
                       )}
                     </div>
                     );
@@ -1723,7 +1787,7 @@ export function CommissionTemplatePanel({
                   </div>
                 </section>
               )}
-              {(ledgerError || logicGroups.length > 0 || (logicSteps.some((step) => step.show_in_popup) && (!ledger || !lookups))) && (
+              {(ledgerError || blockLogicGroups.length > 0 || (popupStepsOutsideSections && (!ledger || !lookups))) && (
                 <section className="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
                   <button
                     type="button"
@@ -1743,7 +1807,7 @@ export function CommissionTemplatePanel({
                         <p className="text-xs text-slate-500">Calculating...</p>
                       ) : (
                         <div className="space-y-2.5 py-1">
-                          {logicGroups.map((group) => {
+                          {blockLogicGroups.map((group) => {
                             const isUnsectioned = group.name === 'No Section';
                             const isCollapsed = collapsedLogicSections[group.name] === true;
                             return (
@@ -1769,7 +1833,7 @@ export function CommissionTemplatePanel({
                                     {group.rows.map((row) => {
                                       const field = calculationField(row);
                                       return (
-                                        <div key={row.id} className={field.kind === 'text' && field.value ? 'col-span-2' : 'min-w-0'}>
+                                        <div key={row.id} className={(field.kind === 'text' && field.value) || labelNeedsRoom(row.name) ? 'col-span-2' : 'min-w-0'}>
                                           <CalculationField row={row} />
                                         </div>
                                       );
