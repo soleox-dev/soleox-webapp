@@ -126,7 +126,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
           disabled={isSaving}
           className="px-4 py-1.5 text-xs font-bold rounded-full border border-slate-300 text-slate-600 transition hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
         >
-          Discard Changes
+          Discard changes
         </button>
       )}
       {(hasUnsavedChanges || isSaving) && (
@@ -138,7 +138,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
           className="px-4 py-1.5 font-bold text-xs rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer bg-amber-500 hover:bg-amber-400 text-slate-950"
         >
           <span>{isSaving ? '⏳' : '💾'}</span>
-          <span>{isSaving ? 'Saving Transaction...' : 'Save Transaction'}</span>
+          <span>{isSaving ? 'Saving transaction...' : 'Save transaction'}</span>
         </button>
       )}
       {children && (

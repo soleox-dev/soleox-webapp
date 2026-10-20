@@ -568,11 +568,11 @@ export function CommissionWaterfall({
           )}
           {agentLayoutToggle}
           {canWrite && !isEditing ? (
-            <HoverNote label="Edit Commission Waterfall">
+            <HoverNote label="Edit commission waterfall">
               <button
                 type="button"
                 onClick={onStartEdit}
-                aria-label="Edit Commission Waterfall"
+                aria-label="Edit commission waterfall"
                 className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 cursor-pointer"
               >
                 <EditPencil className="h-5 w-5" />
@@ -595,7 +595,7 @@ export function CommissionWaterfall({
                   title={agentSplitsExceedPool ? "Agent splits can't exceed 100% of the remaining commission." : undefined}
                   className={`text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg font-bold transition ${agentSplitsExceedPool ? 'opacity-40 cursor-not-allowed' : 'hover:bg-brand-500 cursor-pointer'}`}
                 >
-                  Apply Changes
+                  Apply changes
                 </button>
               )}
             </div>
@@ -638,8 +638,8 @@ export function CommissionWaterfall({
                   <button
                     type="button"
                     onClick={handleStartAddOffTop}
-                    title="Add New Off-the-top Deduction"
-                    aria-label="Add New Off-the-top Deduction"
+                    title="Add new off-the-top deduction"
+                    aria-label="Add new off-the-top deduction"
                     className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
                   >
                     <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
@@ -677,7 +677,7 @@ export function CommissionWaterfall({
                   ) : (
                     <input
                       type="text"
-                      placeholder="Entity Name (e.g. Soleox Realty)"
+                      placeholder="Entity name (e.g. Soleox Realty)"
                       value={newOffTopEntity}
                       onChange={(e) => setNewOffTopEntity(e.target.value)}
                       className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
@@ -803,8 +803,8 @@ export function CommissionWaterfall({
                   <button
                     type="button"
                     onClick={handleStartAddPreSplit}
-                    title="Add New Pre-split Deduction"
-                    aria-label="Add New Pre-split Deduction"
+                    title="Add new pre-split deduction"
+                    aria-label="Add new pre-split deduction"
                     className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
                   >
                     <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
@@ -837,7 +837,7 @@ export function CommissionWaterfall({
                   ) : (
                     <input
                       type="text"
-                      placeholder="Entity Name (e.g. TC Fee, Referral)"
+                      placeholder="Entity name (e.g. TC Fee, Referral)"
                       value={newPreSplitEntity}
                       onChange={(e) => setNewPreSplitEntity(e.target.value)}
                       className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
@@ -1001,8 +1001,8 @@ export function CommissionWaterfall({
                 <button
                   type="button"
                   onClick={onOpenAddAgentModal}
-                  title="Add New Agent Split"
-                  aria-label="Add New Agent Split"
+                  title="Add new agent split"
+                  aria-label="Add new agent split"
                   className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
                 >
                   <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
@@ -1268,7 +1268,7 @@ export function CommissionWaterfall({
                     <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2">
                       <div className="flex items-center gap-2">
                         <span className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
-                          <HoverNote label="Percent deductions are calculated from Agent Split">
+                          <HoverNote label="Percent deductions are calculated from agent split">
                             <span className="inline-flex items-center whitespace-nowrap rounded-full border border-yellow-600/40 bg-yellow-400/25 px-2 py-0.5 tracking-normal text-yellow-900 dark:border-yellow-300/50 dark:bg-yellow-400/15 dark:text-yellow-200">
                               Level 1
                             </span>
@@ -1280,8 +1280,8 @@ export function CommissionWaterfall({
                         <button
                           type="button"
                           onClick={() => isAddingL1 ? setAddingPostSplitForAgent(null) : handleStartAddPostSplit1(agentName)}
-                          title="Add New Level 1 Post-split"
-                          aria-label="Add New Level 1 Post-split"
+                          title="Add new Level 1 post-split"
+                          aria-label="Add new Level 1 post-split"
                           className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
                         >
                           <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
@@ -1310,7 +1310,7 @@ export function CommissionWaterfall({
                           ) : (
                             <input
                               type="text"
-                              placeholder="Entity Name (e.g. Soleox Realty)"
+                              placeholder="Entity name (e.g. Soleox Realty)"
                               value={newPostSplitEntity}
                               onChange={(e) => setNewPostSplitEntity(e.target.value)}
                               className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
@@ -1456,7 +1456,7 @@ export function CommissionWaterfall({
                     {/* Level 1 Subtotal */}
                     <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-800 pt-2 text-xs">
                       <span className="font-semibold text-slate-600 dark:text-slate-400">
-                        Net After Level 1 Post-Splits
+                        Net after Level 1 post-splits
                       </span>
                       <span className="font-bold text-slate-900 dark:text-white">
                         {formatCurrency(netAfterL1)}
@@ -1469,7 +1469,7 @@ export function CommissionWaterfall({
                     <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2">
                       <div className="flex items-center gap-2">
                         <span className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
-                          <HoverNote label="Percent deductions are calculated from Net after Level 1 Post-splits.">
+                          <HoverNote label="Percent deductions are calculated from net after Level 1 post-splits.">
                             <span className="inline-flex items-center whitespace-nowrap rounded-full border border-slate-400/60 bg-slate-300/50 px-2 py-0.5 tracking-normal text-slate-600 dark:border-slate-300/45 dark:bg-slate-400/20 dark:text-slate-200">
                               Level 2
                             </span>
@@ -1481,8 +1481,8 @@ export function CommissionWaterfall({
                         <button
                           type="button"
                           onClick={() => isAddingL2 ? setAddingPostSplit2ForAgent(null) : handleStartAddPostSplit2(agentName)}
-                          title="Add New Level 2 Post-split"
-                          aria-label="Add New Level 2 Post-split"
+                          title="Add new Level 2 post-split"
+                          aria-label="Add new Level 2 post-split"
                           className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
                         >
                           <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
@@ -1516,7 +1516,7 @@ export function CommissionWaterfall({
                           ) : (
                             <input
                               type="text"
-                              placeholder="Payee Entity (e.g. Stock)"
+                              placeholder="Payee entity (e.g. Stock)"
                               value={newPostSplit2Entity}
                               onChange={(e) => setNewPostSplit2Entity(e.target.value)}
                               className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
@@ -1757,7 +1757,7 @@ function WaterfallMoreMenu({ onReset }: { onReset: () => void }) {
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        aria-label="More Waterfall actions"
+        aria-label="More waterfall actions"
         aria-haspopup="menu"
         aria-expanded={open}
         title="More actions"

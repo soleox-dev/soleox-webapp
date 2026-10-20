@@ -242,7 +242,7 @@ export default function CommissionEntitiesPage() {
       return true;
     } catch (err) {
       console.error('Save error:', err);
-      showAlert('Save Error', 'Failed to save changes to the database.');
+      showAlert('Save error', 'Failed to save changes to the database.');
       return false;
     } finally {
       setIsSubmitting(false);
@@ -267,7 +267,7 @@ export default function CommissionEntitiesPage() {
     const nextName = String(formData.entity_name).trim();
     if (isEditing && previousName !== nextName) {
       showConfirm(
-        'Confirm Rename',
+        'Confirm rename',
         `Rename "${previousName}" to "${nextName}"? Every transaction that uses this entity will show the new name.`,
         () => {
           closeDialog();
@@ -311,7 +311,7 @@ export default function CommissionEntitiesPage() {
     const actionLabel = nextStatus ? 'activate' : 'inactivate';
 
     showConfirm(
-      'Confirm Status Change',
+      'Confirm status change',
       `Are you sure you want to ${actionLabel} "${entity.entity_name}"?`,
       async () => {
         closeDialog();
@@ -331,7 +331,7 @@ export default function CommissionEntitiesPage() {
           await loadEntities();
         } catch (err) {
           console.error('Status toggle failed:', err);
-          showAlert('Update Failed', 'Failed to update entity status.');
+          showAlert('Update failed', 'Failed to update entity status.');
         } finally {
           setActionLoadingId(null);
         }
@@ -344,14 +344,14 @@ export default function CommissionEntitiesPage() {
   const handleDelete = (entity: CommissionEntity) => {
     if (entity.has_payments) {
       showAlert(
-        'Action Restricted',
+        'Action restricted',
         `Cannot delete "${entity.entity_name}" because it has historical payments attached. You can set its status to Inactive instead.`
       );
       return;
     }
 
     showConfirm(
-      'Delete Entity',
+      'Delete entity',
       `Are you sure you want to permanently delete "${entity.entity_name}"? This action cannot be undone.`,
       async () => {
         closeDialog();
@@ -369,12 +369,12 @@ export default function CommissionEntitiesPage() {
           await loadEntities();
         } catch (err) {
           console.error('Delete failed:', err);
-          showAlert('Delete Failed', err instanceof Error ? err.message : 'Failed to delete entity.');
+          showAlert('Delete failed', err instanceof Error ? err.message : 'Failed to delete entity.');
         } finally {
           setActionLoadingId(null);
         }
       },
-      'Delete Permanently',
+      'Delete permanently',
       'danger'
     );
   };
@@ -384,7 +384,7 @@ export default function CommissionEntitiesPage() {
       {/* Header Bar */}
       <div className={SETTINGS_CARD}>
         <SettingsHeader
-          title="Commission Entities"
+          title="Commission entities"
           description={<>The brokerage, referral partners, vendors, and fees that receive money in a waterfall.{!isLoading && <span className="ml-1 text-slate-400">Showing {processedEntities.length} of {entities.length}.</span>}</>}
           actions={
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
@@ -564,7 +564,7 @@ export default function CommissionEntitiesPage() {
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-lg rounded-xl p-6 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                {editingEntity ? `Edit Entity: ${editingEntity.entity_name}` : 'Add New Entity'}
+                {editingEntity ? `Edit Entity: ${editingEntity.entity_name}` : 'Add new entity'}
               </h3>
               <button
                 disabled={isSubmitting}
@@ -674,7 +674,7 @@ export default function CommissionEntitiesPage() {
                     onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
                     className="rounded text-emerald-500 focus:ring-brand-500 disabled:opacity-50"
                   />
-                  <span className="font-bold text-slate-700 dark:text-slate-300">Active Entity</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">Active entity</span>
                 </label>
               </div>
 
@@ -700,7 +700,7 @@ export default function CommissionEntitiesPage() {
                       <span>Saving...</span>
                     </>
                   ) : (
-                    <span>Save Entity</span>
+                    <span>Save entity</span>
                   )}
                 </button>
               </div>

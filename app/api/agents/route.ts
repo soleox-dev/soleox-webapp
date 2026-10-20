@@ -131,7 +131,7 @@ export async function POST(request: Request) {
 
     // 1. Validation: Name is required. ID is ONLY required for updates.
     if (!agent || !agent.agent_name) {
-      return NextResponse.json({ error: 'Agent Name is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Agent name is required' }, { status: 400 });
     }
 
     const existingId = agent.id || agent.agent_id ? String(agent.id || agent.agent_id) : null;

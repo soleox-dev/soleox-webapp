@@ -181,7 +181,7 @@ export function FinalDisbursements({
       <div className={`grid grid-cols-1 gap-6 px-6 pb-6 md:grid-cols-2 md:gap-0 ${showSplitWarning ? 'pt-0' : 'pt-6'}`}>
         <div className="flex h-full flex-col gap-3 md:pr-6">
           <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block">
-            Payments to Agents
+            Payments to agents
           </span>
 
           {agentDisbursements.length === 0 ? (
@@ -203,7 +203,7 @@ export function FinalDisbursements({
           )}
 
           <ColumnSubtotal
-            label="Total to Agents"
+            label="Total to agents"
             amount={agentTotal}
             totalCommission={totalCommission}
             tone="agent"
@@ -212,7 +212,7 @@ export function FinalDisbursements({
 
         <div className="flex h-full flex-col gap-3 border-t border-slate-200 pt-6 dark:border-slate-700 md:border-t-0 md:border-l md:pt-0 md:pl-6">
           <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block">
-            Payments to Entities
+            Payments to entities
           </span>
 
           {entityDisbursements.length === 0 ? (
@@ -232,7 +232,7 @@ export function FinalDisbursements({
           )}
 
           <ColumnSubtotal
-            label="Total to Entities"
+            label="Total to entities"
             amount={entityTotal}
             totalCommission={totalCommission}
             tone="entity"
@@ -246,7 +246,7 @@ export function FinalDisbursements({
             role="alert"
             className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2.5 text-[13px] font-semibold leading-relaxed text-rose-700 dark:border-rose-500/40 dark:bg-rose-950/40 dark:text-rose-300"
           >
-            Total Payments are {formatCurrency(totalPayments)}, which leaves {formatCurrency(unallocatedCommission)} of the {formatCurrency(totalCommission)} commission unallocated. This transaction cannot be saved until the entire commission is allocated among agents and entities.
+            Total payments are {formatCurrency(totalPayments)}, which leaves {formatCurrency(unallocatedCommission)} of the {formatCurrency(totalCommission)} commission unallocated. This transaction cannot be saved until the entire commission is allocated among agents and entities.
           </p>
         </div>
       )}
@@ -257,7 +257,7 @@ export function FinalDisbursements({
           : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800'
       }`}>
         <span className={`text-lg font-semibold ${paymentsOffCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-900 dark:text-white'}`}>
-          Total Payments
+          Total payments
         </span>
         <div className="flex items-center gap-3">
           <span className={`text-sm font-medium ${paymentsOffCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-500 dark:text-slate-400'}`}>

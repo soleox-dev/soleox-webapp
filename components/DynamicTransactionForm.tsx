@@ -97,7 +97,7 @@ export default function DynamicTransactionForm({
   return (
     <form onSubmit={handleSubmit} className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow space-y-8">
       {noticeDialog}
-      <h2 className="text-2xl font-bold text-gray-800 border-b pb-2">New Transaction</h2>
+      <h2 className="text-2xl font-bold text-gray-800 border-b pb-2">New transaction</h2>
 
       {sections.map((section) => (
         <div key={section.sectionName} className="space-y-4">
@@ -182,7 +182,7 @@ export default function DynamicTransactionForm({
           disabled={submitting}
           className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 disabled:opacity-50 transition"
         >
-          {submitting ? 'Calculating Waterfall...' : 'Submit & Calculate'}
+          {submitting ? 'Calculating Waterfall...' : 'Submit & calculate'}
         </button>
       </div>
     </form>

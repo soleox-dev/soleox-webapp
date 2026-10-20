@@ -25,7 +25,7 @@ export function RequiredFieldsModal({
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              Missing Required Fields
+              Missing required fields
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
               The following required field(s) have been left blank in the Transaction Overview form:
@@ -53,13 +53,13 @@ export function RequiredFieldsModal({
             onClick={onCancel}
             className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer"
           >
-            Back to Edit
+            Back to edit
           </button>
           <button
             onClick={onConfirm}
             className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-600/20 transition cursor-pointer"
           >
-            Apply Changes Anyway
+            Apply changes anyway
           </button>
         </div>
       </div>

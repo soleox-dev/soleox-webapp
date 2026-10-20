@@ -231,7 +231,7 @@ export default function ScorecardsSettingsPage() {
                 disabled={isSaving}
                 className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-brand-500 disabled:opacity-50 cursor-pointer"
               >
-                {isSaving ? 'Saving…' : 'Save Scorecards'}
+                {isSaving ? 'Saving…' : 'Save scorecards'}
               </button>
             )}
             <button

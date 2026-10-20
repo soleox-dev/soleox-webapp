@@ -154,7 +154,7 @@ export async function POST(request: Request) {
 
     if (!item || !item.id || !item.transaction_id) {
       return NextResponse.json(
-        { error: 'Item ID and Transaction ID are required' },
+        { error: 'Item ID and transaction ID are required' },
         { status: 400 }
       );
     }

@@ -422,7 +422,7 @@ export default function Navbar() {
                 {/* Active Session Info */}
                 <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">
                   <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                    {session?.user?.name || 'Authenticated User'}
+                    {session?.user?.name || 'Authenticated user'}
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
                     {session?.user?.email || 'user@soleox.com'}
@@ -492,7 +492,7 @@ export default function Navbar() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V5" />
                   </svg>
-                  Sign Out
+                  Sign out
                 </button>
               </div>
             )}
@@ -521,7 +521,7 @@ export default function Navbar() {
           <div className="absolute inset-y-0 right-0 flex w-[min(20rem,calc(100%-3rem))] flex-col overflow-y-auto overscroll-contain bg-white pb-[env(safe-area-inset-bottom)] text-slate-900 shadow-2xl dark:bg-[#0e131c] dark:text-white">
             <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800">
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">{session?.user?.name || 'Authenticated User'}</p>
+                <p className="truncate text-sm font-semibold">{session?.user?.name || 'Authenticated user'}</p>
                 <p className="truncate text-xs text-slate-500 dark:text-slate-400">{session?.user?.email || 'user@soleox.com'}</p>
                 {access?.clientName && <p className="truncate text-xs text-brand-700 dark:text-brand-400">{access.clientName}</p>}
               </div>
@@ -542,7 +542,7 @@ export default function Navbar() {
                   onClick={() => setPhoneNavLevel('main')}
                   className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-brand-700 dark:text-brand-400 cursor-pointer"
                 >
-                  <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden /> Back to Main Menu
+                  <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden /> Back to main menu
                 </button>
                 <Link href="/owner-reports" className={sheetLinkClass(pathname === '/owner-reports')}>
                   <Briefcase className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden /> Owner Reports
@@ -571,7 +571,7 @@ export default function Navbar() {
             <>
             <nav className="px-2 py-2" aria-label="Main">
               <Link href="/" className={sheetLinkClass(isMainMenu)}>
-                <House className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden /> Main Menu
+                <House className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden /> Main menu
               </Link>
               {showTracker && <p className={sheetHeadingClass}>Commission Tracker</p>}
               {showTransactions && (
@@ -670,7 +670,7 @@ export default function Navbar() {
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V5" />
                 </svg>
-                Sign Out
+                Sign out
               </button>
             </div>
             </>

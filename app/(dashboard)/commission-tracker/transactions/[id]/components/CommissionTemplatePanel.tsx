@@ -1590,7 +1590,7 @@ export function CommissionTemplatePanel({
   const tone = bolt ? bolt.tone : null;
   const templateButtonLabel = singleTemplate
     ? (locked || committedTemplateId === singleTemplate.id ? singleTemplate.template_name : `Add ${singleTemplate.template_name}`)
-    : 'Commission Template';
+    : 'Commission template';
   const templateButtonTitle = locked
     ? 'Not eligible for a commission template'
     : bolt && tone
@@ -1611,7 +1611,7 @@ export function CommissionTemplatePanel({
     <div className={embedded ? `${singleTemplate ? 'shrink-0' : 'w-56 sm:w-64'} text-xs` : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xs space-y-3 text-xs transition-colors'}>
       {!embedded && (
         <span className="font-bold text-slate-800 dark:text-slate-300 block border-b border-slate-200 dark:border-slate-700 pb-2">
-          Commission Template
+          Commission template
         </span>
       )}
       <div ref={templateFieldRef} className="relative">
@@ -1696,7 +1696,7 @@ export function CommissionTemplatePanel({
                   : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800'}`}>
                   {/* Same columns as the parameter sections below, so the blue line under the title lines up with theirs. */}
                   <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-3 py-2 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:gap-x-4">
-                    <span className="text-[11px] font-bold text-brand-600 dark:text-brand-400 @min-[720px]/params:self-stretch @min-[720px]/params:flex @min-[720px]/params:items-center @min-[720px]/params:border-r @min-[720px]/params:border-brand-500/50 @min-[720px]/params:pr-3 @min-[720px]/params:dark:border-brand-400/50">Team Caps</span>
+                    <span className="text-[11px] font-bold text-brand-600 dark:text-brand-400 @min-[720px]/params:self-stretch @min-[720px]/params:flex @min-[720px]/params:items-center @min-[720px]/params:border-r @min-[720px]/params:border-brand-500/50 @min-[720px]/params:pr-3 @min-[720px]/params:dark:border-brand-400/50">Team caps</span>
                     <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                     {qualifyingCaps.map((cap) => (
                       <div key={cap.id} className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">

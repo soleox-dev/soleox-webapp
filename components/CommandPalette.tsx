@@ -98,7 +98,7 @@ export function CommandPalette({
         { key: 'page-transactions', group: 'Pages' as const, icon: List, title: 'Transactions', href: '/commission-tracker/transactions' },
         { key: 'page-agents', group: 'Pages' as const, icon: Users, title: 'Agents', href: '/commission-tracker/agents' },
       ] : []),
-      ...(canSettings ? [{ key: 'page-settings', group: 'Pages' as const, icon: Settings, title: 'Commission Tracker Settings', href: '/commission-tracker/settings' }] : []),
+      ...(canSettings ? [{ key: 'page-settings', group: 'Pages' as const, icon: Settings, title: 'Commission Tracker settings', href: '/commission-tracker/settings' }] : []),
       ...(canReports ? [{ key: 'page-reports', group: 'Pages' as const, icon: BarChart3, title: 'Owner Reports', href: '/owner-reports' }] : []),
     ];
     if (words.length === 0) return pages;

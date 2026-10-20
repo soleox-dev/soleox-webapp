@@ -63,7 +63,7 @@ export function LoadingDataPage({ progress, error, onRetry }: LoadingDataPagePro
     },
     {
       id: 'waterfalls',
-      label: 'Waterfall Splits',
+      label: 'Waterfall splits',
       icon: Layers,
       count: progress.recordsCount?.items,
       active: !progress.checks?.snapshot && progress.percent > 30,
@@ -76,7 +76,7 @@ export function LoadingDataPage({ progress, error, onRetry }: LoadingDataPagePro
     },
     {
       id: 'payments',
-      label: 'Payments Ledger',
+      label: 'Payments ledger',
       icon: DollarSign,
       count: progress.recordsCount?.payments,
       active: !progress.checks?.snapshot && progress.percent > 25,
@@ -89,7 +89,7 @@ export function LoadingDataPage({ progress, error, onRetry }: LoadingDataPagePro
     },
     {
       id: 'caps',
-      label: 'Cap Allocations',
+      label: 'Cap allocations',
       icon: Award,
       count: progress.recordsCount?.caps,
       active: !progress.checks?.caps && progress.percent > 10,
@@ -164,7 +164,7 @@ export function LoadingDataPage({ progress, error, onRetry }: LoadingDataPagePro
                     className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-rose-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-700 active:scale-95"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
-                    Retry Download
+                    Retry download
                   </button>
                 ) : null}
               </div>

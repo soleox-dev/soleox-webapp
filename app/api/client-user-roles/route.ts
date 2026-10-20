@@ -120,7 +120,7 @@ export async function DELETE(request: Request) {
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ error: 'Role Mapping ID is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Role mapping ID is required' }, { status: 400 });
     }
 
     const { clientId, supabase } = await requireSessionClient();

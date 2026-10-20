@@ -6,7 +6,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  return { title: id === 'new' ? 'New Transaction' : 'Transaction Detail' };
+  return { title: id === 'new' ? 'New transaction' : 'Transaction detail' };
 }
 
 export default function TransactionDetailLayout({ children }: { children: React.ReactNode }) {

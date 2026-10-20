@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     // 1. Validation: Category, Code, and Label are required. ID is optional for creation.
     if (!lookup || !lookup.category || !lookup.lookup_code || !lookup.lookup_label) {
       return NextResponse.json(
-        { error: 'Category, Lookup Code, and Lookup Label are required' },
+        { error: 'Category, lookup code, and lookup label are required' },
         { status: 400 }
       );
     }

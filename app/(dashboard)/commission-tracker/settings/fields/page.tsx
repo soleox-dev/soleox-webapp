@@ -1542,7 +1542,7 @@ export default function FieldCustomizationsPage() {
               {!editingField && selectionMode === 'EXISTING' && (
                 <label className={underlineShell}>
                   <span className={underlineLabel}>
-                    Select Existing Database Column <span className="text-rose-500">*</span>
+                    Select existing database column <span className="text-rose-500">*</span>
                   </span>
                   <ClearableSelect
                     value={selectedCatalogKey}
@@ -1562,7 +1562,7 @@ export default function FieldCustomizationsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <label className={underlineShell}>
                   <span className={underlineLabel}>
-                    Field Label <span className="text-rose-500">*</span>
+                    Field label <span className="text-rose-500">*</span>
                   </span>
                   <input
                     ref={fieldLabelInputRef}
@@ -1592,7 +1592,7 @@ export default function FieldCustomizationsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <label className={underlineShell}>
                   <span className={underlineLabel}>
-                    Control Type <span className="text-rose-500">*</span>
+                    Control type <span className="text-rose-500">*</span>
                   </span>
                   <ClearableSelect
                     tabIndex={3}
@@ -1608,20 +1608,20 @@ export default function FieldCustomizationsPage() {
                     }}
                     className={`${underlineControl} overview-field-select cursor-pointer`}
                   >
-                    <option value="TEXT">Text Input</option>
+                    <option value="TEXT">Text input</option>
                     <option value="CURRENCY">Currency ($)</option>
                     <option value="PERCENT">Percent</option>
                     <option value="NUMBER">Number</option>
-                    <option value="DATE">Date Picker</option>
-                    <option value="SELECT">Select Dropdown</option>
-                    <option value="AGENT_PICKER">Agent Picker</option>
-                    <option value="BOOLEAN">Boolean Toggle</option>
+                    <option value="DATE">Date picker</option>
+                    <option value="SELECT">Select dropdown</option>
+                    <option value="AGENT_PICKER">Agent picker</option>
+                    <option value="BOOLEAN">Boolean toggle</option>
                   </ClearableSelect>
                   <FieldChevron />
                 </label>
 
                 <label className={underlineShell}>
-                  <span className={underlineLabel}>Database Field Key</span>
+                  <span className={underlineLabel}>Database field key</span>
                   <input
                     type="text"
                     tabIndex={-1}
@@ -1689,7 +1689,7 @@ export default function FieldCustomizationsPage() {
                           <div className="p-2.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 space-y-2">
                             <div className="grid grid-cols-12 gap-2 items-end">
                               <label className={`${underlineShell} col-span-5`}>
-                                <span className={underlineLabel}>If Field</span>
+                                <span className={underlineLabel}>If field</span>
                                 <ClearableSelect
                                   value={cond.field_key}
                                   onChange={(e) => handleUpdateCondition(cond.id, { field_key: e.target.value })}
@@ -1714,10 +1714,10 @@ export default function FieldCustomizationsPage() {
                                   className={`${underlineControl} overview-field-select cursor-pointer`}
                                 >
                                   <option value="EQUALS">Equals (=)</option>
-                                  <option value="NOT_EQUALS">Not Equals (≠)</option>
-                                  <option value="IN">Is In List</option>
-                                  <option value="NOT_EMPTY">Is Not Empty</option>
-                                  <option value="IS_EMPTY">Is Empty</option>
+                                  <option value="NOT_EQUALS">Not equals (≠)</option>
+                                  <option value="IN">Is in list</option>
+                                  <option value="NOT_EMPTY">Is not empty</option>
+                                  <option value="IS_EMPTY">Is empty</option>
                                 </ClearableSelect>
                                 <FieldChevron />
                               </label>
@@ -1737,7 +1737,7 @@ export default function FieldCustomizationsPage() {
                               <div className="pt-1 border-t border-slate-100 dark:border-slate-700">
                                 {cond.operator === 'IN' && targetFieldConfig?.dropdown_options ? (
                                   <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-slate-400 block">Select Target Values:</label>
+                                    <label className="text-[10px] font-bold text-slate-400 block">Select target values:</label>
                                     <div className="flex flex-wrap gap-1.5">
                                       {targetFieldConfig.dropdown_options.map((opt) => {
                                         const selectedValues = Array.isArray(cond.value) ? cond.value : [];
@@ -1767,7 +1767,7 @@ export default function FieldCustomizationsPage() {
                                   </div>
                                 ) : (
                                   <label className={underlineShell}>
-                                    <span className={underlineLabel}>Value to Compare</span>
+                                    <span className={underlineLabel}>Value to compare</span>
                                     <input
                                       type="text"
                                       value={String(cond.value || '')}
@@ -1804,7 +1804,7 @@ export default function FieldCustomizationsPage() {
                 {(formData.field_type === 'CURRENCY' || formData.field_type === 'NUMBER' || formData.field_type === 'PERCENT') && (
                   <div className="grid grid-cols-2 gap-3">
                     <label className={underlineShell}>
-                      <span className={underlineLabel}>Minimum Value</span>
+                      <span className={underlineLabel}>Minimum value</span>
                       <input
                         type="number"
                         value={formData.min_value ?? ''}
@@ -1814,7 +1814,7 @@ export default function FieldCustomizationsPage() {
                       />
                     </label>
                     <label className={underlineShell}>
-                      <span className={underlineLabel}>Maximum Value</span>
+                      <span className={underlineLabel}>Maximum value</span>
                       <input
                         type="number"
                         value={formData.max_value ?? ''}
@@ -1828,20 +1828,20 @@ export default function FieldCustomizationsPage() {
 
                 {formData.field_type === 'DATE' && (
                   <label className={underlineShell}>
-                    <span className={underlineLabel}>Earliest Allowed Date</span>
+                    <span className={underlineLabel}>Earliest allowed date</span>
                     <NativeDateInput
                       value={formData.min_date || ''}
                       onChange={(e) => setFormData({ ...formData, min_date: e.target.value })}
                       className={`${underlineControl} overview-date dark:[color-scheme:dark]`}
                     />
-                    <FieldCalendar label="Earliest Allowed Date" />
+                    <FieldCalendar label="Earliest allowed date" />
                   </label>
                 )}
 
                 {formData.field_type === 'TEXT' && (
                   <div className="space-y-3">
                     <label className={underlineShell}>
-                      <span className={underlineLabel}>Max Character Length</span>
+                      <span className={underlineLabel}>Max character length</span>
                       <input
                         type="number"
                         value={formData.max_length ?? 100}
@@ -1862,8 +1862,8 @@ export default function FieldCustomizationsPage() {
                           onChange={(e) => setFormData({ ...formData, regex_mode: e.target.value as RegexMode })}
                           className={`${underlineControl} overview-field-select cursor-pointer`}
                         >
-                          <option value="MATCHES">RegEx Matches Pattern</option>
-                          <option value="EQUALS">RegEx Strictly Equals</option>
+                          <option value="MATCHES">RegEx matches pattern</option>
+                          <option value="EQUALS">RegEx strictly equals</option>
                         </ClearableSelect>
                         <FieldChevron />
                       </label>
@@ -1961,7 +1961,7 @@ export default function FieldCustomizationsPage() {
                                 type="button"
                                 onClick={() => handleRemoveDropdownOption(opt)}
                                 className="text-rose-500 hover:text-rose-600 font-bold px-1.5 py-0.5 rounded hover:bg-rose-500/10 cursor-pointer"
-                                title="Remove Option"
+                                title="Remove option"
                               >
                                 ✕
                               </button>
@@ -1999,7 +1999,7 @@ export default function FieldCustomizationsPage() {
                     <div className="space-y-1 bg-purple-500/5 p-3 rounded-lg border border-purple-500/20">
                       <label className={underlineShell}>
                         <span className={underlineLabel}>
-                          Formula Expression <span className="text-rose-500">*</span>
+                          Formula expression <span className="text-rose-500">*</span>
                         </span>
                       <input
                         type="text"
@@ -2037,7 +2037,7 @@ export default function FieldCustomizationsPage() {
                       onChange={(e) => setFormData({ ...formData, is_enabled: e.target.checked })}
                       className="rounded text-emerald-500 focus:ring-brand-500 disabled:cursor-not-allowed"
                     />
-                    <span className="font-bold text-slate-700 dark:text-slate-300">Enabled (Active in Forms)</span>
+                    <span className="font-bold text-slate-700 dark:text-slate-300">Enabled (active in forms)</span>
                   </label>
 
                   <label className="flex items-center gap-1.5 cursor-pointer">
@@ -2071,7 +2071,7 @@ export default function FieldCustomizationsPage() {
                         <span>Saving...</span>
                       </>
                     ) : (
-                      <span>Save Field Settings</span>
+                      <span>Save field settings</span>
                     )}
                   </button>
                 </div>
@@ -2089,10 +2089,10 @@ export default function FieldCustomizationsPage() {
             <div className="flex justify-between items-start border-b border-slate-200 dark:border-slate-700 pb-3">
               <div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <EditPencil className="w-3.5 h-3.5 text-slate-400" /> Rename Dropdown Value
+                  <EditPencil className="w-3.5 h-3.5 text-slate-400" /> Rename dropdown value
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Field: <strong className="text-slate-800 dark:text-slate-200">{formData.field_label || 'Select Field'}</strong>
+                  Field: <strong className="text-slate-800 dark:text-slate-200">{formData.field_label || 'Select field'}</strong>
                   {' '}&bull;{' '}
                   Target Table: <span className="font-semibold text-slate-700 dark:text-slate-300 capitalize">{activeTab}</span>
                 </p>
@@ -2111,7 +2111,7 @@ export default function FieldCustomizationsPage() {
             <div className="space-y-4">
               <div>
                 <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
-                  Current Value
+                  Current value
                 </label>
                 <div className="px-3 py-2 bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300">
                   {renameModal.oldValue}
@@ -2120,7 +2120,7 @@ export default function FieldCustomizationsPage() {
 
               <div>
                 <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  New Value *
+                  New value *
                 </label>
                 <div className={underlineShell}>
                   <input
@@ -2159,7 +2159,7 @@ export default function FieldCustomizationsPage() {
                   <span className="text-amber-600 dark:text-amber-400 text-lg leading-none mt-0.5">⚠️</span>
                   <div className="text-xs text-amber-900 dark:text-amber-200 space-y-1">
                     <p className="font-bold text-amber-950 dark:text-amber-100 text-sm">
-                      Database Records Update Confirmation
+                      Database records update confirmation
                     </p>
                     <p className="text-amber-800 dark:text-amber-300 leading-relaxed">
                       Renaming this option will update <strong>all existing records</strong> in the database where{' '}
@@ -2219,11 +2219,11 @@ export default function FieldCustomizationsPage() {
                 {renameModal.isSubmitting ? (
                   <>
                     <span className="animate-spin text-sm">⏳</span>
-                    <span>Updating Database Records...</span>
+                    <span>Updating database records...</span>
                   </>
                 ) : (
                   <>
-                    <span>Confirm & Update Records</span>
+                    <span>Confirm & update records</span>
                   </>
                 )}
               </button>
@@ -2243,7 +2243,7 @@ export default function FieldCustomizationsPage() {
 
             <div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                Rename Operation Completed
+                Rename operation completed
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Database records and field options have been updated successfully.

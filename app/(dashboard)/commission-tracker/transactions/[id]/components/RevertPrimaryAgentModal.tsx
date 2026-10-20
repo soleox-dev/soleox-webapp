@@ -58,7 +58,7 @@ export function RevertPrimaryAgentModal({
             onClick={onRevertNo}
             className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer"
           >
-            No, Keep Changes
+            No, keep changes
           </button>
           <button
             type="button"

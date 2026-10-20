@@ -144,7 +144,7 @@ export default function CommissionRulesSettingsPage() {
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs flex justify-between items-center transition-colors">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-            Global Commission Rules & Waterfall Templates
+            Global commission rules & waterfall templates
           </h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
             Configure default off-the-top deductions, post-split fees, and global compliance rules.
@@ -180,10 +180,10 @@ export default function CommissionRulesSettingsPage() {
           <table className="w-full text-left text-xs divide-y divide-slate-200 dark:divide-slate-700">
             <thead className="bg-slate-50 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 font-bold">
               <tr>
-                <th className="p-3.5">Rule Name & Details</th>
-                <th className="p-3.5">Waterfall Stage</th>
-                <th className="p-3.5">Target Entity</th>
-                <th className="p-3.5">Default Value</th>
+                <th className="p-3.5">Rule name & details</th>
+                <th className="p-3.5">Waterfall stage</th>
+                <th className="p-3.5">Target entity</th>
+                <th className="p-3.5">Default value</th>
                 <th className="p-3.5">Applies To</th>
                 <th className="p-3.5 text-right">Status</th>
               </tr>
@@ -255,7 +255,7 @@ export default function CommissionRulesSettingsPage() {
             </div>
 
             <div className="space-y-3">
-              <UnderlineField label="Rule Name (*)">
+              <UnderlineField label="Rule name (*)">
                 <input
                   type="text"
                   required
@@ -267,7 +267,7 @@ export default function CommissionRulesSettingsPage() {
               </UnderlineField>
 
               <div className="grid grid-cols-2 gap-3">
-                <UnderlineField label="Waterfall Stage">
+                <UnderlineField label="Waterfall stage">
                   <ClearableSelect
                     value={newRule.category}
                     onChange={(e) => setNewRule({ ...newRule, category: e.target.value as any })}
@@ -279,7 +279,7 @@ export default function CommissionRulesSettingsPage() {
                   <FieldChevron />
                 </UnderlineField>
 
-                <UnderlineField label="Target Entity (*)">
+                <UnderlineField label="Target entity (*)">
                   <input
                     type="text"
                     required
@@ -292,19 +292,19 @@ export default function CommissionRulesSettingsPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <UnderlineField label="Calculation Type">
+                <UnderlineField label="Calculation type">
                   <ClearableSelect
                     value={newRule.type}
                     onChange={(e) => setNewRule({ ...newRule, type: e.target.value as any })}
                     className={`${underlineControl} overview-field-select`}
                   >
                     <option value="PERCENT">Percentage (%)</option>
-                    <option value="AMOUNT">Flat Amount ($)</option>
+                    <option value="AMOUNT">Flat amount ($)</option>
                   </ClearableSelect>
                   <FieldChevron />
                 </UnderlineField>
 
-                <UnderlineField label={`Default Value (${newRule.type === 'PERCENT' ? '%' : '$'})`}>
+                <UnderlineField label={`Default value (${newRule.type === 'PERCENT' ? '%' : '$'})`}>
                   <input
                     type="number"
                     step="any"
@@ -340,7 +340,7 @@ export default function CommissionRulesSettingsPage() {
                 disabled={!ruleReady}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-50"
               >
-                Save Rule Definition
+                Save rule definition
               </button>
             </div>
           </form>

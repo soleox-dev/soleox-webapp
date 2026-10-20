@@ -82,8 +82,8 @@ const BOARD_METRIC_EXCLUDED = new Set(['gci_type', 'transaction_status', 'financ
 
 /** Payment rankings sit above the schema fields. They join payments to the transactions in view. */
 const PAYMENT_METRICS: BoardField[] = [
-  { id: 'payment:agent', label: 'Agent Earnings', type: 'PAYMENT' },
-  { id: 'payment:entity', label: 'Entity Payments', type: 'PAYMENT' },
+  { id: 'payment:agent', label: 'Agent earnings', type: 'PAYMENT' },
+  { id: 'payment:entity', label: 'Entity payments', type: 'PAYMENT' },
 ];
 
 const DEFAULT_DATE_BASES: BoardField[] = [
@@ -438,7 +438,7 @@ export default function OwnerReportsPage() {
         setLoadProgress((prev) => ({
           ...prev,
           percent: 100,
-          stage: 'Reports Ready!',
+          stage: 'Reports ready!',
           detail: 'All calculations compiled',
           checks: { ...prev.checks, processing: true },
         }));
@@ -594,7 +594,7 @@ export default function OwnerReportsPage() {
       .filter((entity) => (byEntity.get(entity.id)?.size || 0) > 0)
       .map((entity) => ({ value: entity.id, label: entity.name, count: byEntity.get(entity.id)?.size || 0 }))
       .sort((a, b) => a.label.localeCompare(b.label));
-    return [{ value: NET_EARNING, label: 'Net Commission Income', count: netIds.size }, ...entities];
+    return [{ value: NET_EARNING, label: 'Net commission income', count: netIds.size }, ...entities];
   }, [agentPayeePicked, earningEntities, excludeTeamLeads, filtered, payments, postSplits, range, reportId, teamLeadIds]);
 
   useEffect(() => {
@@ -1776,7 +1776,7 @@ function FilterBar(props: {
       ) : null}
       <MultiFilter label="Group" note="Limits every metric to transactions whose primary agent belongs to the selected groups. All includes every agent." options={props.groupChoices} picked={props.groupPicked} fallback={null} onChange={props.onGroups} />
       {props.earningsChoices && props.onEarnings ? (
-        <MultiFilter label="Earnings type" note="Net Commission Income is each agent’s payment amount. Checking an entity adds the post-split dollars that agent allocated to it." options={props.earningsChoices} picked={props.earningsPicked ?? null} fallback={[NET_EARNING]} onChange={props.onEarnings} />
+        <MultiFilter label="Earnings type" note="Net commission income is each agent’s payment amount. Checking an entity adds the post-split dollars that agent allocated to it." options={props.earningsChoices} picked={props.earningsPicked ?? null} fallback={[NET_EARNING]} onChange={props.onEarnings} />
       ) : null}
       {props.dateOnly ? null : (
         <>
@@ -1795,7 +1795,7 @@ function FilterBar(props: {
             onChange={(event) => props.onExcludeTeamLeads?.(event.target.checked)}
             className="h-4 w-4 cursor-pointer accent-emerald-600"
           />
-          {props.teamLeadIds?.size === 1 ? 'Exclude Team Lead' : 'Exclude Team Leads'}
+          {props.teamLeadIds?.size === 1 ? 'Exclude team lead' : 'Exclude team leads'}
         </label>
       ) : null}
       {props.cumulative !== undefined && props.onCumulative ? (
@@ -2022,8 +2022,8 @@ function TitleCaps({ options, picked, onChange }: {
   const needle = query.trim().toLowerCase();
   const visible = options.filter((option) => option.label.toLowerCase().includes(needle));
   const groups = [
-    { id: 'team' as const, label: 'Team Caps', options: visible.filter((option) => option.group === 'team') },
-    { id: 'agent' as const, label: 'Agent Caps', options: visible.filter((option) => option.group === 'agent') },
+    { id: 'team' as const, label: 'Team caps', options: visible.filter((option) => option.group === 'team') },
+    { id: 'agent' as const, label: 'Agent caps', options: visible.filter((option) => option.group === 'agent') },
   ].filter((group) => group.options.length > 0);
   const choose = (id: string) => {
     onChange(options[0]?.value === id ? null : [id]);
@@ -2682,9 +2682,9 @@ function ReportBody(props: {
 }
 
 const PRODUCTION_GRAINS: Array<{ id: ProductionGrain; label: string }> = [
-  { id: 'day', label: 'Day-by-Day Production' },
-  { id: 'week', label: 'Week-by-Week Production' },
-  { id: 'month', label: 'Month-over-Month Production' },
+  { id: 'day', label: 'Day-by-day production' },
+  { id: 'week', label: 'Week-by-week production' },
+  { id: 'month', label: 'Month-over-month production' },
 ];
 
 function ProductionGrainTitle({ grain, enabled, onChange }: { grain: ProductionGrain; enabled: boolean; onChange: (grain: ProductionGrain) => void }) {
@@ -2770,19 +2770,19 @@ function ProductionGrainTitle({ grain, enabled, onChange }: { grain: ProductionG
 }
 
 const DRILLDOWN_METRIC_LABELS: Partial<Record<keyof OwnerMonthRow, string>> = {
-  closedUnits: 'Closed Units',
-  closedVolume: 'Closed Volume',
-  closedCommission: 'Closed Total Commission',
-  closedNet: 'Closed Net Commission',
-  listingsTaken: 'Listings Taken',
-  listingsPended: 'Listings Pended',
-  listingsClosed: 'Listings Closed',
-  buyersPended: 'Buyers Pended',
-  buyersClosed: 'Buyers Closed',
-  pendingUnits: 'Pending Units',
-  pendingVolume: 'Pending Volume',
-  pendingCommission: 'Pending Total Commission',
-  pendingNet: 'Pending Net Commission',
+  closedUnits: 'Closed units',
+  closedVolume: 'Closed volume',
+  closedCommission: 'Closed total commission',
+  closedNet: 'Closed net commission',
+  listingsTaken: 'Listings taken',
+  listingsPended: 'Listings pended',
+  listingsClosed: 'Listings closed',
+  buyersPended: 'Buyers pended',
+  buyersClosed: 'Buyers closed',
+  pendingUnits: 'Pending units',
+  pendingVolume: 'Pending volume',
+  pendingCommission: 'Pending total commission',
+  pendingNet: 'Pending net commission',
 };
 
 function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, teamLeadIds, range, preset, names }: {
@@ -2984,7 +2984,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
       <>
       <div className="flex flex-wrap items-stretch gap-6">
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading>Closed Net Commission Income to Owner(s)</SectionHeading>
+          <SectionHeading>Closed net commission income to owner(s)</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Total commission" amount={totalCommission} changeAmount={totalCommission - priorCommission} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">−</span>
@@ -2994,7 +2994,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
           </div>
         </div>
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading>Closed Net Income to Owner(s)</SectionHeading>
+          <SectionHeading>Closed net income to owner(s)</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Net commission income" amount={shownNet} changeAmount={shownNet - shownPriorNet} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">−</span>
@@ -3006,7 +3006,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
       </div>
       <div className="flex flex-wrap items-stretch gap-6">
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading>Return on Investment (ROI)</SectionHeading>
+          <SectionHeading>Return on investment (ROI)</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Net income" amount={netIncome} changeAmount={netIncome - priorIncome} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">/</span>
@@ -3016,7 +3016,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
           </div>
         </div>
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading>Net Income to Total Commission Ratio (NI/TC)</SectionHeading>
+          <SectionHeading>Net income to total commission ratio (NI/TC)</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Net income" amount={netIncome} changeAmount={netIncome - priorIncome} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">/</span>
@@ -3028,7 +3028,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
       </div>
       <div className="flex flex-wrap items-stretch gap-6">
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading tone="listing">Average Listing Metrics</SectionHeading>
+          <SectionHeading tone="listing">Average listing metrics</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Avg. sales price" tone="listing" {...averageFigures(sellerTotals.volume, sellerTotals.units, priorSellerTotals.volume, priorSellerTotals.units)} />
             <span className="invisible text-lg font-semibold" aria-hidden="true">−</span>
@@ -3038,7 +3038,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
           </div>
         </div>
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading tone="buyer">Average Buyer Metrics</SectionHeading>
+          <SectionHeading tone="buyer">Average buyer metrics</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Avg. sales price" tone="buyer" {...averageFigures(buyerTotals.volume, buyerTotals.units, priorBuyerTotals.volume, priorBuyerTotals.units)} />
             <span className="invisible text-lg font-semibold" aria-hidden="true">−</span>
@@ -3067,7 +3067,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
               className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/20 px-4 text-xs font-semibold normal-case tracking-normal text-white transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950"
             >
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
-              {periodLabel === 'Day' ? 'All Days' : periodLabel === 'Week' ? 'All Weeks' : 'All Months'}
+              {periodLabel === 'Day' ? 'All days' : periodLabel === 'Week' ? 'All weeks' : 'All months'}
             </button>
           ) : undefined}
           end={(
@@ -3371,7 +3371,7 @@ function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, cumu
       <TrendPanel metric="volume" title="Sales volume" tone="blue" currentClass="text-blue-700 dark:text-blue-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-blue-800 dark:text-blue-200" pendingClass="text-blue-600 dark:text-blue-400" cumulative={cumulative} {...panel} />
       <TrendPanel metric="gci" title="Gross commission income" tone="emerald" currentClass="text-emerald-600 dark:text-emerald-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-emerald-700 dark:text-emerald-200" pendingClass="text-emerald-500 dark:text-emerald-400" cumulative={cumulative} {...panel} />
       <TrendPanel metric="units" title="Units" tone="units" currentClass="text-purple-600 dark:text-purple-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-purple-700 dark:text-purple-200" pendingClass="text-purple-500 dark:text-purple-400" cumulative={cumulative} {...panel} />
-      <TrendPanel metric="team" title="Team Commission" tone="team" currentClass="text-rose-600 dark:text-rose-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-rose-700 dark:text-rose-200" pendingClass="text-rose-500 dark:text-rose-400" cumulative={cumulative} {...panel} />
+      <TrendPanel metric="team" title="Team commission" tone="team" currentClass="text-rose-600 dark:text-rose-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-rose-700 dark:text-rose-200" pendingClass="text-rose-500 dark:text-rose-400" cumulative={cumulative} {...panel} />
       <TrendPanel metric="price" title="Sales price" tone="price" currentClass="text-amber-500 dark:text-amber-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-amber-700 dark:text-amber-200" pendingClass="text-amber-500 dark:text-amber-400" chart="bars" {...salePanel} />
       <TrendPanel metric="rate" title="Gross commission percentage" tone="rate" currentClass="text-sky-600 dark:text-sky-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-sky-700 dark:text-sky-200" pendingClass="text-sky-500 dark:text-sky-400" chart="bars" {...salePanel} />
     </div>
@@ -3405,7 +3405,7 @@ function TrendPanel({ metric, title, tone, currentClass, previousClass, accentCl
   const chartProps = { metric, title, months, priorMonths, currentClass, previousClass };
   return (
     <section className={pairedSection}>
-      <SectionHeading tone={tone === 'emerald' ? undefined : tone} note={metric === 'team' ? 'Team Commission is the commission left after off-the-top deductions and pre-splits are subtracted from Total Commission.' : undefined}>{title}</SectionHeading>
+      <SectionHeading tone={tone === 'emerald' ? undefined : tone} note={metric === 'team' ? 'Team commission is the commission left after off-the-top deductions and pre-splits are subtracted from total commission.' : undefined}>{title}</SectionHeading>
       {notice ? (
         <div className="flex min-h-[28rem] flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white px-8 py-10 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">
           {notice}
@@ -4582,7 +4582,7 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
             className={`pointer-events-none absolute top-3 z-10 w-max whitespace-nowrap rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs shadow-lg transition-opacity dark:border-slate-700 dark:bg-slate-950/95 ${hover !== null ? 'duration-0' : 'duration-300'} ${popupShown ? 'opacity-100' : 'opacity-0'}`}
             style={{ left: `${focusX}%`, transform: focusX > 50 ? 'translateX(calc(-100% - 12px))' : 'translateX(12px)' }}
           >
-            <p className="font-bold">Agent Earnings</p>
+            <p className="font-bold">Agent earnings</p>
             <div className="mt-1.5 grid grid-cols-[auto_auto] items-baseline gap-x-6 gap-y-0.5">
               <span className={lineClass}>{monthTitle(columns[focus])}:</span>
               <span className={`text-right font-semibold tabular-nums ${lineClass}`}>{fullMoney(focusValue)}</span>
@@ -4843,7 +4843,7 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
         action={pick ? (
           <button type="button" onClick={() => setPick(null)} className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/20 px-4 text-xs font-semibold normal-case tracking-normal text-white transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950">
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
-            All Agents
+            All agents
           </button>
         ) : undefined}
         end={(
@@ -5301,11 +5301,11 @@ const VERSUS_LAST_YEAR = ' The number underneath is the change from the same dat
 
 const SCORE_NOTES: Record<string, string> = {
   'Total commission': `Sum of Total Commission on Closed transactions whose closing date is in this date range.${VERSUS_LAST_YEAR}`,
-  'Cost of sales': `Total Commission minus Net Commission Income.${VERSUS_LAST_YEAR}`,
+  'Cost of sales': `Total commission minus net commission income.${VERSUS_LAST_YEAR}`,
   'Net commission income': `Sum of payments on those Closed transactions to agents marked as team leads. Archived payments are excluded.${VERSUS_LAST_YEAR}`,
   'Operating expenses': 'Shown as $0 until the Operating Expenses module is added.',
-  'Net income': `Net Commission Income minus Operating Expenses. This is the bottom line.${VERSUS_LAST_YEAR}`,
-  'ROI': 'Net Income divided by Operating Expenses. A dash is shown when Operating Expenses are $0.',
+  'Net income': `Net commission income minus operating expenses. This is the bottom line.${VERSUS_LAST_YEAR}`,
+  'ROI': 'Net income divided by operating expenses. A dash is shown when operating expenses are $0.',
   'NI/TC': `Net Income divided by Total Commission.${VERSUS_LAST_YEAR}`,
   'listing:Avg. sales price': `Average sales price of Closed Seller transactions whose closing date is in this date range.${VERSUS_LAST_YEAR}`,
   'listing:Avg. GCI': `Average GCI of Closed Seller transactions whose closing date is in this date range.${VERSUS_LAST_YEAR}`,
@@ -5702,21 +5702,21 @@ function MonthTable({
         <thead className="report-head-dark text-xs font-medium normal-case text-white">
           <tr>
             <SortHead column="month" label={periodLabel} sort={sort} onSort={toggle} className="sticky left-0 z-10 bg-slate-800 px-2 py-2 text-xs font-medium text-white" />
-            <SortHead column="closedUnits" label="Closed Units" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="closedVolume" label="Closed Volume" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="closedCommission" label="Closed Total Comm." title="Closed total commission" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="closedNet" label="Closed Net Comm." title="Closed net commission income" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="closedUnits" label="Closed units" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="closedVolume" label="Closed volume" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="closedCommission" label="Closed total comm." title="Closed total commission" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="closedNet" label="Closed net comm." title="Closed net commission income" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
             <SortHead column="expenses" label={'Operating\nExpenses'} sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="closedNetIncome" label="Closed Net Inc." title="Closed net income" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="listingsTaken" label="Listings Taken" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="listingsPended" label="Listings Pended" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="listingsClosed" label="Listings Closed" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="buyersPended" label="Buyers Pended" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="buyersClosed" label="Buyers Closed" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="pendingUnits" label="Pending Units" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="pendingVolume" label="Pending Volume" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="pendingCommission" label="Pending Total Comm." title="Pending total commission" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="pendingNet" label="Pending Net Comm." title="Pending net commission income" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="closedNetIncome" label="Closed net inc." title="Closed net income" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="listingsTaken" label="Listings taken" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="listingsPended" label="Listings pended" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="listingsClosed" label="Listings closed" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="buyersPended" label="Buyers pended" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="buyersClosed" label="Buyers closed" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="pendingUnits" label="Pending units" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="pendingVolume" label="Pending volume" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="pendingCommission" label="Pending total comm." title="Pending total commission" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="pendingNet" label="Pending net comm." title="Pending net commission income" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
           </tr>
         </thead>
         <tbody>
@@ -5966,9 +5966,9 @@ function ProductionDrilldownTable({
               <SortHead column="address" label="Property" sort={sort} onSort={toggle} className="px-3 py-2 text-xs font-medium" />
               <SortHead column="date" label={dateColLabel} sort={sort} onSort={toggle} className="px-3 py-2 text-xs font-medium" />
               <SortHead column="price" label="Sales price" sort={sort} onSort={toggle} align="right" className="px-3 py-2 text-xs font-medium" />
-              <SortHead column="commission" label="Total Comm." title="Total commission" sort={sort} onSort={toggle} align="right" className="px-3 py-2 text-xs font-medium" />
+              <SortHead column="commission" label="Total comm." title="Total commission" sort={sort} onSort={toggle} align="right" className="px-3 py-2 text-xs font-medium" />
               {showNet ? (
-                <SortHead column="net" label="Net Comm." title="Net commission to owner(s)" sort={sort} onSort={toggle} align="right" className="px-3 py-2 text-xs font-medium" />
+                <SortHead column="net" label="Net comm." title="Net commission to owner(s)" sort={sort} onSort={toggle} align="right" className="px-3 py-2 text-xs font-medium" />
               ) : null}
               <SortHead column="source" label="Lead source" sort={sort} onSort={toggle} className="px-3 py-2 text-xs font-medium" />
             </tr>

@@ -2067,7 +2067,7 @@ export default function TransactionsListPage() {
           className="border border-slate-300 bg-white px-4 py-2.5 rounded-lg text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700 flex items-center gap-2 whitespace-nowrap"
         >
           <Plus className="h-3.5 w-3.5 text-emerald-500" strokeWidth={1.75} aria-hidden />
-          <span>New Transaction</span>
+          <span>New transaction</span>
         </Link>
         )}
         {syncResult && syncErrorsOpen && (
@@ -2152,7 +2152,7 @@ export default function TransactionsListPage() {
               {[
                 { key: ALL_TAB, label: 'All' },
                 ...transactionViews.map((view) => ({ key: view.id, label: view.name })),
-                ...(syncChangesOn ? [{ key: SYNCED_TAB, label: 'Just Synced' }] : []),
+                ...(syncChangesOn ? [{ key: SYNCED_TAB, label: 'Just synced' }] : []),
                 ...(deletedDeals.length > 0 ? [{ key: DELETED_TAB, label: 'Deleted' }] : []),
               ].map((tab) => {
                 const selected = !activeScorecardId && ledgerView === tab.key;
@@ -2293,11 +2293,11 @@ export default function TransactionsListPage() {
               </>
             )}
             {canWriteTracker && (tmsConnectorActive || !showingDeleted) && <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />}
-            <HoverNote label="Compact Table View">
+            <HoverNote label="Compact table view">
               <button
                 type="button"
                 onClick={toggleCompactRows}
-                aria-label="Compact Table View"
+                aria-label="Compact table view"
                 aria-pressed={compactRows}
                 className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition cursor-pointer ${
                   compactRows
@@ -2310,11 +2310,11 @@ export default function TransactionsListPage() {
             </HoverNote>
             <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />
             <div className="flex items-center gap-2">
-            <HoverNote label="Advanced Filters">
+            <HoverNote label="Advanced filters">
               <button
                 type="button"
                 onClick={() => setShowFilters(!showFilters)}
-                aria-label="Advanced Filters"
+                aria-label="Advanced filters"
                 aria-pressed={showFilters}
                 className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition cursor-pointer ${
                   showFilters

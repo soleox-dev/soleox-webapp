@@ -124,7 +124,7 @@ export async function bulkUpdateAgents(
     }
   }
   if (fieldKey === 'agent_name' && (value === null || String(value).trim() === '')) {
-    throw new Error('Agent Name is required.');
+    throw new Error('Agent name is required.');
   }
 
   const { data, error } = await sb

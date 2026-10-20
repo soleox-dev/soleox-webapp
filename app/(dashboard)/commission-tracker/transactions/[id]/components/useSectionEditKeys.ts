@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 
+/** Finds an enabled button by its text, ignoring case so a label's capitalization can change freely. */
 function labeledButton(root: ParentNode, label: string): HTMLButtonElement | null {
+  const wanted = label.toLowerCase();
   for (const node of root.querySelectorAll('button')) {
-    if (node instanceof HTMLButtonElement && !node.disabled && node.textContent?.trim() === label) {
+    if (node instanceof HTMLButtonElement && !node.disabled && node.textContent?.trim().toLowerCase() === wanted) {
       return node;
     }
   }
@@ -15,7 +17,7 @@ function actionButton(target: EventTarget | null, section: HTMLElement): HTMLBut
     const scoped = labeledButton(saveRoot, 'Save');
     if (scoped) return scoped;
   }
-  return labeledButton(section, 'Save') ?? labeledButton(section, 'Apply Changes');
+  return labeledButton(section, 'Save') ?? labeledButton(section, 'Apply changes');
 }
 
 export function useSectionEditKeys(enabled: boolean, onDiscard: () => void, hasChanges: boolean) {

@@ -72,14 +72,14 @@ interface CommissionEntity {
 }
 
 const PARAMETER_TYPES: { value: ParameterType; label: string }[] = [
-  { value: 'TEXT', label: 'Text Input' },
+  { value: 'TEXT', label: 'Text input' },
   { value: 'CURRENCY', label: 'Currency ($)' },
   { value: 'PERCENT', label: 'Percent' },
   { value: 'NUMBER', label: 'Number' },
-  { value: 'DATE', label: 'Date Picker' },
-  { value: 'SELECT', label: 'Select Dropdown' },
-  { value: 'AGENT_PICKER', label: 'Agent Picker' },
-  { value: 'BOOLEAN', label: 'Boolean Toggle' },
+  { value: 'DATE', label: 'Date picker' },
+  { value: 'SELECT', label: 'Select dropdown' },
+  { value: 'AGENT_PICKER', label: 'Agent picker' },
+  { value: 'BOOLEAN', label: 'Boolean toggle' },
 ];
 
 const underlineShell =
@@ -1220,7 +1220,7 @@ export default function CommissionTemplateDetailPage() {
   const validationFieldGroups = [
     { id: 'transactions', title: 'Transactions', fields: transactionFields },
     { id: 'agents', title: 'Agents', fields: agentFields },
-    { id: 'parameters', title: 'Template Parameters', fields: validationParameterFields },
+    { id: 'parameters', title: 'Template parameters', fields: validationParameterFields },
   ];
 
   const formulaNames: FormulaName[] = [
@@ -1238,7 +1238,7 @@ export default function CommissionTemplateDetailPage() {
   const fieldGroups = [
     { id: 'transactions', title: 'Transactions', fields: transactionFields },
     { id: 'agents', title: 'Agents', fields: agentFields },
-    { id: 'parameters', title: 'Template Parameters', fields: parameterFields },
+    { id: 'parameters', title: 'Template parameters', fields: parameterFields },
   ];
 
   const sectionOptions = [...new Set(parameters.map((parameter) => parameter.section?.trim()).filter((section): section is string => Boolean(section)))];
@@ -1398,7 +1398,7 @@ export default function CommissionTemplateDetailPage() {
                       <th className="px-4 py-3">Key</th>
                       <th className="px-4 py-3">Type</th>
                       <th className="px-4 py-3">Required</th>
-                      <th className="px-4 py-3">Autofill Formula</th>
+                      <th className="px-4 py-3">Autofill formula</th>
                       <th className="px-4 py-3">Validation</th>
                       <th className="sticky right-0 top-0 z-30 bg-slate-50 dark:bg-slate-900 px-4 py-3 border-l border-slate-200 dark:border-slate-700 shadow-[-10px_0_12px_-12px_rgba(15,23,42,0.7)]"></th>
                     </tr>
@@ -1866,7 +1866,7 @@ export default function CommissionTemplateDetailPage() {
                       : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700'
                   }`}
                 >
-                  {showParameterFields ? 'Hide Fields and Parameters' : 'Fields and Parameters'}
+                  {showParameterFields ? 'Hide fields and parameters' : 'Fields and parameters'}
                 </button>
               </div>
               {formError && <p className="mt-3 text-xs text-rose-600 dark:text-rose-400">{formError}</p>}
@@ -2070,7 +2070,7 @@ export default function CommissionTemplateDetailPage() {
                             dropdown_options: parameterForm.dropdown_options.filter((item) => item !== option),
                           })}
                           className="text-rose-500 hover:text-rose-600 font-bold px-1.5 py-0.5 rounded hover:bg-rose-500/10 cursor-pointer"
-                          title="Remove Option"
+                          title="Remove option"
                         >
                           ✕
                         </button>
@@ -2083,7 +2083,7 @@ export default function CommissionTemplateDetailPage() {
             )}
             <div className={`${fieldColumn} grid grid-cols-[7.75rem_minmax(0,1fr)] items-start gap-x-3`}>
               <div className="flex h-6 items-center gap-1">
-                <p className="whitespace-nowrap text-xs font-bold leading-4 text-slate-900 dark:text-white">Autofill Formula</p>
+                <p className="whitespace-nowrap text-xs font-bold leading-4 text-slate-900 dark:text-white">Autofill formula</p>
                 <FormulaHint text="Optional. This formula will be evaluated when loading the commission template to determine the default value of this parameter." />
               </div>
               <div className="min-w-0">
@@ -2218,7 +2218,7 @@ export default function CommissionTemplateDetailPage() {
             aria-modal="true"
             aria-labelledby="edit-template-title"
           >
-            <h3 id="edit-template-title" className="text-lg font-bold text-slate-900 dark:text-white">Edit Commission Template</h3>
+            <h3 id="edit-template-title" className="text-lg font-bold text-slate-900 dark:text-white">Edit commission template</h3>
             <label className={underlineShell}>
               <span className={underlineLabel}>Template name</span>
               <input
@@ -2238,7 +2238,7 @@ export default function CommissionTemplateDetailPage() {
               />
             </label>
             <FormulaEditor
-              label="Template Eligibility Formula"
+              label="Template eligibility formula"
               value={editEligibility}
               onChange={setEditEligibility}
               names={eligibilityFormulaNames(transactionFields)}
@@ -2260,7 +2260,7 @@ export default function CommissionTemplateDetailPage() {
                 disabled={isSaving || !templateDirty || !editName.trim()}
                 className="px-4 py-1.5 text-xs font-bold rounded-lg bg-brand-600 hover:bg-brand-500 text-white cursor-pointer disabled:opacity-50"
               >
-                {isSaving ? 'Saving...' : 'Save Template'}
+                {isSaving ? 'Saving...' : 'Save template'}
               </button>
             </div>
           </form>

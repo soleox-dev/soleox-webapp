@@ -263,13 +263,13 @@ export function LogicStepForm({
                   : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700'
               }`}
             >
-              {showFieldCards ? 'Hide Fields and Parameters' : 'Fields and Parameters'}
+              {showFieldCards ? 'Hide fields and parameters' : 'Fields and parameters'}
             </button>
           </div>
           {error && <p className="mt-3 text-xs text-rose-600 dark:text-rose-400">{error}</p>}
         </div>
         <div className="min-h-0 flex-1 space-y-4 overflow-x-auto overflow-y-auto px-6 pb-4">
-          <LabeledRow label="Rule Name" htmlFor="rule-name">
+          <LabeledRow label="Rule name" htmlFor="rule-name">
             <div className={underlineShell}>
               <input
                 id="rule-name"
@@ -360,7 +360,7 @@ export function LogicStepForm({
                   <label htmlFor="rule-entity" className="text-xs font-bold leading-4 text-slate-900 dark:text-white">Entity</label>
                   <FormulaHint text={draft.entity_mode === 'formula'
                     ? 'Enter a formula to calculate the Entity. Otherwise, click on the formula button to turn it off and select an entity from the dropdown.'
-                    : 'Select a fixed Entity from the dropdown. Otherwise, click on the formula button to enter a formula.'} />
+                    : 'Select a fixed entity from the dropdown. Otherwise, click on the formula button to enter a formula.'} />
                 </div>
                 <FormulaToggle
                   pressed={draft.entity_mode === 'formula'}
@@ -406,8 +406,8 @@ export function LogicStepForm({
                 <button
                   type="button"
                   aria-pressed={draft.show_in_popup}
-                  aria-label="Show in Commission Template Form"
-                  title="Show in Commission Template Form"
+                  aria-label="Show in commission template form"
+                  title="Show in commission template form"
                   onClick={() => onChange({
                     ...draft,
                     show_in_popup: !draft.show_in_popup,
@@ -421,7 +421,7 @@ export function LogicStepForm({
               {draft.show_in_popup && (
                 <div className="min-w-0 space-y-3">
                   <label className={`${underlineShell} min-w-0`}>
-                    <span className={underlineLabel}>Commission Template Form Section</span>
+                    <span className={underlineLabel}>Commission template form section</span>
                     <input
                       value={draft.popup_section}
                       onChange={(event) => onChange({ ...draft, popup_section: event.target.value })}
@@ -502,7 +502,7 @@ export function LogicStepForm({
 
           <div className={`${fieldColumn} grid grid-cols-[7.75rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1`}>
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-bold leading-4 text-slate-900 dark:text-white">Custom Baseline</p>
+              <p className="text-xs font-bold leading-4 text-slate-900 dark:text-white">Custom baseline</p>
               <FormulaToggle
                 pressed={showCustomBaseline}
                 label="Custom baseline formula"
@@ -532,7 +532,7 @@ export function LogicStepForm({
 
           {!postsSplit && (
             <LabeledRow
-              label="Result Type"
+              label="Result type"
               htmlFor="rule-result-type"
               note={<p className="text-[11px] text-slate-500 dark:text-slate-400">Currency shows money. Number shows a count. Percent shows a rate, so 0.05 displays as 5%.</p>}
             >
@@ -554,7 +554,7 @@ export function LogicStepForm({
 
           <div className={`${fieldColumn} grid grid-cols-[7.75rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2`}>
             <div className="flex h-6 items-center gap-1">
-              <p className="whitespace-nowrap text-xs font-bold leading-4 text-slate-900 dark:text-white">Rule Calculation</p>
+              <p className="whitespace-nowrap text-xs font-bold leading-4 text-slate-900 dark:text-white">Rule calculation</p>
               <FormulaHint text={postsSplit ? 'How the dollar amount is calculated.' : 'How this result is calculated.'} />
             </div>
             <div className="min-w-0 space-y-2">
@@ -572,7 +572,7 @@ export function LogicStepForm({
                 </div>
               )}
               <FormulaEditor
-                label="Amount Formula"
+                label="Amount formula"
                 hint="The result of this formula will be the amount applied to this rule. Use baseline_after_off_the_top, baseline_after_pre_splits, baseline_after_agent_splits, or baseline_after_l1_post_splits. baseline is the section default, or the custom baseline when one is set."
                 value={draft.calculation_formula}
                 onChange={(calculation_formula) => onChange({ ...draft, calculation_formula })}

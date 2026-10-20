@@ -12,8 +12,8 @@ export function SectionCollapseButton({
     <button
       type="button"
       onClick={onClick}
-      title={collapsed ? 'Expand Section' : 'Collapse Section'}
-      aria-label={collapsed ? 'Expand Section' : 'Collapse Section'}
+      title={collapsed ? 'Expand section' : 'Collapse section'}
+      aria-label={collapsed ? 'Expand section' : 'Collapse section'}
       className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 cursor-pointer"
     >
       <Icon className="h-5 w-5" strokeWidth={1.5} aria-hidden />

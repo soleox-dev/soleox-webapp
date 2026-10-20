@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     // 1. Validation: Template ID and Parameter Name are required. ID is optional for creation.
     if (!param || !param.template_id || !param.parameter_name) {
       return NextResponse.json(
-        { error: 'Template ID and Parameter Name are required' },
+        { error: 'Template ID and parameter name are required' },
         { status: 400 }
       );
     }

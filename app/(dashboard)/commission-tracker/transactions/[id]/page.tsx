@@ -1109,7 +1109,7 @@ export default function Dashboard() {
       return;
     }
     if (!activeClientId && !isNewTransaction) {
-      showToast('Cannot save transaction: Missing active Client ID.', 'error');
+      showToast('Cannot save transaction: missing active client ID.', 'error');
       return;
     }
 
@@ -1747,7 +1747,7 @@ export default function Dashboard() {
     return (
       <div className="p-12 text-center space-y-4 max-w-md mx-auto">
         <div className="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-xl text-3xl inline-block">⚠️</div>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Transaction Not Found</h2>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Transaction not found</h2>
         <p className="text-xs text-slate-500 dark:text-slate-400">The requested record ({routeId}) does not exist or you lack permission to view it.</p>
         <button
           onClick={() => requestNavigation(() => router.push('/commission-tracker/transactions'))}

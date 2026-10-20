@@ -45,7 +45,7 @@ export function transactionViewNameError(name: string, otherNames: string[]): st
   if (!trimmed) return 'Enter a view name.';
   if (trimmed.length > 40) return 'Use 40 characters or fewer.';
   const key = transactionViewNameKey(trimmed);
-  if (RESERVED_VIEW_NAME_KEYS.has(key)) return 'All, Just Synced, and Deleted are system views.';
+  if (RESERVED_VIEW_NAME_KEYS.has(key)) return 'All, Just synced, and Deleted are system views.';
   if (otherNames.some((other) => transactionViewNameKey(other) === key)) return 'View names have to be different.';
   return null;
 }

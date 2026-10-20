@@ -115,7 +115,7 @@ export async function POST(request: Request) {
 
     // 1. Validation: Entity Name is required. ID is optional for new records.
     if (!entity || !entity.entity_name) {
-      return NextResponse.json({ error: 'Entity Name is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Entity name is required' }, { status: 400 });
     }
 
     const existingId = entity.id ? String(entity.id) : null;

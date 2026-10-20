@@ -45,7 +45,7 @@ export default function CommissionWaterfallLedger({ transactionId }: { transacti
       <div className="flex items-center justify-between border-b border-slate-800 pb-4">
         <div>
           <h1 className="text-2xl font-bold text-emerald-400 tracking-tight">Soleox Commission Hub</h1>
-          <p className="text-xs text-slate-400">Waterfall Commission Breakdown</p>
+          <p className="text-xs text-slate-400">Waterfall commission breakdown</p>
         </div>
         <span className="px-3 py-1 bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono text-xs font-bold rounded-full">
           STATUS: PASS
@@ -59,7 +59,7 @@ export default function CommissionWaterfallLedger({ transactionId }: { transacti
           <p className="text-xs text-slate-400 font-mono">Sales Price: $1,200,000.00 (3.0% GCI)</p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-slate-400">Gross Commission</p>
+          <p className="text-xs text-slate-400">Gross commission</p>
           <p className="text-2xl font-mono font-bold text-emerald-400">$36,000.00</p>
         </div>
       </div>
@@ -98,7 +98,7 @@ export default function CommissionWaterfallLedger({ transactionId }: { transacti
 
         {/* Final Agent Net Row */}
         <div className="pt-3 border-t border-slate-800 flex justify-between items-center">
-          <span className="font-bold text-white">Agent Net Payout</span>
+          <span className="font-bold text-white">Agent net payout</span>
           <span className="text-2xl font-mono font-bold text-emerald-400">
             ${Number(agentNet?.final_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </span>

@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     // 1. Validation: Template ID, Step Number, and Rule Name are required. ID is optional for new records.
     if (!logic || !logic.template_id || logic.step_number === undefined || !logic.rule_name) {
       return NextResponse.json(
-        { error: 'Template ID, Step Number, and Rule Name are required' },
+        { error: 'Template ID, step number, and rule name are required' },
         { status: 400 }
       );
     }
@@ -154,7 +154,7 @@ export async function DELETE(request: Request) {
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ error: 'Logic Step ID is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Logic step ID is required' }, { status: 400 });
     }
 
     const { clientId, supabase } = await requireSessionClient();

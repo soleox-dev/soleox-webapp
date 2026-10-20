@@ -479,7 +479,7 @@ export default function TransactionIntegrationsPage() {
     <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-700 dark:bg-slate-800">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">TMS Integrations</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">TMS integrations</h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
             Soleox reads the SOLEOX Integration tab and adds every sheet row that has a TMS ID. It updates transactions that are in the default view. Commission calculations and payments stay in Soleox.
           </p>

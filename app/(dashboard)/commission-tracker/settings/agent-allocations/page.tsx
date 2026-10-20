@@ -108,7 +108,7 @@ export default function AgentAllocationsPage() {
     <div className="space-y-6">
       <div className={SETTINGS_CARD}>
         <SettingsHeader
-          title="Agent Allocations"
+          title="Agent allocations"
           description="One rule for the amount allocated to the agents on a deal. It can follow sales price, or sales price times units. It does not change the agent splits. A blank qualifying formula applies to every deal."
           actions={
             <button

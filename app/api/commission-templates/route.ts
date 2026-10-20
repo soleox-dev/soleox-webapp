@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
     // 1. Validation: Template Name is required. ID is optional for creation.
     if (!template || !template.template_name) {
-      return NextResponse.json({ error: 'Template Name is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Template name is required' }, { status: 400 });
     }
 
     const existingId = template.id ? String(template.id) : null;

@@ -50,14 +50,14 @@ export function CancelEditPrompt({ open, sectionLabel, onKeepEditing, onDiscard 
             onClick={onKeepEditing}
             className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer"
           >
-            Keep Editing
+            Keep editing
           </button>
           <button
             type="button"
             onClick={onDiscard}
             className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-600/20 transition cursor-pointer"
           >
-            Discard Changes
+            Discard changes
           </button>
         </div>
       </div>

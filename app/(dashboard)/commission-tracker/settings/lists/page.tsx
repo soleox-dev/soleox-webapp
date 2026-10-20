@@ -21,7 +21,7 @@ export default function ListsSettingsPage() {
   const lists: ListCategory[] = [
     {
       id: 'L-01',
-      name: 'Transaction Statuses',
+      name: 'Transaction statuses',
       code: 'transaction_status',
       itemCount: 6,
       description: 'Manage lifecycle stages from Pending to Closed and Cancelled.',
@@ -29,7 +29,7 @@ export default function ListsSettingsPage() {
     },
     {
       id: 'L-02',
-      name: 'Client Types',
+      name: 'Client types',
       code: 'client_type',
       itemCount: 4,
       description: 'Define participant classifications like Seller, Buyer, Dual, or Landlord.',
@@ -37,7 +37,7 @@ export default function ListsSettingsPage() {
     },
     {
       id: 'L-03',
-      name: 'Lead Sources',
+      name: 'Lead sources',
       code: 'lead_source',
       itemCount: 8,
       description: 'Categorize acquisition channels (Agent-generated, Zillow, Sphere of Influence).',
@@ -45,7 +45,7 @@ export default function ListsSettingsPage() {
     },
     {
       id: 'L-04',
-      name: 'Finance Statuses',
+      name: 'Finance statuses',
       code: 'finance_status',
       itemCount: 5,
       description: 'Track loan approval milestones (Cash, Pre-approved, Contingent, Funded).',
@@ -67,7 +67,7 @@ export default function ListsSettingsPage() {
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs flex justify-between items-center transition-colors">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-            Dropdown Lists & System Categories
+            Dropdown lists & system categories
           </h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
             Configure dropdown options, pipeline stages, and transaction attribute lists.
@@ -96,9 +96,9 @@ export default function ListsSettingsPage() {
           <table className="w-full text-left text-xs divide-y divide-slate-200 dark:divide-slate-700">
             <thead className="bg-slate-50 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 font-bold">
               <tr>
-                <th className="p-3.5">List Name & Purpose</th>
-                <th className="p-3.5">Schema Code</th>
-                <th className="p-3.5">Items Enrolled</th>
+                <th className="p-3.5">List name & purpose</th>
+                <th className="p-3.5">Schema code</th>
+                <th className="p-3.5">Items enrolled</th>
                 <th className="p-3.5 text-right">Action</th>
               </tr>
             </thead>
@@ -122,7 +122,7 @@ export default function ListsSettingsPage() {
                       onClick={() => void notify({ title: list.name, message: `Opening editor for ${list.name}` })}
                       className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 px-3 py-1 rounded-lg font-semibold transition"
                     >
-                      Manage Items
+                      Manage items
                     </button>
                   </td>
                 </tr>

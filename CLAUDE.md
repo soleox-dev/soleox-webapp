@@ -164,6 +164,7 @@ When resolving custom attributes or fields in formulas (e.g., `XLOOKUP(agent_1, 
 ### Surfaces & Labels
 - Page panels keep a border and at most `shadow-xs`; shadows are for things that float (menus, dialogs, the pinned search pill).
 - Labels, table headers, and chips use sentence case; do not force `uppercase` with wide tracking.
+  - Sentence case covers labels, buttons, headings, tooltips, page titles, and error messages ("Save transaction", "Net after Level 1 post-splits"). These keep their capitals: module names (Commission Tracker, Owner Reports, Operating Expenses), report names (Owner Summary, Agent Earnings), acronyms and brands (TMS, ID, GCI, Soleox, Google Sheets), the Level 1 / Level 2 stage names, and anything the user names in settings: field labels (Primary Agent, Closing Date), section names, commission entities, caps, and scorecards. Keep hard-coded fallbacks of those names as they are.
 - On Transactions, each row starts with a thin edge in its status's scorecard color (`status-stripe` in `app/globals.css`).
 
 ### Tables & Owner Reports

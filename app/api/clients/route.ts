@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     // 1. Validation: Client Name is required. ID is optional for creation.
     if (!client || !client.client_name) {
       return NextResponse.json(
-        { error: 'Client Name is required' },
+        { error: 'Client name is required' },
         { status: 400 }
       );
     }

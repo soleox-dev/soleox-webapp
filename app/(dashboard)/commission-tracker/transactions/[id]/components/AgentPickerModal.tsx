@@ -81,7 +81,7 @@ export function AgentPickerModal({
         <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
           <div className="flex items-center gap-2">
             <span className="text-xl">👤</span>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">Add Agent to Deal</h3>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">Add agent to deal</h3>
           </div>
           <button
             type="button"
@@ -170,7 +170,7 @@ export function AgentPickerModal({
               }`}
             >
               <span>%</span>
-              <span>Percent Split</span>
+              <span>Percent split</span>
             </button>
             <button
               type="button"
@@ -185,7 +185,7 @@ export function AgentPickerModal({
               }`}
             >
               <span>$</span>
-              <span>Flat Amount Split</span>
+              <span>Flat amount split</span>
             </button>
           </div>
 
@@ -193,7 +193,7 @@ export function AgentPickerModal({
           <div>
             <div className="flex justify-between items-center mb-1">
               <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
-                {splitType === 'PERCENT' ? 'Split Percentage (%)' : 'Split Dollar Amount ($)'}
+                {splitType === 'PERCENT' ? 'Split percentage (%)' : 'Split dollar amount ($)'}
               </span>
               {commissionAfterOffTop > 0 && numericVal > 0 && (
                 <span className={`text-[11px] font-semibold ${
@@ -271,7 +271,7 @@ export function AgentPickerModal({
                 : 'bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
             }`}
           >
-            Confirm & Add Agent
+            Confirm & add agent
           </button>
         </div>
       </div>

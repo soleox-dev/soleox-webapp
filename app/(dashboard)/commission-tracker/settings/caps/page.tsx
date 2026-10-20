@@ -304,11 +304,11 @@ export default function CapsPage() {
         <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
           <button type="button" onClick={() => chooseTab('team')} className={tabClass(tab === 'team')}>
             <Gauge className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-            Team Caps
+            Team caps
           </button>
           <button type="button" onClick={() => chooseTab('agent')} className={tabClass(tab === 'agent')}>
             <User className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-            Agent Caps
+            Agent caps
           </button>
         </div>
       </div>

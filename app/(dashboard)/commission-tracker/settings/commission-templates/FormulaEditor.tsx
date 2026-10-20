@@ -630,7 +630,7 @@ export function FormulaEditor({
   const fieldsCard = fieldGroups.length > 0 && (!fieldsAside || fieldsOpen) ? (
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
           <div className="border-b border-slate-200 px-3 py-2 dark:border-slate-700">
-            <p className="whitespace-nowrap text-[11px] font-bold text-slate-700 dark:text-slate-200">Fields and Parameters</p>
+            <p className="whitespace-nowrap text-[11px] font-bold text-slate-700 dark:text-slate-200">Fields and parameters</p>
             <div className="mt-1.5 flex flex-nowrap gap-1">
               {fieldGroups.map((group) => (
                 <button

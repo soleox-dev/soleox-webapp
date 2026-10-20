@@ -980,7 +980,7 @@ export default function AgentsPage() {
             className="border border-slate-300 bg-white px-4 py-2.5 rounded-lg text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700 flex items-center gap-2 whitespace-nowrap cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" strokeWidth={1.75} aria-hidden />
-            <span>New Agent</span>
+            <span>New agent</span>
           </button>
         )}
       </div>
@@ -1081,11 +1081,11 @@ export default function AgentsPage() {
               </div>
             )}
             {canWriteTracker && <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />}
-            <HoverNote label="Compact Table View">
+            <HoverNote label="Compact table view">
               <button
                 type="button"
                 onClick={toggleCompactRows}
-                aria-label="Compact Table View"
+                aria-label="Compact table view"
                 aria-pressed={compactRows}
                 className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition cursor-pointer ${
                   compactRows
@@ -1098,11 +1098,11 @@ export default function AgentsPage() {
             </HoverNote>
             <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />
             <div className="flex items-center gap-2">
-              <HoverNote label="Advanced Filters">
+              <HoverNote label="Advanced filters">
                 <button
                   type="button"
                   onClick={() => setShowFilters(!showFilters)}
-                  aria-label="Advanced Filters"
+                  aria-label="Advanced filters"
                   aria-pressed={showFilters}
                   className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition cursor-pointer ${
                     showFilters
@@ -1516,7 +1516,7 @@ export default function AgentsPage() {
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-xl rounded-xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                {editingAgent ? `Edit Profile: ${editingAgent.agent_name}` : 'Add New Agent'}
+                {editingAgent ? `Edit profile: ${editingAgent.agent_name}` : 'Add new agent'}
               </h3>
               <button
                 disabled={isSubmitting}
@@ -1725,7 +1725,7 @@ export default function AgentsPage() {
                       <span>Saving...</span>
                     </>
                   ) : (
-                    <span>Save Agent</span>
+                    <span>Save agent</span>
                   )}
                 </button>
               </div>

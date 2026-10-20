@@ -187,7 +187,7 @@ export function TransactionOverview({
                           <div key={field.id} className="min-w-0 border-l border-t border-slate-200 px-3 py-2 dark:border-slate-700">
                             <dt className="truncate text-[11px] text-slate-500 dark:text-slate-400">
                               {field.label}
-                              {field.is_required && <span className="text-rose-500" title="Required Field">*</span>}
+                              {field.is_required && <span className="text-rose-500" title="Required field">*</span>}
                             </dt>
                             <dd
                               title={unmatched ? validateFieldValue(field, stored ?? text).message : undefined}
@@ -296,7 +296,7 @@ export function TransactionOverview({
                           <div className="flex items-center gap-1.5">
                             <span className={`text-[10px] leading-3 font-medium truncate ${labelTone} ${!showError && !showWarning ? 'group-focus-within:text-brand-600 dark:group-focus-within:text-brand-400' : ''}`}>
                               {field.label}
-                              {field.is_required && <span className="text-rose-500" title="Required Field">*</span>}
+                              {field.is_required && <span className="text-rose-500" title="Required field">*</span>}
                             </span>
                             {showWarning && (
                               <span className="cursor-help text-xs shrink-0" title={validationResult.message}>⚠️</span>
@@ -445,10 +445,10 @@ export function TransactionOverview({
         
         <div className="flex items-center gap-3">
           {canWrite && !isEditing ? (
-            <HoverNote label="Edit Transaction Overview">
+            <HoverNote label="Edit transaction overview">
               <button
                 onClick={onStartEdit}
-                aria-label="Edit Transaction Overview"
+                aria-label="Edit transaction overview"
                 className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 cursor-pointer"
               >
                 <EditPencil className="h-5 w-5" />
@@ -467,7 +467,7 @@ export function TransactionOverview({
                   onClick={onApplyEdit}
                   className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg font-bold transition hover:bg-brand-500 cursor-pointer"
                 >
-                  Apply Changes
+                  Apply changes
                 </button>
               )}
             </div>

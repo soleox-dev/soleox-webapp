@@ -20,8 +20,8 @@ export function ReorderControls({
   isLast = false,
   size = 'md',
   orientation = 'horizontal',
-  upTooltip = 'Move Up',
-  downTooltip = 'Move Down',
+  upTooltip = 'Move up',
+  downTooltip = 'Move down',
 }: ReorderControlsProps) {
   const isSmall = size === 'sm';
   const isVertical = orientation === 'vertical';

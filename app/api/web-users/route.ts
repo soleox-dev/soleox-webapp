@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     // 1. Validation: Email is strictly required. ID is optional for new records.
     if (!user || !user.email) {
       return NextResponse.json(
-        { error: 'User Email is required' },
+        { error: 'User email is required' },
         { status: 400 }
       );
     }

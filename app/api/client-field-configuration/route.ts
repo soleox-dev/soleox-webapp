@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     // 1. Validation: Field Key and Field Label are required. ID is optional for creation.
     if (!config || !config.field_key || !config.field_label) {
       return NextResponse.json(
-        { error: 'Field Key and Field Label are required' },
+        { error: 'Field key and field label are required' },
         { status: 400 }
       );
     }

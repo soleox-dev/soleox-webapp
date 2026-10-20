@@ -21,7 +21,7 @@ const NAV: NavEntry[] = [
     items: [
       { label: 'Views', href: '/commission-tracker/settings/transaction-view', icon: ListFilter },
       { label: 'Scorecards', href: '/commission-tracker/settings/scorecards', icon: ChartColumn },
-      { label: 'TMS Integrations', href: '/commission-tracker/settings/integrations', icon: Link2 },
+      { label: 'TMS integrations', href: '/commission-tracker/settings/integrations', icon: Link2 },
     ],
   },
   {
@@ -31,7 +31,7 @@ const NAV: NavEntry[] = [
       { label: 'Entities', href: '/commission-tracker/settings/commission-entities', icon: Building2 },
       { label: 'Templates', href: '/commission-tracker/settings/commission-templates', icon: Zap },
       { label: 'Caps', href: '/commission-tracker/settings/caps', icon: Gauge },
-      { label: 'Agent Allocations', href: '/commission-tracker/settings/agent-allocations', icon: Scale },
+      { label: 'Agent allocations', href: '/commission-tracker/settings/agent-allocations', icon: Scale },
     ],
   },
   {

@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     // 1. Validation: Transaction ID and Template ID are required. ID is optional for creation.
     if (!submission || !submission.transaction_id || !submission.template_id) {
       return NextResponse.json(
-        { error: 'Transaction ID and Template ID are required' },
+        { error: 'Transaction ID and template ID are required' },
         { status: 400 }
       );
     }
