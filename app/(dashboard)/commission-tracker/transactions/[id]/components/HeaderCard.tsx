@@ -115,7 +115,8 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
       {isNewTransaction && (
         <span className="shrink-0 rounded-full bg-brand-500/10 px-2.5 py-0.5 text-xs font-semibold text-brand-700 dark:text-brand-400">New</span>
       )}
-      {hasUnsavedChanges && (
+      {/* The compact bar has no room for it; Discard and Save already say there are changes. */}
+      {hasUnsavedChanges && !compact && (
         <span className="shrink-0 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">Unsaved changes</span>
       )}
       {hasUnsavedChanges && (
@@ -202,7 +203,8 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
               )}
               {onBack && <span aria-hidden className="h-5 w-px shrink-0 bg-slate-200 dark:bg-slate-700" />}
               {/* The address, side, and status. Clicking the address opens the search. */}
-              <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              {/* Clipped rather than spilling under the buttons when the bar runs out of room. */}
+              <div className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
                 <button
                   type="button"
                   onClick={children ? openSearch : undefined}
