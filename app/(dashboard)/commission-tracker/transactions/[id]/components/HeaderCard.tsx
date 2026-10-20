@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Search } from 'lucide-react';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { SectionLinks, type TransactionSectionId, type TransactionSectionLink } from './SectionLinks';
 
@@ -21,6 +21,7 @@ interface HeaderCardProps {
   sections?: TransactionSectionLink[];
   activeSection?: TransactionSectionId;
   onSelectSection?: (id: TransactionSectionId) => void;
+  /** The transaction search. It opens from Switch deal, from the address in the compact bar, or with "/". */
   children?: React.ReactNode;
 }
 
@@ -33,10 +34,24 @@ function statusTone(status: string): string {
   return 'bg-brand-500/10 text-brand-700 dark:text-brand-400';
 }
 
+function StatusChip({ status }: { status: string }) {
+  return (
+    <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusTone(status)}`}>
+      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />
+      {status}
+    </span>
+  );
+}
+
+/** Scroll distances for the two shapes. The gap between them keeps the header from flickering at the top. */
+const COMPACT_AFTER_PX = 24;
+const EXPAND_BELOW_PX = 4;
+
 /**
- * The title card scrolls away. The pill below it holds the transaction search, the status
- * badges, and the actions, and stays pinned under the top bar. The page measures the pill
- * (#transaction-detail-header) to place the sticky sidebar under it.
+ * One header for the deal. At the top of the page it is a card: back link, the address as the title, then
+ * status, side, closing date, and ID. Once the page scrolls it shrinks into a pinned bar with the address, side,
+ * and status. Both shapes keep Switch deal, Delete, and the unsaved Save / Discard. The page measures the
+ * pinned strip (#transaction-detail-header) to place content and section jumps under it.
  */
 export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDelete, hasUnsavedChanges = false, saveBlocked = false, saveBlockedReason, onHeightChange, deal, onBack, sections, activeSection = 'overview', onSelectSection, children }: HeaderCardProps) {
   // Measured here, on this card's own element, so the height stays right when the card remounts.
@@ -51,109 +66,203 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
     return () => observer.disconnect();
   }, [onHeightChange]);
 
-  // At the top of the page the section links get as much room above as below; once the page scrolls they tuck up under the pill.
-  const [scrolled, setScrolled] = useState(false);
+  const [compact, setCompact] = useState(false);
   useEffect(() => {
-    const sync = () => setScrolled(window.scrollY > 0);
+    const sync = () => setCompact((current) => (current ? window.scrollY > EXPAND_BELOW_PX : window.scrollY > COMPACT_AFTER_PX));
     sync();
     window.addEventListener('scroll', sync, { passive: true });
     return () => window.removeEventListener('scroll', sync);
   }, []);
 
+  // The transaction search, in a popover.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const searchButtonRef = useRef<HTMLButtonElement>(null);
+  const openSearch = () => setSearchOpen(true);
+  useEffect(() => {
+    if (!searchOpen) return;
+    window.setTimeout(() => searchRef.current?.querySelector<HTMLInputElement>('input')?.focus(), 0);
+    const onPointer = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (searchRef.current?.contains(target) || searchButtonRef.current?.contains(target)) return;
+      setSearchOpen(false);
+    };
+    document.addEventListener('mousedown', onPointer);
+    return () => document.removeEventListener('mousedown', onPointer);
+  }, [searchOpen]);
+  // A chosen deal closes the search.
+  useEffect(() => {
+    setSearchOpen(false);
+  }, [deal?.id]);
+  // "/" opens the search from anywhere on the page, unless someone is typing.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
+      event.preventDefault();
+      setSearchOpen(true);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
+  const hasDeal = Boolean(deal?.address) && !isNewTransaction;
+  const title = hasDeal ? String(deal?.address) : isNewTransaction ? 'New transaction' : 'Transaction detail';
+
+  const actions = (
+    <div className="flex shrink-0 flex-wrap items-center gap-2">
+      {isNewTransaction && (
+        <span className="shrink-0 rounded-full bg-brand-500/10 px-2.5 py-0.5 text-xs font-semibold text-brand-700 dark:text-brand-400">New</span>
+      )}
+      {hasUnsavedChanges && (
+        <span className="shrink-0 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">Unsaved changes</span>
+      )}
+      {hasUnsavedChanges && (
+        <button
+          type="button"
+          onClick={onDiscard}
+          disabled={isSaving}
+          className="px-4 py-1.5 text-xs font-bold rounded-full border border-slate-300 text-slate-600 transition hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+        >
+          Discard Changes
+        </button>
+      )}
+      {(hasUnsavedChanges || isSaving) && (
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={isSaving || saveBlocked}
+          title={saveBlocked ? saveBlockedReason : undefined}
+          className="px-4 py-1.5 font-bold text-xs rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer bg-amber-500 hover:bg-amber-400 text-slate-950"
+        >
+          <span>{isSaving ? '⏳' : '💾'}</span>
+          <span>{isSaving ? 'Saving Transaction...' : 'Save Transaction'}</span>
+        </button>
+      )}
+      {children && (
+        <button
+          ref={searchButtonRef}
+          type="button"
+          onClick={() => setSearchOpen((open) => !open)}
+          aria-expanded={searchOpen}
+          aria-haspopup="dialog"
+          title="Switch to another transaction ( / )"
+          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 cursor-pointer dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
+        >
+          <Search className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+          <span className={compact ? 'sr-only' : 'hidden sm:inline'}>Switch deal</span>
+          <kbd className="hidden rounded border border-slate-200 px-1 font-mono text-[10px] text-slate-400 sm:inline dark:border-slate-600">/</kbd>
+        </button>
+      )}
+      {!isNewTransaction && onDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={isSaving}
+          className="px-3 py-1.5 text-xs font-bold rounded-full border border-rose-300 text-rose-600 transition hover:bg-rose-500/10 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer dark:border-rose-500/40 dark:text-rose-400 inline-flex items-center gap-1.5"
+        >
+          <TrashIcon className="h-3.5 w-3.5" />
+          <span className={compact ? 'sr-only' : ''}>Delete</span>
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <>
-      <div className="!mb-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-6 py-4 shadow-xs transition-colors">
-        {/* The deal is the title: its address, then status, side, closing date, and id. */}
-        {deal?.address && !isNewTransaction ? (
-          <>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{deal.address}</h1>
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
-              {deal.status && <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusTone(deal.status)}`}><span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />{deal.status}</span>}
-              {deal.side && <span>{deal.side}</span>}
-              {deal.closingDate && <><span aria-hidden>·</span><span>Closing {deal.closingDate}</span></>}
-              {deal.id && <><span aria-hidden>·</span><span className="font-mono text-xs text-slate-400 dark:text-slate-500">{deal.id}</span></>}
-            </div>
-          </>
-        ) : (
-          <>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{isNewTransaction ? 'New transaction' : 'Transaction detail'}</h1>
-            <p className="text-slate-500 dark:text-slate-400 text-sm">Overview, commission waterfall, and payments</p>
-          </>
-        )}
-      </div>
-
-      {/* A strip in the page color around the pill, so content scrolling under it stays hidden.
+      {/* A strip in the page color around the header, so content scrolling under it stays hidden.
           It runs into the page gutters so card shadows and borders do not show beside it. */}
       <div
         ref={stripRef}
         id="transaction-detail-header"
-        className={`sticky top-[var(--app-nav-offset,4rem)] z-40 !mb-3 -mx-4 bg-slate-100 px-4 pt-3 md:-mx-6 md:px-6 transition-[top,padding] duration-200 ease-out motion-reduce:transition-none dark:bg-slate-900 ${scrolled ? 'pb-2' : 'pb-3'}`}
-        data-scrolled={scrolled ? '1' : undefined}
+        className={`sticky top-[var(--app-nav-offset,4rem)] z-40 !mb-3 -mx-4 bg-slate-100 px-4 pt-3 md:-mx-6 md:px-6 transition-[top,padding] duration-200 ease-out motion-reduce:transition-none dark:bg-slate-900 ${compact ? 'pb-2' : 'pb-3'}`}
+        data-scrolled={compact ? '1' : undefined}
       >
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-slate-200 bg-white py-1.5 pl-5 pr-2 shadow-xl transition-colors md:flex-nowrap md:rounded-full dark:border-slate-700 dark:bg-slate-800">
-          {onBack && (
-            <button
-              type="button"
-              onClick={onBack}
-              aria-label="Back to Transactions"
-              title="Back to Transactions"
-              className="-ml-3 inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700/60 dark:hover:text-white"
+        <div
+          className={`relative border border-slate-200 bg-white transition-[border-radius,padding,box-shadow] duration-200 ease-out motion-reduce:transition-none dark:border-slate-700 dark:bg-slate-800 ${
+            compact ? 'rounded-2xl py-1.5 pl-3 pr-2 shadow-xl md:rounded-full' : 'rounded-xl px-6 py-4 shadow-xs'
+          }`}
+        >
+          {compact ? (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 md:flex-nowrap">
+              {onBack && (
+                <button
+                  type="button"
+                  onClick={onBack}
+                  aria-label="Back to Transactions"
+                  title="Back to Transactions"
+                  className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700/60 dark:hover:text-white"
+                >
+                  <ArrowLeft className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
+                  <span className="hidden sm:inline">Back</span>
+                </button>
+              )}
+              {onBack && <span aria-hidden className="h-5 w-px shrink-0 bg-slate-200 dark:bg-slate-700" />}
+              {/* The address, side, and status. Clicking the address opens the search. */}
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={children ? openSearch : undefined}
+                  title={children ? 'Switch to another transaction' : undefined}
+                  className={`min-w-0 truncate text-left text-sm font-semibold text-slate-900 dark:text-white ${children ? 'cursor-pointer hover:text-brand-700 dark:hover:text-brand-400' : 'cursor-default'}`}
+                >
+                  {title}
+                </button>
+                {hasDeal && deal?.side && <span className="shrink-0 text-xs text-slate-500 dark:text-slate-400">{deal.side}</span>}
+                {hasDeal && deal?.status && <StatusChip status={deal.status} />}
+              </div>
+              {actions}
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+              <div className="min-w-0 flex-1">
+                {onBack && (
+                  <button
+                    type="button"
+                    onClick={onBack}
+                    className="mb-1 inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+                    Transactions
+                  </button>
+                )}
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{title}</h1>
+                {hasDeal ? (
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
+                    {deal?.status && <StatusChip status={deal.status} />}
+                    {deal?.side && <span>{deal.side}</span>}
+                    {deal?.closingDate && <><span aria-hidden>·</span><span>Closing {deal.closingDate}</span></>}
+                    {deal?.id && <><span aria-hidden>·</span><span className="font-mono text-xs text-slate-400 dark:text-slate-500">{deal.id}</span></>}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Overview, commission waterfall, and payments</p>
+                )}
+              </div>
+              {actions}
+            </div>
+          )}
+
+          {children && searchOpen && (
+            <div
+              ref={searchRef}
+              role="dialog"
+              aria-label="Switch transaction"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  setSearchOpen(false);
+                  searchButtonRef.current?.focus();
+                }
+              }}
+              className="absolute inset-x-2 top-[calc(100%+0.5rem)] z-50 rounded-xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-800"
             >
-              <ArrowLeft className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
-              <span className="hidden sm:inline">Back</span>
-            </button>
+              {children}
+            </div>
           )}
-          {onBack && <span aria-hidden className="h-5 w-px shrink-0 bg-slate-200 dark:bg-slate-700" />}
-          <div className="min-w-0 flex-1">{children}</div>
-          {isNewTransaction && (
-            <span className="shrink-0 px-2 py-0.5 bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 text-xs font-bold rounded-full">
-              NEW TRANSACTION
-            </span>
-          )}
-          {hasUnsavedChanges && (
-            <span className="shrink-0 px-2 py-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs font-bold rounded-full">
-              UNSAVED CHANGES
-            </span>
-          )}
-          <div className="flex shrink-0 items-center gap-2">
-            {!isNewTransaction && onDelete && (
-              <button
-                type="button"
-                onClick={onDelete}
-                disabled={isSaving}
-                className="px-4 py-1.5 text-xs font-bold rounded-full border border-rose-300 text-rose-600 transition hover:bg-rose-500/10 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer dark:border-rose-500/40 dark:text-rose-400 inline-flex items-center gap-1.5"
-              >
-                <TrashIcon className="h-3.5 w-3.5" />
-                Delete
-              </button>
-            )}
-            {hasUnsavedChanges && (
-              <button
-                type="button"
-                onClick={onDiscard}
-                disabled={isSaving}
-                className="px-4 py-1.5 text-xs font-bold rounded-full border border-slate-300 text-slate-600 transition hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-              >
-                Discard Changes
-              </button>
-            )}
-            {(hasUnsavedChanges || isSaving) && (
-              <button
-                type="button"
-                onClick={onSave}
-                disabled={isSaving || saveBlocked}
-                title={saveBlocked ? saveBlockedReason : undefined}
-                className="px-4 py-1.5 font-bold text-xs rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer bg-amber-500 hover:bg-amber-400 text-slate-950"
-              >
-                <span>{isSaving ? '⏳' : '💾'}</span>
-                <span>{isSaving ? 'Saving Transaction...' : 'Save Transaction'}</span>
-              </button>
-            )}
-          </div>
         </div>
-        {/* The section links sit centered under the pill, apart from the actions. */}
+        {/* The section links sit centered under the header, apart from the actions. */}
         {sections && onSelectSection && (
-          <div className={`flex justify-center transition-[margin] duration-200 ease-out motion-reduce:transition-none ${scrolled ? 'mt-2' : 'mt-6'}`}>
+          <div className={`flex justify-center transition-[margin] duration-200 ease-out motion-reduce:transition-none ${compact ? 'mt-2' : 'mt-6'}`}>
             <SectionLinks sections={sections} active={activeSection} onSelect={onSelectSection} />
           </div>
         )}

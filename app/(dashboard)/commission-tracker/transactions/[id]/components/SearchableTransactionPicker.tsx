@@ -28,7 +28,7 @@ export function SearchableTransactionPicker({
 }: SearchableTransactionPickerProps) {
   return (
     <div className="relative flex items-center gap-3" ref={dropdownRef}>
-      <Search className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} aria-hidden />
+      <Search className="h-4 w-4 shrink-0 text-slate-400" strokeWidth={1.75} aria-hidden />
       {isLoadingDeals && <span className="shrink-0 text-xs text-slate-500 dark:text-slate-400">Loading records...</span>}
 
       <div className={`relative min-w-0 flex-1 ${underlineShell}`}>
