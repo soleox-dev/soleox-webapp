@@ -124,6 +124,62 @@ export default function Navbar() {
     };
   }, [isOwnerReports, isDesktop]);
 
+  // Desktop only. The Transactions list hides the bar at the bottom of the page so the tabs and
+  // buttons above the table show. Transaction Detail hides it as soon as the page scrolls down.
+  // Scrolling up or pointing at the top edge brings it back on both.
+  const scrollHideMode: 'bottom' | 'down' | null = !isDesktop || !isTransactionsActive
+    ? null
+    : isTransactionDetail ? 'down' : 'bottom';
+  const [scrollHidden, setScrollHidden] = useState(false);
+  const [navPeek, setNavPeek] = useState(false);
+  useEffect(() => {
+    if (!scrollHideMode) {
+      setScrollHidden(false);
+      setNavPeek(false);
+      return;
+    }
+    let lastY = window.scrollY;
+    const measure = () => {
+      const y = window.scrollY;
+      if (y <= 0) {
+        setScrollHidden(false);
+      } else if (scrollHideMode === 'bottom') {
+        setScrollHidden(Math.ceil(y + window.innerHeight) >= document.documentElement.scrollHeight - 2);
+      } else if (y > lastY + 2) {
+        setScrollHidden(true);
+      } else if (y < lastY - 2) {
+        setScrollHidden(false);
+      }
+      lastY = y;
+    };
+    const onMove = (event: MouseEvent) => {
+      const overBar = headerRef.current?.contains(event.target as Node) ?? false;
+      setNavPeek(event.clientY <= 16 || overBar);
+    };
+    const onLeave = () => setNavPeek(false);
+    measure();
+    window.addEventListener('scroll', measure, { passive: true });
+    window.addEventListener('resize', measure);
+    document.documentElement.addEventListener('mousemove', onMove);
+    document.documentElement.addEventListener('mouseleave', onLeave);
+    return () => {
+      window.removeEventListener('scroll', measure);
+      window.removeEventListener('resize', measure);
+      document.documentElement.removeEventListener('mousemove', onMove);
+      document.documentElement.removeEventListener('mouseleave', onLeave);
+    };
+  }, [scrollHideMode]);
+  const navHidden = Boolean(scrollHideMode) && scrollHidden && !navPeek && !isUserMenuOpen;
+
+  // Sticky parts below the bar read --app-nav-offset so they move up with it.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--app-nav-offset', navHidden ? '0px' : '4rem');
+    return () => {
+      root.style.removeProperty('--app-nav-offset');
+    };
+  }, [navHidden]);
+
   const hideMenu = (menu: 'tracker' | 'reports') => {
     setClosedMenu(menu);
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
@@ -161,7 +217,9 @@ export default function Navbar() {
       ref={headerRef}
       onFocusCapture={isOwnerReports ? () => setReportsNavOpen(true) : undefined}
       onBlur={isOwnerReports ? (event) => concealReportsNav(event.relatedTarget) : undefined}
-      className={isOwnerReports ? `${reportsBarClass} ${barClass}` : `sticky top-0 z-50 ${barClass}`}
+      className={isOwnerReports
+        ? `${reportsBarClass} ${barClass}`
+        : `sticky top-0 z-50 transition-transform duration-200 ease-out motion-reduce:transition-none ${navHidden ? '-translate-y-full pointer-events-none' : navPeek && scrollHidden ? 'shadow-lg' : ''} ${barClass}`}
     >
       <div className={`${pageFrame} flex h-16 items-center justify-between`}>
         
