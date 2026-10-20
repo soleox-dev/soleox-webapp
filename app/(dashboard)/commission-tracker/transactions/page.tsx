@@ -38,6 +38,8 @@ import { transactionDealLabel } from '@/lib/transaction-label';
 import { BulkUpdateDialog } from '@/app/(dashboard)/commission-tracker/transactions/components/BulkUpdateDialog';
 import { SyncErrorsDialog, SyncResultDialog, SyncSummaryLine, type SyncRunDetail } from '@/app/(dashboard)/commission-tracker/transactions/components/SyncResultDialog';
 import { lastSyncResultsNote, syncFinishedSummary } from '@/lib/sync-finished-summary';
+import { rememberAllSubmissions, rememberSchema, rememberTemplates } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/templateStatusCache';
+import { rememberTransactions } from '@/app/(dashboard)/commission-tracker/transactions/[id]/hooks/useTransactionData';
 import {
   DEMO_TRANSACTION_SCORECARDS,
   SCORECARD_COLOR_STYLES,
@@ -443,6 +445,29 @@ export default function TransactionsListPage() {
     setListReady(true);
   }, []);
 
+  // ?q= from the ⌘K search opens the list on that search across every transaction. It runs after
+  // the saved list state is restored.
+  useLayoutEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get('q');
+    if (!query) return;
+    setSearchQuery(query);
+    setLedgerView(ALL_TAB);
+  }, []);
+
+  // Removing q is deferred and cancelled on cleanup, so a second effect pass (React dev mode runs
+  // effects twice) still finds it and applies the search again over the restored list state.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      if (!params.has('q')) return;
+      params.delete('q');
+      const rest = params.toString();
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}${rest ? `?${rest}` : ''}${window.location.hash}`);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const listSnapshot = (): TransactionsListState => ({
     searchQuery,
     ledgerView,
@@ -478,7 +503,11 @@ export default function TransactionsListPage() {
         setIsLoading(true);
 
         // Active client ID from session access context
-        const activeClientId = access?.clientId || 'DEMO'; 
+        const activeClientId = access?.clientId || 'DEMO';
+        // Transaction Detail reads the session caches under the deal's own client id, which can be
+        // known before access finishes loading, so the caches use that id when the deals have it.
+        let cacheClientId = activeClientId;
+        let loadedCatalog: SchemaField[] | null = null;
 
         const fetchOptions = {
           headers: {
@@ -566,6 +595,7 @@ export default function TransactionsListPage() {
         if (schemaRes.ok) {
           const schemaData = await schemaRes.json();
           const rawCatalog: SchemaField[] = schemaData.catalog || schemaData.fields || schemaData.data || [];
+          if (Array.isArray(rawCatalog)) loadedCatalog = rawCatalog;
           
           const uniqueFieldsMap = new Map<string, SchemaField>();
           rawCatalog.forEach((field) => {
@@ -602,6 +632,11 @@ export default function TransactionsListPage() {
           const dealsData = await dealsRes.json();
           const list = dealsData.transactions || dealsData.deals || dealsData.catalog || [];
           setDeals(Array.isArray(list) ? list : []);
+          if (Array.isArray(list) && list.length > 0) {
+            rememberTransactions(list);
+            const dealClientId = list.find((deal: Record<string, unknown>) => deal?.client_id)?.client_id;
+            if (dealClientId) cacheClientId = String(dealClientId);
+          }
         } else {
           setDeals([]); // Clean empty state on failure
         }
@@ -657,13 +692,17 @@ export default function TransactionsListPage() {
 
         if (templateRes.ok) {
           const templateData = await templateRes.json();
-          setCommissionTemplates(Array.isArray(templateData.templates) ? templateData.templates : []);
+          const loadedTemplates = Array.isArray(templateData.templates) ? templateData.templates : [];
+          if (loadedCatalog) rememberSchema(cacheClientId, loadedCatalog);
+          rememberTemplates(cacheClientId, loadedTemplates);
+          setCommissionTemplates(loadedTemplates);
         } else {
           setCommissionTemplates([]);
         }
 
         if (submissionRes.ok) {
           const submissionData = await submissionRes.json();
+          if (Array.isArray(submissionData.submissions)) rememberAllSubmissions(cacheClientId, submissionData.submissions);
           const byTransaction = new Map<string, SubmittedTemplate[]>();
           for (const row of Array.isArray(submissionData.submissions) ? submissionData.submissions : []) {
             const transactionId = String(row.transaction_id || '').trim();
@@ -1155,10 +1194,9 @@ export default function TransactionsListPage() {
           : 'A template was submitted. Transactions outside the default view are not re-checked in this list.',
       };
     }
-    const isChecked = paymentDriftReady || paymentDriftCheckedIds.has(dealId);
-    const bolt = templateBoltTone(deal, commissionTemplates, submittedIds, fieldTypes, paymentDriftIds.has(dealId));
-    if (bolt?.tone === 'submitted' && !isChecked) return null;
-    return bolt;
+    // A submitted, still-eligible deal shows its green check while the payment check runs, and turns
+    // purple only if that check finds the payments would change. A spinner read as the list being slow.
+    return templateBoltTone(deal, commissionTemplates, submittedIds, fieldTypes, paymentDriftIds.has(dealId));
   }, [submittedTemplates, commissionTemplates, fieldTypes, paymentDriftIds, paymentDriftCheckedIds, paymentDriftReady, defaultView.filterFormula]);
 
   const templateBoltChecking = useCallback((deal: Record<string, any>): boolean => {
@@ -2211,7 +2249,7 @@ export default function TransactionsListPage() {
           <table className="w-full text-left text-xs min-w-[1200px] border-separate border-spacing-0">
             
             {/* Dynamic Table Header */}
-            <thead className="sticky top-0 z-20 shadow-md select-none bg-slate-100 dark:bg-slate-900">
+            <thead className="sticky top-0 z-20 select-none bg-slate-100 dark:bg-slate-900">
               
               {/* Section Group Header Row */}
               <tr className="bg-slate-200 dark:bg-slate-950 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
@@ -2531,10 +2569,10 @@ export default function TransactionsListPage() {
                         if (showingDeleted) return;
                         router.push(`/commission-tracker/transactions/${dealId}`);
                       }}
-                      className={`hover:bg-slate-100 dark:hover:bg-slate-700/50 transition group ${rowNavigates || bulkMode ? 'cursor-pointer' : ''}`}
+                      className={`even:bg-slate-50 dark:even:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition group ${rowNavigates || bulkMode ? 'cursor-pointer' : ''}`}
                     >
                       {bulkMode && (
-                        <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 align-middle border-b border-slate-200 dark:border-slate-700/60 text-center`}>
+                        <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 align-middle text-center`}>
                           <span className="inline-flex items-center justify-center">
                             <input
                               type="checkbox"
@@ -2547,7 +2585,7 @@ export default function TransactionsListPage() {
                         </td>
                       )}
                       {canWriteTracker && (
-                      <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 border-b border-slate-200 dark:border-slate-700/60 text-center`}>
+                      <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 text-center`}>
                         {tmsLink ? (
                           <span title={tmsLink.label} aria-label={tmsLink.label} className="inline-flex items-center justify-center">
                             {tmsLink.disconnected ? (
@@ -2560,7 +2598,7 @@ export default function TransactionsListPage() {
                       </td>
                       )}
                       {canWriteTracker && (
-                      <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 border-b border-slate-200 dark:border-slate-700/60 text-center`}>
+                      <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 text-center`}>
                         {bolt ? (
                           !rowNavigates ? (
                             <span title={bolt.label} aria-label={bolt.label} className="inline-flex rounded p-0.5">
@@ -2605,7 +2643,7 @@ export default function TransactionsListPage() {
                         <td
                           key={field.field_key}
                           title={changedBySync ? 'Changed in the last TMS sync' : undefined}
-                          className={`${compactRows ? 'px-3 py-0.5 leading-4' : 'px-4 py-3'} whitespace-nowrap border-b border-slate-200 dark:border-slate-700/60 ${isNumericColumn(field) ? 'text-right tabular-nums' : ''} ${isDateColumn(field) ? 'text-center tabular-nums' : ''} ${isBooleanColumn(field) ? 'text-center' : ''} ${changedBySync ? 'bg-amber-100 text-amber-950 dark:bg-amber-400/20 dark:text-amber-100' : ''}`}
+                          className={`${compactRows ? 'px-3 py-0.5 leading-4' : 'px-4 py-3'} whitespace-nowrap ${isNumericColumn(field) ? 'text-right tabular-nums' : ''} ${isDateColumn(field) ? 'text-center tabular-nums' : ''} ${isBooleanColumn(field) ? 'text-center' : ''} ${changedBySync ? 'bg-amber-100 text-amber-950 dark:bg-amber-400/20 dark:text-amber-100' : ''}`}
                         >
                           {field.field_key === 'id' ? (
                             !rowNavigates ? (
@@ -2640,7 +2678,7 @@ export default function TransactionsListPage() {
                         );
                       })}
                       {canWriteTracker && (
-                      <td className={`${compactRows ? 'px-3 py-0.5' : 'px-4 py-3'} whitespace-nowrap border-b border-slate-200 dark:border-slate-700/60 text-center`}>
+                      <td className={`${compactRows ? 'px-3 py-0.5' : 'px-4 py-3'} whitespace-nowrap text-center`}>
                         {showingDeleted ? (
                           <div className="inline-flex items-center justify-center gap-1">
                             <button
