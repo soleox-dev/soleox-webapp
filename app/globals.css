@@ -167,6 +167,16 @@
   overflow-y: auto;
 }
 
+/* Without the full-screen layout (below md, or a short landscape phone; see the `screenfit` variant)
+   the locked reports (Agent Earnings, Team Caps) grow with their rows and the page scrolls.
+   Their tables scroll only sideways there, like every other report table, so a vertical swipe on a
+   table always moves the page instead of starting a scroll inside a box that cannot move. */
+@media not all and (min-width: 768px) and (min-height: 560px) {
+  .report-table.report-table-fit.report-table-page {
+    overflow-y: hidden;
+  }
+}
+
 .report-table.report-table-fit table {
   border-collapse: separate;
   border-spacing: 0;

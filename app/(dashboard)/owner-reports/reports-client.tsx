@@ -772,7 +772,7 @@ export default function OwnerReportsPage() {
     const WHEEL_COMMIT = 140;
     const neighbor = (dir: SwipeDirection) => OWNER_REPORTS[index + (dir === 'next' ? 1 : -1)] ?? null;
     const blocked = (target: EventTarget | null) => {
-      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"], [role="listbox"], [data-owner-menu], .app-modal')) return true;
+      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"], [role="listbox"], [data-owner-menu], [data-swipe-ignore], .app-modal')) return true;
       if (document.querySelector('[role="listbox"], [data-owner-menu], .app-modal')) return true;
       let node = target instanceof Element ? target : null;
       while (node && node !== document.body) {
@@ -1466,6 +1466,12 @@ function ReportView(props: {
       window.removeEventListener('wheel', onWheel);
     };
   }, [locked, fitsScreen]);
+  // Without the full-screen layout (below md, or a short landscape phone) the locked reports' chrome
+  // scrolls away with the page, so its bottom changes on every scroll frame. Nothing on those reports
+  // reads --report-chrome-bottom (only Owner Summary does), and rewriting an inherited custom property
+  // on <main> restyles the whole table each frame.
+  const skipChromeVar = useRef(false);
+  skipChromeVar.current = locked && !fitsScreen;
   useLayoutEffect(() => {
     const chrome = chromeRef.current;
     const root = chrome?.closest('main');
@@ -1473,7 +1479,10 @@ function ReportView(props: {
     let frame = 0;
     const apply = () => {
       const bottom = Math.max(0, chrome.getBoundingClientRect().bottom);
-      root.style.setProperty('--report-chrome-bottom', `${bottom}px`);
+      const value = `${bottom}px`;
+      if (!skipChromeVar.current && root.style.getPropertyValue('--report-chrome-bottom') !== value) {
+        root.style.setProperty('--report-chrome-bottom', value);
+      }
       // Phones do not pin table headers: a header moved by script trails iOS momentum scrolling,
       // so rows peek out and show through. Each header stays at the top of its own table instead.
       if (!window.matchMedia(DESKTOP_QUERY).matches) {
@@ -1483,7 +1492,8 @@ function ReportView(props: {
         return;
       }
       root.querySelectorAll<HTMLElement>('.report-table').forEach((wrap) => {
-        if (wrap.closest('[data-production-block]')) return;
+        // Agent Earnings' pinned header copy is native sticky; it never moves by script.
+        if (wrap.closest('[data-production-block]') || wrap.hasAttribute('data-pinned-head')) return;
         const head = wrap.querySelector('thead');
         if (!head) return;
         const wrapRect = wrap.getBoundingClientRect();
@@ -4712,19 +4722,35 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
   const pivotBodyRef = useRef<HTMLTableElement>(null);
   const pivotFootRef = useRef<HTMLTableElement>(null);
   const pivotFootScrollRef = useRef<HTMLDivElement>(null);
+  const pivotHeadRef = useRef<HTMLTableElement>(null);
+  const pivotHeadScrollRef = useRef<HTMLDivElement>(null);
   const detailWrapRef = useRef<HTMLDivElement>(null);
+  const fitsScreen = useFitsScreen();
+  // The Total row, and without the full-screen layout the pinned header copy, take their column widths from the table's own header.
   const syncPivotFoot = () => {
     const body = pivotBodyRef.current;
+    if (!body) return;
     const foot = pivotFootRef.current;
-    if (!body || !foot) return;
+    const head = pivotHeadRef.current;
+    if (!foot && !head) return;
     const widths = [...body.querySelectorAll('thead th')].map((cell) => cell.getBoundingClientRect().width);
-    foot.style.width = `${body.scrollWidth}px`;
-    [...foot.querySelectorAll('td')].forEach((cell, index) => {
-      const width = `${widths[index] || 0}px`;
-      cell.style.width = width;
-      cell.style.minWidth = width;
-      cell.style.maxWidth = width;
-    });
+    const fix = (table: HTMLTableElement, selector: string) => {
+      table.style.width = `${body.scrollWidth}px`;
+      [...table.querySelectorAll<HTMLElement>(selector)].forEach((cell, index) => {
+        const width = `${widths[index] || 0}px`;
+        cell.style.width = width;
+        cell.style.minWidth = width;
+        cell.style.maxWidth = width;
+      });
+    };
+    if (foot) fix(foot, 'td');
+    const headScroll = pivotHeadScrollRef.current;
+    if (head && headScroll) {
+      fix(head, 'th');
+      // Lies over the table's own header row, so the page looks the same until the pin kicks in.
+      headScroll.style.marginBottom = `-${body.tHead?.getBoundingClientRect().height ?? 0}px`;
+      headScroll.scrollLeft = body.parentElement?.scrollLeft ?? 0;
+    }
   };
   useEffect(() => {
     setPick(null);
@@ -4831,13 +4857,28 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
     };
     window.addEventListener('resize', onResize);
     window.addEventListener('scroll', onResize, { passive: true });
+    // Without the full-screen layout, keep the pinned header matched when the table's columns change width (new data, a font load).
+    const body = pivotBodyRef.current;
+    const observer = !fitsScreen && body ? new ResizeObserver(syncPivotFoot) : null;
+    if (observer && body) observer.observe(body);
     return () => {
       window.removeEventListener('resize', onResize);
       window.removeEventListener('scroll', onResize);
+      observer?.disconnect();
     };
-  }, [pick, ordered.length, columns.length]);
+  }, [pick, ordered.length, columns.length, fitsScreen]);
+  const headRow = (
+    <tr>
+      <SortHead column="rank" label="#" sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
+      <SortHead column="agent" label="Agent" sort={sort} onSort={toggle} className={earningHeadCell} />
+      {columns.map((column) => (
+        <SortHead key={column.key} column={column.key} label={column.label} sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
+      ))}
+      <SortHead column="total" label="Total" sort={sort} onSort={toggle} align="right" className={`${earningHeadCell} pivot-total`} />
+    </tr>
+  );
   return (
-    <div ref={blockRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+    <div ref={blockRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-clip screenfit:overflow-hidden">
       <div className="shrink-0 space-y-4">
       <SectionHeading
         action={pick ? (
@@ -4883,23 +4924,28 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
       ) : null}
       </div>
       {pick ? null : (
-      <div ref={pivotWrapRef} className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div ref={pivotWrapRef} className="flex min-h-0 flex-1 flex-col overflow-clip rounded-xl border border-slate-200 bg-white screenfit:overflow-hidden dark:border-slate-800 dark:bg-slate-900">
+        {/* Without the full-screen layout (phones, short landscape screens) the page scrolls, not the table, so a copy of the header row pins to the top of the
+            screen (native sticky, no scroll handler) and follows the table sideways like the Total row. */}
+        {fitsScreen ? null : (
+          <div ref={pivotHeadScrollRef} data-swipe-ignore="" data-pinned-head="" className="report-table sticky top-0 z-30 shrink-0" style={{ overflowX: 'hidden' }}>
+            <table ref={pivotHeadRef} className="text-xs">
+              <thead className={earningHead}>
+                {headRow}
+              </thead>
+            </table>
+          </div>
+        )}
         <div
-          className="report-table report-table-fit min-h-0 flex-1 rounded-none border-0"
+          className="report-table report-table-fit report-table-page min-h-0 flex-1 rounded-none border-0"
           onScroll={(event) => {
             if (pivotFootScrollRef.current) pivotFootScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
+            if (pivotHeadScrollRef.current) pivotHeadScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
           }}
         >
           <table ref={pivotBodyRef} className="w-full text-xs">
-            <thead className={earningHead}>
-              <tr>
-                <SortHead column="rank" label="#" sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
-                <SortHead column="agent" label="Agent" sort={sort} onSort={toggle} className={earningHeadCell} />
-                {columns.map((column) => (
-                  <SortHead key={column.key} column={column.key} label={column.label} sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
-                ))}
-                <SortHead column="total" label="Total" sort={sort} onSort={toggle} align="right" className={`${earningHeadCell} pivot-total`} />
-              </tr>
+            <thead className={earningHead} inert={!fitsScreen}>
+              {headRow}
             </thead>
             <tbody>
               {visible.length === 0 && !showTotal ? (
@@ -5111,7 +5157,7 @@ function EarningTransactions({ lines, names, wrapRef }: { lines: Array<{ key: st
   return (
     <div ref={wrapRef} className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div
-        className="report-table report-table-fit min-h-0 flex-1 rounded-none border-0"
+        className="report-table report-table-fit report-table-page min-h-0 flex-1 rounded-none border-0"
         onScroll={(event) => {
           if (footScrollRef.current) footScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
         }}
