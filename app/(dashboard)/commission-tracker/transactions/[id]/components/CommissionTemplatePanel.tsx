@@ -1696,7 +1696,7 @@ export function CommissionTemplatePanel({
                   : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800'}`}>
                   {/* Same columns as the parameter sections below, so the blue line under the title lines up with theirs. */}
                   <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-3 py-2 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:gap-x-4">
-                    <span className="text-[11px] font-bold text-brand-600 dark:text-brand-400 @min-[720px]/params:self-stretch @min-[720px]/params:flex @min-[720px]/params:items-center @min-[720px]/params:border-r @min-[720px]/params:border-brand-500/50 @min-[720px]/params:pr-3 @min-[720px]/params:dark:border-brand-400/50">Team caps</span>
+                    <span className="text-sm font-bold text-brand-600 dark:text-brand-400 @min-[720px]/params:self-stretch @min-[720px]/params:flex @min-[720px]/params:items-center @min-[720px]/params:border-r @min-[720px]/params:border-brand-500/50 @min-[720px]/params:pr-3 @min-[720px]/params:dark:border-brand-400/50">Team caps</span>
                     <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                     {qualifyingCaps.map((cap) => (
                       <div key={cap.id} className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
@@ -1729,7 +1729,7 @@ export function CommissionTemplatePanel({
               )}
               <section className="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
                 <div className="px-3 py-2">
-                  <span className="text-[11px] font-bold text-brand-600 dark:text-brand-400">Parameters</span>
+                  <span className="text-sm font-bold text-brand-600 dark:text-brand-400">Parameters</span>
                 </div>
                 <div className="border-t border-slate-200 px-3 py-2 dark:border-slate-700">
               {isLoadingParameters ? (
@@ -1819,7 +1819,7 @@ export function CommissionTemplatePanel({
                     className="flex w-full items-center gap-2 px-3 py-2 text-left cursor-pointer"
                   >
                     <span className="w-3 shrink-0 text-center text-sm font-bold leading-none text-emerald-600 dark:text-emerald-400">{logicOpen ? '−' : '+'}</span>
-                    <span className="text-[11px] font-bold text-brand-600 dark:text-brand-400">Calculations</span>
+                    <span className="text-sm font-bold text-brand-600 dark:text-brand-400">Calculations</span>
                     <span className="text-[10px] font-semibold tracking-wide text-slate-400 dark:text-slate-500">(Read only)</span>
                   </button>
                   {logicOpen && (
