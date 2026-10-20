@@ -204,13 +204,10 @@ export function TransactionOverview({
 
             return (
               <div key={sectionName} className="mb-6 break-inside-avoid space-y-2">
-                <div className="border-b border-slate-300 dark:border-slate-700 pb-1 flex items-start gap-2">
-                  <span className="mt-1 w-2 h-2 shrink-0 rounded-full bg-brand-500"></span>
-                  <span className="min-w-0 text-xs font-bold text-brand-600 dark:text-brand-400">
+                {/* A full-width pill so each section title is easy to follow across the columns. */}
+                <div className="flex items-center gap-2 rounded-full bg-brand-500/10 px-3 py-1 dark:bg-brand-500/15">
+                  <span className="min-w-0 text-xs font-bold text-brand-700 dark:text-brand-400">
                     {sectionName}
-                  </span>
-                  <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500 font-semibold ml-auto">
-                    {visibleFields.length} {visibleFields.length === 1 ? 'Field' : 'Fields'}
                   </span>
                 </div>
 
