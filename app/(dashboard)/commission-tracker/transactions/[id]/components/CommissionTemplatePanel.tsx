@@ -1696,14 +1696,15 @@ export function CommissionTemplatePanel({
               ) : rows.length === 0 ? (
                 <p className="text-xs text-slate-500">This template has no parameters.</p>
               ) : (
-                <div className="space-y-2.5 py-1">
+                <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
                   {visibleGroups.map((group) => {
                     const isUnsectioned = group.name === 'No Section';
                     const isCollapsed = collapsedSections[group.name] === true;
                     return (
-                    <div key={group.name} className="min-w-0 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:items-start @min-[720px]/params:gap-3">
-                      {/* Each section is one row: its pill on the left, like the Transaction Overview, and its fields to the right. */}
-                      <div className={`flex items-center gap-2 rounded-full px-3 py-1 @min-[720px]/params:mt-3 ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}>
+                    <div key={group.name} className="min-w-0 py-2.5 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:gap-x-4 @min-[720px]/params:gap-y-1.5">
+                      {/* Each section is one row: its name on the left, with a line on its right that runs to the bottom of the
+                          section, and its fields and rule text to the right. Faint lines separate the sections. */}
+                      <div className={`flex items-start gap-2 border-b pb-1.5 @min-[720px]/params:row-span-2 @min-[720px]/params:border-b-0 @min-[720px]/params:border-r @min-[720px]/params:pb-0 @min-[720px]/params:pr-3 @min-[720px]/params:pt-1 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-slate-200 dark:border-slate-700'}`}>
                         <button
                           type="button"
                           onClick={() => toggleSection(group.name)}
@@ -1806,14 +1807,15 @@ export function CommissionTemplatePanel({
                       ) : !ledger || !lookups ? (
                         <p className="text-xs text-slate-500">Calculating...</p>
                       ) : (
-                        <div className="space-y-2.5 py-1">
+                        <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
                           {blockLogicGroups.map((group) => {
                             const isUnsectioned = group.name === 'No Section';
                             const isCollapsed = collapsedLogicSections[group.name] === true;
                             return (
-                              <div key={group.name} className="min-w-0 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:items-start @min-[720px]/params:gap-3">
-                                {/* Each section is one row: its pill on the left, like the Transaction Overview, and its fields to the right. */}
-                      <div className={`flex items-center gap-2 rounded-full px-3 py-1 @min-[720px]/params:mt-3 ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}>
+                              <div key={group.name} className="min-w-0 py-2.5 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:gap-x-4 @min-[720px]/params:gap-y-1.5">
+                                {/* Each section is one row: its name on the left, with a line on its right that runs to the bottom of the
+                          section, and its fields and rule text to the right. Faint lines separate the sections. */}
+                      <div className={`flex items-start gap-2 border-b pb-1.5 @min-[720px]/params:row-span-2 @min-[720px]/params:border-b-0 @min-[720px]/params:border-r @min-[720px]/params:pb-0 @min-[720px]/params:pr-3 @min-[720px]/params:pt-1 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-slate-200 dark:border-slate-700'}`}>
                                   <button
                                     type="button"
                                     onClick={() => toggleLogicSection(group.name)}
