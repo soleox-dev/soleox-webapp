@@ -24,11 +24,6 @@
   --color-slate-950: #0e131c;
 }
 
-@theme inline {
-  --font-sans: var(--font-ui), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: var(--font-code), ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-}
-
 /* A thin status-colored edge at the start of each Transactions row, in the status's scorecard color. */
 .status-stripe > td:first-child {
   box-shadow: inset 3px 0 0 var(--row-status, transparent);

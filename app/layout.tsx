@@ -1,7 +1,6 @@
 // app/layout.tsx
 
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
 import { AuthProvider } from '@/components/auth-provider';
 import { AccessProvider } from '@/components/access-provider';
 import { Providers } from './providers';
@@ -10,11 +9,6 @@ import { BackToTop } from '@/components/BackToTop';
 import { PageTitle } from '@/components/PageTitle';
 import { ModalScrollLock } from '@/components/ui/ModalScrollLock';
 import './globals.css';
-
-// Interface face (its tabular figures carry money and dates) and a mono face for IDs and keys.
-// Next self-hosts both. To try another pairing, change these two lines.
-const uiFont = Geist({ subsets: ['latin'], variable: '--font-ui', display: 'swap' });
-const codeFont = Geist_Mono({ subsets: ['latin'], variable: '--font-code', display: 'swap' });
 
 export const metadata: Metadata = {
   title: {
@@ -60,7 +54,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${uiFont.variable} ${codeFont.variable}`}>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script
           id="theme-initializer"
