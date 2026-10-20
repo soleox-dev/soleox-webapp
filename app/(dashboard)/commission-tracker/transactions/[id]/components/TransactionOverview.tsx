@@ -46,9 +46,7 @@ interface TransactionOverviewProps {
   validateFieldValue: (field: FieldSetting, val: any) => { isValid: boolean; isLegacyUnmatched: boolean; isRequiredMissing?: boolean; message?: string };
 }
 
-/** Field types that make a section read as a strip of dates and amounts. */
-const STRIP_TYPES = new Set(['DATE', 'CURRENCY', 'NUMBER', 'PERCENT']);
-/** The date and amount strips use the same emerald as the amounts in them, tinted like the blue pills of the
+/** Key Terms uses the same emerald as the amounts in them, tinted like the blue pills of the
     other sections, so they read as their own sub-section. */
 const STRIP_PILL = 'flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-400';
 
@@ -145,14 +143,17 @@ export function TransactionOverview({
     return { text: String(rawVal) };
   };
 
-  // Sections that are mostly dates and amounts sit in one row at the top, in the client's section
-  // order, lined up with the columns below; every other section keeps its place in those columns. Decided by
-  // field type, so it works for any client's own sections.
-  const isStripSection = (fields: FieldSetting[]) => fields.length > 0
-    && fields.filter((field) => STRIP_TYPES.has(String(field.type))).length * 2 >= fields.length;
-  const sectionEntries = Object.entries(groupedSections);
-  const stripSections = sectionEntries.filter(([, fields]) => isStripSection(fields));
-  const columnSections = sectionEntries.filter(([, fields]) => !isStripSection(fields));
+  // Key Terms: the fields the client picked in Field Customizations, in their Key Terms order, as one
+  // table at the top. Those fields leave their own sections here; sections and the Transactions table
+  // keep their order. A section with nothing left drops out of the columns.
+  const keyTermsFields = Object.values(groupedSections)
+    .flat()
+    .filter((field) => field.key_terms_position != null)
+    .sort((a, b) => Number(a.key_terms_position) - Number(b.key_terms_position));
+  const keyTermsKeys = new Set(keyTermsFields.map((field) => field.key));
+  const columnSections = Object.entries(groupedSections)
+    .map(([sectionName, fields]) => [sectionName, fields.filter((field) => !keyTermsKeys.has(field.key))] as const)
+    .filter(([, fields]) => fields.length > 0);
 
   const renderSection = (sectionName: string, fields: FieldSetting[], strip: boolean) => {
             const visibleFields = fields.filter((field) => {
@@ -428,9 +429,8 @@ export function TransactionOverview({
             );
   };
 
-  // A strip whose fields are all hidden on this deal renders nothing, so it must not take a column.
-  const renderedStrips = stripSections
-    .map(([sectionName, fields]) => [sectionName, renderSection(sectionName, fields, true)] as const)
+  // Key Terms renders nothing when all its fields are hidden on this deal, so it then takes no row.
+  const renderedStrips = (keyTermsFields.length > 0 ? [['Key Terms', renderSection('Key Terms', keyTermsFields, true)] as const] : [])
     .filter(([, element]) => element !== null);
 
   return (
@@ -484,8 +484,8 @@ export function TransactionOverview({
         ) : (
           <div className="space-y-6">
           {renderedStrips.length > 0 && (
-          // The strips sit on the same columns as the sections below (up to four, at least 20rem each).
-          // Each strip takes one column and the last one fills the rest of the row.
+          // Key Terms sits on the same columns as the sections below (up to four, at least 20rem each)
+          // and spans the full row.
           <div className="grid gap-6 lg:gap-x-8 lg:[grid-template-columns:repeat(auto-fill,minmax(max(20rem,calc((100%-6rem)/4)),1fr))]">
           {renderedStrips.map(([sectionName, element], index) => (
             <div

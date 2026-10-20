@@ -140,6 +140,7 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
               options: f.dropdown_options || f.options || [],
               visibility_rules: normalizedConfig,
               calculation_formula: f.calculation_formula && f.calculation_formula.trim().length > 0 ? f.calculation_formula.trim() : undefined,
+              key_terms_position: f.key_terms_position ?? null,
             };
           });
 

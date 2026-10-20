@@ -176,6 +176,7 @@ export async function GET(
           calculation_formula: cfg.calculation_formula || undefined,
           regex_pattern: cfg.regex_pattern,
           regex_mode: cfg.regex_mode,
+          key_terms_position: cfg.key_terms_position ?? null,
         };
       });
 

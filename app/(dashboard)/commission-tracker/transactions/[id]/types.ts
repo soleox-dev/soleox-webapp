@@ -137,6 +137,8 @@ export interface FieldSetting {
   options?: string[];
   visibility_rules?: VisibilityRulesConfig;
   calculation_formula?: string;
+  /** Place in Key Terms at the top of the Overview; null when the field shows in its own section. */
+  key_terms_position?: number | null;
 }
 
 export interface ToastNotification {

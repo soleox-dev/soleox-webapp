@@ -15,6 +15,7 @@ import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DB_TRANSACTION_COLUMNS, DB_AGENT_COLUMNS } from '@/lib/fields';
 import { useRegisterSave } from '@/components/save-leave-guard';
 import { underlineControl } from '@/components/ui/underline-field';
+import { KeyTermsCard } from './KeyTermsCard';
 
 type FieldType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
 
@@ -58,6 +59,8 @@ interface FieldConfig {
   max_length?: number;
   regex_pattern?: string;
   regex_mode?: RegexMode;
+  /** Place in Key Terms on Transaction Detail; null when the field is not in Key Terms. */
+  key_terms_position?: number | null;
 }
 
 interface ExistingCatalogField {
@@ -1159,6 +1162,20 @@ export default function FieldCustomizationsPage() {
           <span>⚠️ Schema Catalog Warning: {catalogError}</span>
           <button onClick={fetchLiveCatalog} className="underline font-bold cursor-pointer">Retry</button>
         </div>
+      )}
+
+      {activeTab === 'transactions' && txFields.length > 0 && (
+        <KeyTermsCard
+          fields={txFields}
+          onSaved={(fieldKeys) => {
+            setTxFields((prev) => prev.map((field) => {
+              const index = fieldKeys.indexOf(field.field_key);
+              return { ...field, key_terms_position: index === -1 ? null : index + 1 };
+            }));
+            showToast('Key Terms saved.', 'success');
+          }}
+          onError={(message) => showToast(message, 'error')}
+        />
       )}
 
       {/* Configurations Table */}
