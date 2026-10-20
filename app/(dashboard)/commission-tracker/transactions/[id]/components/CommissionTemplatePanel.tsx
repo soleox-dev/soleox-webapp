@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Loader2, Lock, Plus, RefreshCw, RotateCcw, Trash2, X, Zap, type LucideIcon } from 'lucide-react';
+import { Check, ChevronDown, Loader2, Lock, Plus, RefreshCw, RotateCcw, Trash2, X, Zap, type LucideIcon } from 'lucide-react';
 import { evaluateFormula, formulaValueToInput, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { normalizeAgentName } from '@/lib/id';
 import { qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection, type TeamCapRule } from '@/lib/agent-allocations';
@@ -1214,7 +1214,6 @@ export function CommissionTemplatePanel({
   const liveValues = useRef<Record<string, string>>({});
   const [recalcFlash, setRecalcFlash] = useState<Record<string, number>>({});
   const flashScrollId = useRef<string | null>(null);
-  const [activeGroup, setActiveGroup] = useState('');
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [collapsedLogicSections, setCollapsedLogicSections] = useState<Record<string, boolean>>({});
   const qualifyingCaps = useMemo(
@@ -1286,7 +1285,6 @@ export function CommissionTemplatePanel({
   }, [rows, parameters, deal, agents, lookups, clientId, draftTemplateId, submittedTemplateId, submittedParameters]);
 
   useEffect(() => {
-    setActiveGroup('');
     setCollapsedSections({});
     setCollapsedLogicSections({});
     setParametersOpen(true);
@@ -1387,11 +1385,6 @@ export function CommissionTemplatePanel({
       for (const parameter of flashed) nextSections[parameter.section?.trim() || 'No Section'] = false;
       return nextSections;
     });
-    setActiveGroup((current) => {
-      if (!current) return current;
-      const hidden = flashed.some((parameter) => (parameter.section?.trim() || 'No Section') !== current);
-      return hidden ? '' : current;
-    });
   };
 
   const toggleSection = (name: string) => {
@@ -1446,7 +1439,6 @@ export function CommissionTemplatePanel({
       setValues({ ...liveValues.current });
       setSubmitAttempted(true);
       setParametersOpen(true);
-      setActiveGroup('');
       setCollapsedSections((current) => {
         const next = { ...current };
         for (const issue of issues.values()) next[issue.section] = false;
@@ -1589,8 +1581,6 @@ export function CommissionTemplatePanel({
   };
 
   const selectedTemplate = templates.find((template) => template.id === draftTemplateId);
-  const showGroupNav = groups.length > 1;
-  const visibleGroups = activeGroup ? groups.filter((group) => group.name === activeGroup) : groups;
 
   return (
     <div className={embedded ? `${singleTemplate ? 'shrink-0' : 'w-56 sm:w-64'} text-xs` : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xs space-y-3 text-xs transition-colors'}>
@@ -1669,27 +1659,21 @@ export function CommissionTemplatePanel({
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-[1800px] rounded-xl p-5 shadow-2xl flex flex-col max-h-[calc(100vh-2rem)]">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">{selectedTemplate?.template_name || 'Commission template'}</h3>
             {loadError && <p className="text-xs text-rose-600 dark:text-rose-400 mt-3">{loadError}</p>}
-            {showGroupNav && parametersOpen && (
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveGroup('')}
-                  className={`px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${activeGroup === '' ? 'bg-brand-600 text-white' : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300'}`}
-                >
-                  All
-                </button>
-                {groups.map((group) => (
-                  <button
-                    key={group.name}
-                    type="button"
-                    onClick={() => {
-                      setActiveGroup(group.name);
-                      setCollapsedSections((current) => ({ ...current, [group.name]: false }));
+            {qualifyingCaps.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+                <span className="text-[11px] font-bold text-brand-600 dark:text-brand-400">Team caps</span>
+                {qualifyingCaps.map((cap) => (
+                  <BooleanField
+                    key={cap.id}
+                    id={`team-cap-${cap.id}`}
+                    label={cap.name.trim() || 'Team Cap'}
+                    checked={checkedCapIds.includes(cap.id)}
+                    onChange={(checked) => {
+                      setCheckedCapIds((current) => checked
+                        ? [...current, cap.id]
+                        : current.filter((id) => id !== cap.id));
                     }}
-                    className={`px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${activeGroup === group.name ? 'bg-brand-600 text-white' : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300'}`}
-                  >
-                    {group.name}
-                  </button>
+                  />
                 ))}
               </div>
             )}
@@ -1713,9 +1697,11 @@ export function CommissionTemplatePanel({
                 <p className="text-xs text-slate-500">This template has no parameters.</p>
               ) : (
                 <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
-                  {visibleGroups.map((group) => {
+                  {groups.map((group) => {
                     const isUnsectioned = group.name === 'No Section';
-                    const isCollapsed = collapsedSections[group.name] === true;
+                    // A section with any value in it stays open; only an empty one can collapse.
+                    const canCollapse = group.rows.every(({ parameter }) => !(values[parameter.id] ?? '').trim());
+                    const isCollapsed = canCollapse && collapsedSections[group.name] === true;
                     return (
                     <div key={group.name} className="min-w-0 py-2.5 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:gap-x-4 @min-[720px]/params:gap-y-1.5">
                       {/* Each section is one row: its name on the left, with a line on its right that runs to the bottom of the
@@ -1723,16 +1709,22 @@ export function CommissionTemplatePanel({
                       <div className={`flex items-start gap-2 border-b pb-1.5 @min-[720px]/params:row-span-2 @min-[720px]/params:border-b-0 @min-[720px]/params:border-r @min-[720px]/params:pb-0 @min-[720px]/params:pr-3 @min-[720px]/params:pt-1 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-brand-500/50 dark:border-brand-400/50'}`}>
                         <button
                           type="button"
-                          onClick={() => toggleSection(group.name)}
-                          title={isCollapsed ? 'Expand Section' : 'Collapse Section'}
-                          className={`flex min-w-0 flex-1 items-center gap-2 rounded-full px-3 py-1 text-left cursor-pointer ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}
+                          onClick={canCollapse ? () => toggleSection(group.name) : undefined}
+                          disabled={!canCollapse}
+                          aria-expanded={canCollapse ? !isCollapsed : undefined}
+                          title={canCollapse ? (isCollapsed ? 'Expand section' : 'Collapse section') : undefined}
+                          className={`flex min-w-0 flex-1 items-center gap-2 rounded-full px-3 py-1 text-left disabled:cursor-default ${canCollapse ? 'cursor-pointer transition hover:brightness-95 dark:hover:brightness-125' : ''} ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}
                         >
-                          <span className={`w-3 shrink-0 text-center text-sm font-bold leading-none ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}>
-                            {isCollapsed ? '+' : '−'}
-                          </span>
-                          <span className={`text-xs font-bold ${isUnsectioned ? 'text-amber-700 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}>
+                          <span className={`min-w-0 flex-1 truncate text-xs font-bold ${isUnsectioned ? 'text-amber-700 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}>
                             {group.name}
                           </span>
+                          {canCollapse && (
+                            <ChevronDown
+                              aria-hidden
+                              strokeWidth={2.25}
+                              className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 motion-reduce:transition-none ${isCollapsed ? '-rotate-90' : ''} ${isUnsectioned ? 'text-amber-700 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}
+                            />
+                          )}
                         </button>
                       </div>
                       {!isCollapsed && (
@@ -1778,32 +1770,6 @@ export function CommissionTemplatePanel({
                 </div>
               )}
               </section>
-              {qualifyingCaps.length > 0 && (
-                <section className="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
-                  <div className="flex w-full items-center gap-2 px-3 py-2">
-                    <span className="text-[11px] font-bold text-brand-600 dark:text-brand-400">Team Caps</span>
-                  </div>
-                  <div className="flex flex-wrap items-center border-t border-slate-200 dark:border-slate-700">
-                    {qualifyingCaps.map((cap, index) => (
-                      <div
-                        key={cap.id}
-                        className={`flex items-center px-4 py-2.5 ${index > 0 ? 'border-l border-slate-200 dark:border-slate-700' : ''}`}
-                      >
-                        <BooleanField
-                          id={`team-cap-${cap.id}`}
-                          label={cap.name.trim() || 'Team Cap'}
-                          checked={checkedCapIds.includes(cap.id)}
-                          onChange={(checked) => {
-                            setCheckedCapIds((current) => checked
-                              ? [...current, cap.id]
-                              : current.filter((id) => id !== cap.id));
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
               {(ledgerError || blockLogicGroups.length > 0 || (popupStepsOutsideSections && (!ledger || !lookups))) && (
                 <section className="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
                   <button
@@ -1826,7 +1792,11 @@ export function CommissionTemplatePanel({
                         <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
                           {blockLogicGroups.map((group) => {
                             const isUnsectioned = group.name === 'No Section';
-                            const isCollapsed = collapsedLogicSections[group.name] === true;
+                            const canCollapse = group.rows.every((row) => {
+                              const field = calculationField(row);
+                              return field.kind !== 'boolean' && !field.value.trim();
+                            });
+                            const isCollapsed = canCollapse && collapsedLogicSections[group.name] === true;
                             return (
                               <div key={group.name} className="min-w-0 py-2.5 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:gap-x-4 @min-[720px]/params:gap-y-1.5">
                                 {/* Each section is one row: its name on the left, with a line on its right that runs to the bottom of the
@@ -1834,16 +1804,22 @@ export function CommissionTemplatePanel({
                       <div className={`flex items-start gap-2 border-b pb-1.5 @min-[720px]/params:row-span-2 @min-[720px]/params:border-b-0 @min-[720px]/params:border-r @min-[720px]/params:pb-0 @min-[720px]/params:pr-3 @min-[720px]/params:pt-1 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-brand-500/50 dark:border-brand-400/50'}`}>
                                   <button
                                     type="button"
-                                    onClick={() => toggleLogicSection(group.name)}
-                                    title={isCollapsed ? 'Expand Section' : 'Collapse Section'}
-                                    className={`flex min-w-0 flex-1 items-center gap-2 rounded-full px-3 py-1 text-left cursor-pointer ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}
+                                    onClick={canCollapse ? () => toggleLogicSection(group.name) : undefined}
+                                    disabled={!canCollapse}
+                                    aria-expanded={canCollapse ? !isCollapsed : undefined}
+                                    title={canCollapse ? (isCollapsed ? 'Expand section' : 'Collapse section') : undefined}
+                                    className={`flex min-w-0 flex-1 items-center gap-2 rounded-full px-3 py-1 text-left disabled:cursor-default ${canCollapse ? 'cursor-pointer transition hover:brightness-95 dark:hover:brightness-125' : ''} ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}
                                   >
-                                    <span className={`w-3 shrink-0 text-center text-sm font-bold leading-none ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}>
-                                      {isCollapsed ? '+' : '−'}
-                                    </span>
-                                    <span className={`text-xs font-bold ${isUnsectioned ? 'text-amber-700 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}>
+                                    <span className={`min-w-0 flex-1 truncate text-xs font-bold ${isUnsectioned ? 'text-amber-700 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}>
                                       {group.name}
                                     </span>
+                                    {canCollapse && (
+                                      <ChevronDown
+                                        aria-hidden
+                                        strokeWidth={2.25}
+                                        className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 motion-reduce:transition-none ${isCollapsed ? '-rotate-90' : ''} ${isUnsectioned ? 'text-amber-700 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}
+                                      />
+                                    )}
                                   </button>
                                 </div>
                                 {!isCollapsed && (
