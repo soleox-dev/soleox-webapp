@@ -4,7 +4,7 @@ import { Eraser, LayoutGrid, MoreHorizontal, Table2 } from 'lucide-react';
 import { toPercentPoints } from '@/lib/percent';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { AgentConfig, DynamicRule, CommissionEntityOption, KnownAgentInfo } from '../types';
-import { CommissionWaterfallTable } from './CommissionWaterfallTable';
+import { CommissionWaterfallTable, WATERFALL_HEADING } from './CommissionWaterfallTable';
 import { isPrimaryAgent } from '../commissionItemState';
 import { HoverNote } from './HoverNote';
 import { SplitPair } from './SplitPair';
@@ -613,14 +613,12 @@ export function CommissionWaterfall({
           <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm px-4 py-2">
             <div className="flex min-h-8 justify-between items-center gap-3">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  1. Off-The-Top &amp; 2. Pre-Split Deductions
-                </span>
+                <span className={WATERFALL_HEADING}>Off-the-top &amp; pre-split deductions</span>
                 <span className="text-xs italic text-slate-400">None</span>
               </div>
               <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg">
                 <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                  Total Commission:
+                  Total commission:
                 </span>
                 <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
                   {formatCurrency(baselineTotalCommission)}
@@ -634,9 +632,7 @@ export function CommissionWaterfall({
           <div className={`border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm ${offTopEmpty ? 'px-4 py-2' : 'p-4 space-y-3'}`}>
             <div className={`flex justify-between items-center ${offTopEmpty ? 'min-h-8' : 'border-b border-slate-200 dark:border-slate-700 pb-3'}`}>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  1. Off-The-Top Deductions
-                </span>
+                <span className={WATERFALL_HEADING}>Off-the-top deductions</span>
                 {offTopEmpty && <span className="text-xs italic text-slate-400">None</span>}
                 {isEditing && (
                   <button
@@ -654,7 +650,7 @@ export function CommissionWaterfall({
               </div>
               <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg">
                 <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                  Total Commission:
+                  Total commission:
                 </span>
                 <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
                   {formatCurrency(baselineTotalCommission)}
@@ -665,7 +661,7 @@ export function CommissionWaterfall({
             {isEditing && isAddingOffTop && (
               <div data-inline-save className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-lg border border-emerald-500/30 space-y-2 mb-2">
                 <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block">
-                  Add Off-The-Top Deduction
+                  Add off-the-top deduction
                 </span>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                   {knownEntities.length > 0 ? (
@@ -801,9 +797,7 @@ export function CommissionWaterfall({
           <div className={`border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm ${preSplitEmpty ? 'px-4 py-2' : 'p-4 space-y-3'}`}>
             <div className={`flex justify-between items-center ${preSplitEmpty ? 'min-h-8' : 'border-b border-slate-200 dark:border-slate-700 pb-3'}`}>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  2. Pre-Split Deductions
-                </span>
+                <span className={WATERFALL_HEADING}>Pre-split deductions</span>
                 {preSplitEmpty && <span className="text-xs italic text-slate-400">None</span>}
                 {isEditing && (
                   <button
@@ -820,14 +814,14 @@ export function CommissionWaterfall({
                 )}
               </div>
               <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-4'}`}>
-                Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterOffTop)}</strong>
+                Remaining commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterOffTop)}</strong>
               </span>
             </div>
 
             {isEditing && isAddingPreSplit && (
               <div data-inline-save className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-lg border border-emerald-500/30 space-y-2 mb-2">
                 <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block">
-                  Add Pre-Split Deduction
+                  Add pre-split deduction
                 </span>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                   {knownEntities.length > 0 ? (
@@ -1002,9 +996,7 @@ export function CommissionWaterfall({
         <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-3 shadow-sm">
           <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                3. Agent Splits
-              </span>
+              <span className={WATERFALL_HEADING}>Agent splits</span>
               {isEditing && (
                 <button
                   type="button"
@@ -1021,7 +1013,7 @@ export function CommissionWaterfall({
             </div>
             <div className="flex items-center gap-3">
               <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-[15px]'}`}>
-                Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
+                Remaining commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
               </span>
             </div>
           </div>
@@ -1192,9 +1184,7 @@ export function CommissionWaterfall({
         <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-4 shadow-sm">
           <div className="border-b border-slate-200 dark:border-slate-700 pb-3">
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                4. Post-Split Deductions
-              </span>
+              <span className={WATERFALL_HEADING}>Post-split deductions</span>
               <span className="relative inline-flex group/psinfo">
                 <button
                   type="button"

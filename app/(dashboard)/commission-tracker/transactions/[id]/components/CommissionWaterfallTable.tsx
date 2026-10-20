@@ -10,6 +10,9 @@ import { orderPostSplitNames } from '@/lib/post-split-order';
 import { AgentAllocationNotes, TeamCapAmount, adjustedSplitView, teamCapGroups, type AgentAllocationLine } from './AgentAllocationNotes';
 import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
 
+/** A waterfall stage's heading: larger than the rows, with a short money-green bar in front. */
+export const WATERFALL_HEADING = "inline-flex items-center gap-2 text-sm font-semibold text-slate-900 before:h-4 before:w-1 before:shrink-0 before:rounded-full before:bg-emerald-500 before:content-[''] dark:text-white dark:before:bg-emerald-400";
+
 type SplitType = 'PERCENT' | 'AMOUNT';
 
 interface CommissionWaterfallTableProps {
@@ -359,15 +362,11 @@ export function CommissionWaterfallTable({
     <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 shadow-sm space-y-3">
       <div className="flex justify-between items-center gap-3">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-            3. Agent Splits
-            <span className="mx-1.5 text-sm font-semibold normal-case tracking-normal text-emerald-600 dark:text-emerald-400">&</span>
-            4. Post-split Deductions
-          </span>
+          <span className={WATERFALL_HEADING}>Agent splits &amp; post-split deductions</span>
         </div>
         <div className="flex items-center gap-3">
           <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-4'}`}>
-            Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
+            Remaining commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
           </span>
         </div>
       </div>
