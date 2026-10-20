@@ -271,6 +271,23 @@ const SCORECARD_CURRENCY_OPTIONS: { fractionDigits: number; compact: boolean }[]
   { fractionDigits: 0, compact: true },
 ];
 
+/** Columns for the scorecard strip on wide screens, by card count. */
+const SCORECARD_STRIP_COLUMNS: Record<number, string> = {
+  1: 'md:grid-cols-1 xl:grid-cols-1',
+  2: 'xl:grid-cols-2',
+  3: 'xl:grid-cols-3',
+  4: 'xl:grid-cols-4',
+};
+
+/** "7:38 AM" for today, otherwise "Oct 18, 7:38 AM". */
+function formatSyncMoment(value: string): string {
+  const moment = new Date(value);
+  if (Number.isNaN(moment.getTime())) return value;
+  const time = moment.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  if (moment.toDateString() === new Date().toDateString()) return time;
+  return `${moment.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${time}`;
+}
+
 function FitVolume({ value, className }: { value: number; className: string }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const probeRef = useRef<HTMLSpanElement>(null);
@@ -1903,6 +1920,16 @@ export default function TransactionsListPage() {
     return <span>{String(rawVal)}</span>;
   };
 
+  // Live context under the title, such as "570 unfinished of 5,703 · last TMS sync 7:38 AM · 570 connected".
+  const defaultViewName = transactionViews.find((view) => view.id === defaultViewId)?.name;
+  const headerSummary = isLoading ? '' : [
+    defaultViewName
+      ? `${(viewCounts.get(defaultViewId) ?? 0).toLocaleString()} ${defaultViewName.toLowerCase()} of ${deals.length.toLocaleString()}`
+      : `${deals.length.toLocaleString()} ${deals.length === 1 ? 'transaction' : 'transactions'}`,
+    syncNotice?.tone === 'ok' && syncNotice.finishedAt ? `last TMS sync ${formatSyncMoment(syncNotice.finishedAt)}` : '',
+    sourceTmsIds ? `${tmsLinkTotals.connected.toLocaleString()} connected` : '',
+  ].filter(Boolean).join(' · ');
+
   return (
     <main className={`${pageFrame} min-h-screen bg-slate-100 py-6 text-slate-900 transition-colors duration-200 space-y-6 dark:bg-slate-900 dark:text-slate-100 md:py-8`}>
       {/* Top Banner */}
@@ -1913,7 +1940,7 @@ export default function TransactionsListPage() {
           </div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Transactions</h1>
           <p className="text-slate-600 dark:text-slate-400 text-sm">
-            Search, filter, and open transactions
+            {headerSummary || 'Search, filter, and open transactions'}
           </p>
         </div>
 
@@ -1948,7 +1975,9 @@ export default function TransactionsListPage() {
       </div>
 
       {scorecardRows.length > 0 && (
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      // One panel split by hairlines. The inner grid sits 1px outside the panel so the outer edges of the cell borders are clipped.
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
+      <div className={`-m-px grid grid-cols-1 md:grid-cols-2 ${SCORECARD_STRIP_COLUMNS[Math.min(scorecardRows.length, 4)]}`}>
         {scorecardRows.map(({ card, rows }) => {
           const styles = SCORECARD_COLOR_STYLES[card.color] || SCORECARD_COLOR_STYLES.blue;
           const selected = activeScorecardId === card.id;
@@ -1956,10 +1985,15 @@ export default function TransactionsListPage() {
             <button
               key={card.id}
               type="button"
+              aria-pressed={selected}
               onClick={() => selectScorecard(card, rows.length)}
-              className={`text-left bg-white dark:bg-slate-800 border border-l-4 ${styles.border} rounded-xl px-5 py-4 shadow-xs transition-colors cursor-pointer ${styles.hover} ${selected ? `ring-inset ${styles.ring} ${styles.selectedBorder}` : 'border-slate-200 dark:border-y-slate-700 dark:border-r-slate-700'}`}
+              className={`relative min-w-0 border-l border-t border-slate-200 px-5 py-4 text-left transition-colors cursor-pointer dark:border-slate-700 ${styles.hover} ${selected ? 'bg-slate-50 dark:bg-slate-900/40' : ''}`}
             >
-              <p className={`text-[11px] ${styles.title} font-bold mb-3`}>{card.name}</p>
+              {selected && <span aria-hidden className={`absolute inset-x-0 bottom-0 h-0.5 ${styles.swatch}`} />}
+              <p className={`mb-3 flex items-center gap-2 text-[11px] font-semibold ${styles.title}`}>
+                <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${styles.swatch}`} />
+                {card.name}
+              </p>
               <div className={card.metrics.length > 1 ? 'grid grid-cols-[35fr_65fr] gap-4' : ''}>
                 {card.metrics.map((metric, index) => {
                   const value = scorecardMetricValue(rows, metric);
@@ -1982,6 +2016,7 @@ export default function TransactionsListPage() {
             </button>
           );
         })}
+      </div>
       </div>
       )}
 
