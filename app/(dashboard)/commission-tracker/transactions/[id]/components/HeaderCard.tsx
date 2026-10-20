@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { SectionLinks, type TransactionSectionId, type TransactionSectionLink } from './SectionLinks';
@@ -50,6 +50,15 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
     observer.observe(strip);
     return () => observer.disconnect();
   }, [onHeightChange]);
+
+  // At the top of the page the section links get as much room above as below; once the page scrolls they tuck up under the pill.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const sync = () => setScrolled(window.scrollY > 0);
+    sync();
+    window.addEventListener('scroll', sync, { passive: true });
+    return () => window.removeEventListener('scroll', sync);
+  }, []);
 
   return (
     <>
@@ -143,7 +152,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
         </div>
         {/* The section links sit centered under the pill, apart from the actions. */}
         {sections && onSelectSection && (
-          <div className="mt-2 flex justify-center">
+          <div className={`flex justify-center transition-[margin] duration-200 ease-out motion-reduce:transition-none ${scrolled ? 'mt-2' : 'mt-6'}`}>
             <SectionLinks sections={sections} active={activeSection} onSelect={onSelectSection} />
           </div>
         )}
