@@ -1292,6 +1292,20 @@ export function CommissionTemplatePanel({
     setRecalcFlash({});
   }, [draftTemplateId]);
 
+  // Sections whose fields are all empty when the template loads start collapsed, to cut noise.
+  // This runs once per template, so a section never closes while someone is filling it in.
+  const autoCollapsedFor = useRef('');
+  useEffect(() => {
+    if (isLoadingParameters || groups.length === 0 || autoCollapsedFor.current === draftTemplateId) return;
+    if (!rows.every((row) => row.parameter.id in values)) return;
+    autoCollapsedFor.current = draftTemplateId;
+    const collapsed: Record<string, boolean> = {};
+    for (const group of groups) {
+      if (group.rows.every(({ parameter }) => !(values[parameter.id] ?? '').trim())) collapsed[group.name] = true;
+    }
+    setCollapsedSections(collapsed);
+  }, [isLoadingParameters, groups, rows, values, draftTemplateId]);
+
   useEffect(() => {
     const id = flashScrollId.current;
     if (!id) return;
@@ -1704,7 +1718,7 @@ export function CommissionTemplatePanel({
                     <div key={group.name} className="min-w-0 py-2.5 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:gap-x-4 @min-[720px]/params:gap-y-1.5">
                       {/* Each section is one row: its name on the left, with a line on its right that runs to the bottom of the
                           section, and its fields and rule text to the right. Faint lines separate the sections. */}
-                      <div className={`flex items-start gap-2 border-b pb-1.5 @min-[720px]/params:row-span-2 @min-[720px]/params:border-b-0 @min-[720px]/params:border-r @min-[720px]/params:pb-0 @min-[720px]/params:pr-3 @min-[720px]/params:pt-1 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-slate-200 dark:border-slate-700'}`}>
+                      <div className={`flex items-start gap-2 border-b pb-1.5 @min-[720px]/params:row-span-2 @min-[720px]/params:border-b-0 @min-[720px]/params:border-r @min-[720px]/params:pb-0 @min-[720px]/params:pr-3 @min-[720px]/params:pt-1 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-brand-500/50 dark:border-brand-400/50'}`}>
                         <button
                           type="button"
                           onClick={() => toggleSection(group.name)}
@@ -1815,7 +1829,7 @@ export function CommissionTemplatePanel({
                               <div key={group.name} className="min-w-0 py-2.5 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:gap-x-4 @min-[720px]/params:gap-y-1.5">
                                 {/* Each section is one row: its name on the left, with a line on its right that runs to the bottom of the
                           section, and its fields and rule text to the right. Faint lines separate the sections. */}
-                      <div className={`flex items-start gap-2 border-b pb-1.5 @min-[720px]/params:row-span-2 @min-[720px]/params:border-b-0 @min-[720px]/params:border-r @min-[720px]/params:pb-0 @min-[720px]/params:pr-3 @min-[720px]/params:pt-1 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-slate-200 dark:border-slate-700'}`}>
+                      <div className={`flex items-start gap-2 border-b pb-1.5 @min-[720px]/params:row-span-2 @min-[720px]/params:border-b-0 @min-[720px]/params:border-r @min-[720px]/params:pb-0 @min-[720px]/params:pr-3 @min-[720px]/params:pt-1 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-brand-500/50 dark:border-brand-400/50'}`}>
                                   <button
                                     type="button"
                                     onClick={() => toggleLogicSection(group.name)}
