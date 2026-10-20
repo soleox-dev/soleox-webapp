@@ -63,22 +63,28 @@ export async function GET(request: Request) {
         .range(offset, offset + limit - 1)
     );
 
+    // Usage only needs to know whether an entity has any payment, so each entity gets a one-row lookup
+    // instead of reading every payment (which timed out for clients with many payments). A lookup that
+    // fails counts as used, so delete stays blocked rather than wrongly allowed.
     let entityIdsWithPayments = new Set<string>();
     if (checkUsage && data && data.length > 0) {
       const entityIds = data.map((e: any) => String(e.id)).filter(Boolean);
-      const matched = await fetchAllPages((offset, limit, withCount) =>
-        supabase
-          .from('payments')
-          .select('payee_entity_id', withCount ? { count: 'exact' } : undefined)
-          .eq('client_id', clientId)
-          .in('payee_entity_id', entityIds)
-          .order('id', { ascending: true })
-          .range(offset, offset + limit - 1)
-      );
-
-      entityIdsWithPayments = new Set(
-        (matched || []).map((row: any) => String(row.payee_entity_id)).filter(Boolean)
-      );
+      const used: string[] = [];
+      const LOOKUPS_AT_ONCE = 8;
+      for (let start = 0; start < entityIds.length; start += LOOKUPS_AT_ONCE) {
+        const batch = entityIds.slice(start, start + LOOKUPS_AT_ONCE);
+        const results = await Promise.all(batch.map(async (entityId) => {
+          const { data: hit, error } = await supabase
+            .from('payments')
+            .select('id')
+            .eq('client_id', clientId)
+            .eq('payee_entity_id', entityId)
+            .limit(1);
+          return error || (hit && hit.length > 0) ? entityId : null;
+        }));
+        results.forEach((entityId) => { if (entityId) used.push(entityId); });
+      }
+      entityIdsWithPayments = new Set(used);
     }
 
     const entities = (data || []).map((entity) => ({
