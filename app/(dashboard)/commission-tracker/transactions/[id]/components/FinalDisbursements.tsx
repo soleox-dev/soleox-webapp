@@ -5,6 +5,7 @@ import { formatPercentRate } from '@/lib/percent';
 import { roundCurrency } from '../types';
 import { SectionIcon } from './SectionIcon';
 import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
+import { CalculatingCommission } from './CalculatingCommission';
 
 export interface AgentDisbursement {
   name: string;
@@ -22,6 +23,8 @@ interface FinalDisbursementsProps {
   remainingCommission?: number;
   /** False when the deal qualifies for no commission template, so a shortfall is not an error. */
   requiresFullAllocation?: boolean;
+  /** Inputs are still loading; amounts would be provisional, so a placeholder replaces them. */
+  calculating?: boolean;
 }
 
 function formatCurrency(val: number) {
@@ -144,6 +147,7 @@ export function FinalDisbursements({
   agentSplitExcess = 0,
   remainingCommission = 0,
   requiresFullAllocation = true,
+  calculating = false,
 }: FinalDisbursementsProps) {
   const agentTotal = agentDisbursements.reduce((sum, agent) => sum + agent.amount, 0);
   const entityTotal = entityDisbursements.reduce((sum, [, amount]) => sum + amount, 0);
@@ -168,6 +172,8 @@ export function FinalDisbursements({
 
       </div>
 
+      {calculating ? <CalculatingCommission /> : (
+      <>
       {showSplitWarning && (
         <div className="px-6 py-5">
           <AgentSplitExcessNotice
@@ -268,6 +274,8 @@ export function FinalDisbursements({
           </span>
         </div>
       </div>
+      </>
+      )}
     </section>
   );
 }

@@ -106,20 +106,45 @@ export function useAgentAllocationInput({
   overridesRef.current = overrides;
   const [loadedKey, setLoadedKey] = useState('');
   const [hasStoredRows, setHasStoredRows] = useState(false);
+  // The request key whose load finished, whether or not it succeeded.
+  const [settledKey, setSettledKey] = useState('');
   const agentIds = agents.map((agent) => agent.id).join(',');
   const requestKey = `${clientId}:${transactionId}:${agentIds}`;
 
   useEffect(() => {
+    if (!clientId) return;
     let cancelled = false;
+    const ids = agentIds.split(',').filter(Boolean);
+    const headers = { 'x-client-id': clientId };
+    const loadConfig = async () => {
+      const configResponse = await fetch(`/api/agent-allocations?client_id=${encodeURIComponent(clientId)}`, { headers });
+      const config = await configResponse.json().catch(() => ({}));
+      return configResponse.ok && config.success !== false ? config : null;
+    };
+    // Agent cap history needs only the cap entities from the config, so it runs beside the team
+    // cap requests instead of after them.
+    const loadPostSplitHistory = async (nextAgentCaps: AgentCapDefinition[]): Promise<AgentCapHistoryRow[]> => {
+      const entityIds = [...new Set(nextAgentCaps.map((cap) => cap.entityId))];
+      if (entityIds.length === 0 || ids.length === 0) return [];
+      const historyParams = new URLSearchParams({
+        view: 'post-split-history',
+        agent_ids: ids.join(','),
+        entity_ids: entityIds.join(','),
+      });
+      if (transactionId) historyParams.set('exclude_transaction_id', transactionId);
+      const postSplitResponse = await fetch(`/api/transaction-commission-items?${historyParams.toString()}`, { headers });
+      const postSplitBody = await postSplitResponse.json().catch(() => ({}));
+      if (!postSplitResponse.ok || postSplitBody.success === false) return [];
+      return Array.isArray(postSplitBody.history) ? postSplitBody.history : [];
+    };
     (async () => {
       try {
-        const configResponse = await fetch(`/api/agent-allocations?client_id=${encodeURIComponent(clientId)}`, {
-          headers: { 'x-client-id': clientId },
-        });
-        const config = await configResponse.json().catch(() => ({}));
-        if (!configResponse.ok || config.success === false) return;
-        const ids = agentIds.split(',').filter(Boolean);
-        const headers = { 'x-client-id': clientId };
+        const configPromise = loadConfig();
+        const postSplitPromise = configPromise.then((config) => (
+          config ? loadPostSplitHistory(agentCapsFrom(Array.isArray(config.agentCaps) ? config.agentCaps : [])) : []
+        ));
+        // Handled below; this keeps an early return from leaving the rejection unhandled.
+        postSplitPromise.catch(() => {});
         const historyUrl = `/api/transaction-team-caps?history=1&client_id=${encodeURIComponent(clientId)}&agent_ids=${encodeURIComponent(ids.join(','))}&exclude_transaction_id=${encodeURIComponent(transactionId)}`;
         const capsUrl = transactionId
           ? `/api/transaction-team-caps?client_id=${encodeURIComponent(clientId)}&transaction_id=${encodeURIComponent(transactionId)}`
@@ -127,11 +152,13 @@ export function useAgentAllocationInput({
         const allocationsUrl = transactionId
           ? `/api/transaction-agent-allocations?client_id=${encodeURIComponent(clientId)}&transaction_id=${encodeURIComponent(transactionId)}`
           : '';
-        const [historyResponse, capsResponse, allocationsResponse] = await Promise.all([
+        const [config, historyResponse, capsResponse, allocationsResponse] = await Promise.all([
+          configPromise,
           fetch(historyUrl, { headers }),
           capsUrl ? fetch(capsUrl, { headers }) : Promise.resolve(null),
           allocationsUrl ? fetch(allocationsUrl, { headers }) : Promise.resolve(null),
         ]);
+        if (!config) return;
         const historyBody = await historyResponse.json().catch(() => ({}));
         const capsBody = capsResponse ? await capsResponse.json().catch(() => ({})) : { teamCaps: [] };
         const allocationsBody = allocationsResponse ? await allocationsResponse.json().catch(() => ({})) : { allocations: [] };
@@ -139,21 +166,7 @@ export function useAgentAllocationInput({
         if (capsResponse && (!capsResponse.ok || capsBody.success === false)) return;
         if (allocationsResponse && (!allocationsResponse.ok || allocationsBody.success === false)) return;
         const nextAgentCaps = agentCapsFrom(Array.isArray(config.agentCaps) ? config.agentCaps : []);
-        const entityIds = [...new Set(nextAgentCaps.map((cap) => cap.entityId))];
-        let nextHistory: AgentCapHistoryRow[] = [];
-        if (entityIds.length > 0 && ids.length > 0) {
-          const historyParams = new URLSearchParams({
-            view: 'post-split-history',
-            agent_ids: ids.join(','),
-            entity_ids: entityIds.join(','),
-          });
-          if (transactionId) historyParams.set('exclude_transaction_id', transactionId);
-          const postSplitResponse = await fetch(`/api/transaction-commission-items?${historyParams.toString()}`, { headers });
-          const postSplitBody = await postSplitResponse.json().catch(() => ({}));
-          if (!cancelled && postSplitResponse.ok && postSplitBody.success !== false) {
-            nextHistory = Array.isArray(postSplitBody.history) ? postSplitBody.history : [];
-          }
-        }
+        const nextHistory = await postSplitPromise;
         if (cancelled) return;
         setAgentCaps(nextAgentCaps);
         setPostSplitHistory(nextHistory);
@@ -178,12 +191,16 @@ export function useAgentAllocationInput({
         setLoadedKey(requestKey);
       } catch {
         if (!cancelled) setLoadedKey('');
+      } finally {
+        if (!cancelled) setSettledKey(requestKey);
       }
     })();
     return () => { cancelled = true; };
   }, [requestKey, clientId, transactionId, agentIds]);
 
   const ready = loadedKey === requestKey && loadedKey !== '';
+  /** False while this deal's caps and allocations are still loading. */
+  const settled = Boolean(clientId) && settledKey === requestKey;
 
   const agentCapCells = useMemo(() => buildAgentCapCells({
     caps: agentCaps,
@@ -236,5 +253,5 @@ export function useAgentAllocationInput({
     loadedOverridesRef.current = copyOverrides(overridesRef.current);
   };
 
-  return { ready, input, hasStoredRows, overrides, agentCapCells, setTeamCapOverride, replaceOverrides, restoreLoadedOverrides, commitOverrides };
+  return { ready, settled, input, hasStoredRows, overrides, agentCapCells, setTeamCapOverride, replaceOverrides, restoreLoadedOverrides, commitOverrides };
 }

@@ -83,17 +83,21 @@ export async function GET(request: Request) {
       });
       const transactionIds = [...new Set(items.map((row) => String(row.transaction_id || '')).filter(Boolean))];
       const dates = new Map<string, string | null>();
-      for (let index = 0; index < transactionIds.length; index += 100) {
-        const slice = transactionIds.slice(index, index + 100);
-        const { data: deals, error: dealsError } = await supabase
+      const slices: string[][] = [];
+      for (let index = 0; index < transactionIds.length; index += 100) slices.push(transactionIds.slice(index, index + 100));
+      // A few slices at a time, instead of one after another, keeps the cap history off the page's critical path.
+      for (let index = 0; index < slices.length; index += 5) {
+        const results = await Promise.all(slices.slice(index, index + 5).map((slice) => supabase
           .from('transactions')
           .select('id, closing_date, archived')
           .eq('client_id', clientId)
-          .in('id', slice);
-        if (dealsError) throw dealsError;
-        for (const deal of deals || []) {
-          if (deal.archived) continue;
-          dates.set(String(deal.id), deal.closing_date);
+          .in('id', slice)));
+        for (const { data: deals, error: dealsError } of results) {
+          if (dealsError) throw dealsError;
+          for (const deal of deals || []) {
+            if (deal.archived) continue;
+            dates.set(String(deal.id), deal.closing_date);
+          }
         }
       }
       return NextResponse.json({

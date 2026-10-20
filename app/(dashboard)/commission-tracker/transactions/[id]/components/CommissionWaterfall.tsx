@@ -14,6 +14,7 @@ import { CancelEditPrompt } from './CancelEditPrompt';
 import { useEditOnDoublePress } from './useEditOnDoublePress';
 import { useSectionEditKeys } from './useSectionEditKeys';
 import { CommissionTemplatePanel, type TemplateSubmissionDraft } from './CommissionTemplatePanel';
+import { CalculatingCommission } from './CalculatingCommission';
 import type { AppliedTemplateRules } from './applyTemplateLogic';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { AgentAllocationNotes, AgentCapNote, TeamCapAmount, adjustedSplitView, teamCapGroups, type AgentAllocationLine } from './AgentAllocationNotes';
@@ -22,6 +23,8 @@ import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
 import { useAccess } from '@/components/access-provider';
 
 interface CommissionWaterfallProps {
+  /** Inputs are still loading; amounts would be provisional, so a placeholder replaces them. */
+  calculating?: boolean;
   isEditing: boolean;
   hasChanges: boolean;
   onStartEdit: () => void;
@@ -208,6 +211,7 @@ export function CommissionWaterfall({
   onTeamCapAmountChange,
   onRemoveTeamCap,
   agentCapCells = {},
+  calculating = false,
 }: CommissionWaterfallProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -598,7 +602,8 @@ export function CommissionWaterfall({
         </div>
       </div>
 
-      <div className="p-6 space-y-6" {...editOnDoublePress}>
+      {calculating && <CalculatingCommission rows={4} />}
+      <div className="p-6 space-y-6" hidden={calculating} {...editOnDoublePress}>
         {/* Step 1: Off-The-Top Deductions */}
         <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-3 shadow-sm">
           <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">

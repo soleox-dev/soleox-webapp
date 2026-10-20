@@ -70,6 +70,7 @@ export default function Dashboard() {
     overviewFields,
     knownAgents,
     knownEntities,
+    entitiesLoaded,
     commissionItems,
     setCommissionItems,
     commissionItemsDealId,
@@ -784,7 +785,9 @@ export default function Dashboard() {
     knownAgents,
   );
 
-  const activeClientId = selectedDeal?.client_id || 'DEMO';
+  // The session's client is known before the deal list loads. Requests wait for it rather than
+  // going out for another client first.
+  const activeClientId = String(selectedDeal?.client_id || access?.clientId || '');
   const allocationFieldTypes = useMemo(
     () => Object.fromEntries(overviewFields.map((field) => [field.key, field.type])),
     [overviewFields],
@@ -793,6 +796,7 @@ export default function Dashboard() {
   const allocationDate = String(overviewForm.overviewFormValues?.closing_date || closingDate || '').substring(0, 10) || null;
   const {
     ready: allocationReady,
+    settled: allocationSettled,
     input: allocationInput,
     hasStoredRows: hasStoredAllocations,
     overrides: capOverrides,
@@ -841,10 +845,11 @@ export default function Dashboard() {
     setSuspendCapAutoSave(true);
   };
 
-  const templateReplay = useSubmittedTemplateReplay({
+  const { replay: templateReplay, settling: templateReplaySettling } = useSubmittedTemplateReplay({
     clientId: activeClientId,
     transactionId: selectedDeal?.id || (!isNewTransaction ? routeId : ''),
     entities: knownEntities,
+    entitiesReady: entitiesLoaded,
     rosterAgents: knownAgents,
     pendingSubmission: pendingTemplateSubmission,
     revision: templateSubmissionRevision,
@@ -867,6 +872,10 @@ export default function Dashboard() {
     allocation: allocationForWaterfall,
     templateReplay,
   });
+  // True until the deal, its submitted template, and its caps and allocations have loaded. The
+  // waterfall computed before then is not final, so its amounts are not shown or saved.
+  const commissionSettling = !isNewTransaction && (!selectedDeal || templateReplaySettling || !allocationSettled);
+  const showCommissionCalculating = commissionSettling && !isEditingWaterfall && !overviewForm.isEditingOverview;
 
   type AllocationSaveRow = {
     agentId: string;
@@ -938,7 +947,7 @@ export default function Dashboard() {
       savedAllocationKey.current = '';
     }
     const featuresOn = Boolean(allocationInput?.teamCaps.some((cap) => cap.enabled) || allocationInput?.salesVolume?.enabled);
-    if (!allocationReady || !canWriteTracker || !transactionId || suspendCapAutoSave) return;
+    if (!allocationReady || !canWriteTracker || !transactionId || suspendCapAutoSave || commissionSettling) return;
     if (!featuresOn && !hasStoredAllocations) return;
     if (allocationSaveKey === savedAllocationKey.current) return;
     const timer = window.setTimeout(() => {
@@ -947,7 +956,7 @@ export default function Dashboard() {
       void enqueueAllocationWrite(() => sendAllocationWrite(requestTransactionId, activeClientId));
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [allocationReady, allocationSaveKey, canWriteTracker, selectedDeal?.id, activeClientId, suspendCapAutoSave, hasStoredAllocations]);
+  }, [allocationReady, allocationSaveKey, canWriteTracker, selectedDeal?.id, activeClientId, suspendCapAutoSave, hasStoredAllocations, commissionSettling]);
 
   useEffect(() => {
     if (isNewTransaction) {
@@ -1621,7 +1630,7 @@ export default function Dashboard() {
     setIsDeleting(true);
     setDeleteError(null);
     try {
-      const clientId = String(selectedDeal?.client_id || 'DEMO');
+      const clientId = activeClientId;
       const res = await fetch(
         `/api/transactions?id=${encodeURIComponent(transactionId)}&client_id=${encodeURIComponent(clientId)}`,
         {
@@ -1827,6 +1836,7 @@ export default function Dashboard() {
 
           <CommissionWaterfall
             isEditing={isEditingWaterfall}
+            calculating={showCommissionCalculating}
             hasChanges={waterfallHasEdits() || (waterfallEditSnapshot != null && !sameTeamCapSelection(waterfallEditSnapshot.teamCapIds, selectedTeamCapIds)) || (capOverrideBaseline != null && !sameAllocationOverrides(capOverrides, capOverrideBaseline))}
             onTeamCapAmountChange={setTeamCapOverride}
             onRemoveTeamCap={handleRemoveTeamCap}
@@ -2005,7 +2015,7 @@ export default function Dashboard() {
             knownAgents={knownAgents}
             preventMinus={(e) => { if (e.key === '-') e.preventDefault(); }}
             formatNumberWithCommas={(v) => String(v)}
-            clientId={templateDeal?.client_id || 'DEMO'}
+            clientId={String(templateDeal?.client_id || access?.clientId || '')}
             transactionId={templateDeal?.id || dealId || ''}
             allocations={dealResult.allocationLines || []}
             deal={templateDeal}
@@ -2029,6 +2039,7 @@ export default function Dashboard() {
             agentSplitExcess={agentSplitExcess}
             remainingCommission={Number(dealResult.commissionAfterPreSplit) || 0}
             requiresFullAllocation={templateQualifies === true}
+            calculating={showCommissionCalculating}
           />
         </div>
       </div>
