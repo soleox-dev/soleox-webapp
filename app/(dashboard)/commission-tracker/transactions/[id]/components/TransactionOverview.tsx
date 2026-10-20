@@ -18,8 +18,6 @@ import { isHiddenRecordId } from '@/lib/fields';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { HoverNote } from './HoverNote';
 import { SectionIcon } from './SectionIcon';
-import { toggleFromSectionHeader } from './sectionHeaderClick';
-import { SectionCollapseButton } from './SectionCollapseButton';
 import { CancelEditPrompt } from './CancelEditPrompt';
 import { useEditOnDoublePress } from './useEditOnDoublePress';
 import { useSectionEditKeys } from './useSectionEditKeys';
@@ -29,9 +27,6 @@ import { UndoableDateInput } from '@/components/ui/UndoableDateInput';
 import { useAccess } from '@/components/access-provider';
 
 interface TransactionOverviewProps {
-  isCollapsed: boolean;
-  sidebarCollapsed: boolean;
-  onToggleSection: () => void;
   isEditing: boolean;
   hasChanges: boolean;
   onStartEdit: () => void;
@@ -52,9 +47,6 @@ interface TransactionOverviewProps {
 }
 
 export function TransactionOverview({
-  isCollapsed,
-  sidebarCollapsed,
-  onToggleSection,
   isEditing,
   hasChanges,
   onStartEdit,
@@ -148,10 +140,9 @@ export function TransactionOverview({
   };
 
   return (
-    <section id="overview" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-8 transition-colors">
+    <section id="overview" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height)+0.75rem)] transition-colors">
       <div
-        onClick={(event) => toggleFromSectionHeader(event, onToggleSection)}
-        className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center cursor-pointer"
+        className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center"
       >
         <div className="flex items-center gap-3">
           <SectionIcon name="overview" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
@@ -188,251 +179,248 @@ export function TransactionOverview({
             </div>
           ) : null}
 
-          <SectionCollapseButton collapsed={isCollapsed} onClick={onToggleSection} />
         </div>
       </div>
 
-      {!isCollapsed && (
-        <div className="p-6" {...editOnDoublePress}>
-          {Object.keys(groupedSections).length === 0 ? (
-            <div className="p-6 text-center text-xs text-slate-400 italic">
-              Loading Overview fields...
-            </div>
-          ) : (
-            <div className={sidebarCollapsed ? 'lg:[column-count:4] lg:[column-width:20rem] lg:gap-x-8' : 'lg:columns-2 lg:gap-x-8'}>
-            {Object.entries(groupedSections).map(([sectionName, fields]) => {
-              const visibleFields = fields.filter((field) => {
-                const rawDbVal = readTransactionField(selectedDeal, field.key);
-                const activeValue = isEditing
-                  ? (overviewFormValues[field.key] ?? rawDbVal ?? '')
-                  : (rawDbVal ?? '');
+      <div className="p-6" {...editOnDoublePress}>
+        {Object.keys(groupedSections).length === 0 ? (
+          <div className="p-6 text-center text-xs text-slate-400 italic">
+            Loading Overview fields...
+          </div>
+        ) : (
+          <div className="lg:[column-count:4] lg:[column-width:20rem] lg:gap-x-8">
+          {Object.entries(groupedSections).map(([sectionName, fields]) => {
+            const visibleFields = fields.filter((field) => {
+              const rawDbVal = readTransactionField(selectedDeal, field.key);
+              const activeValue = isEditing
+                ? (overviewFormValues[field.key] ?? rawDbVal ?? '')
+                : (rawDbVal ?? '');
 
-                if (isHiddenRecordId('transactions', field.key)) return false;
-                return isFieldVisible(field, activeValue);
-              });
+              if (isHiddenRecordId('transactions', field.key)) return false;
+              return isFieldVisible(field, activeValue);
+            });
 
-              if (visibleFields.length === 0) return null;
+            if (visibleFields.length === 0) return null;
 
-              return (
-                <div key={sectionName} className="mb-6 break-inside-avoid space-y-2">
-                  <div className="border-b border-slate-300 dark:border-slate-700 pb-1 flex items-start gap-2">
-                    <span className="mt-1 w-2 h-2 shrink-0 rounded-full bg-emerald-500"></span>
-                    <span className="min-w-0 text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                      {sectionName}
-                    </span>
-                    <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500 font-semibold ml-auto">
-                      {visibleFields.length} {visibleFields.length === 1 ? 'Field' : 'Fields'}
-                    </span>
-                  </div>
+            return (
+              <div key={sectionName} className="mb-6 break-inside-avoid space-y-2">
+                <div className="border-b border-slate-300 dark:border-slate-700 pb-1 flex items-start gap-2">
+                  <span className="mt-1 w-2 h-2 shrink-0 rounded-full bg-emerald-500"></span>
+                  <span className="min-w-0 text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    {sectionName}
+                  </span>
+                  <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500 font-semibold ml-auto">
+                    {visibleFields.length} {visibleFields.length === 1 ? 'Field' : 'Fields'}
+                  </span>
+                </div>
 
-                  <div className="flex flex-col gap-2">
-                    {visibleFields.map((field) => {
-                      const fieldData = getFieldValue(field.key, field.type);
-                      const isSystemLocked = field.key === 'id' || field.key === 'total_commission';
+                <div className="flex flex-col gap-2">
+                  {visibleFields.map((field) => {
+                    const fieldData = getFieldValue(field.key, field.type);
+                    const isSystemLocked = field.key === 'id' || field.key === 'total_commission';
 
-                      const rawGciType = overviewFormValues.gci_type !== undefined ? overviewFormValues.gci_type : gciType;
-                      const cleanGciType = String(rawGciType || '').toUpperCase().replace(/[\s_]+/g, '');
+                    const rawGciType = overviewFormValues.gci_type !== undefined ? overviewFormValues.gci_type : gciType;
+                    const cleanGciType = String(rawGciType || '').toUpperCase().replace(/[\s_]+/g, '');
 
-                      const isGciPercLocked = field.key === 'gci_perc' && !cleanGciType.includes('PERCENT');
-                      const isGciAmountLocked = field.key === 'gci_amount' && (cleanGciType.includes('PERCENT') || !cleanGciType);
-                      const isInputDisabled = isSystemLocked || isGciPercLocked || isGciAmountLocked;
+                    const isGciPercLocked = field.key === 'gci_perc' && !cleanGciType.includes('PERCENT');
+                    const isGciAmountLocked = field.key === 'gci_amount' && (cleanGciType.includes('PERCENT') || !cleanGciType);
+                    const isInputDisabled = isSystemLocked || isGciPercLocked || isGciAmountLocked;
 
-                      let currentValueToValidate = readTransactionField(selectedDeal, field.key);
-                      const activeValue = isEditing
-                        ? (overviewFormValues[field.key] ?? currentValueToValidate ?? '')
-                        : (currentValueToValidate ?? fieldData.text);
+                    let currentValueToValidate = readTransactionField(selectedDeal, field.key);
+                    const activeValue = isEditing
+                      ? (overviewFormValues[field.key] ?? currentValueToValidate ?? '')
+                      : (currentValueToValidate ?? fieldData.text);
 
-                      const validationResult = validateFieldValue(field, activeValue);
-                      const formVal = overviewFormValues[field.key] ?? activeValue;
-                      const dynamicOptions = field.options ? [...field.options] : [];
+                    const validationResult = validateFieldValue(field, activeValue);
+                    const formVal = overviewFormValues[field.key] ?? activeValue;
+                    const dynamicOptions = field.options ? [...field.options] : [];
 
-                      if (formVal && String(formVal).trim() !== '' && String(formVal) !== '—' && !dynamicOptions.some((opt) => opt.trim().toLowerCase() === String(formVal).trim().toLowerCase())) {
-                        dynamicOptions.unshift(String(formVal));
-                      }
+                    if (formVal && String(formVal).trim() !== '' && String(formVal) !== '—' && !dynamicOptions.some((opt) => opt.trim().toLowerCase() === String(formVal).trim().toLowerCase())) {
+                      dynamicOptions.unshift(String(formVal));
+                    }
 
-                      const labelKey = `${field.key} ${field.label}`.trim().toLowerCase();
-                      const spansBoth = labelKey.includes('property address') || labelKey.includes('commission split');
-                      const showError = Boolean(validationResult.isRequiredMissing && isEditing);
-                      const showWarning = Boolean(validationResult.isLegacyUnmatched);
-                      const assistiveMessage = (showError || showWarning || (isEditing && !validationResult.isValid))
-                        ? validationResult.message
-                        : '';
-                      const isDropdown = field.type === 'AGENT_PICKER' || field.key === 'agent_id' || field.key === 'primary_agent' || (field.type === 'SELECT' && dynamicOptions.length > 0);
-                      const isBoolean = field.type === 'BOOLEAN';
-                      const booleanChecked = isBooleanChecked(isEditing ? overviewFormValues[field.key] : readTransactionField(selectedDeal, field.key));
-                      const filledControl = 'w-full bg-transparent border-0 p-0 h-5 text-xs leading-4 text-slate-900 dark:text-white focus:outline-none focus:ring-0 font-medium disabled:opacity-50 disabled:cursor-not-allowed';
-                      const shellBorder = showError
-                        ? 'border-b-rose-500'
-                        : showWarning
-                        ? 'border-b-amber-500'
-                        : 'border-b-slate-300 dark:border-b-slate-600 focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)]';
-                      const labelTone = showError
-                        ? 'text-rose-600 dark:text-rose-400'
-                        : showWarning
-                        ? 'text-amber-600 dark:text-amber-400'
-                        : 'text-slate-500 dark:text-slate-400';
+                    const labelKey = `${field.key} ${field.label}`.trim().toLowerCase();
+                    const spansBoth = labelKey.includes('property address') || labelKey.includes('commission split');
+                    const showError = Boolean(validationResult.isRequiredMissing && isEditing);
+                    const showWarning = Boolean(validationResult.isLegacyUnmatched);
+                    const assistiveMessage = (showError || showWarning || (isEditing && !validationResult.isValid))
+                      ? validationResult.message
+                      : '';
+                    const isDropdown = field.type === 'AGENT_PICKER' || field.key === 'agent_id' || field.key === 'primary_agent' || (field.type === 'SELECT' && dynamicOptions.length > 0);
+                    const isBoolean = field.type === 'BOOLEAN';
+                    const booleanChecked = isBooleanChecked(isEditing ? overviewFormValues[field.key] : readTransactionField(selectedDeal, field.key));
+                    const filledControl = 'w-full bg-transparent border-0 p-0 h-5 text-xs leading-4 text-slate-900 dark:text-white focus:outline-none focus:ring-0 font-medium disabled:opacity-50 disabled:cursor-not-allowed';
+                    const shellBorder = showError
+                      ? 'border-b-rose-500'
+                      : showWarning
+                      ? 'border-b-amber-500'
+                      : 'border-b-slate-300 dark:border-b-slate-600 focus-within:border-b-emerald-500 focus-within:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)]';
+                    const labelTone = showError
+                      ? 'text-rose-600 dark:text-rose-400'
+                      : showWarning
+                      ? 'text-amber-600 dark:text-amber-400'
+                      : 'text-slate-500 dark:text-slate-400';
 
-                      if (isBoolean) {
-                        return (
-                          <div key={field.id} className="min-w-0 py-1">
-                            <BooleanField
-                              label={field.label}
-                              required={field.is_required}
-                              checked={booleanChecked}
-                              disabled={!isEditing || isInputDisabled}
-                              onChange={(checked) => handleOverviewInputChange(field.key, checked)}
-                            />
-                            {assistiveMessage && (
-                              <p className={`mt-0.5 text-[10px] leading-3 font-medium ${showError ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                                {assistiveMessage}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      }
-
+                    if (isBoolean) {
                       return (
-                        <div key={field.id} className="min-w-0">
-                          <div className={`group relative underline-field rounded-t-md pl-2.5 ${isSystemLocked && isEditing ? 'pr-14' : 'pr-2.5'} pt-1 pb-0.5 border-b transition-colors ${shellBorder} ${isInputDisabled && isEditing ? 'opacity-70' : ''}`}>
-                            <div className="flex items-center gap-1.5">
-                              <span className={`text-[10px] leading-3 font-medium truncate ${labelTone} ${!showError && !showWarning ? 'group-focus-within:text-emerald-600 dark:group-focus-within:text-emerald-400' : ''}`}>
-                                {field.label}
-                                {field.is_required && <span className="text-rose-500" title="Required Field">*</span>}
-                              </span>
-                              {showWarning && (
-                                <span className="cursor-help text-xs shrink-0" title={validationResult.message}>⚠️</span>
-                              )}
-                            </div>
-                            <div className={`${spansBoth ? 'min-h-5 items-start' : 'h-5 items-center'} flex`}>
-                              {isEditing ? (
-                                field.type === 'AGENT_PICKER' || field.key === 'agent_id' || field.key === 'primary_agent' ? (
-                                  <ClearableSelect
-                                    disabled={isInputDisabled}
-                                    value={
-                                      uniqueKnownAgents.find(
-                                        (ag) => ag.id === formVal || ag.name.toLowerCase() === String(formVal || '').toLowerCase()
-                                      )?.id || formVal || ''
-                                    }
-                                    onChange={(e) => handleOverviewInputChange(field.key, e.target.value)}
-                                    className={`${filledControl} overview-field-select cursor-pointer`}
-                                  >
-                                    {uniqueKnownAgents.map((ag) => (
-                                      <option key={ag.id} value={ag.id}>
-                                        {ag.name} {ag.isTeamLead ? '(Team Lead)' : ''}
-                                      </option>
-                                    ))}
-                                  </ClearableSelect>
-                                ) : field.type === 'SELECT' && dynamicOptions.length > 0 ? (
-                                  <ClearableSelect
-                                    disabled={isInputDisabled}
-                                    value={formVal ?? ''}
-                                    onChange={(e) => handleOverviewInputChange(field.key, e.target.value)}
-                                    className={`${filledControl} overview-field-select cursor-pointer ${showWarning ? 'text-amber-600 dark:text-amber-400 font-semibold' : ''}`}
-                                  >
-                                    {dynamicOptions.map((opt) => (
-                                      <option key={opt} value={opt}>{opt}</option>
-                                    ))}
-                                  </ClearableSelect>
-                                ) : field.type === 'DATE' ? (
-                                  <UndoableDateInput
-                                    disabled={isInputDisabled}
-                                    value={
-                                      overviewFormValues[field.key]
-                                        ? String(overviewFormValues[field.key]).substring(0, 10)
-                                        : ''
-                                    }
-                                    onChange={(next) => handleOverviewInputChange(field.key, next)}
-                                    className={`${filledControl} overview-date dark:[color-scheme:dark]`}
-                                  />
-                                ) : field.type === 'CURRENCY' || field.type === 'NUMBER' || field.type === 'PERCENT' ? (
-                                  <DecimalInput
-                                    disabled={isInputDisabled}
-                                    value={
-                                      field.type === 'PERCENT' || field.key === 'gci_perc'
-                                        ? toPercentPoints(Number(overviewFormValues[field.key]) || 0)
-                                        : Number(overviewFormValues[field.key]) || 0
-                                    }
-                                    onChange={(val) => handleOverviewInputChange(
-                                      field.key,
-                                      field.type === 'PERCENT' || field.key === 'gci_perc' ? fromPercentPoints(val) : val,
-                                    )}
-                                    isPercent={field.type === 'PERCENT' || field.key === 'gci_perc'}
-                                    useCommas={field.type === 'CURRENCY'}
-                                    onKeyDown={preventMinus}
-                                    className={`${filledControl} text-left`}
-                                  />
-                                ) : (
-                                  <input
-                                    type="text"
-                                    disabled={isInputDisabled}
-                                    value={overviewFormValues[field.key] ?? ''}
-                                    onChange={(e) => handleOverviewInputChange(field.key, e.target.value)}
-                                    className={filledControl}
-                                  />
-                                )
-                              ) : (
-                                <span
-                                  className={`text-xs leading-4 ${spansBoth ? 'whitespace-normal' : 'truncate'} ${
-                                    showWarning
-                                      ? 'text-amber-600 dark:text-amber-400 font-semibold'
-                                      : fieldData.text === '—'
-                                      ? 'text-slate-400 dark:text-slate-500'
-                                      : 'text-slate-900 dark:text-white font-medium'
-                                  }`}
-                                >
-                                  {fieldData.text}
-                                </span>
-                              )}
-                            </div>
-                            {isSystemLocked && isEditing && (
-                              <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1 py-0.5 rounded font-mono">
-                                LOCKED
-                              </span>
-                            )}
-                            {isEditing && isDropdown && (
-                              <svg
-                                viewBox="0 0 10 6"
-                                aria-hidden
-                                className="pointer-events-none absolute right-2.5 top-1/2 h-1.5 w-2.5 -translate-y-1/2 text-slate-600 dark:text-slate-300"
-                              >
-                                <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            )}
-                            {isEditing && field.type === 'DATE' && !isInputDisabled && (
-                              <button
-                                type="button"
-                                aria-label={`Choose ${field.label}`}
-                                onClick={(event) => {
-                                  const input = event.currentTarget.parentElement?.querySelector('input[type="date"]');
-                                  if (!(input instanceof HTMLInputElement)) return;
-                                  input.focus();
-                                  if (typeof input.showPicker === 'function') input.showPicker();
-                                }}
-                                className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 cursor-pointer text-slate-600 dark:text-slate-300"
-                              >
-                                <svg viewBox="0 0 16 16" aria-hidden className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                                  <rect x="2.25" y="3.25" width="11.5" height="10.5" rx="1.25" />
-                                  <path d="M2.25 6.75h11.5M5.25 2v2.5M10.75 2v2.5" />
-                                </svg>
-                              </button>
-                            )}
-                          </div>
+                        <div key={field.id} className="min-w-0 py-1">
+                          <BooleanField
+                            label={field.label}
+                            required={field.is_required}
+                            checked={booleanChecked}
+                            disabled={!isEditing || isInputDisabled}
+                            onChange={(checked) => handleOverviewInputChange(field.key, checked)}
+                          />
                           {assistiveMessage && (
-                            <p className={`mt-1 text-[11px] font-medium ${showWarning && !showError ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                            <p className={`mt-0.5 text-[10px] leading-3 font-medium ${showError ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
                               {assistiveMessage}
                             </p>
                           )}
                         </div>
                       );
-                    })}
-                  </div>
+                    }
+
+                    return (
+                      <div key={field.id} className="min-w-0">
+                        <div className={`group relative underline-field rounded-t-md pl-2.5 ${isSystemLocked && isEditing ? 'pr-14' : 'pr-2.5'} pt-1 pb-0.5 border-b transition-colors ${shellBorder} ${isInputDisabled && isEditing ? 'opacity-70' : ''}`}>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-[10px] leading-3 font-medium truncate ${labelTone} ${!showError && !showWarning ? 'group-focus-within:text-emerald-600 dark:group-focus-within:text-emerald-400' : ''}`}>
+                              {field.label}
+                              {field.is_required && <span className="text-rose-500" title="Required Field">*</span>}
+                            </span>
+                            {showWarning && (
+                              <span className="cursor-help text-xs shrink-0" title={validationResult.message}>⚠️</span>
+                            )}
+                          </div>
+                          <div className={`${spansBoth ? 'min-h-5 items-start' : 'h-5 items-center'} flex`}>
+                            {isEditing ? (
+                              field.type === 'AGENT_PICKER' || field.key === 'agent_id' || field.key === 'primary_agent' ? (
+                                <ClearableSelect
+                                  disabled={isInputDisabled}
+                                  value={
+                                    uniqueKnownAgents.find(
+                                      (ag) => ag.id === formVal || ag.name.toLowerCase() === String(formVal || '').toLowerCase()
+                                    )?.id || formVal || ''
+                                  }
+                                  onChange={(e) => handleOverviewInputChange(field.key, e.target.value)}
+                                  className={`${filledControl} overview-field-select cursor-pointer`}
+                                >
+                                  {uniqueKnownAgents.map((ag) => (
+                                    <option key={ag.id} value={ag.id}>
+                                      {ag.name} {ag.isTeamLead ? '(Team Lead)' : ''}
+                                    </option>
+                                  ))}
+                                </ClearableSelect>
+                              ) : field.type === 'SELECT' && dynamicOptions.length > 0 ? (
+                                <ClearableSelect
+                                  disabled={isInputDisabled}
+                                  value={formVal ?? ''}
+                                  onChange={(e) => handleOverviewInputChange(field.key, e.target.value)}
+                                  className={`${filledControl} overview-field-select cursor-pointer ${showWarning ? 'text-amber-600 dark:text-amber-400 font-semibold' : ''}`}
+                                >
+                                  {dynamicOptions.map((opt) => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                  ))}
+                                </ClearableSelect>
+                              ) : field.type === 'DATE' ? (
+                                <UndoableDateInput
+                                  disabled={isInputDisabled}
+                                  value={
+                                    overviewFormValues[field.key]
+                                      ? String(overviewFormValues[field.key]).substring(0, 10)
+                                      : ''
+                                  }
+                                  onChange={(next) => handleOverviewInputChange(field.key, next)}
+                                  className={`${filledControl} overview-date dark:[color-scheme:dark]`}
+                                />
+                              ) : field.type === 'CURRENCY' || field.type === 'NUMBER' || field.type === 'PERCENT' ? (
+                                <DecimalInput
+                                  disabled={isInputDisabled}
+                                  value={
+                                    field.type === 'PERCENT' || field.key === 'gci_perc'
+                                      ? toPercentPoints(Number(overviewFormValues[field.key]) || 0)
+                                      : Number(overviewFormValues[field.key]) || 0
+                                  }
+                                  onChange={(val) => handleOverviewInputChange(
+                                    field.key,
+                                    field.type === 'PERCENT' || field.key === 'gci_perc' ? fromPercentPoints(val) : val,
+                                  )}
+                                  isPercent={field.type === 'PERCENT' || field.key === 'gci_perc'}
+                                  useCommas={field.type === 'CURRENCY'}
+                                  onKeyDown={preventMinus}
+                                  className={`${filledControl} text-left`}
+                                />
+                              ) : (
+                                <input
+                                  type="text"
+                                  disabled={isInputDisabled}
+                                  value={overviewFormValues[field.key] ?? ''}
+                                  onChange={(e) => handleOverviewInputChange(field.key, e.target.value)}
+                                  className={filledControl}
+                                />
+                              )
+                            ) : (
+                              <span
+                                className={`text-xs leading-4 ${spansBoth ? 'whitespace-normal' : 'truncate'} ${
+                                  showWarning
+                                    ? 'text-amber-600 dark:text-amber-400 font-semibold'
+                                    : fieldData.text === '—'
+                                    ? 'text-slate-400 dark:text-slate-500'
+                                    : 'text-slate-900 dark:text-white font-medium'
+                                }`}
+                              >
+                                {fieldData.text}
+                              </span>
+                            )}
+                          </div>
+                          {isSystemLocked && isEditing && (
+                            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1 py-0.5 rounded font-mono">
+                              LOCKED
+                            </span>
+                          )}
+                          {isEditing && isDropdown && (
+                            <svg
+                              viewBox="0 0 10 6"
+                              aria-hidden
+                              className="pointer-events-none absolute right-2.5 top-1/2 h-1.5 w-2.5 -translate-y-1/2 text-slate-600 dark:text-slate-300"
+                            >
+                              <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                          {isEditing && field.type === 'DATE' && !isInputDisabled && (
+                            <button
+                              type="button"
+                              aria-label={`Choose ${field.label}`}
+                              onClick={(event) => {
+                                const input = event.currentTarget.parentElement?.querySelector('input[type="date"]');
+                                if (!(input instanceof HTMLInputElement)) return;
+                                input.focus();
+                                if (typeof input.showPicker === 'function') input.showPicker();
+                              }}
+                              className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 cursor-pointer text-slate-600 dark:text-slate-300"
+                            >
+                              <svg viewBox="0 0 16 16" aria-hidden className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="2.25" y="3.25" width="11.5" height="10.5" rx="1.25" />
+                                <path d="M2.25 6.75h11.5M5.25 2v2.5M10.75 2v2.5" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                        {assistiveMessage && (
+                          <p className={`mt-1 text-[11px] font-medium ${showWarning && !showError ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                            {assistiveMessage}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-            </div>
-          )}
-        </div>
-      )}
+              </div>
+            );
+          })}
+          </div>
+        )}
+      </div>
       <CancelEditPrompt
         open={editKeys.confirmCancel}
         sectionLabel="Transaction Overview"

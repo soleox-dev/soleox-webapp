@@ -5060,7 +5060,7 @@ function EarningCell({
       <span className="inline-flex flex-col items-end">
         <EarningAmount amount={amount} selected={selected} onSelect={onSelect} />
         <span className="relative mt-0.5 mr-1 h-1 w-[calc(100%-0.5rem)]" aria-hidden>
-          {share > 0 ? <span className="absolute inset-y-0 right-0 rounded-full bg-emerald-400" style={{ width: share >= 1 ? '100%' : `max(${share * 100}%, 2px)` }} /> : null}
+          {share > 0 ? <span className="absolute inset-y-0 right-0 rounded-full bg-emerald-400 dark:bg-emerald-500/70" style={{ width: share >= 1 ? '100%' : `max(${share * 100}%, 2px)` }} /> : null}
         </span>
       </span>
     </td>

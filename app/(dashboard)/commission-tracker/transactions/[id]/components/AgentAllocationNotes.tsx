@@ -156,7 +156,8 @@ export function AgentCapNote({ label, detail, share }: { label: string; detail: 
   const barRef = useRef<HTMLSpanElement>(null);
   const width = Math.min(100, Math.max(0, share * 100));
   const over = share > 1;
-  const fill = over ? 'bg-rose-400' : 'bg-emerald-400';
+  const fill = over ? 'bg-rose-400 dark:bg-rose-500/30' : 'bg-emerald-400 dark:bg-emerald-500/30';
+  const text = over ? 'dark:text-rose-200' : 'dark:text-emerald-200';
   useLayoutEffect(() => {
     const bar = barRef.current;
     if (bar) matchCapBarWidths(bar);
@@ -165,7 +166,7 @@ export function AgentCapNote({ label, detail, share }: { label: string; detail: 
     <HoverNote label={detail}>
       <span ref={barRef} data-cap-bar tabIndex={0} className="relative mt-0.5 inline-flex h-4 shrink-0 cursor-help items-center justify-end overflow-hidden rounded-sm bg-slate-200 outline-none dark:bg-slate-800">
         <span aria-hidden className={`absolute inset-y-0 left-0 z-0 ${fill}`} style={{ width: `${width}%` }} />
-        <span className="relative z-10 px-1 text-right text-[10px] font-bold leading-none tabular-nums text-slate-950 dark:text-white dark:[text-shadow:0_0_2px_#020617,0_0_3px_#020617]">{label}</span>
+        <span className={`relative z-10 px-1 text-right text-[10px] font-bold leading-none tabular-nums text-slate-950 ${text}`}>{label}</span>
       </span>
     </HoverNote>
   );

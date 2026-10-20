@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Lock, Plus, RefreshCw, RotateCcw, Trash2, X, Zap, type LucideIcon } from 'lucide-react';
+import { Check, Loader2, Lock, Plus, RefreshCw, RotateCcw, Trash2, X, Zap, type LucideIcon } from 'lucide-react';
 import { evaluateFormula, formulaValueToInput, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { normalizeAgentName } from '@/lib/id';
 import { qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection, type TeamCapRule } from '@/lib/agent-allocations';
@@ -13,6 +13,7 @@ import { isConfiguredOrExistingField, type FormulaLedgerRow, type FormulaLookups
 import type { StoredCommissionItem } from '../commissionItemState';
 import type { CommissionEntityOption, FieldSetting, KnownAgentInfo } from '../types';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { cachedSchema, cachedSubmissions, cachedTemplates, rememberSchema, rememberSubmissions, rememberTemplates, type CachedSubmission } from './templateStatusCache';
 import { BooleanField, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
 import { parameterValidationMessage } from '@/lib/parameter-validation';
@@ -27,6 +28,48 @@ interface TemplateOption {
 interface SubmittedTemplateRow {
   templateId: string;
   parameters: Record<string, string>;
+}
+
+type SchemaCatalogField = NonNullable<ReturnType<typeof cachedSchema>>[number];
+
+function schemaFieldTypes(catalog: SchemaCatalogField[]): Record<string, string> {
+  return Object.fromEntries(catalog.flatMap((field) => {
+    const key = String(field.field_key || '').trim();
+    return key ? [[key, String(field.field_type || 'TEXT')]] : [];
+  }));
+}
+
+function schemaOverviewFields(catalog: SchemaCatalogField[]): FieldSetting[] {
+  return catalog.flatMap((field, index) => {
+    const key = String(field.field_key || '').trim();
+    if (!key) return [];
+    return [{
+      id: field.id || `schema_${index}`,
+      label: field.field_label || key,
+      key,
+      type: field.field_type || 'TEXT',
+      section: field.section_name || 'General',
+      calculation_formula: field.calculation_formula?.trim() || undefined,
+    }];
+  });
+}
+
+/** What the panel shows for a transaction's submissions, newest first. */
+function submissionView(submissions: CachedSubmission[]) {
+  const submitted = submissions[0];
+  return {
+    ids: submissions.flatMap((row) => {
+      const id = String(row?.id || '').trim();
+      return id ? [id] : [];
+    }),
+    templateId: String(submitted?.template_id || ''),
+    submissionId: submitted?.id ? String(submitted.id) : null,
+    parameters: parameterRecord(submitted?.submitted_parameters),
+    rows: submissions.flatMap((row): SubmittedTemplateRow[] => {
+      const templateId = String(row?.template_id || '').trim();
+      return templateId ? [{ templateId, parameters: parameterRecord(row?.submitted_parameters) }] : [];
+    }),
+  };
 }
 
 const TEMPLATE_STATUS_ICON: Record<TemplateBoltTone, { icon: LucideIcon; className: string }> = {
@@ -703,17 +746,25 @@ export function CommissionTemplatePanel({
   submissionRevision?: number;
   embedded?: boolean;
 }) {
-  const [templates, setTemplates] = useState<TemplateOption[]>([]);
-  const [committedTemplateId, setCommittedTemplateId] = useState('');
-  const [submissionId, setSubmissionId] = useState<string | null>(null);
-  const [submissionIds, setSubmissionIds] = useState<string[]>([]);
-  const [submittedTemplateId, setSubmittedTemplateId] = useState('');
-  const [submittedParameters, setSubmittedParameters] = useState<Record<string, string>>({});
-  const [submittedRows, setSubmittedRows] = useState<SubmittedTemplateRow[]>([]);
-  const [submissionReady, setSubmissionReady] = useState(false);
-  const [fieldTypes, setFieldTypes] = useState<Record<string, string>>({});
-  const [overviewFields, setOverviewFields] = useState<FieldSetting[]>([]);
-  const [schemaReady, setSchemaReady] = useState(false);
+  // The panel is keyed by transaction, so this state starts fresh for each one. It starts from
+  // the session cache when it can, so the button knows the status at once, then refreshes below.
+  const [initialTemplates] = useState(() => cachedTemplates<TemplateOption>(clientId));
+  const [initialSchema] = useState(() => cachedSchema(clientId));
+  const [initialSubmissions] = useState(() => {
+    const cached = transactionId ? cachedSubmissions(clientId, transactionId) : undefined;
+    return cached ? submissionView(cached) : null;
+  });
+  const [templates, setTemplates] = useState<TemplateOption[]>(initialTemplates ?? []);
+  const [committedTemplateId, setCommittedTemplateId] = useState(initialSubmissions?.templateId ?? '');
+  const [submissionId, setSubmissionId] = useState<string | null>(initialSubmissions?.submissionId ?? null);
+  const [submissionIds, setSubmissionIds] = useState<string[]>(initialSubmissions?.ids ?? []);
+  const [submittedTemplateId, setSubmittedTemplateId] = useState(initialSubmissions?.templateId ?? '');
+  const [submittedParameters, setSubmittedParameters] = useState<Record<string, string>>(initialSubmissions?.parameters ?? {});
+  const [submittedRows, setSubmittedRows] = useState<SubmittedTemplateRow[]>(initialSubmissions?.rows ?? []);
+  const [submissionReady, setSubmissionReady] = useState(Boolean(initialSubmissions));
+  const [fieldTypes, setFieldTypes] = useState<Record<string, string>>(() => (initialSchema ? schemaFieldTypes(initialSchema) : {}));
+  const [overviewFields, setOverviewFields] = useState<FieldSetting[]>(() => (initialSchema ? schemaOverviewFields(initialSchema) : []));
+  const [schemaReady, setSchemaReady] = useState(Boolean(initialSchema));
   const [paymentsWouldChange, setPaymentsWouldChange] = useState(false);
   const [paymentDriftReady, setPaymentDriftReady] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -739,7 +790,7 @@ export function CommissionTemplatePanel({
   const [ledgerError, setLedgerError] = useState('');
   const [parametersOpen, setParametersOpen] = useState(true);
   const [logicOpen, setLogicOpen] = useState(true);
-  const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(!initialTemplates);
   const [isLoadingParameters, setIsLoadingParameters] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
@@ -751,13 +802,15 @@ export function CommissionTemplatePanel({
   useEffect(() => {
     let cancelled = false;
     const loadTemplates = async () => {
-      setIsLoadingTemplates(true);
+      if (!cachedTemplates(clientId)) setIsLoadingTemplates(true);
       setLoadError('');
       try {
         const response = await fetch(`/api/commission-templates?client_id=${encodeURIComponent(clientId)}`);
         const data = await response.json();
         if (!response.ok || !data.success) throw new Error(data.error || 'Failed to load templates.');
-        if (!cancelled) setTemplates((data.templates || []) as TemplateOption[]);
+        const loaded = (data.templates || []) as TemplateOption[];
+        rememberTemplates(clientId, loaded);
+        if (!cancelled) setTemplates(loaded);
       } catch (err) {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load templates.');
       } finally {
@@ -777,24 +830,11 @@ export function CommissionTemplatePanel({
         const response = await fetch('/api/schema/transactions', { headers: { 'x-client-id': clientId } });
         const data = await response.json();
         if (!response.ok || cancelled) return;
-        const catalog = (data.catalog || data.fields || data.data || []) as { id?: string; field_key?: string; field_label?: string; field_type?: string; section_name?: string; calculation_formula?: string }[];
+        const catalog = (data.catalog || data.fields || data.data || []) as SchemaCatalogField[];
         if (!Array.isArray(catalog)) return;
-        setFieldTypes(Object.fromEntries(catalog.flatMap((field) => {
-          const key = String(field.field_key || '').trim();
-          return key ? [[key, String(field.field_type || 'TEXT')]] : [];
-        })));
-        setOverviewFields(catalog.flatMap((field, index) => {
-          const key = String(field.field_key || '').trim();
-          if (!key) return [];
-          return [{
-            id: field.id || `schema_${index}`,
-            label: field.field_label || key,
-            key,
-            type: field.field_type || 'TEXT',
-            section: field.section_name || 'General',
-            calculation_formula: field.calculation_formula?.trim() || undefined,
-          }];
-        }));
+        rememberSchema(clientId, catalog);
+        setFieldTypes(schemaFieldTypes(catalog));
+        setOverviewFields(schemaOverviewFields(catalog));
       } catch {
         if (!cancelled) {
           setFieldTypes({});
@@ -827,7 +867,8 @@ export function CommissionTemplatePanel({
     localSubmitRef.current = false;
     setPaymentDriftReady(false);
     setPaymentsWouldChange(false);
-    setSubmissionReady(false);
+    // Cached submissions keep the status on screen while they refresh.
+    if (!cachedSubmissions(clientId, transactionId)) setSubmissionReady(false);
     const clearSubmission = () => {
       setCommittedTemplateId('');
       setSubmissionId(null);
@@ -847,14 +888,12 @@ export function CommissionTemplatePanel({
           clearSubmission();
           return;
         }
-        const submissions = Array.isArray(data.submissions) ? data.submissions : [];
+        const submissions = (Array.isArray(data.submissions) ? data.submissions : []) as CachedSubmission[];
+        rememberSubmissions(clientId, transactionId, submissions);
         const submitted = submissions[0];
-        const ids = submissions.flatMap((row: { id?: string }) => {
-          const id = String(row?.id || '').trim();
-          return id ? [id] : [];
-        });
-        setSubmissionIds(ids);
-        const savedParameters = parameterRecord(submitted?.submitted_parameters);
+        const view = submissionView(submissions);
+        setSubmissionIds(view.ids);
+        const savedParameters = view.parameters;
         onStoredSubmissionRef.current?.(submitted?.template_id ? {
           id: submitted.id || null,
           template_id: String(submitted.template_id),
@@ -868,10 +907,7 @@ export function CommissionTemplatePanel({
         setSubmittedTemplateId(submitted?.template_id || '');
         setSubmittedParameters(savedParameters);
         onTeamCapSelectionRef.current?.(submitted ? readTeamCapSelection(savedParameters) : null);
-        setSubmittedRows(submissions.flatMap((row: { template_id?: string; submitted_parameters?: unknown }) => {
-          const templateId = String(row?.template_id || '').trim();
-          return templateId ? [{ templateId, parameters: parameterRecord(row?.submitted_parameters) }] : [];
-        }));
+        setSubmittedRows(view.rows);
       } catch {
         if (!cancelled) clearSubmission();
       } finally {
@@ -1440,7 +1476,10 @@ export function CommissionTemplatePanel({
     );
   }, [deal, isLoadingTemplates, submissionReady, schemaReady, templates, submittedRows, fieldTypes, paymentsWouldChange]);
   const locked = bolt === null;
-  const tone = bolt && (bolt.tone !== 'submitted' || paymentDriftReady) ? bolt.tone : null;
+  // Undefined means eligibility is not known yet. The button waits instead of guessing.
+  const checking = bolt === undefined;
+  // Submitted shows its check at once and changes to purple if the payment check finds a change.
+  const tone = bolt ? bolt.tone : null;
   const templateButtonLabel = singleTemplate
     ? (locked || committedTemplateId === singleTemplate.id ? singleTemplate.template_name : `Add ${singleTemplate.template_name}`)
     : 'Commission Template';
@@ -1473,10 +1512,10 @@ export function CommissionTemplatePanel({
         {templates.length > 0 && (singleTemplate || locked) ? (
           <button
             type="button"
-            disabled={locked}
-            title={templateButtonTitle}
+            disabled={locked || checking}
+            title={checking ? 'Checking template eligibility' : templateButtonTitle}
             onClick={() => {
-              if (!locked && singleTemplate) openTemplate(singleTemplate.id);
+              if (!locked && !checking && singleTemplate) openTemplate(singleTemplate.id);
             }}
             className={templateButtonChrome}
           >
@@ -1485,6 +1524,7 @@ export function CommissionTemplatePanel({
             {tone && StatusIcon && (
               <StatusIcon className={`h-3.5 w-3.5 shrink-0 ${TEMPLATE_STATUS_ICON[tone].className}`} strokeWidth={2.25} aria-hidden />
             )}
+            {!locked && !tone && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-slate-400" strokeWidth={2} aria-hidden />}
             {locked && <Lock className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={1.75} aria-hidden />}
           </button>
         ) : (

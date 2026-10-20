@@ -9,7 +9,6 @@ interface SearchableTransactionPickerProps {
   isDropdownOpen: boolean;
   setIsDropdownOpen: (open: boolean) => void;
   filteredDeals: any[];
-  savedDealsCount: number;
   isLoadingDeals: boolean;
   selectedDealId: string;
   onSelectDeal: (deal: any, targetId: string) => void;
@@ -22,25 +21,20 @@ export function SearchableTransactionPicker({
   isDropdownOpen,
   setIsDropdownOpen,
   filteredDeals,
-  savedDealsCount,
   isLoadingDeals,
   selectedDealId,
   onSelectDeal,
   dropdownRef,
 }: SearchableTransactionPickerProps) {
   return (
-    <div className="relative flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-5" ref={dropdownRef}>
-      <label className="flex shrink-0 items-center gap-3 text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-        <span className="inline-flex items-center gap-1.5">
-          <Search className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-          Search Transactions ({filteredDeals.length < savedDealsCount ? `${filteredDeals.length} of ` : ''}{savedDealsCount} Loaded)
-        </span>
-        {isLoadingDeals && <span className="font-normal normal-case tracking-normal text-slate-500 dark:text-slate-400">Loading records...</span>}
-      </label>
+    <div className="relative flex items-center gap-3" ref={dropdownRef}>
+      <Search className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} aria-hidden />
+      {isLoadingDeals && <span className="shrink-0 text-xs text-slate-500 dark:text-slate-400">Loading records...</span>}
 
       <div className={`relative min-w-0 flex-1 ${underlineShell}`}>
         <input
           type="text"
+          aria-label="Search transactions"
           value={searchQuery}
           onFocus={(e) => {
             setIsDropdownOpen(true);

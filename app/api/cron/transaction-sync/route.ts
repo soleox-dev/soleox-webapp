@@ -40,7 +40,7 @@ async function run() {
         entity: 'sync',
         entityId: runResult.id,
         summary: `Scheduled sync. ${runResult.createdCount ?? 0} added, ${runResult.updatedCount ?? 0} updated, ${runResult.errorCount ?? 0} errors.`,
-        detail: { status: runResult.status },
+        detail: { status: runResult.status, ...(runResult.sheet ? { sheet: runResult.sheet } : {}) },
       });
       results.push({ clientId: connection.client_id, connectionId: connection.id, ...runResult });
     } catch (err) {

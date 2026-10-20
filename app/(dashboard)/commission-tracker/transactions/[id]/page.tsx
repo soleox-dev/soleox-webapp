@@ -1,7 +1,7 @@
 // app/commission-tracker/transactions/[id]/page.tsx
 'use client';
 
-import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AgentConfig, DynamicRule, ToastNotification, roundCurrency, roundPercentRate, KnownAgentInfo } from './types';
 
@@ -15,7 +15,6 @@ import { useOverviewForm } from './hooks/useOverviewForm';
 // Sub-Components & Modals
 import { HeaderCard } from './components/HeaderCard';
 import { SearchableTransactionPicker } from './components/SearchableTransactionPicker';
-import { LeftSidebar } from './components/LeftSidebar';
 import { TransactionOverview } from './components/TransactionOverview';
 import { CommissionWaterfall } from './components/CommissionWaterfall';
 import { orderRulesByEntities } from './components/CommissionWaterfallTable';
@@ -37,6 +36,7 @@ import { isPrimaryAgent, resolvePrimaryAgentId, waterfallFromCommissionItems } f
 import { generatePrefixedId } from '@/lib/id';
 import { transactionDealLabel, transactionSearchLabel } from '@/lib/transaction-label';
 import { useAccess } from '@/components/access-provider';
+import { useTemplateQualification } from './hooks/useTemplateQualification';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -81,23 +81,9 @@ export default function Dashboard() {
   } = useTransactionData(routeId, isNewTransaction);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'commission' | 'disbursements'>('overview');
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ overview: false, commission: false, disbursements: false });
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [headerStick, setHeaderStick] = useState(144);
 
-  useEffect(() => {
-    if (window.localStorage.getItem('soleox-txn-sidebar-collapsed') === '1') setSidebarCollapsed(true);
-  }, []);
-
-  const toggleSidebar = () => {
-    setSidebarCollapsed((prev) => {
-      const next = !prev;
-      window.localStorage.setItem('soleox-txn-sidebar-collapsed', next ? '1' : '0');
-      return next;
-    });
-  };
   const isProgrammaticScrollRef = useRef(false);
-  const toggleSection = (key: string) => setCollapsed((p) => ({ ...p, [key]: !p[key] }));
 
   const scrolledSectionRef = useRef<string | null>(null);
 
@@ -121,22 +107,37 @@ export default function Dashboard() {
     setActiveTab(sectionId);
     isProgrammaticScrollRef.current = true;
 
-    const wasCollapsed = Boolean(collapsed[sectionId]);
-    if (wasCollapsed) {
-      setCollapsed((prev) => ({ ...prev, [sectionId]: false }));
+    const el = document.getElementById(sectionId);
+    if (el) {
+      // Land 12px below the pinned search strip. On desktop the top bar hides while scrolling
+      // down and shows while scrolling up, so leave room for it only when going up.
+      const strip = document.getElementById('transaction-detail-header');
+      const stripHeight = strip?.offsetHeight ?? 0;
+      const sectionTop = el.getBoundingClientRect().top + window.scrollY;
+      const root = document.documentElement;
+      const goingDown = sectionTop - stripHeight - 12 > window.scrollY;
+      const barHidden = root.style.getPropertyValue('--app-nav-offset').trim() === '0px';
+      const barHides = (goingDown || barHidden) && window.matchMedia('(min-width: 768px)').matches;
+      const barHeight = barHides ? 0 : (document.querySelector('header')?.offsetHeight ?? 64);
+      // A jump from the section links is not the user scrolling up, so the top bar stays as it is.
+      // The hold lasts until the smooth scroll ends. A long jump can take well over a second.
+      root.dataset.navScrollHold = '1';
+      let released = false;
+      const release = () => {
+        if (released) return;
+        released = true;
+        window.removeEventListener('scrollend', release);
+        window.setTimeout(() => {
+          delete root.dataset.navScrollHold;
+          isProgrammaticScrollRef.current = false;
+        }, 100);
+      };
+      window.addEventListener('scrollend', release);
+      window.setTimeout(release, 3000);
+      window.scrollTo({ top: Math.max(0, sectionTop - stripHeight - barHeight - 12), behavior: 'smooth' });
+    } else {
+      isProgrammaticScrollRef.current = false;
     }
-
-    // Wait for expand paint when needed, then smooth-scroll to the section
-    const delayMs = wasCollapsed ? 80 : 0;
-    window.setTimeout(() => {
-      const el = document.getElementById(sectionId);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-      window.setTimeout(() => {
-        isProgrammaticScrollRef.current = false;
-      }, 700);
-    }, delayMs);
   };
 
   // Highlight Workflow Steps based on which section is in view while scrolling
@@ -146,7 +147,9 @@ export default function Dashboard() {
     const updateActiveFromScroll = () => {
       if (isProgrammaticScrollRef.current) return;
 
-      const activationOffset = 120; // sticky sidebar / header breathing room
+      // A section counts as in view once its top passes the pinned search strip.
+      const strip = document.getElementById('transaction-detail-header');
+      const activationOffset = (strip ? strip.getBoundingClientRect().bottom : 120) + 16;
       let current: (typeof sectionIds)[number] = 'overview';
 
       for (const id of sectionIds) {
@@ -157,6 +160,10 @@ export default function Dashboard() {
           current = id;
         }
       }
+      // Payments is short, so its top can never reach the strip. The bottom of the page selects it.
+      const atBottom = window.scrollY > 0
+        && Math.ceil(window.scrollY + window.innerHeight) >= document.documentElement.scrollHeight - 2;
+      if (atBottom && document.getElementById('disbursements')) current = 'disbursements';
 
       setActiveTab((prev) => (prev === current ? prev : current));
     };
@@ -169,22 +176,13 @@ export default function Dashboard() {
       window.removeEventListener('scroll', updateActiveFromScroll);
       window.removeEventListener('resize', updateActiveFromScroll);
     };
-  }, [collapsed.overview, collapsed.commission, collapsed.disbursements]);
+  }, []);
 
   const [dealId, setDealId] = useState('');
   const [selectedDeal, setSelectedDeal] = useState<any>(null);
   const [selectedDealId, setSelectedDealId] = useState('');
   const [dealNotFound, setDealNotFound] = useState(false);
 
-  useLayoutEffect(() => {
-    const header = document.getElementById('transaction-detail-header');
-    if (!header) return;
-    const sync = () => setHeaderStick(header.offsetHeight);
-    sync();
-    const observer = new ResizeObserver(sync);
-    observer.observe(header);
-    return () => observer.disconnect();
-  }, [dealNotFound]);
 
   useEffect(() => {
     scrolledSectionRef.current = null;
@@ -204,7 +202,6 @@ export default function Dashboard() {
     const token = `${routeId}#${hash}`;
     if (scrolledSectionRef.current === token) return;
     setActiveTab(hash);
-    setCollapsed((prev) => ({ ...prev, [hash]: false }));
     isProgrammaticScrollRef.current = true;
 
     let settled = false;
@@ -1056,7 +1053,21 @@ export default function Dashboard() {
   const totalPayments = roundCurrency(
     Object.values(dealResult.netPayouts || {}).reduce((sum: number, amount) => sum + (Number(amount) || 0), 0),
   );
-  const paymentsShortOfCommission = commissionTotal > 0.009 && roundCurrency(commissionTotal - totalPayments) > 0.009;
+  // The whole commission has to be allocated only when a commission template applies. A deal
+  // that qualifies for none, such as a cancelled one, is not expected to have payments.
+  // The template button can judge the deal as soon as it is in the cached list, before this
+  // transaction's commission lines finish loading and selectedDeal is set.
+  const templateDeal = useMemo(
+    () => selectedDeal ?? (routeId && !isNewTransaction ? savedDeals.find((deal) => deal.id === routeId) ?? null : null),
+    [selectedDeal, routeId, isNewTransaction, savedDeals],
+  );
+  const qualificationDeal = useMemo(
+    () => (selectedDeal ? { ...selectedDeal, ...(overviewForm.isEditingOverview ? overviewForm.overviewFormValues : {}) } : null),
+    [selectedDeal, overviewForm.isEditingOverview, overviewForm.overviewFormValues],
+  );
+  const templateQualifies = useTemplateQualification(selectedDeal?.client_id, qualificationDeal);
+  const paymentsShortOfCommission = templateQualifies !== false
+    && commissionTotal > 0.009 && roundCurrency(commissionTotal - totalPayments) > 0.009;
   const saveBlocked = agentSplitsExceedCommission || paymentsShortOfCommission;
   const saveBlockedReason = [
     agentSplitsExceedCommission ? 'Agent splits are more than the remaining commission.' : '',
@@ -1092,8 +1103,12 @@ export default function Dashboard() {
       agents.length === 0
       || (agents.length === 1 && agents[0].splitType === 'PERCENT' && Number(agents[0].splitVal) === 1)
     );
+    let omitPayments = Boolean(options?.omitPayments);
     if (!options?.decided && waterfallResetPending) {
-      if (clearedWaterfall) {
+      // A deal that qualifies for no template keeps no payments, so there is nothing to ask.
+      if (clearedWaterfall && templateQualifies === false) {
+        omitPayments = true;
+      } else if (clearedWaterfall) {
         allocateAfterSaveRef.current = afterSaveSuccess;
         setAllocatePromptOpen(true);
         return;
@@ -1329,8 +1344,8 @@ export default function Dashboard() {
     const templateSubmission = pendingTemplateSubmissionRef.current;
     const payload = {
       ...coreDbFields,
-      commission_items: options?.omitPayments ? [] : commissionItems,
-      payments: options?.omitPayments ? [] : paymentItems,
+      commission_items: omitPayments ? [] : commissionItems,
+      payments: omitPayments ? [] : paymentItems,
       custom_attributes: customAttrs,
       ...(templateSubmission ? { template_submission: templateSubmission } : {}),
     };
@@ -1426,7 +1441,8 @@ export default function Dashboard() {
       isPrimaryAgent(agent, primaryAgentId) || (named && agent.name.toLowerCase() === named.toLowerCase())
     );
     const name = known?.name || current?.name || named;
-    const nextAgents: AgentConfig[] = name
+    // Without a qualifying template the reset leaves no agent splits, so the deal keeps no payments.
+    const nextAgents: AgentConfig[] = name && templateQualifies !== false
       ? [{
           id: known?.id || current?.id || (primaryAgentId ? String(primaryAgentId) : `AGT_${name}`),
           name,
@@ -1738,6 +1754,15 @@ export default function Dashboard() {
         hasUnsavedChanges={hasUnsavedLocalChanges}
         saveBlocked={saveBlocked}
         saveBlockedReason={saveBlockedReason}
+        onHeightChange={setHeaderStick}
+        onBack={() => requestNavigation(() => router.push('/commission-tracker/transactions'))}
+        sections={[
+          { id: 'overview', label: 'Overview', count: overviewFields.length, countNoun: overviewFields.length === 1 ? 'field' : 'fields' },
+          { id: 'commission', label: 'Waterfall', count: agents.length, countNoun: agents.length === 1 ? 'agent' : 'agents' },
+          { id: 'disbursements', label: 'Payments', count: agentDisbursements.length + entityDisbursements.length, countNoun: agentDisbursements.length + entityDisbursements.length === 1 ? 'payee' : 'payees' },
+        ]}
+        activeSection={activeTab}
+        onSelectSection={scrollToSection}
       >
       <SearchableTransactionPicker
         searchQuery={searchQuery}
@@ -1745,7 +1770,6 @@ export default function Dashboard() {
         isDropdownOpen={isDropdownOpen}
         setIsDropdownOpen={setIsDropdownOpen}
         filteredDeals={filteredDeals}
-        savedDealsCount={savedDeals.length}
         isLoadingDeals={isLoadingDeals}
         selectedDealId={selectedDealId}
         onSelectDeal={(deal) => {
@@ -1772,22 +1796,9 @@ export default function Dashboard() {
       />
       </HeaderCard>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] gap-6 items-start">
-        <LeftSidebar
-          activeTab={activeTab}
-          scrollToSection={scrollToSection}
-          overviewFieldsCount={overviewFields.length}
-          agentsCount={agents.length}
-          entitiesCount={agentDisbursements.length + entityDisbursements.length}
-          collapsed={sidebarCollapsed}
-          onToggleCollapsed={toggleSidebar}
-        />
-
+      <div>
         <div className="min-w-0 space-y-8">
           <TransactionOverview
-            isCollapsed={collapsed.overview}
-            sidebarCollapsed={sidebarCollapsed}
-            onToggleSection={() => toggleSection('overview')}
             isEditing={overviewForm.isEditingOverview}
             hasChanges={!overviewForm.overviewValuesUnchanged()}
             onStartEdit={() => {
@@ -1815,8 +1826,6 @@ export default function Dashboard() {
           />
 
           <CommissionWaterfall
-            isCollapsed={collapsed.commission}
-            onToggleSection={() => toggleSection('commission')}
             isEditing={isEditingWaterfall}
             hasChanges={waterfallHasEdits() || (waterfallEditSnapshot != null && !sameTeamCapSelection(waterfallEditSnapshot.teamCapIds, selectedTeamCapIds)) || (capOverrideBaseline != null && !sameAllocationOverrides(capOverrides, capOverrideBaseline))}
             onTeamCapAmountChange={setTeamCapOverride}
@@ -1996,10 +2005,10 @@ export default function Dashboard() {
             knownAgents={knownAgents}
             preventMinus={(e) => { if (e.key === '-') e.preventDefault(); }}
             formatNumberWithCommas={(v) => String(v)}
-            clientId={selectedDeal?.client_id || 'DEMO'}
-            transactionId={selectedDeal?.id || dealId || ''}
+            clientId={templateDeal?.client_id || 'DEMO'}
+            transactionId={templateDeal?.id || dealId || ''}
             allocations={dealResult.allocationLines || []}
-            deal={selectedDeal}
+            deal={templateDeal}
             templateAgents={templateAgentRoster}
             primaryAgentId={primaryAgentId}
             onApplyTemplate={handleApplyTemplateRules}
@@ -2008,18 +2017,18 @@ export default function Dashboard() {
             onStoredSubmission={rememberStoredSubmission}
             pendingTemplateSubmission={pendingTemplateSubmission}
             onResetWaterfall={handleResetWaterfall}
+            resetClearsPayments={templateQualifies === false}
             submissionRevision={templateSubmissionRevision}
           />
 
           <FinalDisbursements
-            isCollapsed={collapsed.disbursements}
-            onToggleSection={() => toggleSection('disbursements')}
             agentDisbursements={agentDisbursements}
             entityDisbursements={entityDisbursements}
             totalCommission={dealResult.totalCommission}
             agentSplitTotal={Number(dealResult.agentSplitTotal) || 0}
             agentSplitExcess={agentSplitExcess}
             remainingCommission={Number(dealResult.commissionAfterPreSplit) || 0}
+            requiresFullAllocation={templateQualifies === true}
           />
         </div>
       </div>

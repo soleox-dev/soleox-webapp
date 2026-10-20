@@ -14,8 +14,7 @@ function missingTable(message: string): boolean {
   return message.includes('does not exist') || message.includes('schema cache');
 }
 
-/** Append one audit row. A failed write is logged and does not undo the change that already succeeded. */
-export async function recordAudit(supabase: SupabaseClient, event: AuditEvent): Promise<void> {
+function auditRow(event: AuditEvent): Record<string, unknown> {
   const detail = event.detail ?? {};
   let stored: Record<string, unknown> = detail;
   try {
@@ -23,8 +22,7 @@ export async function recordAudit(supabase: SupabaseClient, event: AuditEvent): 
   } catch {
     stored = {};
   }
-
-  const { error } = await supabase.from('audit_events').insert({
+  return {
     client_id: event.clientId,
     actor_email: event.actorEmail.trim().toLowerCase(),
     action: event.action,
@@ -32,7 +30,18 @@ export async function recordAudit(supabase: SupabaseClient, event: AuditEvent): 
     entity_id: event.entityId || null,
     summary: event.summary.slice(0, 500),
     detail: stored,
-  });
+  };
+}
+
+/** Append one audit row. A failed write is logged and does not undo the change that already succeeded. */
+export async function recordAudit(supabase: SupabaseClient, event: AuditEvent): Promise<void> {
+  await recordAudits(supabase, [event]);
+}
+
+/** Append several audit rows in one insert. Failures are handled like recordAudit. */
+export async function recordAudits(supabase: SupabaseClient, events: AuditEvent[]): Promise<void> {
+  if (events.length === 0) return;
+  const { error } = await supabase.from('audit_events').insert(events.map(auditRow));
   if (!error) return;
   const message = error.message || 'The audit event could not be saved.';
   if (missingTable(message)) {

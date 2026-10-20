@@ -204,6 +204,16 @@ export default function FieldCustomizationsPage() {
 
   const formatFieldLabel = (key: string, rawLabel?: string) => {
     const lowerKey = key.toLowerCase();
+    const autoLabel = key
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+
+    // A label the tenant saved wins; the defaults below only replace blank or auto-generated labels.
+    const trimmedLabel = rawLabel?.trim() ?? '';
+    if (trimmedLabel && trimmedLabel !== key && trimmedLabel !== autoLabel) {
+      return trimmedLabel;
+    }
+
     if (lowerKey === 'tms_id') return 'TMS ID';
     if (lowerKey === 'agent_id' || lowerKey === 'primary_agent') return 'Primary Agent';
     if (lowerKey === 'id' && activeTab === 'agents') return 'Agent ID';
@@ -242,13 +252,7 @@ export default function FieldCustomizationsPage() {
     if (lowerKey === 'updated_at') return 'Updated At';
     if (lowerKey === 'updated_by') return 'Updated By';
 
-    if (rawLabel && rawLabel.trim().length > 0 && rawLabel !== key) {
-      return rawLabel;
-    }
-
-    return key
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, (l) => l.toUpperCase());
+    return autoLabel;
   };
 
   // Helper to retrieve request headers with tenant context

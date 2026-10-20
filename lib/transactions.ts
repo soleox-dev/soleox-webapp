@@ -7,7 +7,7 @@ import { CreateTransactionInput } from '@/lib/validations/transaction';
 import { processTransactionWaterfall } from '@/lib/services/waterfall-service';
 import { generatePrefixedId } from '@/lib/id';
 import { recordUserFieldProtections } from '@/lib/transaction-field-protections';
-import { recordAudit } from '@/lib/audit';
+import { recordAudit, recordAudits } from '@/lib/audit';
 import { repairImportedText } from '@/lib/imported-text';
 import { fetchAllPages } from '@/lib/supabase-pagination';
 
@@ -508,29 +508,112 @@ export async function deleteTransaction(
   return { id: transactionId };
 }
 
-const MAX_BULK_DELETE = 500;
+const MAX_BULK_DELETE = 5000;
+const DELETE_CHUNK = 100;
+const DELETE_CONCURRENCY = 4;
+
+type BulkDeleteOutcome = { deleted: string[]; errors: { id: string; message: string }[] };
 
 export async function deleteTransactions(
   clientId: string,
   ids: string[],
   userId: string,
   client?: SupabaseClient,
-) {
+): Promise<BulkDeleteOutcome> {
   const unique = [...new Set(ids.map((id) => String(id || '').trim()).filter(Boolean))];
   if (unique.length === 0) throw new Error('Choose at least one transaction.');
-  if (unique.length > MAX_BULK_DELETE) throw new Error(`Choose ${MAX_BULK_DELETE} transactions or fewer.`);
+  if (unique.length > MAX_BULK_DELETE) throw new Error(`Choose ${MAX_BULK_DELETE.toLocaleString('en-US')} transactions or fewer.`);
 
-  const deleted: string[] = [];
-  const errors: { id: string; message: string }[] = [];
-  for (const id of unique) {
-    try {
-      await deleteTransaction(clientId, id, userId, client);
-      deleted.push(id);
-    } catch (error) {
-      errors.push({ id, message: error instanceof Error ? error.message : 'Could not delete this transaction.' });
+  const sb = client || (await getAuthenticatedSupabase());
+  const pieces: string[][] = [];
+  for (let index = 0; index < unique.length; index += DELETE_CHUNK) pieces.push(unique.slice(index, index + DELETE_CHUNK));
+
+  const outcomes: BulkDeleteOutcome[] = new Array(pieces.length);
+  let cursor = 0;
+  const run = async () => {
+    while (cursor < pieces.length) {
+      const index = cursor;
+      cursor += 1;
+      outcomes[index] = await deleteTransactionPiece(sb, clientId, pieces[index], userId);
     }
+  };
+  await Promise.all(Array.from({ length: Math.min(DELETE_CONCURRENCY, pieces.length) }, () => run()));
+
+  return {
+    deleted: outcomes.flatMap((outcome) => outcome.deleted),
+    errors: outcomes.flatMap((outcome) => outcome.errors),
+  };
+}
+
+/** Archives up to DELETE_CHUNK transactions with one query per table. Falls back to one at a time if a batch query fails. */
+async function deleteTransactionPiece(
+  sb: SupabaseClient,
+  clientId: string,
+  ids: string[],
+  userId: string,
+): Promise<BulkDeleteOutcome> {
+  try {
+    const now = new Date().toISOString();
+    const { data: existing, error: lookupError } = await sb
+      .from('transactions')
+      .select('id')
+      .eq('client_id', clientId)
+      .or('archived.is.null,archived.eq.false')
+      .in('id', ids);
+    if (lookupError) throw new Error(lookupError.message);
+
+    const activeIds = new Set((existing || []).map((row) => String(row.id)));
+    const errors = ids
+      .filter((id) => !activeIds.has(id))
+      .map((id) => ({ id, message: 'Transaction not found.' }));
+    if (activeIds.size === 0) return { deleted: [], errors };
+
+    const targets = [...activeIds];
+    for (const table of TRANSACTION_CHILD_TABLES) {
+      const { error } = await sb
+        .from(table)
+        .update({ archived: true, updated_at: now, updated_by: userId })
+        .eq('client_id', clientId)
+        .in('transaction_id', targets);
+      if (error) throw new Error(error.message);
+    }
+
+    const { data: archived, error: archiveError } = await sb
+      .from('transactions')
+      .update({ archived: true, updated_at: now, updated_by: userId })
+      .eq('client_id', clientId)
+      .in('id', targets)
+      .select('id');
+    if (archiveError) throw new Error(archiveError.message);
+
+    const archivedIds = new Set((archived || []).map((row) => String(row.id)));
+    const deleted = targets.filter((id) => archivedIds.has(id));
+    targets
+      .filter((id) => !archivedIds.has(id))
+      .forEach((id) => errors.push({ id, message: 'Transaction not found or you do not have permission to delete it.' }));
+
+    await recordAudits(sb, deleted.map((id) => ({
+      clientId,
+      actorEmail: userId,
+      action: 'delete',
+      entity: 'transaction' as const,
+      entityId: id,
+      summary: `Archived transaction ${id}`,
+    })));
+    return { deleted, errors };
+  } catch {
+    const deleted: string[] = [];
+    const errors: { id: string; message: string }[] = [];
+    for (const id of ids) {
+      try {
+        await deleteTransaction(clientId, id, userId, sb);
+        deleted.push(id);
+      } catch (error) {
+        errors.push({ id, message: error instanceof Error ? error.message : 'Could not delete this transaction.' });
+      }
+    }
+    return { deleted, errors };
   }
-  return { deleted, errors };
 }
 
 /** Puts a deleted transaction back on the active ledger and restores the records archived with it. */

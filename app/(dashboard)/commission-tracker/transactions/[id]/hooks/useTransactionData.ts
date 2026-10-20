@@ -55,12 +55,42 @@ function agentFormulaFields(agent: Record<string, unknown>): Record<string, stri
   return fields;
 }
 
+/**
+ * What the last Transaction Detail page loaded. Moving to another transaction rebuilds the page,
+ * so the next one starts from these and refreshes them, instead of waiting on every list again.
+ * The Transactions list fills the deals when it loads them.
+ */
+const session: {
+  deals?: any[];
+  overviewFields?: FieldSetting[];
+  agents?: KnownAgentInfo[];
+  entities?: CommissionEntityOption[];
+} = {};
+
+export function rememberTransactions(deals: any[]): void {
+  session.deals = deals;
+}
+
 export function useTransactionData(routeId: string, isNewTransaction: boolean) {
-  const [savedDeals, setSavedDeals] = useState<any[]>([]);
-  const [overviewFields, setOverviewFields] = useState<FieldSetting[]>([]);
-  const [knownAgents, setKnownAgents] = useState<KnownAgentInfo[]>([]);
-  const [knownEntities, setKnownEntities] = useState<CommissionEntityOption[]>([]);
-  const [isLoadingDeals, setIsLoadingDeals] = useState<boolean>(true);
+  const [savedDeals, setSavedDeals] = useState<any[]>(() => session.deals ?? []);
+  const [overviewFields, setOverviewFields] = useState<FieldSetting[]>(() => session.overviewFields ?? []);
+  const [knownAgents, setKnownAgents] = useState<KnownAgentInfo[]>(() => session.agents ?? []);
+  const [knownEntities, setKnownEntities] = useState<CommissionEntityOption[]>(() => session.entities ?? []);
+  const [isLoadingDeals, setIsLoadingDeals] = useState<boolean>(() => !session.deals);
+
+  // Keep the session copy current, including saves and edits made on this page.
+  useEffect(() => {
+    if (savedDeals.length > 0) session.deals = savedDeals;
+  }, [savedDeals]);
+  useEffect(() => {
+    if (overviewFields.length > 0) session.overviewFields = overviewFields;
+  }, [overviewFields]);
+  useEffect(() => {
+    if (knownAgents.length > 0) session.agents = knownAgents;
+  }, [knownAgents]);
+  useEffect(() => {
+    if (knownEntities.length > 0) session.entities = knownEntities;
+  }, [knownEntities]);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [commissionItems, setCommissionItems] = useState<StoredCommissionItem[]>([]);
   const [commissionItemsDealId, setCommissionItemsDealId] = useState<string | null>(null);
@@ -125,7 +155,7 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
   useEffect(() => {
     async function loadDealsAndAgents() {
       try {
-        setIsLoadingDeals(true);
+        if (!session.deals) setIsLoadingDeals(true);
         const [dealsRes, agentsRes, entitiesRes] = await Promise.all([
           fetch('/api/transactions'),
           fetch('/api/agents?include_archived=true'),

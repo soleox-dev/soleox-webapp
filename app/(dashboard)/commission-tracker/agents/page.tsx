@@ -289,6 +289,27 @@ export default function AgentsPage() {
   // Client-side viewing: Quick search & column sorting
   const [searchQuery, setSearchQuery] = useState('');
   const [activeGroup, setActiveGroup] = useState('ALL');
+
+  // ?q= from the ⌘K search opens the list filtered to that agent.
+  useLayoutEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get('q');
+    if (!query) return;
+    setSearchQuery(query);
+  }, []);
+
+  // Removing q is deferred and cancelled on cleanup, so a second effect pass (React dev mode runs
+  // effects twice) still finds it and applies the search again over the restored list state.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      if (!params.has('q')) return;
+      params.delete('q');
+      const rest = params.toString();
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}${rest ? `?${rest}` : ''}${window.location.hash}`);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
   const [showFilters, setShowFilters] = useState(false);
   const [compactRows, setCompactRows] = useState(false);
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
@@ -922,15 +943,17 @@ export default function AgentsPage() {
     return operator === 'AND' ? results.every(Boolean) : results.some(Boolean);
   };
 
-  const cellPad = `${compactRows ? 'px-3 py-0.5 leading-4' : 'px-4 py-3'} border-b border-slate-200 dark:border-slate-700/60`;
+  const cellPad = `${compactRows ? 'px-3 py-0.5 leading-4' : 'px-4 py-3'}`;
   const badgeSize = compactRows ? 'inline-flex h-4 items-center px-1.5 leading-none' : 'inline-block px-2.5 py-0.5';
   const pinEdge = 'shadow-[8px_0_12px_-12px_rgba(15,23,42,0.55)]';
   const pinLeft = bulkMode ? 'left-8' : 'left-0';
   const pinHead = `sticky ${pinLeft} z-30 ${pinEdge}`;
-  const pinCell = `sticky ${pinLeft} z-10 bg-white group-hover:bg-slate-50 dark:bg-slate-800 dark:group-hover:bg-slate-700 ${pinEdge}`;
+  // Frozen cells are opaque, so they repeat the row band and hover in solid colors. #1a2436 is
+  // slate-900/30 over slate-800 and #28354a is slate-700/50 over slate-800, matching the row.
+  const pinCell = `sticky ${pinLeft} z-10 bg-white group-even:bg-slate-50 group-hover:bg-slate-100 dark:bg-slate-800 dark:group-even:bg-[#1a2436] dark:group-hover:bg-[#28354a] ${pinEdge}`;
   const pinCheckHead = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-slate-100 dark:bg-slate-900';
   const pinCheckSection = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-slate-200 dark:bg-slate-950';
-  const pinCheckCell = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-white group-hover:bg-slate-50 dark:bg-slate-800 dark:group-hover:bg-slate-700';
+  const pinCheckCell = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-white group-even:bg-slate-50 group-hover:bg-slate-100 dark:bg-slate-800 dark:group-even:bg-[#1a2436] dark:group-hover:bg-[#28354a]';
 
   return (
     <main className={`${pageFrame} min-h-screen bg-slate-100 py-6 text-slate-900 transition-colors duration-200 space-y-6 dark:bg-slate-900 dark:text-slate-100 md:py-8`}>
@@ -1121,7 +1144,7 @@ export default function AgentsPage() {
           className={`overflow-x-auto overflow-y-auto border border-slate-200 dark:border-slate-700/80 rounded-lg scrollbar-thin ${compactRows ? 'max-h-[calc(100dvh-11rem)]' : 'max-h-[640px]'}`}
         >
           <table className="w-full text-left text-xs border-separate border-spacing-0">
-            <thead className="sticky top-0 z-20 shadow-md select-none bg-slate-100 dark:bg-slate-900">
+            <thead className="sticky top-0 z-20 select-none bg-slate-100 dark:bg-slate-900">
               <tr className="bg-slate-200 dark:bg-slate-950 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
                 {bulkMode && <th className={`${pinCheckSection} border-b border-slate-300 dark:border-slate-800`} />}
                 {sectionHeaderGroups.map((group, index) => {
@@ -1284,10 +1307,10 @@ export default function AgentsPage() {
                       if (target?.closest('a, button, input, select, textarea, label')) return;
                       if (bulkMode) toggleRowSelection(String(ag.id || ''));
                     }}
-                    className={`group hover:bg-slate-50 dark:hover:bg-slate-700/30 transition ${bulkMode ? 'cursor-pointer' : ''}`}
+                    className={`group even:bg-slate-50 dark:even:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition ${bulkMode ? 'cursor-pointer' : ''}`}
                   >
                     {bulkMode && (
-                      <td className={`${pinCheckCell} ${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} text-center align-middle border-b border-slate-200 dark:border-slate-700/60`}>
+                      <td className={`${pinCheckCell} ${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} text-center align-middle`}>
                         <span className="inline-flex items-center justify-center">
                           <input
                             type="checkbox"

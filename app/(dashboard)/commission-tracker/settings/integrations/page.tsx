@@ -85,6 +85,7 @@ const POLICY_OPTIONS: Array<{
 interface IntegrationDraft {
   spreadsheet: string;
   tabName: string;
+  tmsName: string;
   enabled: boolean;
   mappings: MappingRow[];
 }
@@ -108,6 +109,7 @@ function draftKey(draft: IntegrationDraft, fields: Array<{ fieldKey: string }>):
   return JSON.stringify({
     spreadsheet: draft.spreadsheet,
     tabName: draft.tabName,
+    tmsName: draft.tmsName.trim(),
     enabled: draft.enabled,
     mappings: normalizeMappings(draft.mappings, fields),
   });
@@ -246,6 +248,7 @@ export default function TransactionIntegrationsPage() {
   const [fields, setFields] = useState<FieldOption[]>([]);
   const [spreadsheet, setSpreadsheet] = useState('');
   const [tabName, setTabName] = useState('SOLEOX Integration');
+  const [tmsName, setTmsName] = useState('');
   const [enabled, setEnabled] = useState(false);
   const [persistedEnabled, setPersistedEnabled] = useState(false);
   const [mappings, setMappings] = useState<MappingRow[]>([]);
@@ -265,14 +268,16 @@ export default function TransactionIntegrationsPage() {
   const [savedDraftKey, setSavedDraftKey] = useState('');
 
   const applyPayload = (data: Record<string, unknown>) => {
-    const connection = data.connection as { spreadsheetId?: string; spreadsheetUrl?: string; tabName?: string; enabled?: boolean } | null;
+    const connection = data.connection as { spreadsheetId?: string; spreadsheetUrl?: string; tabName?: string; tmsName?: string; enabled?: boolean } | null;
     const nextSpreadsheet = connection?.spreadsheetUrl || connection?.spreadsheetId || '';
     const nextTabName = connection?.tabName || 'SOLEOX Integration';
+    const nextTmsName = connection?.tmsName || '';
     const nextEnabled = Boolean(connection?.enabled);
     const nextFields = Array.isArray(data.fields) ? data.fields as FieldOption[] : [];
     const nextMappings = normalizeMappings(Array.isArray(data.mappings) ? data.mappings as MappingRow[] : [], nextFields);
     setSpreadsheet(nextSpreadsheet);
     setTabName(nextTabName);
+    setTmsName(nextTmsName);
     setEnabled(nextEnabled);
     setPersistedEnabled(nextEnabled);
     setFields(nextFields);
@@ -280,6 +285,7 @@ export default function TransactionIntegrationsPage() {
     setSavedDraftKey(draftKey({
       spreadsheet: nextSpreadsheet,
       tabName: nextTabName,
+      tmsName: nextTmsName,
       enabled: nextEnabled,
       mappings: nextMappings,
     }, nextFields));
@@ -315,7 +321,7 @@ export default function TransactionIntegrationsPage() {
 
   const tmsMapped = mappings.some((mapping) => mapping.fieldKey === 'tms_id');
   const syncReady = Boolean(defaultViewFormula.trim()) && tmsMapped && persistedEnabled && serviceAccountConfigured;
-  const isDirty = loaded && savedDraftKey !== draftKey({ spreadsheet, tabName, enabled, mappings }, fields);
+  const isDirty = loaded && savedDraftKey !== draftKey({ spreadsheet, tabName, tmsName, enabled, mappings }, fields);
 
   const fieldOptions = useMemo(() => fields.slice().sort((left, right) => left.fieldLabel.localeCompare(right.fieldLabel)), [fields]);
 
@@ -379,6 +385,7 @@ export default function TransactionIntegrationsPage() {
           clientId: CLIENT_ID,
           spreadsheetId: spreadsheet,
           tabName,
+          tmsName,
           enabled,
           mappings: mappings.map((mapping) => {
             const fieldKey = connectedFieldKey(mapping.fieldKey, fields);
@@ -513,7 +520,10 @@ export default function TransactionIntegrationsPage() {
             </p>
           )}
 
-          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_16rem]">
+          <div className="grid gap-4 md:grid-cols-[12rem_minmax(0,1fr)_16rem]">
+            <UnderlineField label="TMS">
+              <input value={tmsName} onChange={(event) => setTmsName(event.target.value)} placeholder="SkySlope, Open To Close, etc." maxLength={60} className={underlineControl} disabled={!canManage} />
+            </UnderlineField>
             <UnderlineField label="Spreadsheet">
               <input value={spreadsheet} onChange={(event) => setSpreadsheet(event.target.value)} placeholder="Paste the Google Sheets link" className={underlineControl} disabled={!canManage} />
             </UnderlineField>

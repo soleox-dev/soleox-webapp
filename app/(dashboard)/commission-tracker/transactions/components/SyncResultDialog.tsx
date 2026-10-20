@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Check, Copy } from 'lucide-react';
+import { Check, Copy, X } from 'lucide-react';
 import { duplicateTmsIdReason, isDuplicateTmsIdReason } from '@/lib/sync-finished-summary';
 
 export interface SyncFieldChange {
@@ -375,18 +375,29 @@ export function SyncResultDialog({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-4xl flex-col rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-800"
+        className="flex max-h-[90vh] w-full max-w-[1400px] flex-col rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-800"
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="sync-result-title"
       >
-        <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-700">
-          <h3 id="sync-result-title" className="text-base font-bold text-slate-900 dark:text-white">Sync with TMS</h3>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{summary}</p>
-          {note && <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{note}</p>}
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-3 dark:border-slate-700">
+          <div>
+            <h3 id="sync-result-title" className="text-base font-bold text-slate-900 dark:text-white">Sync with TMS</h3>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{summary}</p>
+            {note && <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{note}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            title="Close"
+            className="group -mr-1.5 inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 dark:text-slate-400 dark:hover:bg-slate-700/70 dark:hover:text-white"
+          >
+            <X className="h-4 w-4 transition-transform duration-200 group-hover:rotate-90" strokeWidth={2} aria-hidden />
+          </button>
         </div>
-        <div className="space-y-6 overflow-y-auto px-5 py-4">
+        <div className="space-y-5 overflow-y-auto px-5 py-3">
           {showRest && added.length === 0 && updated.length === 0 && notAdded.length === 0 && failed.length === 0 && (
             <p className="text-sm text-slate-600 dark:text-slate-300">No transactions were added, and no TMS fields changed.</p>
           )}
@@ -415,41 +426,47 @@ export function SyncResultDialog({
           {showUpdated && (
             <section>
               <h4 className="text-xs font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">Updated from TMS</h4>
-              <div className="mt-2 space-y-4">
-                {updated.map((detail) => (
-                  <div key={`upd-${detail.transactionId || detail.tmsId}`}>
-                    {detail.transactionId ? (
-                      <Link
-                        href={`/commission-tracker/transactions/${detail.transactionId}`}
-                        onClick={onClose}
-                        className="text-sm font-semibold text-emerald-600 hover:underline dark:text-emerald-400"
+              <table className="mt-2 w-full border-collapse text-left text-xs">
+                <thead className="sticky -top-3 z-10 bg-white dark:bg-slate-800">
+                  <tr className="text-[10px] uppercase tracking-wider text-slate-500">
+                    <th className="w-[40%] py-1.5 pr-3 font-semibold">Transaction</th>
+                    <th className="py-1.5 pr-3 font-semibold">Field</th>
+                    <th className="py-1.5 pr-3 font-semibold">Before</th>
+                    <th className="py-1.5 font-semibold">After</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {updated.flatMap((detail) => {
+                    const changes = detail.changes || [];
+                    const key = detail.transactionId || detail.tmsId;
+                    return changes.map((change, index) => (
+                      <tr
+                        key={`upd-${key}-${change.fieldKey}`}
+                        className={index === 0 ? 'border-t border-slate-200 dark:border-slate-700' : ''}
                       >
-                        {detail.label || detail.tmsId}
-                      </Link>
-                    ) : (
-                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{detail.label || detail.tmsId}</p>
-                    )}
-                    <table className="mt-1 w-full text-left text-xs">
-                      <thead>
-                        <tr className="text-[10px] uppercase tracking-wider text-slate-500">
-                          <th className="py-1 pr-3 font-semibold">Field</th>
-                          <th className="py-1 pr-3 font-semibold">Before</th>
-                          <th className="py-1 font-semibold">After</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {detail.changes?.map((change) => (
-                          <tr key={change.fieldKey} className="border-t border-slate-200 dark:border-slate-700">
-                            <td className="py-1.5 pr-3 text-slate-800 dark:text-slate-100">{change.fieldLabel}</td>
-                            <td className="py-1.5 pr-3 text-slate-500 dark:text-slate-400">{change.before}</td>
-                            <td className="py-1.5 text-slate-800 dark:text-slate-100">{change.after}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ))}
-              </div>
+                        {index === 0 && (
+                          <td rowSpan={changes.length} className="py-1 pr-3 align-top">
+                            {detail.transactionId ? (
+                              <Link
+                                href={`/commission-tracker/transactions/${detail.transactionId}`}
+                                onClick={onClose}
+                                className="font-semibold text-emerald-600 hover:underline dark:text-emerald-400"
+                              >
+                                {detail.label || detail.tmsId}
+                              </Link>
+                            ) : (
+                              <span className="font-semibold text-slate-800 dark:text-slate-100">{detail.label || detail.tmsId}</span>
+                            )}
+                          </td>
+                        )}
+                        <td className="py-1 pr-3 align-top text-slate-800 dark:text-slate-100">{change.fieldLabel}</td>
+                        <td className="py-1 pr-3 align-top text-slate-500 dark:text-slate-400">{change.before}</td>
+                        <td className="py-1 align-top text-slate-800 dark:text-slate-100">{change.after}</td>
+                      </tr>
+                    ));
+                  })}
+                </tbody>
+              </table>
             </section>
           )}
           {showRest && notAdded.length > 0 && (
@@ -474,15 +491,6 @@ export function SyncResultDialog({
               </div>
             </section>
           )}
-        </div>
-        <div className="flex justify-end border-t border-slate-200 px-5 py-3 dark:border-slate-700">
-          <button
-            type="button"
-            onClick={onClose}
-            className="cursor-pointer rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400"
-          >
-            Close
-          </button>
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 // app/commission-tracker/transactions/[id]/components/CommissionWaterfall.tsx
-import React, { useEffect, useState } from 'react';
-import { Eraser, LayoutGrid, Table2 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Eraser, LayoutGrid, MoreHorizontal, Table2 } from 'lucide-react';
 import { toPercentPoints } from '@/lib/percent';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { AgentConfig, DynamicRule, CommissionEntityOption, KnownAgentInfo } from '../types';
@@ -10,8 +10,6 @@ import { HoverNote } from './HoverNote';
 import { SplitPair } from './SplitPair';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { SectionIcon } from './SectionIcon';
-import { toggleFromSectionHeader } from './sectionHeaderClick';
-import { SectionCollapseButton } from './SectionCollapseButton';
 import { CancelEditPrompt } from './CancelEditPrompt';
 import { useEditOnDoublePress } from './useEditOnDoublePress';
 import { useSectionEditKeys } from './useSectionEditKeys';
@@ -24,8 +22,6 @@ import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
 import { useAccess } from '@/components/access-provider';
 
 interface CommissionWaterfallProps {
-  isCollapsed: boolean;
-  onToggleSection: () => void;
   isEditing: boolean;
   hasChanges: boolean;
   onStartEdit: () => void;
@@ -88,6 +84,8 @@ interface CommissionWaterfallProps {
   onStoredSubmission?: (submission: TemplateSubmissionDraft | null) => void;
   pendingTemplateSubmission?: TemplateSubmissionDraft | null;
   onResetWaterfall?: () => void;
+  /** True when the deal qualifies for no template, so a reset leaves no agent splits and no payments. */
+  resetClearsPayments?: boolean;
   submissionRevision?: number;
   allocations?: AgentAllocationLine[];
   onTeamCapAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
@@ -143,8 +141,6 @@ function AgentCapStrips({
 }
 
 export function CommissionWaterfall({
-  isCollapsed,
-  onToggleSection,
   isEditing,
   hasChanges,
   onStartEdit,
@@ -206,6 +202,7 @@ export function CommissionWaterfall({
   onStoredSubmission,
   pendingTemplateSubmission = null,
   onResetWaterfall,
+  resetClearsPayments = false,
   submissionRevision = 0,
   allocations = [],
   onTeamCapAmountChange,
@@ -256,13 +253,13 @@ export function CommissionWaterfall({
   };
 
   const agentLayoutToggle = (
-    <div role="group" aria-label="Agent splits layout" className="inline-flex h-9 shrink-0 items-stretch rounded-lg border border-slate-200 dark:border-slate-700 p-0.5">
+    <div role="group" aria-label="Agent splits layout" className="inline-flex h-9 shrink-0 items-stretch gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
       <button
         type="button"
         onClick={() => chooseAgentLayout('table')}
         title="Table"
         aria-label="Table"
-        className={`inline-flex h-full w-8 items-center justify-center rounded-md cursor-pointer ${agentLayout === 'table' ? 'bg-emerald-500 text-slate-950' : 'text-slate-500 dark:text-slate-400'}`}
+        className={`inline-flex h-full w-8 items-center justify-center rounded-md cursor-pointer transition ${agentLayout === 'table' ? 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}
       >
         <Table2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
       </button>
@@ -271,7 +268,7 @@ export function CommissionWaterfall({
         onClick={() => chooseAgentLayout('cards')}
         title="Cards"
         aria-label="Cards"
-        className={`inline-flex h-full w-8 items-center justify-center rounded-md cursor-pointer ${agentLayout === 'cards' ? 'bg-emerald-500 text-slate-950' : 'text-slate-500 dark:text-slate-400'}`}
+        className={`inline-flex h-full w-8 items-center justify-center rounded-md cursor-pointer transition ${agentLayout === 'cards' ? 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}
       >
         <LayoutGrid className="h-4 w-4" strokeWidth={1.75} aria-hidden />
       </button>
@@ -531,11 +528,10 @@ export function CommissionWaterfall({
   };
 
   return (
-    <section id="commission" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-8 transition-colors">
+    <section id="commission" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height)+0.75rem)] transition-colors">
       {/* Top Header */}
       <div
-        onClick={(event) => toggleFromSectionHeader(event, onToggleSection)}
-        className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center cursor-pointer"
+        className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center"
       >
         <div className="flex shrink-0 items-center gap-3">
           <SectionIcon name="commission" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
@@ -545,6 +541,7 @@ export function CommissionWaterfall({
         <div className="flex items-center gap-3">
           {canWrite && (
           <CommissionTemplatePanel
+            key={transactionId || 'new'}
             embedded
             clientId={clientId}
             transactionId={transactionId}
@@ -560,16 +557,6 @@ export function CommissionWaterfall({
             pendingSubmission={pendingTemplateSubmission}
             submissionRevision={submissionRevision}
           />
-          )}
-          {canWrite && onResetWaterfall && (
-            <button
-              type="button"
-              onClick={() => setConfirmReset(true)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 cursor-pointer dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-950/70"
-            >
-              <Eraser className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-              Reset waterfall
-            </button>
           )}
           {agentLayoutToggle}
           {canWrite && !isEditing ? (
@@ -605,1075 +592,1074 @@ export function CommissionWaterfall({
               )}
             </div>
           ) : null}
-
-          <SectionCollapseButton collapsed={isCollapsed} onClick={onToggleSection} />
+          {canWrite && onResetWaterfall && (
+            <WaterfallMoreMenu onReset={() => setConfirmReset(true)} />
+          )}
         </div>
       </div>
 
-      {!isCollapsed && (
-        <div className="p-6 space-y-6" {...editOnDoublePress}>
-          {/* Step 1: Off-The-Top Deductions */}
-          <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-3 shadow-sm">
-            <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                  1. Off-The-Top Deductions
-                </span>
-                {isEditing && (
-                  <button
-                    type="button"
-                    onClick={handleStartAddOffTop}
-                    title="Add New Off-the-top Deduction"
-                    aria-label="Add New Off-the-top Deduction"
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
-                  >
-                    <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
-                      <path d="M8 3.25v9.5M3.25 8h9.5" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-              <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg">
-                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                  Total Commission:
-                </span>
-                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                  {formatCurrency(baselineTotalCommission)}
-                </span>
-              </div>
+      <div className="p-6 space-y-6" {...editOnDoublePress}>
+        {/* Step 1: Off-The-Top Deductions */}
+        <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-3 shadow-sm">
+          <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                1. Off-The-Top Deductions
+              </span>
+              {isEditing && (
+                <button
+                  type="button"
+                  onClick={handleStartAddOffTop}
+                  title="Add New Off-the-top Deduction"
+                  aria-label="Add New Off-the-top Deduction"
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
+                >
+                  <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
+                    <path d="M8 3.25v9.5M3.25 8h9.5" />
+                  </svg>
+                </button>
+              )}
             </div>
-
-            {isEditing && isAddingOffTop && (
-              <div data-inline-save className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-lg border border-emerald-500/30 space-y-2 mb-2">
-                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block">
-                  Add Off-The-Top Deduction
-                </span>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  {knownEntities.length > 0 ? (
-                    <ClearableSelect
-                      value={newOffTopEntity}
-                      onChange={(e) => setNewOffTopEntity(e.target.value)}
-                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
-                    >
-                      {knownEntities.map((ent) => (
-                        <option key={ent.id} value={ent.name}>{ent.name}</option>
-                      ))}
-                    </ClearableSelect>
-                  ) : (
-                    <input
-                      type="text"
-                      placeholder="Entity Name (e.g. Soleox Realty)"
-                      value={newOffTopEntity}
-                      onChange={(e) => setNewOffTopEntity(e.target.value)}
-                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
-                    />
-                  )}
-                  <SplitPair
-                    isEditing
-                    type={newOffTopType}
-                    percentPoints={newOffTopType === 'PERCENT' ? toPercentPoints(newOffTopValue) : (baselineTotalCommission > 0 ? (newOffTopValue / baselineTotalCommission) * 100 : 0)}
-                    dollarAmount={newOffTopType === 'AMOUNT' ? newOffTopValue : baselineTotalCommission * newOffTopValue}
-                    onPercentChange={(val) => {
-                      if (newOffTopType !== 'PERCENT') toggleNewOffTopType();
-                      setNewOffTopValue(val);
-                    }}
-                    onAmountChange={(val) => {
-                      if (newOffTopType !== 'AMOUNT') toggleNewOffTopType();
-                      setNewOffTopValue(val);
-                    }}
-                    preventMinus={preventMinus}
-                  />
-                  <div className="flex items-center gap-2 justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingOffTop(false)}
-                      className="text-xs px-2.5 py-1 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveOffTop}
-                      className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded font-semibold cursor-pointer shadow-sm whitespace-nowrap"
-                    >
-                      Save
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {offTheTopRules.length === 0 && !isAddingOffTop && (
-              <p className="text-xs text-slate-400 italic py-1">No off-the-top deductions applied to this transaction.</p>
-            )}
-
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {offTheTopRules.map((rule, idx) => {
-                const calculatedItem = (dealResult.offTheTopItems || []).find((i: any) => i.id === rule.id);
-                return (
-                  <div
-                    key={rule.id}
-                    {...getDragRowProps(idx, 'offTop', onReorderOffTopRules)}
-                    className="py-2.5 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
-                  >
-                    <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
-                      {renderReorderControls(idx, offTheTopRules.length, onReorderOffTopRules, 'offTop')}
-                      {isEditing && (
-                        <button
-                          type="button"
-                          onClick={() => onDeleteOffTopRule(rule.id)}
-                          className="text-rose-500 hover:text-rose-600 font-bold cursor-pointer transition p-0.5"
-                          title="Delete rule"
-                        >
-                          <TrashIcon />
-                        </button>
-                      )}
-
-                      {isEditing ? (
-                        knownEntities.length > 0 ? (
-                          <ClearableSelect
-                            value={rule.entity}
-                            onChange={(e) => onUpdateOffTopRuleEntity?.(rule.id, e.target.value)}
-                            className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[150px] sm:max-w-[190px]"
-                            title="Switch entity"
-                          >
-                            <option value={rule.entity}>{rule.entity}</option>
-                            {knownEntities.filter((e) => e.name !== rule.entity).map((ent) => (
-                              <option key={ent.id} value={ent.name}>{ent.name}</option>
-                            ))}
-                          </ClearableSelect>
-                        ) : (
-                          <input
-                            type="text"
-                            value={rule.entity}
-                            onChange={(e) => onUpdateOffTopRuleEntity?.(rule.id, e.target.value)}
-                            className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] w-28"
-                          />
-                        )
-                      ) : (
-                        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[190px] truncate" title={rule.entity}>
-                          {rule.entity || '—'}
-                        </span>
-                      )}
-
-                    </div>
-                    <div className={isEditing ? undefined : 'pr-2'}>
-                    <SplitPair
-                      compact={!isEditing}
-                      isEditing={isEditing}
-                      type={rule.type}
-                      percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (baselineTotalCommission > 0 ? ((calculatedItem?.amount || 0) / baselineTotalCommission) * 100 : 0)}
-                      dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
-                      deduction
-                      onPercentChange={(val) => {
-                        if (rule.type !== 'PERCENT') onToggleOffTopRuleType(rule.id);
-                        onUpdateOffTopRuleValue(rule.id, val);
-                      }}
-                      onAmountChange={(val) => {
-                        if (rule.type !== 'AMOUNT') onToggleOffTopRuleType(rule.id);
-                        onUpdateOffTopRuleValue(rule.id, val);
-                      }}
-                      preventMinus={preventMinus}
-                    />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Step 2: Pre-Split Deductions */}
-          <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-3 shadow-sm">
-            <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                  2. Pre-Split Deductions
-                </span>
-                {isEditing && (
-                  <button
-                    type="button"
-                    onClick={handleStartAddPreSplit}
-                    title="Add New Pre-split Deduction"
-                    aria-label="Add New Pre-split Deduction"
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
-                  >
-                    <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
-                      <path d="M8 3.25v9.5M3.25 8h9.5" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-              <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-4'}`}>
-                Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterOffTop)}</strong>
+            <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg">
+              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                Total Commission:
+              </span>
+              <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                {formatCurrency(baselineTotalCommission)}
               </span>
             </div>
+          </div>
 
-            {isEditing && isAddingPreSplit && (
-              <div data-inline-save className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-lg border border-emerald-500/30 space-y-2 mb-2">
-                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block">
-                  Add Pre-Split Deduction
-                </span>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  {knownEntities.length > 0 ? (
-                    <ClearableSelect
-                      value={newPreSplitEntity}
-                      onChange={(e) => setNewPreSplitEntity(e.target.value)}
-                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
-                    >
-                      {knownEntities.map((ent) => (
-                        <option key={ent.id} value={ent.name}>{ent.name}</option>
-                      ))}
-                    </ClearableSelect>
-                  ) : (
-                    <input
-                      type="text"
-                      placeholder="Entity Name (e.g. TC Fee, Referral)"
-                      value={newPreSplitEntity}
-                      onChange={(e) => setNewPreSplitEntity(e.target.value)}
-                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
-                    />
-                  )}
+          {isEditing && isAddingOffTop && (
+            <div data-inline-save className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-lg border border-emerald-500/30 space-y-2 mb-2">
+              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block">
+                Add Off-The-Top Deduction
+              </span>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                {knownEntities.length > 0 ? (
+                  <ClearableSelect
+                    value={newOffTopEntity}
+                    onChange={(e) => setNewOffTopEntity(e.target.value)}
+                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
+                  >
+                    {knownEntities.map((ent) => (
+                      <option key={ent.id} value={ent.name}>{ent.name}</option>
+                    ))}
+                  </ClearableSelect>
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="Entity Name (e.g. Soleox Realty)"
+                    value={newOffTopEntity}
+                    onChange={(e) => setNewOffTopEntity(e.target.value)}
+                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
+                  />
+                )}
+                <SplitPair
+                  isEditing
+                  type={newOffTopType}
+                  percentPoints={newOffTopType === 'PERCENT' ? toPercentPoints(newOffTopValue) : (baselineTotalCommission > 0 ? (newOffTopValue / baselineTotalCommission) * 100 : 0)}
+                  dollarAmount={newOffTopType === 'AMOUNT' ? newOffTopValue : baselineTotalCommission * newOffTopValue}
+                  onPercentChange={(val) => {
+                    if (newOffTopType !== 'PERCENT') toggleNewOffTopType();
+                    setNewOffTopValue(val);
+                  }}
+                  onAmountChange={(val) => {
+                    if (newOffTopType !== 'AMOUNT') toggleNewOffTopType();
+                    setNewOffTopValue(val);
+                  }}
+                  preventMinus={preventMinus}
+                />
+                <div className="flex items-center gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingOffTop(false)}
+                    className="text-xs px-2.5 py-1 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveOffTop}
+                    className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded font-semibold cursor-pointer shadow-sm whitespace-nowrap"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {offTheTopRules.length === 0 && !isAddingOffTop && (
+            <p className="text-xs text-slate-400 italic py-1">No off-the-top deductions applied to this transaction.</p>
+          )}
+
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {offTheTopRules.map((rule, idx) => {
+              const calculatedItem = (dealResult.offTheTopItems || []).find((i: any) => i.id === rule.id);
+              return (
+                <div
+                  key={rule.id}
+                  {...getDragRowProps(idx, 'offTop', onReorderOffTopRules)}
+                  className="py-2.5 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
+                >
+                  <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+                    {renderReorderControls(idx, offTheTopRules.length, onReorderOffTopRules, 'offTop')}
+                    {isEditing && (
+                      <button
+                        type="button"
+                        onClick={() => onDeleteOffTopRule(rule.id)}
+                        className="text-rose-500 hover:text-rose-600 font-bold cursor-pointer transition p-0.5"
+                        title="Delete rule"
+                      >
+                        <TrashIcon />
+                      </button>
+                    )}
+
+                    {isEditing ? (
+                      knownEntities.length > 0 ? (
+                        <ClearableSelect
+                          value={rule.entity}
+                          onChange={(e) => onUpdateOffTopRuleEntity?.(rule.id, e.target.value)}
+                          className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[150px] sm:max-w-[190px]"
+                          title="Switch entity"
+                        >
+                          <option value={rule.entity}>{rule.entity}</option>
+                          {knownEntities.filter((e) => e.name !== rule.entity).map((ent) => (
+                            <option key={ent.id} value={ent.name}>{ent.name}</option>
+                          ))}
+                        </ClearableSelect>
+                      ) : (
+                        <input
+                          type="text"
+                          value={rule.entity}
+                          onChange={(e) => onUpdateOffTopRuleEntity?.(rule.id, e.target.value)}
+                          className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] w-28"
+                        />
+                      )
+                    ) : (
+                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[190px] truncate" title={rule.entity}>
+                        {rule.entity || '—'}
+                      </span>
+                    )}
+
+                  </div>
+                  <div className={isEditing ? undefined : 'pr-2'}>
                   <SplitPair
-                    isEditing
-                    type={newPreSplitType}
-                    percentPoints={newPreSplitType === 'PERCENT' ? toPercentPoints(newPreSplitValue) : (commissionAfterOffTop > 0 ? (newPreSplitValue / commissionAfterOffTop) * 100 : 0)}
-                    dollarAmount={newPreSplitType === 'AMOUNT' ? newPreSplitValue : commissionAfterOffTop * newPreSplitValue}
+                    compact={!isEditing}
+                    isEditing={isEditing}
+                    type={rule.type}
+                    percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (baselineTotalCommission > 0 ? ((calculatedItem?.amount || 0) / baselineTotalCommission) * 100 : 0)}
+                    dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
+                    deduction
                     onPercentChange={(val) => {
-                      if (newPreSplitType !== 'PERCENT') toggleNewPreSplitType();
-                      setNewPreSplitValue(val);
+                      if (rule.type !== 'PERCENT') onToggleOffTopRuleType(rule.id);
+                      onUpdateOffTopRuleValue(rule.id, val);
                     }}
                     onAmountChange={(val) => {
-                      if (newPreSplitType !== 'AMOUNT') toggleNewPreSplitType();
-                      setNewPreSplitValue(val);
+                      if (rule.type !== 'AMOUNT') onToggleOffTopRuleType(rule.id);
+                      onUpdateOffTopRuleValue(rule.id, val);
                     }}
                     preventMinus={preventMinus}
                   />
-                  <div className="flex items-center gap-2 justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingPreSplit(false)}
-                      className="text-xs px-2.5 py-1 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSavePreSplit}
-                      className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded font-semibold cursor-pointer shadow-sm whitespace-nowrap"
-                    >
-                      Save
-                    </button>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })}
+          </div>
+        </div>
 
-            {preSplitRules.length === 0 && !isAddingPreSplit && (
-              <p className="text-xs text-slate-400 italic py-1">No pre-split deductions applied to this transaction.</p>
-            )}
-
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {preSplitRules.map((rule, idx) => {
-                const calculatedItem = (dealResult.preSplitItems || []).find((i: any) => i.id === rule.id);
-                return (
-                  <div
-                    key={rule.id}
-                    {...getDragRowProps(idx, 'preSplit', onReorderPreSplitRules)}
-                    className="py-2.5 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
-                  >
-                    <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
-                      {renderReorderControls(idx, preSplitRules.length, onReorderPreSplitRules, 'preSplit')}
-                      {isEditing && (
-                        <button
-                          type="button"
-                          onClick={() => onDeletePreSplitRule?.(rule.id)}
-                          className="text-rose-500 hover:text-rose-600 font-bold cursor-pointer transition p-0.5"
-                          title="Delete rule"
-                        >
-                          <TrashIcon />
-                        </button>
-                      )}
-
-                      {isEditing ? (
-                        knownEntities.length > 0 ? (
-                          <ClearableSelect
-                            value={rule.entity}
-                            onChange={(e) => onUpdatePreSplitRuleEntity?.(rule.id, e.target.value)}
-                            className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[150px] sm:max-w-[190px]"
-                            title="Switch entity"
-                          >
-                            <option value={rule.entity}>{rule.entity}</option>
-                            {knownEntities.filter((e) => e.name !== rule.entity).map((ent) => (
-                              <option key={ent.id} value={ent.name}>{ent.name}</option>
-                            ))}
-                          </ClearableSelect>
-                        ) : (
-                          <input
-                            type="text"
-                            value={rule.entity}
-                            onChange={(e) => onUpdatePreSplitRuleEntity?.(rule.id, e.target.value)}
-                            className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] w-28"
-                          />
-                        )
-                      ) : (
-                        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[190px] truncate" title={rule.entity}>
-                          {rule.entity || '—'}
-                        </span>
-                      )}
-
-                    </div>
-                    <div className={isEditing ? undefined : 'pr-2'}>
-                    <SplitPair
-                      compact={!isEditing}
-                      isEditing={isEditing}
-                      type={rule.type}
-                      percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (commissionAfterOffTop > 0 ? ((calculatedItem?.amount || 0) / commissionAfterOffTop) * 100 : 0)}
-                      dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
-                      deduction
-                      onPercentChange={(val) => {
-                        if (rule.type !== 'PERCENT') onTogglePreSplitRuleType?.(rule.id);
-                        onUpdatePreSplitRuleValue?.(rule.id, val);
-                      }}
-                      onAmountChange={(val) => {
-                        if (rule.type !== 'AMOUNT') onTogglePreSplitRuleType?.(rule.id);
-                        onUpdatePreSplitRuleValue?.(rule.id, val);
-                      }}
-                      preventMinus={preventMinus}
-                    />
-                    </div>
-                  </div>
-                );
-              })}
+        {/* Step 2: Pre-Split Deductions */}
+        <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-3 shadow-sm">
+          <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                2. Pre-Split Deductions
+              </span>
+              {isEditing && (
+                <button
+                  type="button"
+                  onClick={handleStartAddPreSplit}
+                  title="Add New Pre-split Deduction"
+                  aria-label="Add New Pre-split Deduction"
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
+                >
+                  <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
+                    <path d="M8 3.25v9.5M3.25 8h9.5" />
+                  </svg>
+                </button>
+              )}
             </div>
+            <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-4'}`}>
+              Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterOffTop)}</strong>
+            </span>
           </div>
 
-          {agentLayout === 'table' ? (
-            <CommissionWaterfallTable
-              isEditing={isEditing}
-              agents={agents}
-              primaryAgentId={primaryAgentId}
-              dealResult={dealResult}
-              knownEntities={knownEntities}
-              knownAgents={knownAgents}
-              postSplitRulesByAgent={shownPostSplitRules}
-              postSplit2RulesByAgent={shownPostSplit2Rules}
-              commissionAfterPreSplit={commissionAfterPreSplit}
-              preventMinus={preventMinus}
-              onOpenAddAgentModal={onOpenAddAgentModal}
-              onRemoveAgent={onRemoveAgent}
-              onSwitchAgent={onSwitchAgent}
-              onToggleAgentSplitType={onToggleAgentSplitType}
-              onSplitValueChange={onSplitValueChange}
-              onDeleteAgentPostSplitRule={onDeleteAgentPostSplitRule}
-              onToggleAgentPostSplitType={onToggleAgentPostSplitType}
-              onUpdateAgentPostSplitValue={onUpdateAgentPostSplitValue}
-              onUpdateAgentPostSplitEntity={onUpdateAgentPostSplitEntity}
-              onReorderPostSplitEntities={onReorderPostSplitEntities}
-              onDeleteAgentPostSplit2Rule={onDeleteAgentPostSplit2Rule}
-              onToggleAgentPostSplit2Type={onToggleAgentPostSplit2Type}
-              onUpdateAgentPostSplit2Value={onUpdateAgentPostSplit2Value}
-              onUpdateAgentPostSplit2Entity={onUpdateAgentPostSplit2Entity}
-              onReorderPostSplit2Entities={onReorderPostSplit2Entities}
-              onAddLevel1Cell={(agentName, entity) => handleAddPostSplitCell(agentName, entity, 1)}
-              onAddLevel2Cell={(agentName, entity) => handleAddPostSplitCell(agentName, entity, 2)}
-              onDraftDirty={setTableDraftDirty}
-              allocations={allocations}
-              onTeamCapAmountChange={onTeamCapAmountChange}
-              onRemoveTeamCap={onRemoveTeamCap}
-              agentCapNote={agentCapNote}
-            />
-          ) : (
-          <>
-          {/* Step 3: Agent Splits Breakdown */}
-          <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-3 shadow-sm">
-            <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                  3. Agent Splits
-                </span>
-                {isEditing && (
+          {isEditing && isAddingPreSplit && (
+            <div data-inline-save className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-lg border border-emerald-500/30 space-y-2 mb-2">
+              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block">
+                Add Pre-Split Deduction
+              </span>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                {knownEntities.length > 0 ? (
+                  <ClearableSelect
+                    value={newPreSplitEntity}
+                    onChange={(e) => setNewPreSplitEntity(e.target.value)}
+                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
+                  >
+                    {knownEntities.map((ent) => (
+                      <option key={ent.id} value={ent.name}>{ent.name}</option>
+                    ))}
+                  </ClearableSelect>
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="Entity Name (e.g. TC Fee, Referral)"
+                    value={newPreSplitEntity}
+                    onChange={(e) => setNewPreSplitEntity(e.target.value)}
+                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
+                  />
+                )}
+                <SplitPair
+                  isEditing
+                  type={newPreSplitType}
+                  percentPoints={newPreSplitType === 'PERCENT' ? toPercentPoints(newPreSplitValue) : (commissionAfterOffTop > 0 ? (newPreSplitValue / commissionAfterOffTop) * 100 : 0)}
+                  dollarAmount={newPreSplitType === 'AMOUNT' ? newPreSplitValue : commissionAfterOffTop * newPreSplitValue}
+                  onPercentChange={(val) => {
+                    if (newPreSplitType !== 'PERCENT') toggleNewPreSplitType();
+                    setNewPreSplitValue(val);
+                  }}
+                  onAmountChange={(val) => {
+                    if (newPreSplitType !== 'AMOUNT') toggleNewPreSplitType();
+                    setNewPreSplitValue(val);
+                  }}
+                  preventMinus={preventMinus}
+                />
+                <div className="flex items-center gap-2 justify-end">
                   <button
                     type="button"
-                    onClick={onOpenAddAgentModal}
-                    title="Add New Agent Split"
-                    aria-label="Add New Agent Split"
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
+                    onClick={() => setIsAddingPreSplit(false)}
+                    className="text-xs px-2.5 py-1 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
                   >
-                    <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
-                      <path d="M8 3.25v9.5M3.25 8h9.5" />
-                    </svg>
+                    Cancel
                   </button>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-[15px]'}`}>
-                  Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
-                </span>
+                  <button
+                    type="button"
+                    onClick={handleSavePreSplit}
+                    className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded font-semibold cursor-pointer shadow-sm whitespace-nowrap"
+                  >
+                    Save
+                  </button>
+                </div>
               </div>
             </div>
-            <AgentSplitExcessNotice
-              total={Number(dealResult.agentSplitTotal) || 0}
-              remaining={commissionAfterPreSplit}
-              excess={Number(dealResult.agentSplitExcess) || 0}
-            />
-            {(dealResult.agentSplitItems || []).some((item: { overAllocated?: boolean }) => item.overAllocated) && (
-              <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
-                Agent splits can&apos;t exceed 100% of the remaining commission. Lower the highlighted split before applying.
-              </p>
-            )}
+          )}
 
-            {agents.length === 0 ? (
-              <p className="text-xs text-slate-400 italic py-1">
-                No agents assigned yet.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {agents.map((agent, index) => {
-                  const computedSplitItem = (dealResult.agentSplitItems || []).find((s: any) => s.agentId === agent.id);
-                  const agentIsPrimary = primaryAgentId ? isPrimaryAgent(agent, primaryAgentId) : index === 0;
+          {preSplitRules.length === 0 && !isAddingPreSplit && (
+            <p className="text-xs text-slate-400 italic py-1">No pre-split deductions applied to this transaction.</p>
+          )}
 
-                  if (agentIsPrimary) {
-                    // Primary Agent Card (non-editable in Waterfall, tied to Transaction Overview)
-                    return (
-                      <div
-                        key={agent.id}
-                        className="bg-slate-50 dark:bg-slate-900 border border-emerald-500/40 rounded-xl p-3.5 space-y-2.5 relative"
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {preSplitRules.map((rule, idx) => {
+              const calculatedItem = (dealResult.preSplitItems || []).find((i: any) => i.id === rule.id);
+              return (
+                <div
+                  key={rule.id}
+                  {...getDragRowProps(idx, 'preSplit', onReorderPreSplitRules)}
+                  className="py-2.5 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
+                >
+                  <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+                    {renderReorderControls(idx, preSplitRules.length, onReorderPreSplitRules, 'preSplit')}
+                    {isEditing && (
+                      <button
+                        type="button"
+                        onClick={() => onDeletePreSplitRule?.(rule.id)}
+                        className="text-rose-500 hover:text-rose-600 font-bold cursor-pointer transition p-0.5"
+                        title="Delete rule"
                       >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                              👤 {agent.name}
-                            </span>
-                            <span className="text-[10px] bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                              PRIMARY
-                            </span>
-                            <span className="relative inline-flex group/painfo">
-                              <button
-                                type="button"
-                                aria-label="Primary Agent explained"
-                                className="inline-flex items-center justify-center w-4 h-4 rounded-full text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-default"
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                  className="w-3.5 h-3.5"
-                                  aria-hidden="true"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                              </button>
-                              <span
-                                role="tooltip"
-                                className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 w-72 -translate-x-1/2 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2.5 py-2 text-[11px] leading-relaxed text-slate-600 dark:text-slate-300 shadow-lg opacity-0 invisible group-hover/painfo:opacity-100 group-hover/painfo:visible transition-opacity duration-150"
-                              >
-                                Primary Agent (tied to Transaction Overview • receives remaining balance after secondary agent splits)
-                              </span>
-                            </span>
-                            {agent.isTeamLead && (
-                              <span className="text-[10px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider">
-                                LEAD
-                              </span>
-                            )}
-                          </div>
-                          <SplitPair
-                            isEditing={false}
-                            locked={isEditing}
-                            matchColumns
-                            type={agent.splitType}
-                            percentPoints={(adjustedSplitView(computedSplitItem)?.percentPoints) ?? toPercentPoints(computedSplitItem?.percent || 0)}
-                            dollarAmount={(adjustedSplitView(computedSplitItem)?.dollar) ?? (computedSplitItem?.amount || 0)}
-                            onPercentChange={() => {}}
-                            onAmountChange={() => {}}
-                            preventMinus={preventMinus}
-                          />
-                        </div>
-                        <AgentCapStrips agentId={agent.id} allocations={allocations} isEditing={isEditing} onTeamCapAmountChange={onTeamCapAmountChange} onRemoveTeamCap={onRemoveTeamCap} />
-                      </div>
-                    );
-                  }
+                        <TrashIcon />
+                      </button>
+                    )}
 
+                    {isEditing ? (
+                      knownEntities.length > 0 ? (
+                        <ClearableSelect
+                          value={rule.entity}
+                          onChange={(e) => onUpdatePreSplitRuleEntity?.(rule.id, e.target.value)}
+                          className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[150px] sm:max-w-[190px]"
+                          title="Switch entity"
+                        >
+                          <option value={rule.entity}>{rule.entity}</option>
+                          {knownEntities.filter((e) => e.name !== rule.entity).map((ent) => (
+                            <option key={ent.id} value={ent.name}>{ent.name}</option>
+                          ))}
+                        </ClearableSelect>
+                      ) : (
+                        <input
+                          type="text"
+                          value={rule.entity}
+                          onChange={(e) => onUpdatePreSplitRuleEntity?.(rule.id, e.target.value)}
+                          className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] w-28"
+                        />
+                      )
+                    ) : (
+                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[190px] truncate" title={rule.entity}>
+                        {rule.entity || '—'}
+                      </span>
+                    )}
+
+                  </div>
+                  <div className={isEditing ? undefined : 'pr-2'}>
+                  <SplitPair
+                    compact={!isEditing}
+                    isEditing={isEditing}
+                    type={rule.type}
+                    percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (commissionAfterOffTop > 0 ? ((calculatedItem?.amount || 0) / commissionAfterOffTop) * 100 : 0)}
+                    dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
+                    deduction
+                    onPercentChange={(val) => {
+                      if (rule.type !== 'PERCENT') onTogglePreSplitRuleType?.(rule.id);
+                      onUpdatePreSplitRuleValue?.(rule.id, val);
+                    }}
+                    onAmountChange={(val) => {
+                      if (rule.type !== 'AMOUNT') onTogglePreSplitRuleType?.(rule.id);
+                      onUpdatePreSplitRuleValue?.(rule.id, val);
+                    }}
+                    preventMinus={preventMinus}
+                  />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {agentLayout === 'table' ? (
+          <CommissionWaterfallTable
+            isEditing={isEditing}
+            agents={agents}
+            primaryAgentId={primaryAgentId}
+            dealResult={dealResult}
+            knownEntities={knownEntities}
+            knownAgents={knownAgents}
+            postSplitRulesByAgent={shownPostSplitRules}
+            postSplit2RulesByAgent={shownPostSplit2Rules}
+            commissionAfterPreSplit={commissionAfterPreSplit}
+            preventMinus={preventMinus}
+            onOpenAddAgentModal={onOpenAddAgentModal}
+            onRemoveAgent={onRemoveAgent}
+            onSwitchAgent={onSwitchAgent}
+            onToggleAgentSplitType={onToggleAgentSplitType}
+            onSplitValueChange={onSplitValueChange}
+            onDeleteAgentPostSplitRule={onDeleteAgentPostSplitRule}
+            onToggleAgentPostSplitType={onToggleAgentPostSplitType}
+            onUpdateAgentPostSplitValue={onUpdateAgentPostSplitValue}
+            onUpdateAgentPostSplitEntity={onUpdateAgentPostSplitEntity}
+            onReorderPostSplitEntities={onReorderPostSplitEntities}
+            onDeleteAgentPostSplit2Rule={onDeleteAgentPostSplit2Rule}
+            onToggleAgentPostSplit2Type={onToggleAgentPostSplit2Type}
+            onUpdateAgentPostSplit2Value={onUpdateAgentPostSplit2Value}
+            onUpdateAgentPostSplit2Entity={onUpdateAgentPostSplit2Entity}
+            onReorderPostSplit2Entities={onReorderPostSplit2Entities}
+            onAddLevel1Cell={(agentName, entity) => handleAddPostSplitCell(agentName, entity, 1)}
+            onAddLevel2Cell={(agentName, entity) => handleAddPostSplitCell(agentName, entity, 2)}
+            onDraftDirty={setTableDraftDirty}
+            allocations={allocations}
+            onTeamCapAmountChange={onTeamCapAmountChange}
+            onRemoveTeamCap={onRemoveTeamCap}
+            agentCapNote={agentCapNote}
+          />
+        ) : (
+        <>
+        {/* Step 3: Agent Splits Breakdown */}
+        <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-3 shadow-sm">
+          <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                3. Agent Splits
+              </span>
+              {isEditing && (
+                <button
+                  type="button"
+                  onClick={onOpenAddAgentModal}
+                  title="Add New Agent Split"
+                  aria-label="Add New Agent Split"
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
+                >
+                  <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
+                    <path d="M8 3.25v9.5M3.25 8h9.5" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-[15px]'}`}>
+                Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
+              </span>
+            </div>
+          </div>
+          <AgentSplitExcessNotice
+            total={Number(dealResult.agentSplitTotal) || 0}
+            remaining={commissionAfterPreSplit}
+            excess={Number(dealResult.agentSplitExcess) || 0}
+          />
+          {(dealResult.agentSplitItems || []).some((item: { overAllocated?: boolean }) => item.overAllocated) && (
+            <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+              Agent splits can&apos;t exceed 100% of the remaining commission. Lower the highlighted split before applying.
+            </p>
+          )}
+
+          {agents.length === 0 ? (
+            <p className="text-xs text-slate-400 italic py-1">
+              No agents assigned yet.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {agents.map((agent, index) => {
+                const computedSplitItem = (dealResult.agentSplitItems || []).find((s: any) => s.agentId === agent.id);
+                const agentIsPrimary = primaryAgentId ? isPrimaryAgent(agent, primaryAgentId) : index === 0;
+
+                if (agentIsPrimary) {
+                  // Primary Agent Card (non-editable in Waterfall, tied to Transaction Overview)
                   return (
                     <div
                       key={agent.id}
-                      {...getDragRowProps(index, 'agentSplit', onReorderAgents)}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 space-y-2.5 relative"
+                      className="bg-slate-50 dark:bg-slate-900 border border-emerald-500/40 rounded-xl p-3.5 space-y-2.5 relative"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                          {renderReorderControls(index, agents.length, onReorderAgents, 'agentSplit')}
-                          {isEditing && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                            👤 {agent.name}
+                          </span>
+                          <span className="text-[10px] bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                            PRIMARY
+                          </span>
+                          <span className="relative inline-flex group/painfo">
                             <button
                               type="button"
-                              onClick={() => onRemoveAgent(agent.name)}
-                              className="text-xs text-rose-500 hover:text-rose-600 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition"
-                              title={`Remove ${agent.name}`}
+                              aria-label="Primary Agent explained"
+                              className="inline-flex items-center justify-center w-4 h-4 rounded-full text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-default"
                             >
-                              <TrashIcon />
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                                className="w-3.5 h-3.5"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
                             </button>
-                          )}
-
-                          <span className="text-xs select-none">👤</span>
-
-                          {isEditing && knownAgents.length > 0 ? (
-                            <ClearableSelect
-                              value={agent.name}
-                              onChange={(e) => onSwitchAgent?.(agent.id, e.target.value)}
-                              className="bg-transparent border-b border-slate-300 dark:border-slate-600 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] py-0.5 cursor-pointer max-w-[160px] sm:max-w-[220px]"
-                              title="Switch agent"
+                            <span
+                              role="tooltip"
+                              className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 w-72 -translate-x-1/2 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2.5 py-2 text-[11px] leading-relaxed text-slate-600 dark:text-slate-300 shadow-lg opacity-0 invisible group-hover/painfo:opacity-100 group-hover/painfo:visible transition-opacity duration-150"
                             >
-                              <option value={agent.name}>{agent.name}</option>
-                              {knownAgents
-                                .filter((a) => a.name !== agent.name && !agents.some((ag) => ag.name === a.name))
-                                .map((a) => (
-                                  <option key={a.id} value={a.name}>
-                                    {a.name} {a.isTeamLead ? '(LEAD)' : ''}
-                                  </option>
-                                ))}
-                            </ClearableSelect>
-                          ) : (
-                            <span className="text-xs font-bold text-slate-900 dark:text-white">{agent.name}</span>
-                          )}
-
+                              Primary Agent (tied to Transaction Overview • receives remaining balance after secondary agent splits)
+                            </span>
+                          </span>
                           {agent.isTeamLead && (
                             <span className="text-[10px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider">
                               LEAD
                             </span>
                           )}
-
                         </div>
-
                         <SplitPair
-                          isEditing={isEditing}
+                          isEditing={false}
+                          locked={isEditing}
                           matchColumns
                           type={agent.splitType}
-                          percentPoints={(adjustedSplitView(computedSplitItem)?.percentPoints) ?? (agent.splitType === 'PERCENT' ? toPercentPoints(agent.splitVal) : toPercentPoints(computedSplitItem?.percent || 0))}
-                          dollarAmount={(adjustedSplitView(computedSplitItem)?.dollar) ?? (agent.splitType === 'AMOUNT' ? agent.splitVal : (computedSplitItem?.amount || 0))}
-                          invalid={Boolean(computedSplitItem?.overAllocated)}
-                          onPercentChange={(val) => {
-                            if (agent.splitType !== 'PERCENT') onToggleAgentSplitType(agent.id);
-                            onSplitValueChange(agent.id, val);
-                          }}
-                          onAmountChange={(val) => {
-                            if (agent.splitType !== 'AMOUNT') onToggleAgentSplitType(agent.id);
-                            onSplitValueChange(agent.id, val);
-                          }}
+                          percentPoints={(adjustedSplitView(computedSplitItem)?.percentPoints) ?? toPercentPoints(computedSplitItem?.percent || 0)}
+                          dollarAmount={(adjustedSplitView(computedSplitItem)?.dollar) ?? (computedSplitItem?.amount || 0)}
+                          onPercentChange={() => {}}
+                          onAmountChange={() => {}}
                           preventMinus={preventMinus}
                         />
                       </div>
                       <AgentCapStrips agentId={agent.id} allocations={allocations} isEditing={isEditing} onTeamCapAmountChange={onTeamCapAmountChange} onRemoveTeamCap={onRemoveTeamCap} />
-                      <AgentAllocationNotes agentId={agent.id} allocations={allocations} />
                     </div>
                   );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Step 4: Post-Split Deductions (Level 1 & Level 2 / Stock) */}
-          <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-4 shadow-sm">
-            <div className="border-b border-slate-200 dark:border-slate-700 pb-3">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                  4. Post-Split Deductions
-                </span>
-                <span className="relative inline-flex group/psinfo">
-                  <button
-                    type="button"
-                    aria-label="Post-split levels explained"
-                    className="inline-flex items-center justify-center w-4 h-4 rounded-full text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-default"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      className="w-3.5 h-3.5"
-                      aria-hidden="true"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </button>
-                  <span
-                    role="tooltip"
-                    className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 w-72 -translate-x-1/2 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2.5 py-2 text-[11px] leading-relaxed text-slate-600 dark:text-slate-300 shadow-lg opacity-0 invisible group-hover/psinfo:opacity-100 group-hover/psinfo:visible transition-opacity duration-150"
-                  >
-                    Level 1: Common deductions from Agent Split • Level 2: Other deductions from Net after Level 1 Post-splits (e.g., 5% Brokerage stock options)
-                  </span>
-                </span>
-              </div>
-            </div>
-
-            {agentNames.length === 0 ? (
-              <p className="text-xs text-slate-400 italic py-1">
-                Assign an agent to configure post-split deductions.
-              </p>
-            ) : (
-              agentNames.map((agentName) => {
-                const agentObj = agents.find((a) => a.name === agentName);
-                const computedSplitItem = (dealResult.agentSplitItems || []).find(
-                  (s: any) => s.agentName === agentName || s.agentId === agentObj?.id
-                );
-                const agentGrossSplit = computedSplitItem?.amount || 0;
-
-                // Level 1 rules & items
-                const agentRules1 = shownPostSplitRules[agentName] || [];
-                const items1ForAgent = (dealResult.postSplitItems || []).filter((i: any) => i.agentName === agentName);
-                const isAddingL1 = addingPostSplitForAgent === agentName;
-                const netAfterL1 = dealResult.agentNetAfterLevel1?.[agentName] ?? agentGrossSplit;
-
-                // Level 2 rules & items (Stock / Elective)
-                const agentRules2 = shownPostSplit2Rules[agentName] || [];
-                const items2ForAgent = (dealResult.postSplit2Items || []).filter((i: any) => i.agentName === agentName);
-                const isAddingL2 = addingPostSplit2ForAgent === agentName;
-
-                // Final net payout
-                const finalAgentPayout = dealResult.netPayouts?.[agentName] ?? netAfterL1;
+                }
 
                 return (
                   <div
-                    key={agentName}
-                    className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4"
+                    key={agent.id}
+                    {...getDragRowProps(index, 'agentSplit', onReorderAgents)}
+                    className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 space-y-2.5 relative"
                   >
-                    {/* Agent Sub-Card Header */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-700 pb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-900 dark:text-white">
-                          👤 {agentName}
-                        </span>
-                        {agentObj?.isTeamLead && (
-                          <span className="text-[10px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-semibold uppercase">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                        {renderReorderControls(index, agents.length, onReorderAgents, 'agentSplit')}
+                        {isEditing && (
+                          <button
+                            type="button"
+                            onClick={() => onRemoveAgent(agent.name)}
+                            className="text-xs text-rose-500 hover:text-rose-600 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition"
+                            title={`Remove ${agent.name}`}
+                          >
+                            <TrashIcon />
+                          </button>
+                        )}
+
+                        <span className="text-xs select-none">👤</span>
+
+                        {isEditing && knownAgents.length > 0 ? (
+                          <ClearableSelect
+                            value={agent.name}
+                            onChange={(e) => onSwitchAgent?.(agent.id, e.target.value)}
+                            className="bg-transparent border-b border-slate-300 dark:border-slate-600 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] py-0.5 cursor-pointer max-w-[160px] sm:max-w-[220px]"
+                            title="Switch agent"
+                          >
+                            <option value={agent.name}>{agent.name}</option>
+                            {knownAgents
+                              .filter((a) => a.name !== agent.name && !agents.some((ag) => ag.name === a.name))
+                              .map((a) => (
+                                <option key={a.id} value={a.name}>
+                                  {a.name} {a.isTeamLead ? '(LEAD)' : ''}
+                                </option>
+                              ))}
+                          </ClearableSelect>
+                        ) : (
+                          <span className="text-xs font-bold text-slate-900 dark:text-white">{agent.name}</span>
+                        )}
+
+                        {agent.isTeamLead && (
+                          <span className="text-[10px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider">
                             LEAD
                           </span>
                         )}
-                        <span className="text-xs text-slate-500 dark:text-slate-400">
-                          (Agent Split: <strong className={agentGrossSplit < -0.004 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-200'}>{formatCurrency(agentGrossSplit)}</strong>)
-                        </span>
+
                       </div>
+
+                      <SplitPair
+                        isEditing={isEditing}
+                        matchColumns
+                        type={agent.splitType}
+                        percentPoints={(adjustedSplitView(computedSplitItem)?.percentPoints) ?? (agent.splitType === 'PERCENT' ? toPercentPoints(agent.splitVal) : toPercentPoints(computedSplitItem?.percent || 0))}
+                        dollarAmount={(adjustedSplitView(computedSplitItem)?.dollar) ?? (agent.splitType === 'AMOUNT' ? agent.splitVal : (computedSplitItem?.amount || 0))}
+                        invalid={Boolean(computedSplitItem?.overAllocated)}
+                        onPercentChange={(val) => {
+                          if (agent.splitType !== 'PERCENT') onToggleAgentSplitType(agent.id);
+                          onSplitValueChange(agent.id, val);
+                        }}
+                        onAmountChange={(val) => {
+                          if (agent.splitType !== 'AMOUNT') onToggleAgentSplitType(agent.id);
+                          onSplitValueChange(agent.id, val);
+                        }}
+                        preventMinus={preventMinus}
+                      />
                     </div>
-
-                    {/* LEVEL 1: Level 1 Post-splits */}
-                    <div className="bg-white dark:bg-slate-900/90 rounded-lg p-3 border border-slate-200 dark:border-slate-700 space-y-2">
-                      <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-                            <HoverNote label="Percent deductions are calculated from Agent Split">
-                              <span className="inline-flex items-center whitespace-nowrap rounded-full border border-yellow-600/40 bg-yellow-400/25 px-2 py-0.5 tracking-normal text-yellow-900 dark:border-yellow-300/50 dark:bg-yellow-400/15 dark:text-yellow-200">
-                                Level 1
-                              </span>
-                            </HoverNote>
-                            Post-splits
-                          </span>
-                        </div>
-                        {isEditing && (
-                          <button
-                            type="button"
-                            onClick={() => isAddingL1 ? setAddingPostSplitForAgent(null) : handleStartAddPostSplit1(agentName)}
-                            title="Add New Level 1 Post-split"
-                            aria-label="Add New Level 1 Post-split"
-                            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
-                          >
-                            <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
-                              <path d="M8 3.25v9.5M3.25 8h9.5" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-
-                      {isEditing && isAddingL1 && (
-                        <div data-inline-save className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg border border-emerald-500/30 space-y-2 my-2">
-                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                            New Level 1 Post-split for {agentName}
-                          </span>
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                            {knownEntities.length > 0 ? (
-                              <ClearableSelect
-                                value={newPostSplitEntity}
-                                onChange={(e) => setNewPostSplitEntity(e.target.value)}
-                                className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
-                              >
-                                {knownEntities.map((ent) => (
-                                  <option key={ent.id} value={ent.name}>{ent.name}</option>
-                                ))}
-                              </ClearableSelect>
-                            ) : (
-                              <input
-                                type="text"
-                                placeholder="Entity Name (e.g. Soleox Realty)"
-                                value={newPostSplitEntity}
-                                onChange={(e) => setNewPostSplitEntity(e.target.value)}
-                                className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
-                              />
-                            )}
-                            <SplitPair
-                              isEditing
-                              type={newPostSplitType}
-                              percentPoints={newPostSplitType === 'PERCENT' ? toPercentPoints(newPostSplitValue) : (agentGrossSplit > 0 ? (newPostSplitValue / agentGrossSplit) * 100 : 0)}
-                              dollarAmount={newPostSplitType === 'AMOUNT' ? newPostSplitValue : agentGrossSplit * newPostSplitValue}
-                              onPercentChange={(val) => {
-                                if (newPostSplitType !== 'PERCENT') toggleNewPostSplitType();
-                                setNewPostSplitValue(val);
-                              }}
-                              onAmountChange={(val) => {
-                                if (newPostSplitType !== 'AMOUNT') toggleNewPostSplitType();
-                                setNewPostSplitValue(val);
-                              }}
-                              preventMinus={preventMinus}
-                            />
-                            <div className="flex items-center gap-2 justify-end">
-                              <button
-                                type="button"
-                                onClick={() => setAddingPostSplitForAgent(null)}
-                                className="text-xs px-2 py-0.5 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleSavePostSplit(agentName)}
-                                className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded font-semibold cursor-pointer shadow-sm whitespace-nowrap"
-                              >
-                                Save
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {agentRules1.length === 0 && items1ForAgent.length === 0 && !isAddingL1 && (
-                        <p className="text-xs text-slate-400 italic py-1">
-                          No Level 1 Post-splits applied to {agentName}.
-                        </p>
-                      )}
-
-                      <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {agentRules1.map((rule, ruleIdx) => {
-                          const calculatedItem = items1ForAgent.find((i: any) => i.id === rule.id);
-                          return (
-                            <div
-                              key={rule.id}
-                              {...getDragRowProps(ruleIdx, `postSplit1_${agentName}`, (fromI, toI) => onReorderAgentPostSplitRules?.(agentName, fromI, toI))}
-                              className="py-2 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
-                            >
-                              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                                {renderReorderControls(ruleIdx, agentRules1.length, (fromI, toI) => onReorderAgentPostSplitRules?.(agentName, fromI, toI), `postSplit1_${agentName}`)}
-                                {isEditing && (
-                                  <button
-                                    type="button"
-                                    onClick={() => onDeleteAgentPostSplitRule(agentName, rule.id)}
-                                    className="text-rose-500 hover:text-rose-600 cursor-pointer p-0.5"
-                                    title="Delete rule"
-                                  >
-                                    <TrashIcon />
-                                  </button>
-                                )}
-
-                                {isEditing ? (
-                                  knownEntities.length > 0 ? (
-                                    <ClearableSelect
-                                      value={rule.entity}
-                                      onChange={(e) => onUpdateAgentPostSplitEntity?.(agentName, rule.id, e.target.value)}
-                                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[140px] sm:max-w-[170px]"
-                                      title="Switch entity"
-                                    >
-                                      <option value={rule.entity}>{rule.entity}</option>
-                                      {knownEntities.filter((e) => e.name !== rule.entity).map((ent) => (
-                                        <option key={ent.id} value={ent.name}>{ent.name}</option>
-                                      ))}
-                                    </ClearableSelect>
-                                  ) : (
-                                    <input
-                                      type="text"
-                                      value={rule.entity}
-                                      onChange={(e) => onUpdateAgentPostSplitEntity?.(agentName, rule.id, e.target.value)}
-                                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] w-24"
-                                    />
-                                  )
-                                ) : (
-                                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[170px] truncate" title={rule.entity}>
-                                    {rule.entity || '—'}
-                                  </span>
-                                )}
-
-                              </div>
-                              <SplitPair
-                                isEditing={isEditing}
-                                matchColumns
-                                type={rule.type}
-                                percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (agentGrossSplit > 0 ? ((calculatedItem?.amount || 0) / agentGrossSplit) * 100 : 0)}
-                                dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
-                                deduction
-                                underAmount={agentRules1.findLastIndex((item) => (item.entity || '').trim() === (rule.entity || '').trim()) === ruleIdx ? agentCapNote(agentObj?.id || '', agentName, rule.entity) : null}
-                                onPercentChange={(val) => {
-                                  if (rule.type !== 'PERCENT') onToggleAgentPostSplitType(agentName, rule.id);
-                                  onUpdateAgentPostSplitValue(agentName, rule.id, val);
-                                }}
-                                onAmountChange={(val) => {
-                                  if (rule.type !== 'AMOUNT') onToggleAgentPostSplitType(agentName, rule.id);
-                                  onUpdateAgentPostSplitValue(agentName, rule.id, val);
-                                }}
-                                preventMinus={preventMinus}
-                              />
-                            </div>
-                          );
-                        })}
-                        {items1ForAgent.filter((item: { id?: string; entity?: string }) => !agentRules1.some((rule) => rule.id === item.id || (rule.entity || '').trim() === (item.entity || '').trim())).map((item: { id?: string; entity?: string; type?: 'PERCENT' | 'AMOUNT'; value?: number; amount?: number }) => (
-                          <div key={item.id || item.entity} className="py-2 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300">
-                            <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[170px] truncate" title={item.entity}>{item.entity || '—'}</span>
-                            <SplitPair
-                              isEditing={isEditing}
-                              matchColumns
-                              type={item.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENT'}
-                              percentPoints={item.type === 'AMOUNT' ? (agentGrossSplit > 0 ? ((Number(item.amount) || 0) / agentGrossSplit) * 100 : 0) : toPercentPoints(Number(item.value) || 0)}
-                              dollarAmount={Number(item.amount) || 0}
-                              deduction
-                              underAmount={agentCapNote(agentObj?.id || '', agentName, item.entity || '')}
-                              onPercentChange={(val) => {
-                                if (item.type === 'AMOUNT' && item.id) onToggleAgentPostSplitType(agentName, item.id);
-                                if (item.id) onUpdateAgentPostSplitValue(agentName, item.id, val);
-                              }}
-                              onAmountChange={(val) => {
-                                if (item.type !== 'AMOUNT' && item.id) onToggleAgentPostSplitType(agentName, item.id);
-                                if (item.id) onUpdateAgentPostSplitValue(agentName, item.id, val);
-                              }}
-                              preventMinus={preventMinus}
-                            />
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Level 1 Subtotal */}
-                      <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-800 pt-2 text-xs">
-                        <span className="font-semibold text-slate-600 dark:text-slate-400">
-                          Net After Level 1 Post-Splits
-                        </span>
-                        <span className="font-bold text-slate-900 dark:text-white">
-                          {formatCurrency(netAfterL1)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* LEVEL 2: Level 2 Post-splits */}
-                    <div className="bg-white dark:bg-slate-900/90 rounded-lg p-3 border border-slate-200 dark:border-slate-700 space-y-2">
-                      <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-                            <HoverNote label="Percent deductions are calculated from Net after Level 1 Post-splits.">
-                              <span className="inline-flex items-center whitespace-nowrap rounded-full border border-slate-400/60 bg-slate-300/50 px-2 py-0.5 tracking-normal text-slate-600 dark:border-slate-300/45 dark:bg-slate-400/20 dark:text-slate-200">
-                                Level 2
-                              </span>
-                            </HoverNote>
-                            Post-splits
-                          </span>
-                        </div>
-                        {isEditing && (
-                          <button
-                            type="button"
-                            onClick={() => isAddingL2 ? setAddingPostSplit2ForAgent(null) : handleStartAddPostSplit2(agentName)}
-                            title="Add New Level 2 Post-split"
-                            aria-label="Add New Level 2 Post-split"
-                            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
-                          >
-                            <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
-                              <path d="M8 3.25v9.5M3.25 8h9.5" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-
-                      {isEditing && isAddingL2 && (
-                        <div data-inline-save className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg border border-emerald-500/30 space-y-2 my-2">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                              New Level 2 Post-split for {agentName}
-                            </span>
-                            <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                              Baseline: {formatCurrency(netAfterL1)}
-                            </span>
-                          </div>
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                            {knownEntities.length > 0 ? (
-                              <ClearableSelect
-                                value={newPostSplit2Entity}
-                                onChange={(e) => setNewPostSplit2Entity(e.target.value)}
-                                className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
-                              >
-                                {knownEntities.map((ent) => (
-                                  <option key={ent.id} value={ent.name}>{ent.name}</option>
-                                ))}
-                              </ClearableSelect>
-                            ) : (
-                              <input
-                                type="text"
-                                placeholder="Payee Entity (e.g. Stock)"
-                                value={newPostSplit2Entity}
-                                onChange={(e) => setNewPostSplit2Entity(e.target.value)}
-                                className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
-                              />
-                            )}
-                            <SplitPair
-                              isEditing
-                              type={newPostSplit2Type}
-                              percentPoints={newPostSplit2Type === 'PERCENT' ? toPercentPoints(newPostSplit2Value) : (netAfterL1 > 0 ? (newPostSplit2Value / netAfterL1) * 100 : 0)}
-                              dollarAmount={newPostSplit2Type === 'AMOUNT' ? newPostSplit2Value : netAfterL1 * newPostSplit2Value}
-                              onPercentChange={(val) => {
-                                if (newPostSplit2Type !== 'PERCENT') toggleNewPostSplit2Type();
-                                setNewPostSplit2Value(val);
-                              }}
-                              onAmountChange={(val) => {
-                                if (newPostSplit2Type !== 'AMOUNT') toggleNewPostSplit2Type();
-                                setNewPostSplit2Value(val);
-                              }}
-                              preventMinus={preventMinus}
-                            />
-                            <div className="flex items-center gap-2 justify-end">
-                              <button
-                                type="button"
-                                onClick={() => setAddingPostSplit2ForAgent(null)}
-                                className="text-xs px-2 py-0.5 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleSavePostSplit2(agentName)}
-                                className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded font-semibold cursor-pointer shadow-sm whitespace-nowrap"
-                              >
-                                Save
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {agentRules2.length === 0 && items2ForAgent.length === 0 && !isAddingL2 && (
-                        <p className="text-xs text-slate-400 italic py-1">
-                          No Level 2 Post-splits applied to {agentName}.
-                        </p>
-                      )}
-
-                      <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {agentRules2.map((rule, ruleIdx) => {
-                          const calculatedItem2 = items2ForAgent.find((i: any) => i.id === rule.id);
-                          return (
-                            <div
-                              key={rule.id}
-                              {...getDragRowProps(ruleIdx, `postSplit2_${agentName}`, (fromI, toI) => onReorderAgentPostSplit2Rules?.(agentName, fromI, toI))}
-                              className="py-2 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
-                            >
-                              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                                {renderReorderControls(ruleIdx, agentRules2.length, (fromI, toI) => onReorderAgentPostSplit2Rules?.(agentName, fromI, toI), `postSplit2_${agentName}`)}
-                                {isEditing && (
-                                  <button
-                                    type="button"
-                                    onClick={() => onDeleteAgentPostSplit2Rule?.(agentName, rule.id)}
-                                    className="text-rose-500 hover:text-rose-600 cursor-pointer p-0.5"
-                                    title="Delete rule"
-                                  >
-                                    <TrashIcon />
-                                  </button>
-                                )}
-
-                                {isEditing ? (
-                                  knownEntities.length > 0 ? (
-                                    <ClearableSelect
-                                      value={rule.entity}
-                                      onChange={(e) => onUpdateAgentPostSplit2Entity?.(agentName, rule.id, e.target.value)}
-                                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[140px] sm:max-w-[170px]"
-                                      title="Switch entity"
-                                    >
-                                      <option value={rule.entity}>{rule.entity}</option>
-                                      {knownEntities.filter((e) => e.name !== rule.entity).map((ent) => (
-                                        <option key={ent.id} value={ent.name}>{ent.name}</option>
-                                      ))}
-                                    </ClearableSelect>
-                                  ) : (
-                                    <input
-                                      type="text"
-                                      value={rule.entity}
-                                      onChange={(e) => onUpdateAgentPostSplit2Entity?.(agentName, rule.id, e.target.value)}
-                                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] w-24"
-                                    />
-                                  )
-                                ) : (
-                                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[170px] truncate" title={rule.entity}>
-                                    {rule.entity || '—'}
-                                  </span>
-                                )}
-
-                              </div>
-                              <SplitPair
-                                isEditing={isEditing}
-                                matchColumns
-                                type={rule.type}
-                                percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (netAfterL1 > 0 ? ((calculatedItem2?.amount || 0) / netAfterL1) * 100 : 0)}
-                                dollarAmount={calculatedItem2?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
-                                deduction
-                                underAmount={agentRules2.findLastIndex((item) => (item.entity || '').trim() === (rule.entity || '').trim()) === ruleIdx ? agentCapNote(agentObj?.id || '', agentName, rule.entity) : null}
-                                onPercentChange={(val) => {
-                                  if (rule.type !== 'PERCENT') onToggleAgentPostSplit2Type?.(agentName, rule.id);
-                                  onUpdateAgentPostSplit2Value?.(agentName, rule.id, val);
-                                }}
-                                onAmountChange={(val) => {
-                                  if (rule.type !== 'AMOUNT') onToggleAgentPostSplit2Type?.(agentName, rule.id);
-                                  onUpdateAgentPostSplit2Value?.(agentName, rule.id, val);
-                                }}
-                                preventMinus={preventMinus}
-                              />
-                            </div>
-                          );
-                        })}
-                        {items2ForAgent.filter((item: { id?: string; entity?: string }) => !agentRules2.some((rule) => rule.id === item.id || (rule.entity || '').trim() === (item.entity || '').trim())).map((item: { id?: string; entity?: string; type?: 'PERCENT' | 'AMOUNT'; value?: number; amount?: number }) => (
-                          <div key={item.id || item.entity} className="py-2 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300">
-                            <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[170px] truncate" title={item.entity}>{item.entity || '—'}</span>
-                            <SplitPair
-                              isEditing={isEditing}
-                              matchColumns
-                              type={item.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENT'}
-                              percentPoints={item.type === 'AMOUNT' ? (netAfterL1 > 0 ? ((Number(item.amount) || 0) / netAfterL1) * 100 : 0) : toPercentPoints(Number(item.value) || 0)}
-                              dollarAmount={Number(item.amount) || 0}
-                              deduction
-                              underAmount={agentCapNote(agentObj?.id || '', agentName, item.entity || '')}
-                              onPercentChange={(val) => {
-                                if (item.type === 'AMOUNT' && item.id) onToggleAgentPostSplit2Type?.(agentName, item.id);
-                                if (item.id) onUpdateAgentPostSplit2Value?.(agentName, item.id, val);
-                              }}
-                              onAmountChange={(val) => {
-                                if (item.type !== 'AMOUNT' && item.id) onToggleAgentPostSplit2Type?.(agentName, item.id);
-                                if (item.id) onUpdateAgentPostSplit2Value?.(agentName, item.id, val);
-                              }}
-                              preventMinus={preventMinus}
-                            />
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Level 2 Subtotal */}
-                      <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-800 pt-2 text-xs">
-                        <span className="font-semibold text-slate-600 dark:text-slate-400">
-                          Net Payout to {agentName}
-                        </span>
-                        <span className="font-bold text-slate-900 dark:text-white">
-                          {formatCurrency(finalAgentPayout)}
-                        </span>
-                      </div>
-                    </div>
+                    <AgentCapStrips agentId={agent.id} allocations={allocations} isEditing={isEditing} onTeamCapAmountChange={onTeamCapAmountChange} onRemoveTeamCap={onRemoveTeamCap} />
+                    <AgentAllocationNotes agentId={agent.id} allocations={allocations} />
                   </div>
                 );
-              })
-            )}
-          </div>
-          </>
+              })}
+            </div>
           )}
         </div>
-      )}
+
+        {/* Step 4: Post-Split Deductions (Level 1 & Level 2 / Stock) */}
+        <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-4 shadow-sm">
+          <div className="border-b border-slate-200 dark:border-slate-700 pb-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                4. Post-Split Deductions
+              </span>
+              <span className="relative inline-flex group/psinfo">
+                <button
+                  type="button"
+                  aria-label="Post-split levels explained"
+                  className="inline-flex items-center justify-center w-4 h-4 rounded-full text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-default"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className="w-3.5 h-3.5"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+                <span
+                  role="tooltip"
+                  className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 w-72 -translate-x-1/2 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2.5 py-2 text-[11px] leading-relaxed text-slate-600 dark:text-slate-300 shadow-lg opacity-0 invisible group-hover/psinfo:opacity-100 group-hover/psinfo:visible transition-opacity duration-150"
+                >
+                  Level 1: Common deductions from Agent Split • Level 2: Other deductions from Net after Level 1 Post-splits (e.g., 5% Brokerage stock options)
+                </span>
+              </span>
+            </div>
+          </div>
+
+          {agentNames.length === 0 ? (
+            <p className="text-xs text-slate-400 italic py-1">
+              Assign an agent to configure post-split deductions.
+            </p>
+          ) : (
+            agentNames.map((agentName) => {
+              const agentObj = agents.find((a) => a.name === agentName);
+              const computedSplitItem = (dealResult.agentSplitItems || []).find(
+                (s: any) => s.agentName === agentName || s.agentId === agentObj?.id
+              );
+              const agentGrossSplit = computedSplitItem?.amount || 0;
+
+              // Level 1 rules & items
+              const agentRules1 = shownPostSplitRules[agentName] || [];
+              const items1ForAgent = (dealResult.postSplitItems || []).filter((i: any) => i.agentName === agentName);
+              const isAddingL1 = addingPostSplitForAgent === agentName;
+              const netAfterL1 = dealResult.agentNetAfterLevel1?.[agentName] ?? agentGrossSplit;
+
+              // Level 2 rules & items (Stock / Elective)
+              const agentRules2 = shownPostSplit2Rules[agentName] || [];
+              const items2ForAgent = (dealResult.postSplit2Items || []).filter((i: any) => i.agentName === agentName);
+              const isAddingL2 = addingPostSplit2ForAgent === agentName;
+
+              // Final net payout
+              const finalAgentPayout = dealResult.netPayouts?.[agentName] ?? netAfterL1;
+
+              return (
+                <div
+                  key={agentName}
+                  className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4"
+                >
+                  {/* Agent Sub-Card Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-700 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-900 dark:text-white">
+                        👤 {agentName}
+                      </span>
+                      {agentObj?.isTeamLead && (
+                        <span className="text-[10px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-semibold uppercase">
+                          LEAD
+                        </span>
+                      )}
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        (Agent Split: <strong className={agentGrossSplit < -0.004 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-200'}>{formatCurrency(agentGrossSplit)}</strong>)
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* LEVEL 1: Level 1 Post-splits */}
+                  <div className="bg-white dark:bg-slate-900/90 rounded-lg p-3 border border-slate-200 dark:border-slate-700 space-y-2">
+                    <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                          <HoverNote label="Percent deductions are calculated from Agent Split">
+                            <span className="inline-flex items-center whitespace-nowrap rounded-full border border-yellow-600/40 bg-yellow-400/25 px-2 py-0.5 tracking-normal text-yellow-900 dark:border-yellow-300/50 dark:bg-yellow-400/15 dark:text-yellow-200">
+                              Level 1
+                            </span>
+                          </HoverNote>
+                          Post-splits
+                        </span>
+                      </div>
+                      {isEditing && (
+                        <button
+                          type="button"
+                          onClick={() => isAddingL1 ? setAddingPostSplitForAgent(null) : handleStartAddPostSplit1(agentName)}
+                          title="Add New Level 1 Post-split"
+                          aria-label="Add New Level 1 Post-split"
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
+                        >
+                          <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
+                            <path d="M8 3.25v9.5M3.25 8h9.5" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+
+                    {isEditing && isAddingL1 && (
+                      <div data-inline-save className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg border border-emerald-500/30 space-y-2 my-2">
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                          New Level 1 Post-split for {agentName}
+                        </span>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                          {knownEntities.length > 0 ? (
+                            <ClearableSelect
+                              value={newPostSplitEntity}
+                              onChange={(e) => setNewPostSplitEntity(e.target.value)}
+                              className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
+                            >
+                              {knownEntities.map((ent) => (
+                                <option key={ent.id} value={ent.name}>{ent.name}</option>
+                              ))}
+                            </ClearableSelect>
+                          ) : (
+                            <input
+                              type="text"
+                              placeholder="Entity Name (e.g. Soleox Realty)"
+                              value={newPostSplitEntity}
+                              onChange={(e) => setNewPostSplitEntity(e.target.value)}
+                              className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
+                            />
+                          )}
+                          <SplitPair
+                            isEditing
+                            type={newPostSplitType}
+                            percentPoints={newPostSplitType === 'PERCENT' ? toPercentPoints(newPostSplitValue) : (agentGrossSplit > 0 ? (newPostSplitValue / agentGrossSplit) * 100 : 0)}
+                            dollarAmount={newPostSplitType === 'AMOUNT' ? newPostSplitValue : agentGrossSplit * newPostSplitValue}
+                            onPercentChange={(val) => {
+                              if (newPostSplitType !== 'PERCENT') toggleNewPostSplitType();
+                              setNewPostSplitValue(val);
+                            }}
+                            onAmountChange={(val) => {
+                              if (newPostSplitType !== 'AMOUNT') toggleNewPostSplitType();
+                              setNewPostSplitValue(val);
+                            }}
+                            preventMinus={preventMinus}
+                          />
+                          <div className="flex items-center gap-2 justify-end">
+                            <button
+                              type="button"
+                              onClick={() => setAddingPostSplitForAgent(null)}
+                              className="text-xs px-2 py-0.5 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSavePostSplit(agentName)}
+                              className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded font-semibold cursor-pointer shadow-sm whitespace-nowrap"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {agentRules1.length === 0 && items1ForAgent.length === 0 && !isAddingL1 && (
+                      <p className="text-xs text-slate-400 italic py-1">
+                        No Level 1 Post-splits applied to {agentName}.
+                      </p>
+                    )}
+
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {agentRules1.map((rule, ruleIdx) => {
+                        const calculatedItem = items1ForAgent.find((i: any) => i.id === rule.id);
+                        return (
+                          <div
+                            key={rule.id}
+                            {...getDragRowProps(ruleIdx, `postSplit1_${agentName}`, (fromI, toI) => onReorderAgentPostSplitRules?.(agentName, fromI, toI))}
+                            className="py-2 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
+                          >
+                            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                              {renderReorderControls(ruleIdx, agentRules1.length, (fromI, toI) => onReorderAgentPostSplitRules?.(agentName, fromI, toI), `postSplit1_${agentName}`)}
+                              {isEditing && (
+                                <button
+                                  type="button"
+                                  onClick={() => onDeleteAgentPostSplitRule(agentName, rule.id)}
+                                  className="text-rose-500 hover:text-rose-600 cursor-pointer p-0.5"
+                                  title="Delete rule"
+                                >
+                                  <TrashIcon />
+                                </button>
+                              )}
+
+                              {isEditing ? (
+                                knownEntities.length > 0 ? (
+                                  <ClearableSelect
+                                    value={rule.entity}
+                                    onChange={(e) => onUpdateAgentPostSplitEntity?.(agentName, rule.id, e.target.value)}
+                                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[140px] sm:max-w-[170px]"
+                                    title="Switch entity"
+                                  >
+                                    <option value={rule.entity}>{rule.entity}</option>
+                                    {knownEntities.filter((e) => e.name !== rule.entity).map((ent) => (
+                                      <option key={ent.id} value={ent.name}>{ent.name}</option>
+                                    ))}
+                                  </ClearableSelect>
+                                ) : (
+                                  <input
+                                    type="text"
+                                    value={rule.entity}
+                                    onChange={(e) => onUpdateAgentPostSplitEntity?.(agentName, rule.id, e.target.value)}
+                                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] w-24"
+                                  />
+                                )
+                              ) : (
+                                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[170px] truncate" title={rule.entity}>
+                                  {rule.entity || '—'}
+                                </span>
+                              )}
+
+                            </div>
+                            <SplitPair
+                              isEditing={isEditing}
+                              matchColumns
+                              type={rule.type}
+                              percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (agentGrossSplit > 0 ? ((calculatedItem?.amount || 0) / agentGrossSplit) * 100 : 0)}
+                              dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
+                              deduction
+                              underAmount={agentRules1.findLastIndex((item) => (item.entity || '').trim() === (rule.entity || '').trim()) === ruleIdx ? agentCapNote(agentObj?.id || '', agentName, rule.entity) : null}
+                              onPercentChange={(val) => {
+                                if (rule.type !== 'PERCENT') onToggleAgentPostSplitType(agentName, rule.id);
+                                onUpdateAgentPostSplitValue(agentName, rule.id, val);
+                              }}
+                              onAmountChange={(val) => {
+                                if (rule.type !== 'AMOUNT') onToggleAgentPostSplitType(agentName, rule.id);
+                                onUpdateAgentPostSplitValue(agentName, rule.id, val);
+                              }}
+                              preventMinus={preventMinus}
+                            />
+                          </div>
+                        );
+                      })}
+                      {items1ForAgent.filter((item: { id?: string; entity?: string }) => !agentRules1.some((rule) => rule.id === item.id || (rule.entity || '').trim() === (item.entity || '').trim())).map((item: { id?: string; entity?: string; type?: 'PERCENT' | 'AMOUNT'; value?: number; amount?: number }) => (
+                        <div key={item.id || item.entity} className="py-2 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300">
+                          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[170px] truncate" title={item.entity}>{item.entity || '—'}</span>
+                          <SplitPair
+                            isEditing={isEditing}
+                            matchColumns
+                            type={item.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENT'}
+                            percentPoints={item.type === 'AMOUNT' ? (agentGrossSplit > 0 ? ((Number(item.amount) || 0) / agentGrossSplit) * 100 : 0) : toPercentPoints(Number(item.value) || 0)}
+                            dollarAmount={Number(item.amount) || 0}
+                            deduction
+                            underAmount={agentCapNote(agentObj?.id || '', agentName, item.entity || '')}
+                            onPercentChange={(val) => {
+                              if (item.type === 'AMOUNT' && item.id) onToggleAgentPostSplitType(agentName, item.id);
+                              if (item.id) onUpdateAgentPostSplitValue(agentName, item.id, val);
+                            }}
+                            onAmountChange={(val) => {
+                              if (item.type !== 'AMOUNT' && item.id) onToggleAgentPostSplitType(agentName, item.id);
+                              if (item.id) onUpdateAgentPostSplitValue(agentName, item.id, val);
+                            }}
+                            preventMinus={preventMinus}
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Level 1 Subtotal */}
+                    <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-800 pt-2 text-xs">
+                      <span className="font-semibold text-slate-600 dark:text-slate-400">
+                        Net After Level 1 Post-Splits
+                      </span>
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {formatCurrency(netAfterL1)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* LEVEL 2: Level 2 Post-splits */}
+                  <div className="bg-white dark:bg-slate-900/90 rounded-lg p-3 border border-slate-200 dark:border-slate-700 space-y-2">
+                    <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                          <HoverNote label="Percent deductions are calculated from Net after Level 1 Post-splits.">
+                            <span className="inline-flex items-center whitespace-nowrap rounded-full border border-slate-400/60 bg-slate-300/50 px-2 py-0.5 tracking-normal text-slate-600 dark:border-slate-300/45 dark:bg-slate-400/20 dark:text-slate-200">
+                              Level 2
+                            </span>
+                          </HoverNote>
+                          Post-splits
+                        </span>
+                      </div>
+                      {isEditing && (
+                        <button
+                          type="button"
+                          onClick={() => isAddingL2 ? setAddingPostSplit2ForAgent(null) : handleStartAddPostSplit2(agentName)}
+                          title="Add New Level 2 Post-split"
+                          aria-label="Add New Level 2 Post-split"
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
+                        >
+                          <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
+                            <path d="M8 3.25v9.5M3.25 8h9.5" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+
+                    {isEditing && isAddingL2 && (
+                      <div data-inline-save className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg border border-emerald-500/30 space-y-2 my-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                            New Level 2 Post-split for {agentName}
+                          </span>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                            Baseline: {formatCurrency(netAfterL1)}
+                          </span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                          {knownEntities.length > 0 ? (
+                            <ClearableSelect
+                              value={newPostSplit2Entity}
+                              onChange={(e) => setNewPostSplit2Entity(e.target.value)}
+                              className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
+                            >
+                              {knownEntities.map((ent) => (
+                                <option key={ent.id} value={ent.name}>{ent.name}</option>
+                              ))}
+                            </ClearableSelect>
+                          ) : (
+                            <input
+                              type="text"
+                              placeholder="Payee Entity (e.g. Stock)"
+                              value={newPostSplit2Entity}
+                              onChange={(e) => setNewPostSplit2Entity(e.target.value)}
+                              className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] font-medium sm:w-44"
+                            />
+                          )}
+                          <SplitPair
+                            isEditing
+                            type={newPostSplit2Type}
+                            percentPoints={newPostSplit2Type === 'PERCENT' ? toPercentPoints(newPostSplit2Value) : (netAfterL1 > 0 ? (newPostSplit2Value / netAfterL1) * 100 : 0)}
+                            dollarAmount={newPostSplit2Type === 'AMOUNT' ? newPostSplit2Value : netAfterL1 * newPostSplit2Value}
+                            onPercentChange={(val) => {
+                              if (newPostSplit2Type !== 'PERCENT') toggleNewPostSplit2Type();
+                              setNewPostSplit2Value(val);
+                            }}
+                            onAmountChange={(val) => {
+                              if (newPostSplit2Type !== 'AMOUNT') toggleNewPostSplit2Type();
+                              setNewPostSplit2Value(val);
+                            }}
+                            preventMinus={preventMinus}
+                          />
+                          <div className="flex items-center gap-2 justify-end">
+                            <button
+                              type="button"
+                              onClick={() => setAddingPostSplit2ForAgent(null)}
+                              className="text-xs px-2 py-0.5 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSavePostSplit2(agentName)}
+                              className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded font-semibold cursor-pointer shadow-sm whitespace-nowrap"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {agentRules2.length === 0 && items2ForAgent.length === 0 && !isAddingL2 && (
+                      <p className="text-xs text-slate-400 italic py-1">
+                        No Level 2 Post-splits applied to {agentName}.
+                      </p>
+                    )}
+
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {agentRules2.map((rule, ruleIdx) => {
+                        const calculatedItem2 = items2ForAgent.find((i: any) => i.id === rule.id);
+                        return (
+                          <div
+                            key={rule.id}
+                            {...getDragRowProps(ruleIdx, `postSplit2_${agentName}`, (fromI, toI) => onReorderAgentPostSplit2Rules?.(agentName, fromI, toI))}
+                            className="py-2 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
+                          >
+                            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                              {renderReorderControls(ruleIdx, agentRules2.length, (fromI, toI) => onReorderAgentPostSplit2Rules?.(agentName, fromI, toI), `postSplit2_${agentName}`)}
+                              {isEditing && (
+                                <button
+                                  type="button"
+                                  onClick={() => onDeleteAgentPostSplit2Rule?.(agentName, rule.id)}
+                                  className="text-rose-500 hover:text-rose-600 cursor-pointer p-0.5"
+                                  title="Delete rule"
+                                >
+                                  <TrashIcon />
+                                </button>
+                              )}
+
+                              {isEditing ? (
+                                knownEntities.length > 0 ? (
+                                  <ClearableSelect
+                                    value={rule.entity}
+                                    onChange={(e) => onUpdateAgentPostSplit2Entity?.(agentName, rule.id, e.target.value)}
+                                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] cursor-pointer max-w-[140px] sm:max-w-[170px]"
+                                    title="Switch entity"
+                                  >
+                                    <option value={rule.entity}>{rule.entity}</option>
+                                    {knownEntities.filter((e) => e.name !== rule.entity).map((ent) => (
+                                      <option key={ent.id} value={ent.name}>{ent.name}</option>
+                                    ))}
+                                  </ClearableSelect>
+                                ) : (
+                                  <input
+                                    type="text"
+                                    value={rule.entity}
+                                    onChange={(e) => onUpdateAgentPostSplit2Entity?.(agentName, rule.id, e.target.value)}
+                                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-emerald-500 focus:shadow-[0_1px_0_rgb(16_185_129/0.45),0_6px_12px_-6px_rgb(16_185_129/0.8)] w-24"
+                                  />
+                                )
+                              ) : (
+                                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[170px] truncate" title={rule.entity}>
+                                  {rule.entity || '—'}
+                                </span>
+                              )}
+
+                            </div>
+                            <SplitPair
+                              isEditing={isEditing}
+                              matchColumns
+                              type={rule.type}
+                              percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (netAfterL1 > 0 ? ((calculatedItem2?.amount || 0) / netAfterL1) * 100 : 0)}
+                              dollarAmount={calculatedItem2?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
+                              deduction
+                              underAmount={agentRules2.findLastIndex((item) => (item.entity || '').trim() === (rule.entity || '').trim()) === ruleIdx ? agentCapNote(agentObj?.id || '', agentName, rule.entity) : null}
+                              onPercentChange={(val) => {
+                                if (rule.type !== 'PERCENT') onToggleAgentPostSplit2Type?.(agentName, rule.id);
+                                onUpdateAgentPostSplit2Value?.(agentName, rule.id, val);
+                              }}
+                              onAmountChange={(val) => {
+                                if (rule.type !== 'AMOUNT') onToggleAgentPostSplit2Type?.(agentName, rule.id);
+                                onUpdateAgentPostSplit2Value?.(agentName, rule.id, val);
+                              }}
+                              preventMinus={preventMinus}
+                            />
+                          </div>
+                        );
+                      })}
+                      {items2ForAgent.filter((item: { id?: string; entity?: string }) => !agentRules2.some((rule) => rule.id === item.id || (rule.entity || '').trim() === (item.entity || '').trim())).map((item: { id?: string; entity?: string; type?: 'PERCENT' | 'AMOUNT'; value?: number; amount?: number }) => (
+                        <div key={item.id || item.entity} className="py-2 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300">
+                          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[170px] truncate" title={item.entity}>{item.entity || '—'}</span>
+                          <SplitPair
+                            isEditing={isEditing}
+                            matchColumns
+                            type={item.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENT'}
+                            percentPoints={item.type === 'AMOUNT' ? (netAfterL1 > 0 ? ((Number(item.amount) || 0) / netAfterL1) * 100 : 0) : toPercentPoints(Number(item.value) || 0)}
+                            dollarAmount={Number(item.amount) || 0}
+                            deduction
+                            underAmount={agentCapNote(agentObj?.id || '', agentName, item.entity || '')}
+                            onPercentChange={(val) => {
+                              if (item.type === 'AMOUNT' && item.id) onToggleAgentPostSplit2Type?.(agentName, item.id);
+                              if (item.id) onUpdateAgentPostSplit2Value?.(agentName, item.id, val);
+                            }}
+                            onAmountChange={(val) => {
+                              if (item.type !== 'AMOUNT' && item.id) onToggleAgentPostSplit2Type?.(agentName, item.id);
+                              if (item.id) onUpdateAgentPostSplit2Value?.(agentName, item.id, val);
+                            }}
+                            preventMinus={preventMinus}
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Level 2 Subtotal */}
+                    <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-800 pt-2 text-xs">
+                      <span className="font-semibold text-slate-600 dark:text-slate-400">
+                        Net Payout to {agentName}
+                      </span>
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {formatCurrency(finalAgentPayout)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+        </>
+        )}
+      </div>
       <CancelEditPrompt
         open={editKeys.confirmCancel}
         sectionLabel="Commission Waterfall"
@@ -1697,7 +1683,9 @@ export function CommissionWaterfall({
                 Reset the waterfall?
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-                Off-the-top deductions, pre-splits, agent splits, post-splits, and team caps are removed. The Primary Agent keeps 100% of the commission. The template submission stays.
+                {resetClearsPayments
+                  ? 'Off-the-top deductions, pre-splits, agent splits, post-splits, and team caps are removed. This transaction does not qualify for a commission template, so saving it removes every commission line and payment.'
+                  : 'Off-the-top deductions, pre-splits, agent splits, post-splits, and team caps are removed. The Primary Agent keeps 100% of the commission. The template submission stays.'}
               </p>
             </div>
             <div className="flex items-center justify-end gap-2">
@@ -1723,5 +1711,59 @@ export function CommissionWaterfall({
         </div>
       )}
     </section>
+  );
+}
+
+/** Less common Waterfall actions, kept out of the header so a rare, destructive reset is one click further away. */
+function WaterfallMoreMenu({ onReset }: { onReset: () => void }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnOutside = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [open]);
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-label="More Waterfall actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="More actions"
+        className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition cursor-pointer ${open ? 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-white' : 'text-slate-400 hover:bg-slate-200/70 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-700/60 dark:hover:text-slate-200'}`}
+      >
+        <MoreHorizontal className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 top-full z-50 mt-1 min-w-[11rem] rounded-lg border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onReset();
+            }}
+            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs font-semibold text-amber-800 transition hover:bg-amber-50 cursor-pointer dark:text-amber-200 dark:hover:bg-amber-950/50"
+          >
+            <Eraser className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+            Reset waterfall
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

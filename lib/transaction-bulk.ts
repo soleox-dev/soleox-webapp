@@ -41,7 +41,7 @@ const BULK_READ_ONLY_KEYS = new Set([
 
 const FORMULA_FIELD_TYPES = new Set(['CURRENCY', 'NUMBER', 'PERCENT']);
 
-const MAX_BULK_IDS = 500;
+const MAX_BULK_IDS = 5000;
 const WRITE_CHUNK = 100;
 const WRITE_CONCURRENCY = 8;
 
@@ -126,7 +126,7 @@ export async function bulkUpdateTransactions(
 ): Promise<BulkUpdateResult> {
   const ids = [...new Set(input.ids.map((id) => id.trim()).filter(Boolean))];
   if (ids.length === 0) throw new Error('Choose at least one transaction.');
-  if (ids.length > MAX_BULK_IDS) throw new Error(`Choose ${MAX_BULK_IDS} transactions or fewer.`);
+  if (ids.length > MAX_BULK_IDS) throw new Error(`Choose ${MAX_BULK_IDS.toLocaleString('en-US')} transactions or fewer.`);
 
   const { data: fieldRows, error: fieldError } = await sb
     .from('client_field_configurations')
@@ -286,7 +286,7 @@ async function loadAgents(sb: SupabaseClient, clientId: string): Promise<SyncAge
 
 async function loadActiveTransactions(sb: SupabaseClient, clientId: string, ids: string[]): Promise<Record<string, unknown>[]> {
   const batches = chunk(ids, WRITE_CHUNK);
-  const parts = await Promise.all(batches.map(async (batch) => {
+  const parts = await runPool(batches, WRITE_CONCURRENCY, async (batch) => {
     const { data, error } = await sb
       .from('transactions')
       .select('*')
@@ -296,7 +296,7 @@ async function loadActiveTransactions(sb: SupabaseClient, clientId: string, ids:
       .in('id', batch);
     if (error) throw new Error(error.message);
     return data || [];
-  }));
+  });
   return parts.flat();
 }
 

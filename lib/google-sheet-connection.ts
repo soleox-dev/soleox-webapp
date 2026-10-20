@@ -48,6 +48,21 @@ async function callerRoles(sb: SupabaseClient, clientId: string): Promise<string
   return (data || []).map((row) => String(row.role || ''));
 }
 
+/** The client's TMS name, such as SkySlope. Blank until migration 049 adds the column. */
+export async function loadTmsName(sb: SupabaseClient, clientId: string, connectionId: string): Promise<string> {
+  const { data, error } = await sb
+    .from('integration_connections')
+    .select('tms_name')
+    .eq('id', connectionId)
+    .eq('client_id', clientId)
+    .maybeSingle();
+  if (error) {
+    if (/tms_name/.test(error.message)) return '';
+    throw new Error(error.message);
+  }
+  return String(data?.tms_name || '').trim();
+}
+
 export async function loadGoogleSheetIntegration(sb: SupabaseClient, clientId: string) {
   const account = googleServiceAccount();
   const [{ data: connection, error: connectionError }, { data: client, error: clientError }, { data: fields, error: fieldError }] = await Promise.all([
@@ -115,12 +130,14 @@ export async function loadGoogleSheetIntegration(sb: SupabaseClient, clientId: s
   }
 
   const formula = transactionDefaultViewFromSettings(client?.settings_json, clientId).filterFormula;
+  const tmsName = connection?.id ? await loadTmsName(sb, clientId, String(connection.id)) : '';
   return {
     connection: connection ? {
       id: connection.id,
       spreadsheetId: connection.spreadsheet_id || '',
       spreadsheetUrl: connection.spreadsheet_id ? spreadsheetUrl(String(connection.spreadsheet_id)) : '',
       tabName: connection.tab_name || DEFAULT_SHEET_TAB,
+      tmsName,
       enabled: Boolean(connection.enabled),
     } : null,
     mappings,
@@ -290,12 +307,14 @@ export async function saveGoogleSheetIntegration(
   sb: SupabaseClient,
   clientId: string,
   userEmail: string,
-  input: { spreadsheet: string; tabName: string; enabled: boolean; mappings: unknown },
+  input: { spreadsheet: string; tabName: string; tmsName: string; enabled: boolean; mappings: unknown },
 ) {
   const spreadsheetId = parseSpreadsheetId(input.spreadsheet);
   if (!spreadsheetId) return { error: 'Enter a Google Sheets link or spreadsheet ID.', status: 400 as const };
   const tabName = input.tabName.trim() || DEFAULT_SHEET_TAB;
   if (tabName.length > 200) return { error: 'The tab name is too long.', status: 400 as const };
+  const tmsName = input.tmsName.trim();
+  if (tmsName.length > 60) return { error: 'The TMS name is too long.', status: 400 as const };
 
   const { data: fieldRows, error: fieldError } = await sb
     .from('client_field_configurations')
@@ -338,6 +357,7 @@ export async function saveGoogleSheetIntegration(
     provider: GOOGLE_SHEETS_PROVIDER,
     spreadsheet_id: spreadsheetId,
     tab_name: tabName,
+    tms_name: tmsName || null,
     enabled: input.enabled,
     archived: false,
     updated_at: now,
@@ -346,16 +366,24 @@ export async function saveGoogleSheetIntegration(
     source_tms_ids_cached_at: null,
     ...(existing?.id ? {} : { created_by: userEmail }),
   };
-  const saved = existing?.id
-    ? await sb.from('integration_connections').update(connectionRow).eq('id', connectionId).eq('client_id', clientId)
-    : await sb.from('integration_connections').insert(connectionRow);
-  let saveError = saved.error;
-  if (saveError && /source_tms_ids/.test(saveError.message)) {
-    const { source_tms_ids: _ids, source_tms_ids_cached_at: _cachedAt, ...withoutCache } = connectionRow;
-    const retried = existing?.id
-      ? await sb.from('integration_connections').update(withoutCache).eq('id', connectionId).eq('client_id', clientId)
-      : await sb.from('integration_connections').insert(withoutCache);
-    saveError = retried.error;
+  const writeConnection = (row: Record<string, unknown>) => (existing?.id
+    ? sb.from('integration_connections').update(row).eq('id', connectionId).eq('client_id', clientId)
+    : sb.from('integration_connections').insert(row));
+  // Columns from a migration that has not run yet are dropped and the write is tried again.
+  let row: Record<string, unknown> = connectionRow;
+  let saveError = (await writeConnection(row)).error;
+  for (let retry = 0; saveError && retry < 2; retry += 1) {
+    const next = { ...row };
+    if (/source_tms_ids/.test(saveError.message)) {
+      delete next.source_tms_ids;
+      delete next.source_tms_ids_cached_at;
+    } else if (/tms_name/.test(saveError.message)) {
+      delete next.tms_name;
+    } else {
+      break;
+    }
+    row = next;
+    saveError = (await writeConnection(row)).error;
   }
   if (saveError) throw new Error(saveError.message);
 

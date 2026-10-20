@@ -32,6 +32,7 @@ export async function PUT(request: Request) {
     const saved = await saveGoogleSheetIntegration(supabase, tenant.clientId, session.user.email, {
       spreadsheet: String(body.spreadsheetId ?? body.spreadsheet ?? ''),
       tabName: String(body.tabName ?? body.tab_name ?? ''),
+      tmsName: String(body.tmsName ?? body.tms_name ?? ''),
       enabled: Boolean(body.enabled),
       mappings: body.mappings,
     });
