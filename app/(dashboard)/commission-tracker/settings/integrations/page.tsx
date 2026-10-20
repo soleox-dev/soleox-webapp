@@ -522,7 +522,7 @@ export default function TransactionIntegrationsPage() {
 
           <div className="grid gap-4 md:grid-cols-[12rem_minmax(0,1fr)_16rem]">
             <UnderlineField label="TMS">
-              <input value={tmsName} onChange={(event) => setTmsName(event.target.value)} placeholder="SkySlope" maxLength={60} className={underlineControl} disabled={!canManage} />
+              <input value={tmsName} onChange={(event) => setTmsName(event.target.value)} placeholder="SkySlope, Open To Close, etc." maxLength={60} className={underlineControl} disabled={!canManage} />
             </UnderlineField>
             <UnderlineField label="Spreadsheet">
               <input value={spreadsheet} onChange={(event) => setSpreadsheet(event.target.value)} placeholder="Paste the Google Sheets link" className={underlineControl} disabled={!canManage} />
