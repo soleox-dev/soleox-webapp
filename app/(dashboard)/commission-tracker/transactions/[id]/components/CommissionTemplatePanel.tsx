@@ -852,7 +852,6 @@ export function CommissionTemplatePanel({
   const [ledger, setLedger] = useState<FormulaLedgerRow[] | null>(null);
   const [lookups, setLookups] = useState<FormulaLookups | null>(null);
   const [ledgerError, setLedgerError] = useState('');
-  const [parametersOpen, setParametersOpen] = useState(true);
   const [logicOpen, setLogicOpen] = useState(true);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(!initialTemplates);
   const [isLoadingParameters, setIsLoadingParameters] = useState(false);
@@ -1287,7 +1286,6 @@ export function CommissionTemplatePanel({
   useEffect(() => {
     setCollapsedSections({});
     setCollapsedLogicSections({});
-    setParametersOpen(true);
     setLogicOpen(true);
     setRecalcFlash({});
   }, [draftTemplateId]);
@@ -1379,7 +1377,6 @@ export function CommissionTemplatePanel({
       for (const parameter of flashed) nextFlash[parameter.id] = (nextFlash[parameter.id] ?? 0) + 1;
       return nextFlash;
     });
-    setParametersOpen(true);
     setCollapsedSections((current) => {
       const nextSections = { ...current };
       for (const parameter of flashed) nextSections[parameter.section?.trim() || 'No Section'] = false;
@@ -1438,7 +1435,6 @@ export function CommissionTemplatePanel({
     if (issues.size > 0) {
       setValues({ ...liveValues.current });
       setSubmitAttempted(true);
-      setParametersOpen(true);
       setCollapsedSections((current) => {
         const next = { ...current };
         for (const issue of issues.values()) next[issue.section] = false;
@@ -1680,16 +1676,9 @@ export function CommissionTemplatePanel({
             <div className="@container/params mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl bg-slate-100 p-4 dark:bg-slate-900">
               <div className="space-y-6">
               <section className="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setParametersOpen((open) => !open)}
-                  aria-expanded={parametersOpen}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left cursor-pointer"
-                >
-                  <span className="w-3 shrink-0 text-center text-sm font-bold leading-none text-emerald-600 dark:text-emerald-400">{parametersOpen ? '−' : '+'}</span>
+                <div className="px-3 py-2">
                   <span className="text-[11px] font-bold text-brand-600 dark:text-brand-400">Parameters</span>
-                </button>
-              {parametersOpen && (
+                </div>
                 <div className="border-t border-slate-200 px-3 py-2 dark:border-slate-700">
               {isLoadingParameters ? (
                 <p className="text-xs text-slate-500">Loading parameters...</p>
@@ -1768,7 +1757,6 @@ export function CommissionTemplatePanel({
                 </div>
               )}
                 </div>
-              )}
               </section>
               {(ledgerError || blockLogicGroups.length > 0 || (popupStepsOutsideSections && (!ledger || !lookups))) && (
                 <section className="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
