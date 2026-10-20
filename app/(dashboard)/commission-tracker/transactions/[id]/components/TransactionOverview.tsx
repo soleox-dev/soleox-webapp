@@ -48,8 +48,9 @@ interface TransactionOverviewProps {
 
 /** Field types that make a section read as a strip of dates and amounts. */
 const STRIP_TYPES = new Set(['DATE', 'CURRENCY', 'NUMBER', 'PERCENT']);
-/** A solid pill marks the date and amount strips as their own sub-section; other sections use the light tint. */
-const STRIP_PILL = 'flex items-center gap-2 rounded-full bg-brand-600 px-3 py-1 text-white dark:bg-brand-500 dark:text-slate-950';
+/** The date and amount strips take the logo's green (where its gold line meets the blue, about #80c360), tinted
+    like the blue pills of the other sections, so they read as their own sub-section. */
+const STRIP_PILL = 'flex items-center gap-2 rounded-full bg-[#80c360]/25 px-3 py-1 text-[#3b6b20] dark:bg-[#80c360]/15 dark:text-[#a8de88]';
 
 export function TransactionOverview({
   isEditing,
