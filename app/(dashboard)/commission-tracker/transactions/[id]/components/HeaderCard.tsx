@@ -181,11 +181,13 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
       >
         <div
           className={`relative border border-slate-200 bg-white transition-[border-radius,padding,box-shadow] duration-200 ease-out motion-reduce:transition-none dark:border-slate-700 dark:bg-slate-800 ${
-            compact ? 'rounded-2xl py-1.5 pl-3 pr-2 shadow-xl md:rounded-full' : 'rounded-xl px-6 py-4 shadow-xs'
+            compact ? 'rounded-[22px] py-1.5 pl-3 pr-2 shadow-xl' : 'rounded-xl px-6 py-4 shadow-xs'
           }`}
         >
+          {/* A real radius (half the bar's height) instead of a full pill, so the corners ease into the card's
+              instead of the tall card briefly showing as a giant pill. The new content fades in on each change. */}
           {compact ? (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 md:flex-nowrap">
+            <div key="compact" className="header-swap flex flex-wrap items-center gap-x-3 gap-y-2 md:flex-nowrap">
               {onBack && (
                 <button
                   type="button"
@@ -215,7 +217,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
               {actions}
             </div>
           ) : (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+            <div key="expanded" className="header-swap flex flex-wrap items-center gap-x-4 gap-y-3">
               <div className="min-w-0 flex-1">
                 {onBack && (
                   <button
