@@ -1,7 +1,7 @@
 // app/commission-tracker/transactions/[id]/page.tsx
 'use client';
 
-import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AgentConfig, DynamicRule, ToastNotification, roundCurrency, roundPercentRate, KnownAgentInfo } from './types';
 
@@ -37,6 +37,7 @@ import { isPrimaryAgent, resolvePrimaryAgentId, waterfallFromCommissionItems } f
 import { generatePrefixedId } from '@/lib/id';
 import { transactionDealLabel, transactionSearchLabel } from '@/lib/transaction-label';
 import { useAccess } from '@/components/access-provider';
+import { useTemplateQualification } from './hooks/useTemplateQualification';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -176,15 +177,6 @@ export default function Dashboard() {
   const [selectedDealId, setSelectedDealId] = useState('');
   const [dealNotFound, setDealNotFound] = useState(false);
 
-  useLayoutEffect(() => {
-    const header = document.getElementById('transaction-detail-header');
-    if (!header) return;
-    const sync = () => setHeaderStick(header.offsetHeight);
-    sync();
-    const observer = new ResizeObserver(sync);
-    observer.observe(header);
-    return () => observer.disconnect();
-  }, [dealNotFound]);
 
   useEffect(() => {
     scrolledSectionRef.current = null;
@@ -1056,7 +1048,15 @@ export default function Dashboard() {
   const totalPayments = roundCurrency(
     Object.values(dealResult.netPayouts || {}).reduce((sum: number, amount) => sum + (Number(amount) || 0), 0),
   );
-  const paymentsShortOfCommission = commissionTotal > 0.009 && roundCurrency(commissionTotal - totalPayments) > 0.009;
+  // The whole commission has to be allocated only when a commission template applies. A deal
+  // that qualifies for none, such as a cancelled one, is not expected to have payments.
+  const qualificationDeal = useMemo(
+    () => (selectedDeal ? { ...selectedDeal, ...(overviewForm.isEditingOverview ? overviewForm.overviewFormValues : {}) } : null),
+    [selectedDeal, overviewForm.isEditingOverview, overviewForm.overviewFormValues],
+  );
+  const templateQualifies = useTemplateQualification(selectedDeal?.client_id, qualificationDeal);
+  const paymentsShortOfCommission = templateQualifies !== false
+    && commissionTotal > 0.009 && roundCurrency(commissionTotal - totalPayments) > 0.009;
   const saveBlocked = agentSplitsExceedCommission || paymentsShortOfCommission;
   const saveBlockedReason = [
     agentSplitsExceedCommission ? 'Agent splits are more than the remaining commission.' : '',
@@ -1092,8 +1092,12 @@ export default function Dashboard() {
       agents.length === 0
       || (agents.length === 1 && agents[0].splitType === 'PERCENT' && Number(agents[0].splitVal) === 1)
     );
+    let omitPayments = Boolean(options?.omitPayments);
     if (!options?.decided && waterfallResetPending) {
-      if (clearedWaterfall) {
+      // A deal that qualifies for no template keeps no payments, so there is nothing to ask.
+      if (clearedWaterfall && templateQualifies === false) {
+        omitPayments = true;
+      } else if (clearedWaterfall) {
         allocateAfterSaveRef.current = afterSaveSuccess;
         setAllocatePromptOpen(true);
         return;
@@ -1329,8 +1333,8 @@ export default function Dashboard() {
     const templateSubmission = pendingTemplateSubmissionRef.current;
     const payload = {
       ...coreDbFields,
-      commission_items: options?.omitPayments ? [] : commissionItems,
-      payments: options?.omitPayments ? [] : paymentItems,
+      commission_items: omitPayments ? [] : commissionItems,
+      payments: omitPayments ? [] : paymentItems,
       custom_attributes: customAttrs,
       ...(templateSubmission ? { template_submission: templateSubmission } : {}),
     };
@@ -1426,7 +1430,8 @@ export default function Dashboard() {
       isPrimaryAgent(agent, primaryAgentId) || (named && agent.name.toLowerCase() === named.toLowerCase())
     );
     const name = known?.name || current?.name || named;
-    const nextAgents: AgentConfig[] = name
+    // Without a qualifying template the reset leaves no agent splits, so the deal keeps no payments.
+    const nextAgents: AgentConfig[] = name && templateQualifies !== false
       ? [{
           id: known?.id || current?.id || (primaryAgentId ? String(primaryAgentId) : `AGT_${name}`),
           name,
@@ -1738,6 +1743,7 @@ export default function Dashboard() {
         hasUnsavedChanges={hasUnsavedLocalChanges}
         saveBlocked={saveBlocked}
         saveBlockedReason={saveBlockedReason}
+        onHeightChange={setHeaderStick}
       >
       <SearchableTransactionPicker
         searchQuery={searchQuery}
@@ -1745,7 +1751,6 @@ export default function Dashboard() {
         isDropdownOpen={isDropdownOpen}
         setIsDropdownOpen={setIsDropdownOpen}
         filteredDeals={filteredDeals}
-        savedDealsCount={savedDeals.length}
         isLoadingDeals={isLoadingDeals}
         selectedDealId={selectedDealId}
         onSelectDeal={(deal) => {
@@ -2008,6 +2013,7 @@ export default function Dashboard() {
             onStoredSubmission={rememberStoredSubmission}
             pendingTemplateSubmission={pendingTemplateSubmission}
             onResetWaterfall={handleResetWaterfall}
+            resetClearsPayments={templateQualifies === false}
             submissionRevision={templateSubmissionRevision}
           />
 
@@ -2020,6 +2026,7 @@ export default function Dashboard() {
             agentSplitTotal={Number(dealResult.agentSplitTotal) || 0}
             agentSplitExcess={agentSplitExcess}
             remainingCommission={Number(dealResult.commissionAfterPreSplit) || 0}
+            requiresFullAllocation={templateQualifies === true}
           />
         </div>
       </div>

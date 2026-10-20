@@ -88,6 +88,8 @@ interface CommissionWaterfallProps {
   onStoredSubmission?: (submission: TemplateSubmissionDraft | null) => void;
   pendingTemplateSubmission?: TemplateSubmissionDraft | null;
   onResetWaterfall?: () => void;
+  /** True when the deal qualifies for no template, so a reset leaves no agent splits and no payments. */
+  resetClearsPayments?: boolean;
   submissionRevision?: number;
   allocations?: AgentAllocationLine[];
   onTeamCapAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
@@ -206,6 +208,7 @@ export function CommissionWaterfall({
   onStoredSubmission,
   pendingTemplateSubmission = null,
   onResetWaterfall,
+  resetClearsPayments = false,
   submissionRevision = 0,
   allocations = [],
   onTeamCapAmountChange,
@@ -1697,7 +1700,9 @@ export function CommissionWaterfall({
                 Reset the waterfall?
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-                Off-the-top deductions, pre-splits, agent splits, post-splits, and team caps are removed. The Primary Agent keeps 100% of the commission. The template submission stays.
+                {resetClearsPayments
+                  ? 'Off-the-top deductions, pre-splits, agent splits, post-splits, and team caps are removed. This transaction does not qualify for a commission template, so saving it removes every commission line and payment.'
+                  : 'Off-the-top deductions, pre-splits, agent splits, post-splits, and team caps are removed. The Primary Agent keeps 100% of the commission. The template submission stays.'}
               </p>
             </div>
             <div className="flex items-center justify-end gap-2">

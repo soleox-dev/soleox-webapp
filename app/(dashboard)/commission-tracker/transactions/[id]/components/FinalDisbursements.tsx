@@ -24,6 +24,8 @@ interface FinalDisbursementsProps {
   agentSplitTotal?: number;
   agentSplitExcess?: number;
   remainingCommission?: number;
+  /** False when the deal qualifies for no commission template, so a shortfall is not an error. */
+  requiresFullAllocation?: boolean;
 }
 
 function formatCurrency(val: number) {
@@ -147,6 +149,7 @@ export function FinalDisbursements({
   agentSplitTotal = 0,
   agentSplitExcess = 0,
   remainingCommission = 0,
+  requiresFullAllocation = true,
 }: FinalDisbursementsProps) {
   const agentTotal = agentDisbursements.reduce((sum, agent) => sum + agent.amount, 0);
   const entityTotal = entityDisbursements.reduce((sum, [, amount]) => sum + amount, 0);
@@ -154,7 +157,8 @@ export function FinalDisbursements({
   const paymentsShare = totalCommission > 0 ? totalPayments / totalCommission : 0;
   const paymentsExceedCommission = totalPayments > totalCommission + 0.009;
   const unallocatedCommission = roundCurrency(totalCommission - totalPayments);
-  const paymentsShortOfCommission = totalCommission > 0.009 && unallocatedCommission > 0.009;
+  // Only a deal that qualifies for a commission template has to allocate the whole commission.
+  const paymentsShortOfCommission = requiresFullAllocation && totalCommission > 0.009 && unallocatedCommission > 0.009;
   const paymentsOffCommission = paymentsExceedCommission || paymentsShortOfCommission;
   const showSplitWarning = agentSplitExcess > 0.009;
 
