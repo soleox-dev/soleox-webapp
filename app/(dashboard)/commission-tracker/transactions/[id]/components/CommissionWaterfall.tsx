@@ -531,6 +531,9 @@ export function CommissionWaterfall({
     };
   };
 
+  const offTopEmpty = offTheTopRules.length === 0 && !isAddingOffTop;
+  const preSplitEmpty = preSplitRules.length === 0 && !isAddingPreSplit;
+
   return (
     <section id="commission" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height))] transition-colors">
       {/* Top Header */}
@@ -602,15 +605,16 @@ export function CommissionWaterfall({
         </div>
       </div>
 
-      <div className="p-6 space-y-6" {...editOnDoublePress}>
+      <div className="p-6 space-y-4" {...editOnDoublePress}>
         {flow && <CommissionFlowBar total={flow.total} agents={flow.agents} entities={flow.entities} />}
-        {/* Step 1: Off-The-Top Deductions */}
-        <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-3 shadow-sm">
-          <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
+        {/* Step 1: Off-The-Top Deductions. With nothing in it, the section is one row: its name, None, and the total. */}
+        <div className={`border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm ${offTopEmpty ? 'px-4 py-2' : 'p-4 space-y-3'}`}>
+          <div className={`flex justify-between items-center ${offTopEmpty ? 'min-h-8' : 'border-b border-slate-200 dark:border-slate-700 pb-3'}`}>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                 1. Off-The-Top Deductions
               </span>
+              {offTopEmpty && <span className="text-xs italic text-slate-400">None</span>}
               {isEditing && (
                 <button
                   type="button"
@@ -695,10 +699,6 @@ export function CommissionWaterfall({
             </div>
           )}
 
-          {offTheTopRules.length === 0 && !isAddingOffTop && (
-            <p className="text-xs text-slate-400 italic py-1">No off-the-top deductions applied to this transaction.</p>
-          )}
-
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {offTheTopRules.map((rule, idx) => {
               const calculatedItem = (dealResult.offTheTopItems || []).find((i: any) => i.id === rule.id);
@@ -774,13 +774,14 @@ export function CommissionWaterfall({
           </div>
         </div>
 
-        {/* Step 2: Pre-Split Deductions */}
-        <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-3 shadow-sm">
-          <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
+        {/* Step 2: Pre-Split Deductions. One row when empty, like step 1. */}
+        <div className={`border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm ${preSplitEmpty ? 'px-4 py-2' : 'p-4 space-y-3'}`}>
+          <div className={`flex justify-between items-center ${preSplitEmpty ? 'min-h-8' : 'border-b border-slate-200 dark:border-slate-700 pb-3'}`}>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                 2. Pre-Split Deductions
               </span>
+              {preSplitEmpty && <span className="text-xs italic text-slate-400">None</span>}
               {isEditing && (
                 <button
                   type="button"
@@ -858,10 +859,6 @@ export function CommissionWaterfall({
                 </div>
               </div>
             </div>
-          )}
-
-          {preSplitRules.length === 0 && !isAddingPreSplit && (
-            <p className="text-xs text-slate-400 italic py-1">No pre-split deductions applied to this transaction.</p>
           )}
 
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
