@@ -46,6 +46,9 @@ interface TransactionOverviewProps {
   validateFieldValue: (field: FieldSetting, val: any) => { isValid: boolean; isLegacyUnmatched: boolean; isRequiredMissing?: boolean; message?: string };
 }
 
+/** Field types that make a section read as a strip of dates and amounts. */
+const STRIP_TYPES = new Set(['DATE', 'CURRENCY', 'NUMBER', 'PERCENT']);
+
 export function TransactionOverview({
   isEditing,
   hasChanges,
@@ -139,57 +142,16 @@ export function TransactionOverview({
     return { text: String(rawVal) };
   };
 
-  return (
-    <section id="overview" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height))] transition-colors">
-      <div
-        className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center"
-      >
-        <div className="flex items-center gap-3">
-          <SectionIcon name="overview" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">1. Transaction Overview</h2>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          {canWrite && !isEditing ? (
-            <HoverNote label="Edit Transaction Overview">
-              <button
-                onClick={onStartEdit}
-                aria-label="Edit Transaction Overview"
-                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 cursor-pointer"
-              >
-                <EditPencil className="h-5 w-5" />
-              </button>
-            </HoverNote>
-          ) : canWrite ? (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={onCancelEdit}
-                className="text-xs bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-lg font-bold transition hover:bg-slate-300 dark:hover:bg-slate-600 cursor-pointer"
-              >
-                Cancel
-              </button>
-              {hasChanges && (
-                <button
-                  onClick={onApplyEdit}
-                  className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg font-bold transition hover:bg-brand-500 cursor-pointer"
-                >
-                  Apply Changes
-                </button>
-              )}
-            </div>
-          ) : null}
+  // Sections that are mostly dates and amounts sit side by side in one row at the top, in the
+  // client's section order; every other section keeps its place in the columns below. Decided by
+  // field type, so it works for any client's own sections.
+  const isStripSection = (fields: FieldSetting[]) => fields.length > 0
+    && fields.filter((field) => STRIP_TYPES.has(String(field.type))).length * 2 >= fields.length;
+  const sectionEntries = Object.entries(groupedSections);
+  const stripSections = sectionEntries.filter(([, fields]) => isStripSection(fields));
+  const columnSections = sectionEntries.filter(([, fields]) => !isStripSection(fields));
 
-        </div>
-      </div>
-
-      <div className="p-6" {...editOnDoublePress}>
-        {Object.keys(groupedSections).length === 0 ? (
-          <div className="p-6 text-center text-xs text-slate-400 italic">
-            Loading Overview fields...
-          </div>
-        ) : (
-          <div className="lg:[column-count:4] lg:[column-width:20rem] lg:gap-x-8">
-          {Object.entries(groupedSections).map(([sectionName, fields]) => {
+  const renderSection = (sectionName: string, fields: FieldSetting[], strip: boolean) => {
             const visibleFields = fields.filter((field) => {
               const rawDbVal = readTransactionField(selectedDeal, field.key);
               const activeValue = isEditing
@@ -202,8 +164,61 @@ export function TransactionOverview({
 
             if (visibleFields.length === 0) return null;
 
+            // While viewing, a strip reads as a small table: one cell per field, label above a larger value.
+            if (strip && !isEditing) {
+              return (
+                <div
+                  key={sectionName}
+                  className="min-w-0 space-y-2 lg:[flex:var(--strip-fields)_1_0%]"
+                  style={{ '--strip-fields': visibleFields.length } as React.CSSProperties}
+                >
+                  <div className="flex items-center gap-2 rounded-full bg-brand-500/10 px-3 py-1 dark:bg-brand-500/15">
+                    <span className="min-w-0 text-xs font-bold text-brand-700 dark:text-brand-400">{sectionName}</span>
+                  </div>
+                  {/* The grid sits 1px outside its frame so the outer edges of the cell borders are clipped. */}
+                  <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                    <dl className="-m-px grid [grid-template-columns:repeat(auto-fit,minmax(11rem,1fr))]">
+                      {visibleFields.map((field) => {
+                        const { text } = getFieldValue(field.key, field.type);
+                        const stored = readTransactionField(selectedDeal, field.key);
+                        const unmatched = validateFieldValue(field, stored ?? text).isLegacyUnmatched;
+                        const empty = text === '—';
+                        return (
+                          <div key={field.id} className="min-w-0 border-l border-t border-slate-200 px-3.5 py-2.5 dark:border-slate-700">
+                            <dt className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                              {field.label}
+                              {field.is_required && <span className="text-rose-500" title="Required Field">*</span>}
+                            </dt>
+                            <dd
+                              title={unmatched ? validateFieldValue(field, stored ?? text).message : undefined}
+                              className={`mt-0.5 truncate text-base font-semibold ${
+                                unmatched
+                                  ? 'text-amber-600 dark:text-amber-400'
+                                  : empty
+                                  ? 'font-normal text-slate-400 dark:text-slate-500'
+                                  : field.type === 'CURRENCY'
+                                  ? 'text-emerald-700 dark:text-emerald-400'
+                                  : 'text-slate-900 dark:text-white'
+                              }`}
+                            >
+                              {text}
+                            </dd>
+                          </div>
+                        );
+                      })}
+                    </dl>
+                  </div>
+                </div>
+              );
+            }
+
             return (
-              <div key={sectionName} className="mb-6 break-inside-avoid space-y-2">
+              <div
+                key={sectionName}
+                className={`${strip ? 'min-w-0 lg:[flex:var(--strip-fields)_1_0%]' : 'mb-6 break-inside-avoid'} space-y-2`}
+                // On wide screens the strips share one row, each as wide as its field count, so field cells match.
+                style={strip ? ({ '--strip-fields': visibleFields.length } as React.CSSProperties) : undefined}
+              >
                 {/* A full-width pill so each section title is easy to follow across the columns. */}
                 <div className="flex items-center gap-2 rounded-full bg-brand-500/10 px-3 py-1 dark:bg-brand-500/15">
                   <span className="min-w-0 text-xs font-bold text-brand-700 dark:text-brand-400">
@@ -211,7 +226,7 @@ export function TransactionOverview({
                   </span>
                 </div>
 
-                <div className="flex flex-col gap-2">
+                <div className={strip ? 'grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(11rem,1fr))]' : 'flex flex-col gap-2'}>
                   {visibleFields.map((field) => {
                     const fieldData = getFieldValue(field.key, field.type);
                     const isSystemLocked = field.key === 'id' || field.key === 'total_commission';
@@ -414,7 +429,68 @@ export function TransactionOverview({
                 </div>
               </div>
             );
-          })}
+  };
+
+  return (
+    <section id="overview" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height))] transition-colors">
+      <div
+        className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center"
+      >
+        <div className="flex items-center gap-3">
+          <SectionIcon name="overview" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">1. Transaction Overview</h2>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          {canWrite && !isEditing ? (
+            <HoverNote label="Edit Transaction Overview">
+              <button
+                onClick={onStartEdit}
+                aria-label="Edit Transaction Overview"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 cursor-pointer"
+              >
+                <EditPencil className="h-5 w-5" />
+              </button>
+            </HoverNote>
+          ) : canWrite ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onCancelEdit}
+                className="text-xs bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-lg font-bold transition hover:bg-slate-300 dark:hover:bg-slate-600 cursor-pointer"
+              >
+                Cancel
+              </button>
+              {hasChanges && (
+                <button
+                  onClick={onApplyEdit}
+                  className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg font-bold transition hover:bg-brand-500 cursor-pointer"
+                >
+                  Apply Changes
+                </button>
+              )}
+            </div>
+          ) : null}
+
+        </div>
+      </div>
+
+      <div className="p-6" {...editOnDoublePress}>
+        {Object.keys(groupedSections).length === 0 ? (
+          <div className="p-6 text-center text-xs text-slate-400 italic">
+            Loading Overview fields...
+          </div>
+        ) : (
+          <div className="space-y-6">
+          {stripSections.length > 0 && (
+          <div className="flex flex-col gap-6 lg:flex-row">
+          {stripSections.map(([sectionName, fields]) => renderSection(sectionName, fields, true))}
+          </div>
+          )}
+          {columnSections.length > 0 && (
+          <div className="lg:[column-count:4] lg:[column-width:20rem] lg:gap-x-8">
+          {columnSections.map(([sectionName, fields]) => renderSection(sectionName, fields, false))}
+          </div>
+          )}
           </div>
         )}
       </div>
