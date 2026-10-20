@@ -1213,7 +1213,7 @@ function ReportMenu({ reportId, onSelect }: { reportId: string | null; onSelect:
       </button>
       {GROUPS.map((group) => (
         <div key={group} className="mt-3">
-          <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">{group}</p>
+          <p className="px-2 text-xs font-medium text-slate-400">{group}</p>
           <div className="mt-1 space-y-0.5">
             {OWNER_REPORTS.filter((item) => item.group === group).map((item) => {
               const number = OWNER_REPORTS.findIndex((entry) => entry.id === item.id) + 1;
@@ -1728,7 +1728,7 @@ function FilterBar(props: {
         aria-expanded={false}
         className="relative z-30 flex w-full cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left dark:border-slate-800 dark:bg-slate-900"
       >
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Filters</span>
+        <span className="text-xs font-medium text-slate-400">Filters</span>
         <span className="min-w-0 flex-1 truncate text-xs font-medium tabular-nums text-slate-700 dark:text-slate-200">
           {span}{active > 0 ? ` · ${active} ${active === 1 ? 'filter' : 'filters'}` : ''}
         </span>
@@ -2076,7 +2076,7 @@ function TitleCaps({ options, picked, onChange }: {
           </div>
           {groups.length === 0 ? <p className="px-2 py-2 text-xs text-slate-400">No matches</p> : groups.map((group, index) => (
             <div key={group.id} className={index > 0 ? 'mt-1 border-t border-slate-200 pt-1 dark:border-slate-700' : undefined}>
-              <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">{group.label}</div>
+              <div className="px-2 py-1 text-xs font-medium text-slate-400">{group.label}</div>
               {group.options.map((option) => (
                 <button
                   key={option.value}
@@ -2548,7 +2548,7 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
                 <span className={`block min-w-[4.5rem] text-right text-xs tabular-nums text-slate-400 group-hover:opacity-0 ${armed ? 'opacity-0' : ''}`}>{option.count.toLocaleString()}</span>
                 <button
                   type="button"
-                  className={`absolute inset-0 cursor-pointer items-center justify-end text-[10px] font-bold uppercase tracking-wide text-emerald-700 group-hover:flex dark:text-emerald-300 ${armed ? 'flex' : 'hidden'}`}
+                  className={`absolute inset-0 cursor-pointer items-center justify-end text-[11px] font-semibold text-emerald-700 group-hover:flex dark:text-emerald-300 ${armed ? 'flex' : 'hidden'}`}
                   onClick={(event) => {
                     event.stopPropagation();
                     setOnlyArmed(null);
@@ -2567,7 +2567,7 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
   );
 }
 
-const filterLabel = 'flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400';
+const filterLabel = 'flex flex-col gap-1 text-xs font-medium text-slate-500 dark:text-slate-400';
 
 function Field({ label, note, children }: { label: string; note?: string; children: React.ReactNode }) {
   return (
@@ -2738,7 +2738,7 @@ function ProductionGrainTitle({ grain, enabled, onChange }: { grain: ProductionG
         aria-haspopup="listbox"
         aria-label={`Production ${selected.label}`}
         onClick={() => setOpen((current) => !current)}
-        className="cursor-pointer border-0 bg-transparent p-0 font-inherit uppercase tracking-wide text-inherit [-webkit-tap-highlight-color:transparent] [outline:none] hover:opacity-80 focus:[outline:none] focus-visible:[outline:none]"
+        className="cursor-pointer border-0 bg-transparent p-0 font-inherit text-inherit [-webkit-tap-highlight-color:transparent] [outline:none] hover:opacity-80 focus:[outline:none] focus-visible:[outline:none]"
       >
         {selected.label}
       </button>
@@ -3064,7 +3064,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
                 setDrilldown(null);
                 setScoresOpen(true);
               }}
-              className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/20 px-4 text-xs font-semibold normal-case tracking-normal text-white transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950"
+              className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/5 dark:bg-white/10 px-4 text-xs font-semibold normal-case tracking-normal text-inherit transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950"
             >
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
               {periodLabel === 'Day' ? 'All days' : periodLabel === 'Week' ? 'All weeks' : 'All months'}
@@ -3077,7 +3077,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
               aria-label={scoresOpen ? 'Hide scorecards' : 'Show scorecards'}
               title={scoresOpen ? 'Hide scorecards' : 'Show scorecards'}
               onClick={() => setScoresOpen((open) => !open)}
-              className="all-agents-enter-right inline-flex h-full cursor-pointer items-center justify-center rounded-r-full bg-black/20 px-4 text-white transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950"
+              className="all-agents-enter-right inline-flex h-full cursor-pointer items-center justify-center rounded-r-full bg-black/5 dark:bg-white/10 px-4 text-inherit transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950"
             >
               {scoresOpen ? <ChevronUp className="h-4 w-4" strokeWidth={2.5} aria-hidden /> : <ChevronDown className="h-4 w-4" strokeWidth={2.5} aria-hidden />}
             </button>
@@ -3475,7 +3475,7 @@ function TrendScore({ tone, label, amount, compactAmount, toneClass, dollar, com
       data-score-card
       className={`w-full min-w-0 cursor-pointer appearance-none rounded-xl border px-1.5 py-2 text-center md:px-3 shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? `ring-2 ring-inset ${metricEdge(label, tone)} ${selectedFill}` : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
     >
-      <p className={`text-[10px] font-medium uppercase md:text-xs ${toneClass || 'text-slate-500 dark:text-white'}`}>{label}</p>
+      <p className={`text-[11px] font-medium md:text-sm ${toneClass || 'text-slate-500 dark:text-white'}`}>{label}</p>
       <FitText full={amount} compact={isDesktop ? undefined : compactAmount} className={`mt-0.5 whitespace-nowrap text-base font-extrabold tabular-nums md:whitespace-normal md:text-xl ${toneClass}`} />
       {dollar && percent ? (
           <div className={`mt-1 flex flex-col items-center justify-center text-[11px] font-semibold tabular-nums md:flex-row md:items-baseline md:gap-8 md:text-xs ${changeClass(current, prior)}`}>
@@ -3886,7 +3886,7 @@ function MonthlyTable({ title, rows, mode }: { title: string; rows: MonthRow[]; 
   return (
     <div className={reportTableWrap}>
       <table className="w-full text-sm">
-        <thead className="report-head text-sm uppercase tracking-wider text-slate-500">
+        <thead className="report-head text-sm text-slate-500">
           <tr>
             <SortHead column="label" label={title} sort={sort} onSort={toggle} className="px-3 py-2" />
             {mode === 'units' ? <SortHead column="units" label="Units" sort={sort} onSort={toggle} align="right" className="px-3 py-2" /> : null}
@@ -3942,7 +3942,7 @@ function AgentTable({ rows, caption, paid = false }: { rows: AgentRow[]; caption
     <div className={reportTableWrap}>
       <p className="px-4 pt-3 text-xs text-slate-500">{caption}</p>
       <table className="w-full text-sm">
-        <thead className="report-head text-sm uppercase tracking-wider text-slate-500">
+        <thead className="report-head text-sm text-slate-500">
           <tr>
             <SortHead column="name" label="Agent" sort={sort} onSort={toggle} className="px-4 py-2" />
             <SortHead column="units" label="Units" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
@@ -4316,7 +4316,7 @@ function BoardScore({ tone, label, amount, compactAmount, dollar, compactDollar,
       data-score-card
       className={`flex h-full w-full min-w-0 flex-col justify-start cursor-pointer appearance-none rounded-xl border px-1.5 py-2 text-center md:px-3 shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? `ring-inset ${selectedClass}` : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
     >
-        <p className={`text-[10px] font-medium uppercase md:text-xs ${toneClass || 'text-slate-500 dark:text-white'}`}>{label}</p>
+        <p className={`text-[11px] font-medium md:text-sm ${toneClass || 'text-slate-500 dark:text-white'}`}>{label}</p>
         <FitText full={amount} compact={isDesktop ? undefined : compactAmount} className={`mt-0.5 whitespace-nowrap text-base font-extrabold tabular-nums md:whitespace-normal md:text-xl ${toneClass}`} />
         {dollar && percent ? (
           <div className={`mt-1 flex flex-col items-center justify-center text-[11px] font-semibold tabular-nums md:flex-row md:items-baseline md:gap-8 md:text-xs ${deltaClass}`}>
@@ -4335,7 +4335,7 @@ function SourceTable({ rows }: { rows: Array<Totals & { source: string }> }) {
   return (
     <div className={reportTableWrap}>
       <table className="w-full text-sm">
-        <thead className="report-head text-sm uppercase tracking-wider text-slate-500">
+        <thead className="report-head text-sm text-slate-500">
           <tr>
             <SortHead column="source" label="Lead source" sort={sort} onSort={toggle} className="px-4 py-2" />
             <SortHead column="units" label="Units" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
@@ -4841,7 +4841,7 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
       <div className="shrink-0 space-y-4">
       <SectionHeading
         action={pick ? (
-          <button type="button" onClick={() => setPick(null)} className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/20 px-4 text-xs font-semibold normal-case tracking-normal text-white transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950">
+          <button type="button" onClick={() => setPick(null)} className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/5 dark:bg-white/10 px-4 text-xs font-semibold normal-case tracking-normal text-inherit transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950">
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
             All agents
           </button>
@@ -4854,7 +4854,7 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
             aria-label={summaryOpen ? 'Hide scorecards and chart' : 'Show scorecards and chart'}
             title={summaryOpen ? 'Hide scorecards and chart' : 'Show scorecards and chart'}
             onClick={() => setSummaryOpen((open) => !open)}
-            className="all-agents-enter-right inline-flex h-full cursor-pointer items-center justify-center rounded-r-full bg-black/20 px-4 text-white transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950"
+            className="all-agents-enter-right inline-flex h-full cursor-pointer items-center justify-center rounded-r-full bg-black/5 dark:bg-white/10 px-4 text-inherit transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950"
           >
             {summaryOpen ? <ChevronUp className="h-4 w-4" strokeWidth={2.5} aria-hidden /> : <ChevronDown className="h-4 w-4" strokeWidth={2.5} aria-hidden />}
           </button>
@@ -4864,12 +4864,12 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
       <div className={`grid transition-[grid-template-columns,gap] duration-500 ease-out motion-reduce:transition-none ${pick ? 'items-stretch gap-4 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.2fr)]' : 'items-start gap-0 lg:grid-cols-1'}`}>
         <div className={`min-w-0 transition-all duration-500 ease-out motion-reduce:transition-none ${pick ? 'flex w-full flex-col justify-between gap-4' : 'lg:mx-auto lg:w-[calc(50%-0.5rem)]'}`}>
           <div className={pick ? 'rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900' : undefined}>
-            {pick ? <p className="mb-3 truncate rounded-full px-4 py-1.5 text-center text-xs font-bold uppercase tracking-wide report-pill-emerald" title={`Entire period (${entirePeriodName})`}>{`Entire period (${entirePeriodName})`}</p> : null}
+            {pick ? <p className="mb-3 truncate rounded-full px-4 py-1.5 text-center text-xs font-semibold report-pill-emerald" title={`Entire period (${entirePeriodName})`}>{`Entire period (${entirePeriodName})`}</p> : null}
             <EarningScoreRow sums={scoreSums} prior={scorePrior} statusFilter={statusFilter} onSelect={selectStatus} />
           </div>
           {pick?.periodKey ? (
             <div className="earnings-period-enter rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
-              <p className="mb-3 truncate rounded-full px-4 py-1.5 text-center text-xs font-bold uppercase tracking-wide report-pill-emerald" title={periodLabel}>{periodLabel}</p>
+              <p className="mb-3 truncate rounded-full px-4 py-1.5 text-center text-xs font-semibold report-pill-emerald" title={periodLabel}>{periodLabel}</p>
               <EarningScoreRow sums={periodSums} prior={periodPrior} statusFilter={statusFilter} onSelect={selectStatus} />
             </div>
           ) : null}
@@ -5180,7 +5180,7 @@ function DealTable({ deals, names }: { deals: ReportDeal[]; names: Map<string, s
   return (
     <div className={reportTableWrap}>
       <table className="w-full text-sm">
-        <thead className="report-head text-sm uppercase tracking-wider text-slate-500">
+        <thead className="report-head text-sm text-slate-500">
           <tr>
             <SortHead column="address" label="Address" sort={sort} onSort={toggle} className="px-3 py-2" />
             <SortHead column="side" label="Side" sort={sort} onSort={toggle} className="px-3 py-2" />
@@ -5229,7 +5229,7 @@ function PriceChange({ deals, names }: { deals: ReportDeal[]; names: Map<string,
       </div>
       <div className={reportTableWrap}>
         <table className="w-full text-sm">
-          <thead className="report-head text-sm uppercase tracking-wider text-slate-500">
+          <thead className="report-head text-sm text-slate-500">
             <tr>
               <SortHead column="address" label="Address" sort={sort} onSort={toggle} className="px-3 py-2" />
               <SortHead column="agent" label="Agent" sort={sort} onSort={toggle} className="px-3 py-2" />
@@ -5403,7 +5403,7 @@ function CapStickyHeading({ section, labels, asOf, previous, openAgentId, onClos
       <SectionHeading
         note={`${measured} Closed and pending contributions in that year. Click an agent for the transactions.`}
         action={open ? (
-          <button type="button" onClick={onClose} className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/20 px-4 text-xs font-semibold normal-case tracking-normal text-white transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950">
+          <button type="button" onClick={onClose} className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/5 dark:bg-white/10 px-4 text-xs font-semibold normal-case tracking-normal text-inherit transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950">
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
             All agents
           </button>
@@ -5432,17 +5432,17 @@ function SectionHeading({ children, tone = 'emerald', note, action, end }: { chi
         : tone === 'units'
           ? 'report-purple'
           : tone === 'slate'
-            ? 'bg-slate-800 text-white'
+            ? 'report-pill-slate'
             : tone === 'rate'
-              ? 'bg-sky-700 text-white'
+              ? 'report-pill-listing'
               : tone === 'price'
-                ? 'bg-amber-600 text-white'
+                ? 'report-pill-buyer'
                 : tone === 'team'
-                  ? 'bg-rose-700 text-white'
+                  ? 'report-pill-rose'
                   : 'report-pill-emerald';
   return (
     <h3 className="relative w-full">
-      <div className={`rounded-full text-center text-sm font-bold uppercase tracking-wide max-md:tracking-normal ${fill} ${action || end ? 'grid grid-cols-[1fr_auto_1fr] items-stretch overflow-hidden' : 'px-4 py-2 max-md:px-3 max-md:py-1'}`}>
+      <div className={`rounded-full text-center text-sm font-semibold ${fill} ${action || end ? 'grid grid-cols-[1fr_auto_1fr] items-stretch overflow-hidden' : 'px-4 py-2 max-md:px-3 max-md:py-1'}`}>
         {action || end ? <div className="justify-self-start">{action}</div> : null}
         {action || end ? <span className="flex items-center justify-center px-4 py-2 max-md:px-2 max-md:py-1">{children}</span> : children}
         {end ? <div className="justify-self-end self-stretch">{end}</div> : null}
@@ -5453,7 +5453,7 @@ function SectionHeading({ children, tone = 'emerald', note, action, end }: { chi
           text={note}
           className="absolute right-3 top-1/2 z-20 -translate-y-1/2"
           align="right"
-          iconClass="text-white/80 transition hover:text-white"
+          iconClass="opacity-70 transition hover:opacity-100"
         />
       ) : null}
     </h3>
@@ -5489,7 +5489,7 @@ function Score({ label, amount, changeAmount, value, change, tone = 'plain', pul
   return (
     <div key={pulse} data-score-card className={`relative flex h-full min-w-0 w-full flex-col justify-center rounded-xl border px-1.5 py-3 text-center md:px-3 ${noteOpen ? 'z-30' : ''} ${shell} ${pulse > 0 ? 'scorecard-pulse' : ''}`}>
       {note ? <ScoreNote label={label} text={note} onOpenChange={setNoteOpen} /> : null}
-      <p className="px-3 text-[10px] font-medium uppercase text-slate-500 md:px-4 md:text-xs">{label}</p>
+      <p className="px-3 text-[11px] font-medium text-slate-500 md:px-4 md:text-sm dark:text-slate-400">{label}</p>
       <FitText full={full} compact={compact} className={`mt-1 text-base font-extrabold tabular-nums whitespace-nowrap md:text-xl ${amountClass}`} />
       {changeFull ? <FitText full={changeFull} compact={changeCompact} className={changeClass} /> : null}
     </div>
@@ -5544,7 +5544,7 @@ function formattedZero(change: string | undefined): string {
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3">
-      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
       <p className="mt-1 text-xl font-extrabold tabular-nums">{value}</p>
       {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
     </div>
@@ -5554,7 +5554,7 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 function Figure({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
   return (
     <div className={`rounded-lg px-3 py-2 ${emphasis ? 'bg-emerald-500/10' : 'bg-slate-100 dark:bg-slate-800'}`}>
-      <p className="text-[10px] uppercase tracking-wider text-slate-500">{label}</p>
+      <p className="text-[11px] text-slate-500 dark:text-slate-400">{label}</p>
       <p className="font-bold tabular-nums">{value}</p>
     </div>
   );
@@ -5706,7 +5706,7 @@ function MonthTable({
             <SortHead column="closedVolume" label="Closed volume" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
             <SortHead column="closedCommission" label="Closed total comm." title="Closed total commission" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
             <SortHead column="closedNet" label="Closed net comm." title="Closed net commission income" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="expenses" label={'Operating\nExpenses'} sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="expenses" label={'Operating\nexpenses'} sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
             <SortHead column="closedNetIncome" label="Closed net inc." title="Closed net income" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
             <SortHead column="listingsTaken" label="Listings taken" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
             <SortHead column="listingsPended" label="Listings pended" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />

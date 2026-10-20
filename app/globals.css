@@ -51,23 +51,51 @@ body {
 }
 
 .report-turquoise {
-  background-image: linear-gradient(90deg, #043038 0%, #074c58 100%);
-  color: #fff;
+  background-color: color-mix(in srgb, #0d9488 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #0d9488 28%, transparent);
+  color: #115e59;
+}
+
+html.dark .report-turquoise {
+  background-color: color-mix(in srgb, #0d9488 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #0d9488 32%, transparent);
+  color: #99f6e4;
 }
 
 .report-blue {
-  background-image: linear-gradient(90deg, #1e3a8a 0%, #1d4ed8 100%);
-  color: #fff;
+  background-color: color-mix(in srgb, #2563eb 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #2563eb 28%, transparent);
+  color: #1e40af;
+}
+
+html.dark .report-blue {
+  background-color: color-mix(in srgb, #2563eb 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #2563eb 32%, transparent);
+  color: #bfdbfe;
 }
 
 .report-purple {
-  background-image: linear-gradient(270deg, #c084fc 0%, #7e22ce 100%);
-  color: #fff;
+  background-color: color-mix(in srgb, #9333ea 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #9333ea 28%, transparent);
+  color: #6b21a8;
+}
+
+html.dark .report-purple {
+  background-color: color-mix(in srgb, #9333ea 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #9333ea 32%, transparent);
+  color: #e9d5ff;
 }
 
 .report-pill-emerald {
-  background-image: linear-gradient(90deg, #064e3b 0%, #047857 100%);
-  color: #fff;
+  background-color: color-mix(in srgb, #059669 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #059669 28%, transparent);
+  color: #065f46;
+}
+
+html.dark .report-pill-emerald {
+  background-color: color-mix(in srgb, #059669 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #059669 32%, transparent);
+  color: #a7f3d0;
 }
 
 .report-cover-launch {
@@ -182,13 +210,51 @@ body {
 }
 
 .report-pill-listing {
-  background-image: linear-gradient(90deg, #075985 0%, #0284c7 100%);
-  color: #fff;
+  background-color: color-mix(in srgb, #0284c7 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #0284c7 28%, transparent);
+  color: #075985;
+}
+
+html.dark .report-pill-listing {
+  background-color: color-mix(in srgb, #0284c7 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #0284c7 32%, transparent);
+  color: #bae6fd;
 }
 
 .report-pill-buyer {
-  background-image: linear-gradient(90deg, #92400e 0%, #d97706 100%);
-  color: #fff;
+  background-color: color-mix(in srgb, #d97706 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #d97706 28%, transparent);
+  color: #92400e;
+}
+
+html.dark .report-pill-buyer {
+  background-color: color-mix(in srgb, #d97706 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #d97706 32%, transparent);
+  color: #fde68a;
+}
+
+.report-pill-slate {
+  background-color: color-mix(in srgb, #64748b 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #64748b 28%, transparent);
+  color: #334155;
+}
+
+html.dark .report-pill-slate {
+  background-color: color-mix(in srgb, #64748b 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #64748b 32%, transparent);
+  color: #e2e8f0;
+}
+
+.report-pill-rose {
+  background-color: color-mix(in srgb, #e11d48 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #e11d48 28%, transparent);
+  color: #9f1239;
+}
+
+html.dark .report-pill-rose {
+  background-color: color-mix(in srgb, #e11d48 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #e11d48 32%, transparent);
+  color: #fecdd3;
 }
 
 .report-field,
