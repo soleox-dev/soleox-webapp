@@ -183,6 +183,25 @@ export function transactionDefaultViewFromSettings(settings: unknown, clientId: 
   return { filterFormula: view.filterFormula, sortRules: view.sortRules };
 }
 
+/** The fields a filter formula reads, in order and once each, such as ["transaction_status", "finance_status"]. */
+export function formulaFieldNames(formula: string): string[] {
+  const withoutText = formula.replace(/"(?:[^"\\]|\\.)*"/g, '""');
+  const names: string[] = [];
+  for (const match of withoutText.matchAll(/[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?/g)) {
+    const rest = withoutText.slice((match.index ?? 0) + match[0].length);
+    if (/^\s*\(/.test(rest)) continue;
+    if (/^(true|false)$/i.test(match[0])) continue;
+    const name = match[0].toLowerCase() === 'status' ? 'transaction_status' : match[0];
+    if (!names.includes(name)) names.push(name);
+  }
+  return names;
+}
+
+/** A deal's value for a formula field, looking in custom attributes too. */
+export function dealFieldValue(deal: Record<string, unknown>, name: string): unknown {
+  return readDealField(deal, name);
+}
+
 function readDealField(deal: Record<string, unknown>, name: string): unknown {
   const key = name.toLowerCase() === 'status' ? 'transaction_status' : name;
   const direct = deal[key];

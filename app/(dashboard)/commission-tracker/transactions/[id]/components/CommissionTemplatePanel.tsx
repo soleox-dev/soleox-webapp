@@ -6,7 +6,8 @@ import { Check, ChevronDown, Loader2, Lock, Plus, RefreshCw, RotateCcw, Trash2, 
 import { evaluateFormula, formulaValueToInput, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { normalizeAgentName } from '@/lib/id';
 import { qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection, type TeamCapRule } from '@/lib/agent-allocations';
-import { templateBoltTone, type TemplateBoltTone } from '@/lib/transaction-default-view';
+import { dealFieldValue, formulaFieldNames, templateBoltTone, type TemplateBoltTone } from '@/lib/transaction-default-view';
+import { formatPercent } from '@/lib/fields';
 import { allocationForReplay, loadAllocationCatalog, loadAllocationHistory, loadAllocationOverrides, payoutSignature, replayedPaymentSignature, savedPayouts } from '@/lib/template-payment-drift';
 import { applyTemplateLogic, clearCommissionModuleCache, formulaDataNeeds, loadCommissionLedger, loadFormulaLookups, loadTemplateBundle, peekCommissionLedger, peekFormulaLookups, peekTemplateBundle, templateFormulaSources, type AppliedCalculation, type AppliedTemplateRules, type TemplateLogicStep, type TemplateParameterRecord } from './applyTemplateLogic';
 import { isConfiguredOrExistingField, type FormulaLedgerRow, type FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
@@ -133,6 +134,21 @@ function calculationText(row: AppliedCalculation): { text: string; error: boolea
   if (field.kind === 'percent') return { text: Number.isFinite(amount) ? `${amount.toLocaleString('en-US', { maximumFractionDigits: 3 })}%` : field.value, error: false };
   if (field.kind === 'number') return { text: Number.isFinite(amount) ? amount.toLocaleString('en-US', { maximumFractionDigits: 4 }) : field.value, error: false };
   return { text: field.value || '—', error: false };
+}
+
+/** A deal field as short text for the line beside a team cap, in the same style as the calculation line. */
+function dealFieldText(raw: unknown, type: string): string {
+  if (raw === undefined || raw === null || String(raw).trim() === '') return '—';
+  if (typeof raw === 'boolean' || type === 'BOOLEAN') return raw === true || raw === 'true' ? 'Yes' : 'No';
+  const amount = Number(String(raw).replace(/[$,\s]/g, ''));
+  if (type === 'CURRENCY' && Number.isFinite(amount)) return calculationMoney.format(amount);
+  if (type === 'PERCENT' && Number.isFinite(amount)) return formatPercent(amount);
+  if (type === 'NUMBER' && Number.isFinite(amount)) return amount.toLocaleString('en-US', { maximumFractionDigits: 4 });
+  if (type === 'DATE') {
+    const [year, month, day] = String(raw).slice(0, 10).split('-');
+    if (year && month && day) return `${month}/${day}/${year}`;
+  }
+  return String(raw);
 }
 
 function CalculationField({ row }: { row: AppliedCalculation }) {
@@ -1269,6 +1285,16 @@ export function CommissionTemplatePanel({
     capChoiceSet.current = true;
   }, [popupOpen, capsLoaded, schemaReady, qualifyingCaps, draftTemplateId, submittedTemplateId, submittedParameters]);
 
+  // The deal fields each cap's qualifying formula reads, with their values, for the line beside the cap.
+  const capFormulaFields = useMemo(() => {
+    const labels = new Map(overviewFields.map((field) => [field.key, field.label]));
+    return new Map(qualifyingCaps.map((cap) => [cap.id, formulaFieldNames(cap.qualifyingFormula ?? '').map((key) => ({
+      key,
+      label: labels.get(key) ?? key,
+      text: dealFieldText(deal ? dealFieldValue(deal, key) : null, fieldTypes[key] ?? 'TEXT'),
+    }))]));
+  }, [qualifyingCaps, overviewFields, deal, fieldTypes]);
+
   // Every listed cap passed its qualifying formula, so its box should be checked; an unchecked one was overridden by hand.
   const capChoiceOverridden = qualifyingCaps.some((cap) => !checkedCapIds.includes(cap.id));
 
@@ -1673,17 +1699,29 @@ export function CommissionTemplatePanel({
                     <span className="text-[11px] font-bold text-brand-600 dark:text-brand-400 @min-[720px]/params:self-stretch @min-[720px]/params:flex @min-[720px]/params:items-center @min-[720px]/params:border-r @min-[720px]/params:border-brand-500/50 @min-[720px]/params:pr-3 @min-[720px]/params:dark:border-brand-400/50">Team Caps</span>
                     <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                     {qualifyingCaps.map((cap) => (
-                      <BooleanField
-                        key={cap.id}
-                        id={`team-cap-${cap.id}`}
-                        label={cap.name.trim() || 'Team Cap'}
-                        checked={checkedCapIds.includes(cap.id)}
-                        onChange={(checked) => {
-                          setCheckedCapIds((current) => checked
-                            ? [...current, cap.id]
-                            : current.filter((id) => id !== cap.id));
-                        }}
-                      />
+                      <div key={cap.id} className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                        <BooleanField
+                          id={`team-cap-${cap.id}`}
+                          label={cap.name.trim() || 'Team Cap'}
+                          checked={checkedCapIds.includes(cap.id)}
+                          onChange={(checked) => {
+                            setCheckedCapIds((current) => checked
+                              ? [...current, cap.id]
+                              : current.filter((id) => id !== cap.id));
+                          }}
+                        />
+                        {(capFormulaFields.get(cap.id)?.length ?? 0) > 0 && (
+                          <p className="text-[11px] leading-5 text-slate-500 dark:text-slate-400">
+                            {capFormulaFields.get(cap.id)!.map((field, index) => (
+                              <React.Fragment key={field.key}>
+                                {index > 0 && <span aria-hidden className="px-1.5 text-slate-300 dark:text-slate-600">—</span>}
+                                <span className="whitespace-nowrap">{field.label}:</span>{' '}
+                                <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{field.text}</span>
+                              </React.Fragment>
+                            ))}
+                          </p>
+                        )}
+                      </div>
                     ))}
                     </div>
                   </div>
