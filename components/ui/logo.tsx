@@ -3,11 +3,14 @@ import React from 'react';
 interface LogoProps {
   className?: string;
   wordClassName?: string;
+  /** Shown after the word on the same baseline, such as a product name. */
+  suffix?: React.ReactNode;
 }
 
 export function SoleoxLogo({
   className = "h-8 w-auto",
   wordClassName = "text-slate-900 dark:text-white",
+  suffix,
 }: LogoProps) {
   return (
     <div className="flex items-center gap-2">
@@ -82,8 +85,11 @@ export function SoleoxLogo({
       </svg>
 
       {/* Styled Brand Name Typography */}
-      <span className={`text-xl font-semibold tracking-normal ${wordClassName}`}>
-        Soleox
+      <span className="flex items-baseline">
+        <span className={`text-xl font-semibold tracking-normal ${wordClassName}`}>
+          Soleox
+        </span>
+        {suffix}
       </span>
     </div>
   );

@@ -24,6 +24,12 @@
   --color-slate-950: #0e131c;
 }
 
+/* Dark mode: brand blue text at the same brightness and punch as emerald-400 next to it,
+   so links, tabs, and labels stand out on the midnight slate. Light mode keeps the logo sky. */
+.dark {
+  --color-brand-400: oklch(80% 0.15 235);
+}
+
 /* A thin status-colored edge at the start of each Transactions row, in the status's scorecard color. */
 .status-stripe > td:first-child {
   box-shadow: inset 3px 0 0 var(--row-status, transparent);

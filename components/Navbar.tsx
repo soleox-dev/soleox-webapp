@@ -286,11 +286,18 @@ export default function Navbar() {
         
         {/* Brand Logo Component with REBI Badge */}
         <div className="flex items-center gap-4">
-          <Link href="/" className="flex items-center space-x-2">
-            <SoleoxLogo className="h-7 w-auto" />
-            {/* REBI reads as the product name beside the logo, after a thin divider. */}
-            <span aria-hidden className="mx-1 h-[18px] w-px bg-slate-300 dark:bg-slate-700" />
-            <span className="text-[15px] font-medium tracking-[0.02em] text-slate-500 dark:text-slate-400">REBI</span>
+          <Link href="/" className="flex items-center">
+            {/* REBI reads as the product name beside the logo, after a thin divider. It shares the
+                word's baseline, and the divider centers on the row, which is the middle of the capitals. */}
+            <SoleoxLogo
+              className="h-7 w-auto"
+              suffix={(
+                <>
+                  <span aria-hidden className="mx-3 h-[18px] w-px self-center bg-slate-300 dark:bg-slate-700" />
+                  <span className="text-[15px] font-medium tracking-[0.02em] text-slate-500 dark:text-slate-400">REBI</span>
+                </>
+              )}
+            />
           </Link>
 
           {/* Module switcher and the current module's pages. Desktop only; phones use the menu sheet. */}
