@@ -81,11 +81,9 @@ export default function Dashboard() {
   } = useTransactionData(routeId, isNewTransaction);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'commission' | 'disbursements'>('overview');
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ overview: false, commission: false, disbursements: false });
   const [headerStick, setHeaderStick] = useState(144);
 
   const isProgrammaticScrollRef = useRef(false);
-  const toggleSection = (key: string) => setCollapsed((p) => ({ ...p, [key]: !p[key] }));
 
   const scrolledSectionRef = useRef<string | null>(null);
 
@@ -109,46 +107,37 @@ export default function Dashboard() {
     setActiveTab(sectionId);
     isProgrammaticScrollRef.current = true;
 
-    const wasCollapsed = Boolean(collapsed[sectionId]);
-    if (wasCollapsed) {
-      setCollapsed((prev) => ({ ...prev, [sectionId]: false }));
+    const el = document.getElementById(sectionId);
+    if (el) {
+      // Land 12px below the pinned search strip. On desktop the top bar hides while scrolling
+      // down and shows while scrolling up, so leave room for it only when going up.
+      const strip = document.getElementById('transaction-detail-header');
+      const stripHeight = strip?.offsetHeight ?? 0;
+      const sectionTop = el.getBoundingClientRect().top + window.scrollY;
+      const root = document.documentElement;
+      const goingDown = sectionTop - stripHeight - 12 > window.scrollY;
+      const barHidden = root.style.getPropertyValue('--app-nav-offset').trim() === '0px';
+      const barHides = (goingDown || barHidden) && window.matchMedia('(min-width: 768px)').matches;
+      const barHeight = barHides ? 0 : (document.querySelector('header')?.offsetHeight ?? 64);
+      // A jump from the section links is not the user scrolling up, so the top bar stays as it is.
+      // The hold lasts until the smooth scroll ends. A long jump can take well over a second.
+      root.dataset.navScrollHold = '1';
+      let released = false;
+      const release = () => {
+        if (released) return;
+        released = true;
+        window.removeEventListener('scrollend', release);
+        window.setTimeout(() => {
+          delete root.dataset.navScrollHold;
+          isProgrammaticScrollRef.current = false;
+        }, 100);
+      };
+      window.addEventListener('scrollend', release);
+      window.setTimeout(release, 3000);
+      window.scrollTo({ top: Math.max(0, sectionTop - stripHeight - barHeight - 12), behavior: 'smooth' });
+    } else {
+      isProgrammaticScrollRef.current = false;
     }
-
-    // Wait for expand paint when needed, then smooth-scroll to the section
-    const delayMs = wasCollapsed ? 80 : 0;
-    window.setTimeout(() => {
-      const el = document.getElementById(sectionId);
-      if (el) {
-        // Land 12px below the pinned search strip. On desktop the top bar hides while scrolling
-        // down and shows while scrolling up, so leave room for it only when going up.
-        const strip = document.getElementById('transaction-detail-header');
-        const stripHeight = strip?.offsetHeight ?? 0;
-        const sectionTop = el.getBoundingClientRect().top + window.scrollY;
-        const root = document.documentElement;
-        const goingDown = sectionTop - stripHeight - 12 > window.scrollY;
-        const barHidden = root.style.getPropertyValue('--app-nav-offset').trim() === '0px';
-        const barHides = (goingDown || barHidden) && window.matchMedia('(min-width: 768px)').matches;
-        const barHeight = barHides ? 0 : (document.querySelector('header')?.offsetHeight ?? 64);
-        // A jump from the section links is not the user scrolling up, so the top bar stays as it is.
-        // The hold lasts until the smooth scroll ends. A long jump can take well over a second.
-        root.dataset.navScrollHold = '1';
-        let released = false;
-        const release = () => {
-          if (released) return;
-          released = true;
-          window.removeEventListener('scrollend', release);
-          window.setTimeout(() => {
-            delete root.dataset.navScrollHold;
-            isProgrammaticScrollRef.current = false;
-          }, 100);
-        };
-        window.addEventListener('scrollend', release);
-        window.setTimeout(release, 3000);
-        window.scrollTo({ top: Math.max(0, sectionTop - stripHeight - barHeight - 12), behavior: 'smooth' });
-      } else {
-        isProgrammaticScrollRef.current = false;
-      }
-    }, delayMs);
   };
 
   // Highlight Workflow Steps based on which section is in view while scrolling
@@ -187,7 +176,7 @@ export default function Dashboard() {
       window.removeEventListener('scroll', updateActiveFromScroll);
       window.removeEventListener('resize', updateActiveFromScroll);
     };
-  }, [collapsed.overview, collapsed.commission, collapsed.disbursements]);
+  }, []);
 
   const [dealId, setDealId] = useState('');
   const [selectedDeal, setSelectedDeal] = useState<any>(null);
@@ -213,7 +202,6 @@ export default function Dashboard() {
     const token = `${routeId}#${hash}`;
     if (scrolledSectionRef.current === token) return;
     setActiveTab(hash);
-    setCollapsed((prev) => ({ ...prev, [hash]: false }));
     isProgrammaticScrollRef.current = true;
 
     let settled = false;
@@ -1804,8 +1792,6 @@ export default function Dashboard() {
       <div>
         <div className="min-w-0 space-y-8">
           <TransactionOverview
-            isCollapsed={collapsed.overview}
-            onToggleSection={() => toggleSection('overview')}
             isEditing={overviewForm.isEditingOverview}
             hasChanges={!overviewForm.overviewValuesUnchanged()}
             onStartEdit={() => {
@@ -1833,8 +1819,6 @@ export default function Dashboard() {
           />
 
           <CommissionWaterfall
-            isCollapsed={collapsed.commission}
-            onToggleSection={() => toggleSection('commission')}
             isEditing={isEditingWaterfall}
             hasChanges={waterfallHasEdits() || (waterfallEditSnapshot != null && !sameTeamCapSelection(waterfallEditSnapshot.teamCapIds, selectedTeamCapIds)) || (capOverrideBaseline != null && !sameAllocationOverrides(capOverrides, capOverrideBaseline))}
             onTeamCapAmountChange={setTeamCapOverride}
@@ -2031,8 +2015,6 @@ export default function Dashboard() {
           />
 
           <FinalDisbursements
-            isCollapsed={collapsed.disbursements}
-            onToggleSection={() => toggleSection('disbursements')}
             agentDisbursements={agentDisbursements}
             entityDisbursements={entityDisbursements}
             totalCommission={dealResult.totalCommission}

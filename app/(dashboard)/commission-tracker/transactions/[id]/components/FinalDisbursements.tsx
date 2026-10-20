@@ -4,8 +4,6 @@ import { Building2, UserRound } from 'lucide-react';
 import { formatPercentRate } from '@/lib/percent';
 import { roundCurrency } from '../types';
 import { SectionIcon } from './SectionIcon';
-import { toggleFromSectionHeader } from './sectionHeaderClick';
-import { SectionCollapseButton } from './SectionCollapseButton';
 import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
 
 export interface AgentDisbursement {
@@ -16,8 +14,6 @@ export interface AgentDisbursement {
 }
 
 interface FinalDisbursementsProps {
-  isCollapsed: boolean;
-  onToggleSection: () => void;
   agentDisbursements: AgentDisbursement[];
   entityDisbursements: [string, number][];
   totalCommission: number;
@@ -141,8 +137,6 @@ function PaymentShareCard({
 }
 
 export function FinalDisbursements({
-  isCollapsed,
-  onToggleSection,
   agentDisbursements,
   entityDisbursements,
   totalCommission,
@@ -165,18 +159,16 @@ export function FinalDisbursements({
   return (
     <section id="disbursements" className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height)+0.75rem)] transition-colors">
       <div
-        onClick={(event) => toggleFromSectionHeader(event, onToggleSection)}
-        className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center cursor-pointer"
+        className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center"
       >
         <div className="flex items-center gap-3">
           <SectionIcon name="disbursements" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">3. Payments Breakdown</h2>
         </div>
 
-        <SectionCollapseButton collapsed={isCollapsed} onClick={onToggleSection} />
       </div>
 
-      {!isCollapsed && showSplitWarning && (
+      {showSplitWarning && (
         <div className="px-6 py-5">
           <AgentSplitExcessNotice
             total={agentSplitTotal}
@@ -186,71 +178,69 @@ export function FinalDisbursements({
         </div>
       )}
 
-      {!isCollapsed && (
-        <div className={`grid grid-cols-1 gap-6 px-6 pb-6 md:grid-cols-2 md:gap-0 ${showSplitWarning ? 'pt-0' : 'pt-6'}`}>
-          <div className="flex h-full flex-col gap-3 md:pr-6">
-            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
-              Payments to Agents
-            </span>
+      <div className={`grid grid-cols-1 gap-6 px-6 pb-6 md:grid-cols-2 md:gap-0 ${showSplitWarning ? 'pt-0' : 'pt-6'}`}>
+        <div className="flex h-full flex-col gap-3 md:pr-6">
+          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
+            Payments to Agents
+          </span>
 
-            {agentDisbursements.length === 0 ? (
-              <p className="text-xs text-slate-400 italic py-2">No agent payments.</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {agentDisbursements.map((agent) => (
-                  <PaymentShareCard
-                    key={agent.name}
-                    name={agent.name}
-                    amount={agent.amount}
-                    totalCommission={totalCommission}
-                    kind="agent"
-                    isPrimary={agent.isPrimary}
-                    isTeamLead={agent.isTeamLead}
-                  />
-                ))}
-              </div>
-            )}
+          {agentDisbursements.length === 0 ? (
+            <p className="text-xs text-slate-400 italic py-2">No agent payments.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {agentDisbursements.map((agent) => (
+                <PaymentShareCard
+                  key={agent.name}
+                  name={agent.name}
+                  amount={agent.amount}
+                  totalCommission={totalCommission}
+                  kind="agent"
+                  isPrimary={agent.isPrimary}
+                  isTeamLead={agent.isTeamLead}
+                />
+              ))}
+            </div>
+          )}
 
-            <ColumnSubtotal
-              label="Total to Agents"
-              amount={agentTotal}
-              totalCommission={totalCommission}
-              tone="agent"
-            />
-          </div>
-
-          <div className="flex h-full flex-col gap-3 border-t border-slate-200 pt-6 dark:border-slate-700 md:border-t-0 md:border-l md:pt-0 md:pl-6">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-              Payments to Entities
-            </span>
-
-            {entityDisbursements.length === 0 ? (
-              <p className="text-xs text-slate-400 italic py-2">No entity payments.</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {entityDisbursements.map(([entity, amount]) => (
-                  <PaymentShareCard
-                    key={entity}
-                    name={entity}
-                    amount={amount}
-                    totalCommission={totalCommission}
-                    kind="entity"
-                  />
-                ))}
-              </div>
-            )}
-
-            <ColumnSubtotal
-              label="Total to Entities"
-              amount={entityTotal}
-              totalCommission={totalCommission}
-              tone="entity"
-            />
-          </div>
+          <ColumnSubtotal
+            label="Total to Agents"
+            amount={agentTotal}
+            totalCommission={totalCommission}
+            tone="agent"
+          />
         </div>
-      )}
 
-      {!isCollapsed && paymentsShortOfCommission && (
+        <div className="flex h-full flex-col gap-3 border-t border-slate-200 pt-6 dark:border-slate-700 md:border-t-0 md:border-l md:pt-0 md:pl-6">
+          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+            Payments to Entities
+          </span>
+
+          {entityDisbursements.length === 0 ? (
+            <p className="text-xs text-slate-400 italic py-2">No entity payments.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {entityDisbursements.map(([entity, amount]) => (
+                <PaymentShareCard
+                  key={entity}
+                  name={entity}
+                  amount={amount}
+                  totalCommission={totalCommission}
+                  kind="entity"
+                />
+              ))}
+            </div>
+          )}
+
+          <ColumnSubtotal
+            label="Total to Entities"
+            amount={entityTotal}
+            totalCommission={totalCommission}
+            tone="entity"
+          />
+        </div>
+      </div>
+
+      {paymentsShortOfCommission && (
         <div className="px-6 pb-4">
           <p
             role="alert"
@@ -261,25 +251,23 @@ export function FinalDisbursements({
         </div>
       )}
 
-      {!isCollapsed && (
-        <div className={`flex items-center justify-between border-t px-6 py-4 ${
-          paymentsOffCommission
-            ? 'border-rose-300 bg-rose-50 dark:border-rose-500/40 dark:bg-rose-950/40'
-            : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800'
-        }`}>
-          <span className={`text-lg font-semibold ${paymentsOffCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-900 dark:text-white'}`}>
-            Total Payments
+      <div className={`flex items-center justify-between border-t px-6 py-4 ${
+        paymentsOffCommission
+          ? 'border-rose-300 bg-rose-50 dark:border-rose-500/40 dark:bg-rose-950/40'
+          : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800'
+      }`}>
+        <span className={`text-lg font-semibold ${paymentsOffCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-900 dark:text-white'}`}>
+          Total Payments
+        </span>
+        <div className="flex items-center gap-3">
+          <span className={`text-sm font-medium ${paymentsOffCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-500 dark:text-slate-400'}`}>
+            {totalCommission > 0 ? formatPercentRate(paymentsShare) : '—'}
           </span>
-          <div className="flex items-center gap-3">
-            <span className={`text-sm font-medium ${paymentsOffCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-500 dark:text-slate-400'}`}>
-              {totalCommission > 0 ? formatPercentRate(paymentsShare) : '—'}
-            </span>
-            <span className={`text-lg font-semibold whitespace-nowrap ${paymentsOffCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-900 dark:text-white'}`}>
-              {formatCurrency(totalPayments)}
-            </span>
-          </div>
+          <span className={`text-lg font-semibold whitespace-nowrap ${paymentsOffCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-900 dark:text-white'}`}>
+            {formatCurrency(totalPayments)}
+          </span>
         </div>
-      )}
+      </div>
     </section>
   );
 }
