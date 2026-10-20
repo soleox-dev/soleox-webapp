@@ -1,5 +1,6 @@
 import React, { useLayoutEffect, useRef } from 'react';
 import { TrashIcon } from '@/components/ui/trash-icon';
+import { SectionLinks, type TransactionSectionId, type TransactionSectionLink } from './SectionLinks';
 
 interface HeaderCardProps {
   isNewTransaction: boolean;
@@ -12,6 +13,9 @@ interface HeaderCardProps {
   saveBlockedReason?: string;
   /** The pinned strip's height, which places the sticky sidebar under it. */
   onHeightChange?: (height: number) => void;
+  sections?: TransactionSectionLink[];
+  activeSection?: TransactionSectionId;
+  onSelectSection?: (id: TransactionSectionId) => void;
   children?: React.ReactNode;
 }
 
@@ -20,7 +24,7 @@ interface HeaderCardProps {
  * badges, and the actions, and stays pinned under the top bar. The page measures the pill
  * (#transaction-detail-header) to place the sticky sidebar under it.
  */
-export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDelete, hasUnsavedChanges = false, saveBlocked = false, saveBlockedReason, onHeightChange, children }: HeaderCardProps) {
+export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDelete, hasUnsavedChanges = false, saveBlocked = false, saveBlockedReason, onHeightChange, sections, activeSection = 'overview', onSelectSection, children }: HeaderCardProps) {
   // Measured here, on this card's own element, so the height stays right when the card remounts.
   const stripRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -47,7 +51,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
         id="transaction-detail-header"
         className="sticky top-[var(--app-nav-offset,4rem)] z-40 !mb-3 -mx-4 bg-slate-100 px-4 py-3 md:-mx-6 md:px-6 transition-[top] duration-200 ease-out motion-reduce:transition-none dark:bg-slate-900"
       >
-        <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white py-1.5 pl-5 pr-2 shadow-xl transition-colors dark:border-slate-700 dark:bg-slate-800">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-slate-200 bg-white py-1.5 pl-5 pr-2 shadow-xl transition-colors md:flex-nowrap md:rounded-full dark:border-slate-700 dark:bg-slate-800">
           <div className="min-w-0 flex-1">{children}</div>
           {isNewTransaction && (
             <span className="shrink-0 px-2 py-0.5 bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 text-xs font-bold rounded-full">
@@ -95,6 +99,12 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
             )}
           </div>
         </div>
+        {/* The section links sit centered under the pill, apart from the actions. */}
+        {sections && onSelectSection && (
+          <div className="mt-2 flex justify-center">
+            <SectionLinks sections={sections} active={activeSection} onSelect={onSelectSection} />
+          </div>
+        )}
       </div>
     </>
   );

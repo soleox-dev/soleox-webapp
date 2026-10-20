@@ -534,7 +534,7 @@ export function CommissionWaterfall({
   };
 
   return (
-    <section id="commission" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-8 transition-colors">
+    <section id="commission" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height)+0.75rem)] transition-colors">
       {/* Top Header */}
       <div
         onClick={(event) => toggleFromSectionHeader(event, onToggleSection)}

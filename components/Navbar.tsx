@@ -147,7 +147,8 @@ export default function Navbar() {
         setScrollHidden(Math.ceil(y + window.innerHeight) >= document.documentElement.scrollHeight - 2);
       } else if (y > lastY + 2) {
         setScrollHidden(true);
-      } else if (y < lastY - 2) {
+      } else if (y < lastY - 2 && document.documentElement.dataset.navScrollHold !== '1') {
+        // Pages set navScrollHold while they scroll on their own, such as a jump to a section.
         setScrollHidden(false);
       }
       lastY = y;

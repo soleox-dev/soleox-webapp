@@ -30,7 +30,6 @@ import { useAccess } from '@/components/access-provider';
 
 interface TransactionOverviewProps {
   isCollapsed: boolean;
-  sidebarCollapsed: boolean;
   onToggleSection: () => void;
   isEditing: boolean;
   hasChanges: boolean;
@@ -53,7 +52,6 @@ interface TransactionOverviewProps {
 
 export function TransactionOverview({
   isCollapsed,
-  sidebarCollapsed,
   onToggleSection,
   isEditing,
   hasChanges,
@@ -148,7 +146,7 @@ export function TransactionOverview({
   };
 
   return (
-    <section id="overview" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-8 transition-colors">
+    <section id="overview" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height)+0.75rem)] transition-colors">
       <div
         onClick={(event) => toggleFromSectionHeader(event, onToggleSection)}
         className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center cursor-pointer"
@@ -199,7 +197,7 @@ export function TransactionOverview({
               Loading Overview fields...
             </div>
           ) : (
-            <div className={sidebarCollapsed ? 'lg:[column-count:4] lg:[column-width:20rem] lg:gap-x-8' : 'lg:columns-2 lg:gap-x-8'}>
+            <div className="lg:[column-count:4] lg:[column-width:20rem] lg:gap-x-8">
             {Object.entries(groupedSections).map(([sectionName, fields]) => {
               const visibleFields = fields.filter((field) => {
                 const rawDbVal = readTransactionField(selectedDeal, field.key);
