@@ -103,6 +103,21 @@ export default function Dashboard() {
     window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}#${section}`);
   };
 
+  // While a popup is open the page is pinned in place, and closing it puts the old scroll position back.
+  // So wait until every popup is gone and the page is free again, then jump.
+  const scrollToSectionAfterModal = (sectionId: 'overview' | 'commission' | 'disbursements') => {
+    const startedAt = performance.now();
+    const attempt = () => {
+      const pinned = document.querySelector('.app-modal') || document.body.style.position === 'fixed';
+      if (pinned && performance.now() - startedAt < 2000) {
+        requestAnimationFrame(attempt);
+        return;
+      }
+      requestAnimationFrame(() => scrollToSection(sectionId));
+    };
+    requestAnimationFrame(attempt);
+  };
+
   const scrollToSection = (sectionId: 'overview' | 'commission' | 'disbursements') => {
     setActiveTab(sectionId);
     isProgrammaticScrollRef.current = true;
@@ -597,7 +612,7 @@ export default function Dashboard() {
     } else if (changed) {
       setHasUnsavedLocalChanges(true);
     }
-    scrollToSection('commission');
+    scrollToSectionAfterModal('commission');
   };
 
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
