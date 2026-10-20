@@ -14,6 +14,8 @@ Use `OptionMenu` from `@/components/ui/option-menu` for a single-choice dropdown
 
 A dropdown that must accept a new typed value uses `allowCustom`, the way Section does on Field Customizations.
 
+On touch screens (`touch:` variant, `useIsTouch`), a dropdown without `allowCustom` is `readOnly` with `inputMode="none"`, so a tap opens the list without the keyboard. A required one keeps validation through a hidden stand-in input. The list closes on a `pointerdown` outside it, not on blur, and is placed against `window.visualViewport`, kept on screen, and at least 224px wide below `md`. Below `md` and on touch, rows are at least 44px tall with 16px text; at `md` and wider without touch the list keeps its desktop sizes exactly. `ClearableSelect` adds a Clear row at the top of the list on touch while there is a value to clear and no option already clears it, since Backspace and Delete need a keyboard. Do not add hover-only behavior to the menu.
+
 Commission waterfall text inputs keep their own compact underline. Do not restyle them.
 
 Owner Reports filters stay the multi-select, date-range, and metric controls specified in `.cursor/rules/report-requirements.mdc`. Do not replace those with `OptionMenu`. The formula editor’s suggestion list stays part of the formula field.
