@@ -1755,6 +1755,15 @@ export default function Dashboard() {
         saveBlocked={saveBlocked}
         saveBlockedReason={saveBlockedReason}
         onHeightChange={setHeaderStick}
+        deal={templateDeal ? {
+          address: String(templateDeal.property_address || '').trim() || undefined,
+          status: String(templateDeal.transaction_status || '').trim() || undefined,
+          side: String(templateDeal.transaction_side || '').trim() || undefined,
+          closingDate: templateDeal.closing_date
+            ? new Date(`${String(templateDeal.closing_date).slice(0, 10)}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            : undefined,
+          id: String(templateDeal.id || '') || undefined,
+        } : null}
         onBack={() => requestNavigation(() => router.push('/commission-tracker/transactions'))}
         sections={[
           { id: 'overview', label: 'Overview', count: overviewFields.length, countNoun: overviewFields.length === 1 ? 'field' : 'fields' },
@@ -2018,6 +2027,11 @@ export default function Dashboard() {
             pendingTemplateSubmission={pendingTemplateSubmission}
             onResetWaterfall={handleResetWaterfall}
             resetClearsPayments={templateQualifies === false}
+            flow={{
+              total: Number(dealResult.totalCommission) || 0,
+              agents: agentDisbursements.map((agent) => ({ name: agent.name, amount: agent.amount })),
+              entities: entityDisbursements.map(([name, amount]) => ({ name, amount })),
+            }}
             submissionRevision={templateSubmissionRevision}
           />
 

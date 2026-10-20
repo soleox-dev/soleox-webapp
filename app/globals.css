@@ -28,6 +28,11 @@
   --font-mono: var(--font-figure), ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
 
+/* A thin status-colored edge at the start of each Transactions row, in the status's scorecard color. */
+.status-stripe > td:first-child {
+  box-shadow: inset 3px 0 0 var(--row-status, transparent);
+}
+
 /* Digits line up in every column without changing widths. */
 body {
   font-variant-numeric: tabular-nums;

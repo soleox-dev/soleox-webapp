@@ -14,6 +14,7 @@ import { CancelEditPrompt } from './CancelEditPrompt';
 import { useEditOnDoublePress } from './useEditOnDoublePress';
 import { useSectionEditKeys } from './useSectionEditKeys';
 import { CommissionTemplatePanel, type TemplateSubmissionDraft } from './CommissionTemplatePanel';
+import { CommissionFlowBar, type FlowPayee } from './CommissionFlowBar';
 import type { AppliedTemplateRules } from './applyTemplateLogic';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { AgentAllocationNotes, AgentCapNote, TeamCapAmount, adjustedSplitView, teamCapGroups, type AgentAllocationLine } from './AgentAllocationNotes';
@@ -84,6 +85,8 @@ interface CommissionWaterfallProps {
   onStoredSubmission?: (submission: TemplateSubmissionDraft | null) => void;
   pendingTemplateSubmission?: TemplateSubmissionDraft | null;
   onResetWaterfall?: () => void;
+  /** Payouts for the where-the-commission-goes bar. Display only. */
+  flow?: { total: number; agents: FlowPayee[]; entities: FlowPayee[] };
   /** True when the deal qualifies for no template, so a reset leaves no agent splits and no payments. */
   resetClearsPayments?: boolean;
   submissionRevision?: number;
@@ -202,6 +205,7 @@ export function CommissionWaterfall({
   onStoredSubmission,
   pendingTemplateSubmission = null,
   onResetWaterfall,
+  flow,
   resetClearsPayments = false,
   submissionRevision = 0,
   allocations = [],
@@ -599,6 +603,7 @@ export function CommissionWaterfall({
       </div>
 
       <div className="p-6 space-y-6" {...editOnDoublePress}>
+        {flow && <CommissionFlowBar total={flow.total} agents={flow.agents} entities={flow.entities} />}
         {/* Step 1: Off-The-Top Deductions */}
         <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-3 shadow-sm">
           <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">

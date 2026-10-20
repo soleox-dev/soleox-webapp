@@ -332,6 +332,21 @@ export function builtinStatusColor(label: string, value = ''): ScorecardColor | 
   return null;
 }
 
+/** The swatch colors as plain CSS colors, for the status stripe at the start of each Transactions row. */
+export const SCORECARD_STRIPE_COLORS: Record<ScorecardColor, string> = {
+  blue: '#3b82f6',
+  sky: '#0ea5e9',
+  indigo: '#6366f1',
+  violet: '#8b5cf6',
+  teal: '#14b8a6',
+  green: '#10b981',
+  yellow: '#f59e0b',
+  orange: '#f97316',
+  red: '#f43f5e',
+  pink: '#ec4899',
+  grey: '#94a3b8',
+};
+
 export function colorForStatus(cards: TransactionScorecard[], label: string, value = label): ScorecardColor | null {
   const match = cards.find((card) => scorecardMatchesStatus(card, label, value));
   return match?.color ?? builtinStatusColor(label, value);

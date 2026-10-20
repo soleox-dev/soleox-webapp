@@ -44,6 +44,7 @@ import {
   DEMO_TRANSACTION_SCORECARDS,
   SCORECARD_COLOR_STYLES,
   colorForStatus,
+  SCORECARD_STRIPE_COLORS,
   qualifyingDeals,
   scorecardMetricValue,
   type TransactionScorecard,
@@ -1700,6 +1701,12 @@ export default function TransactionsListPage() {
     }
   };
 
+  // Submitted templates whose payments would change if submitted again: the purple bolt.
+  const driftCount = useMemo(
+    () => deals.filter((deal) => templateBolt(deal)?.tone === 'drift').length,
+    [deals, templateBolt],
+  );
+
   const viewCounts = useMemo(() => {
     const counts = new Map<string, number>();
     transactionViews.forEach((view) => {
@@ -2204,6 +2211,19 @@ export default function TransactionsListPage() {
 
         <p className="text-left text-xs text-slate-500 dark:text-slate-400">
           Displaying {processedDeals.length} of {showingDeleted ? deletedDeals.length : deals.length} records
+          {driftCount > 0 && !showingDeleted && (
+            <>
+              <span className="mx-2 inline-block h-1.5 w-1.5 rounded-full bg-violet-500 align-middle" aria-hidden />
+              <button
+                type="button"
+                onClick={() => setBoltTone((current) => (current === 'drift' ? null : 'drift'))}
+                aria-pressed={boltTone === 'drift'}
+                className="cursor-pointer font-semibold text-violet-700 underline decoration-violet-400/50 underline-offset-2 hover:text-violet-600 dark:text-violet-300 dark:hover:text-violet-200"
+              >
+                {driftCount} {driftCount === 1 ? 'template' : 'templates'} to review{boltTone === 'drift' ? ' · show all' : ''}
+              </button>
+            </>
+          )}
           {syncNotice && (syncNotice.tone === 'error' || syncChangesOn) && (
             <>
               <span className="mx-2 inline-block h-1.5 w-1.5 rounded-full bg-brand-500 align-middle" aria-hidden />
@@ -2535,11 +2555,14 @@ export default function TransactionsListPage() {
 
                   const bolt = templateBolt(deal);
                   const tmsLink = markTmsLink(deal);
+                  const rowStatus = String(deal.transaction_status || deal.status || '').trim();
+                  const rowStatusColor = rowStatus ? colorForStatus(scorecards, rowStatus, rowStatus) : null;
                   const markClass = compactRows ? 'h-3.5 w-3.5' : 'h-4 w-4';
                   return (
                     <tr
                       key={deal.id ? `deal_${deal.id}` : `row_${idx}`}
                       data-bulk-id={bulkMode ? String(deal.id || dealId) : undefined}
+                      style={rowStatusColor ? ({ '--row-status': SCORECARD_STRIPE_COLORS[rowStatusColor] } as React.CSSProperties) : undefined}
                       onPointerDown={(event) => {
                         if (!bulkMode || event.button !== 0) return;
                         const target = event.target as HTMLElement | null;
@@ -2569,7 +2592,7 @@ export default function TransactionsListPage() {
                         if (showingDeleted) return;
                         router.push(`/commission-tracker/transactions/${dealId}`);
                       }}
-                      className={`even:bg-slate-50 dark:even:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition group ${rowNavigates || bulkMode ? 'cursor-pointer' : ''}`}
+                      className={`status-stripe even:bg-slate-50 dark:even:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition group ${rowNavigates || bulkMode ? 'cursor-pointer' : ''}`}
                     >
                       {bulkMode && (
                         <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 align-middle text-center`}>

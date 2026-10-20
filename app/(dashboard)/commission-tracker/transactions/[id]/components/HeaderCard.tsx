@@ -14,6 +14,8 @@ interface HeaderCardProps {
   saveBlockedReason?: string;
   /** The pinned strip's height, which places the sticky sidebar under it. */
   onHeightChange?: (height: number) => void;
+  /** The deal this page shows. Its address becomes the title once it is known. */
+  deal?: { address?: string; status?: string; side?: string; closingDate?: string; id?: string } | null;
   /** Returns to the Transactions list. */
   onBack?: () => void;
   sections?: TransactionSectionLink[];
@@ -22,12 +24,21 @@ interface HeaderCardProps {
   children?: React.ReactNode;
 }
 
+/** Status colors: waiting is amber, open is the brand sky, done is emerald, and stopped is rose. */
+function statusTone(status: string): string {
+  const value = status.toLowerCase();
+  if (/closed|paid|sold|settled/.test(value)) return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400';
+  if (/pending|contract|escrow/.test(value)) return 'bg-amber-500/10 text-amber-700 dark:text-amber-400';
+  if (/cancel|expired|withdrawn|terminated|lost/.test(value)) return 'bg-rose-500/10 text-rose-700 dark:text-rose-400';
+  return 'bg-brand-500/10 text-brand-700 dark:text-brand-400';
+}
+
 /**
  * The title card scrolls away. The pill below it holds the transaction search, the status
  * badges, and the actions, and stays pinned under the top bar. The page measures the pill
  * (#transaction-detail-header) to place the sticky sidebar under it.
  */
-export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDelete, hasUnsavedChanges = false, saveBlocked = false, saveBlockedReason, onHeightChange, onBack, sections, activeSection = 'overview', onSelectSection, children }: HeaderCardProps) {
+export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDelete, hasUnsavedChanges = false, saveBlocked = false, saveBlockedReason, onHeightChange, deal, onBack, sections, activeSection = 'overview', onSelectSection, children }: HeaderCardProps) {
   // Measured here, on this card's own element, so the height stays right when the card remounts.
   const stripRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -43,8 +54,23 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
   return (
     <>
       <div className="!mb-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-6 py-4 shadow-xs transition-colors">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Transaction Detail</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">Overview, commission waterfall, and payments</p>
+        {/* The deal is the title: its address, then status, side, closing date, and id. */}
+        {deal?.address && !isNewTransaction ? (
+          <>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{deal.address}</h1>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
+              {deal.status && <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusTone(deal.status)}`}><span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />{deal.status}</span>}
+              {deal.side && <span>{deal.side}</span>}
+              {deal.closingDate && <><span aria-hidden>·</span><span>Closing {deal.closingDate}</span></>}
+              {deal.id && <><span aria-hidden>·</span><span className="font-mono text-xs text-slate-400 dark:text-slate-500">{deal.id}</span></>}
+            </div>
+          </>
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{isNewTransaction ? 'New transaction' : 'Transaction detail'}</h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">Overview, commission waterfall, and payments</p>
+          </>
+        )}
       </div>
 
       {/* A strip in the page color around the pill, so content scrolling under it stays hidden.
