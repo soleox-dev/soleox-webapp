@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* UI refresh type: Onest for the interface and money (tabular figures), DM Mono for IDs and keys. */
+/* UI refresh type: Geist for the interface and money (tabular figures), Geist Mono for IDs and keys. */
 /* Brand: the sky from the logo, for what you can act on (active, selected, focus, primary actions).
    Emerald stays for money in, paid, and done. */
 @theme {

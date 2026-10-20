@@ -1,7 +1,7 @@
 // app/layout.tsx
 
 import type { Metadata } from 'next';
-import { DM_Mono, Onest } from 'next/font/google';
+import { Geist, Geist_Mono } from 'next/font/google';
 import { AuthProvider } from '@/components/auth-provider';
 import { AccessProvider } from '@/components/access-provider';
 import { Providers } from './providers';
@@ -13,8 +13,8 @@ import './globals.css';
 
 // Interface face (its tabular figures carry money and dates) and a mono face for IDs and keys.
 // Next self-hosts both. To try another pairing, change these two lines.
-const uiFont = Onest({ subsets: ['latin'], variable: '--font-ui', display: 'swap' });
-const codeFont = DM_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-code', display: 'swap' });
+const uiFont = Geist({ subsets: ['latin'], variable: '--font-ui', display: 'swap' });
+const codeFont = Geist_Mono({ subsets: ['latin'], variable: '--font-code', display: 'swap' });
 
 export const metadata: Metadata = {
   title: {

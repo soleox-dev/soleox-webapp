@@ -35,7 +35,7 @@ Soleox REBI (Real Estate Business Intelligence) is a multi-tenant B2B real estat
 
 - **Framework**: Next.js (App Router, React 19, Turbopack)
 - **Language**: TypeScript (strict mode enabled)
-- **Styling**: Tailwind CSS v4 with a custom blocking script for light/dark theme. Onest for the interface, with tabular figures app-wide so money and dates line up; DM Mono (`font-mono`) only for IDs, keys, and formulas. Both are set in `app/layout.tsx`. Color roles: `brand-*` (the sky from the logo, defined in `app/globals.css`) marks what you can act on: focus, selection, active nav and tabs, primary buttons. Emerald means money in, paid, closed, or success. Amber is waiting, rose is a problem. Dark mode uses neutral near-blacks (slate-700 to 950 are retuned in the theme). Report colors follow `report-requirements.mdc`.
+- **Styling**: Tailwind CSS v4 with a custom blocking script for light/dark theme. Geist for the interface, with tabular figures app-wide so money and dates line up; Geist Mono (`font-mono`) only for IDs, keys, and formulas. Both are set in `app/layout.tsx`. Color roles: `brand-*` (the sky from the logo, defined in `app/globals.css`) marks what you can act on: focus, selection, active nav and tabs, primary buttons. Emerald means money in, paid, closed, or success. Amber is waiting, rose is a problem. Dark mode uses neutral near-blacks (slate-700 to 950 are retuned in the theme). Report colors follow `report-requirements.mdc`.
 - **Database & BaaS**: Supabase (PostgreSQL with Row Level Security)
 - **Authentication**: NextAuth.js (Auth.js) using Google & Microsoft Azure AD OAuth
 - **Database Security Strategy (Custom JWT + RLS)**:
