@@ -547,6 +547,14 @@ html.dark .underline-field.is-locked.is-recalculated .parameter-recalc-value {
 }
 
 /* Short crossfade while the document theme class changes. */
+/* While the theme switches, nothing transitions on its own; the page changes at once, inside one cross-fade. */
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
+}
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation-duration: 220ms;

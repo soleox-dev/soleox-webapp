@@ -37,11 +37,22 @@ function applyResolvedTheme(resolved: ResolvedTheme, animate = true) {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const dark = resolved === 'dark';
 
+  // Element color transitions are paused while the theme changes, so the whole page switches in one frame
+  // (inside the single cross-fade, where the browser supports it) instead of rows and cards each fading
+  // at their own pace. They come back two frames after the switch has painted.
+  root.classList.add('theme-switching');
+  const resume = () => {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => root.classList.remove('theme-switching')));
+  };
+
   const commit = () => {
     root.classList.remove('theme-transition');
+    root.classList.add('theme-switching');
     root.classList.toggle('dark', dark);
     root.style.backgroundColor = dark ? '#121823' : '#f1f5f9';
     root.style.colorScheme = dark ? 'dark' : 'light';
+    // Apply the new colors now, with transitions still paused.
+    void root.offsetHeight;
   };
 
   const startViewTransition = (document as Document & {
@@ -50,13 +61,16 @@ function applyResolvedTheme(resolved: ResolvedTheme, animate = true) {
 
   if (!animate || reduceMotion || typeof startViewTransition !== 'function') {
     commit();
+    resume();
     return;
   }
 
   try {
-    startViewTransition.call(document, commit);
+    const transition = startViewTransition.call(document, commit);
+    transition.finished.then(resume, resume);
   } catch {
     commit();
+    resume();
   }
 }
 
