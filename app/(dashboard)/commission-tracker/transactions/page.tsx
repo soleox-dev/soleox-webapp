@@ -349,18 +349,39 @@ function FitVolume({ value, className }: { value: number; className: string }) {
 
 
 /**
- * What the page loaded, kept for this browser tab. On return, if it is under an hour old and the client's data
- * version (migration 052) has not moved, the page runs on these saved responses and keeps the saved template
- * statuses, so nothing is fetched again or recalculated. Otherwise it shows them with "Updating…" while it
- * reloads, then checks template statuses on the fresh data.
+ * The page as it was last shown, kept for this browser tab. On return, the page starts from it in the same
+ * frame, so there is no loading screen. Then it checks the client's data version (migration 052): if it has not
+ * moved and the page was loaded under an hour ago, nothing is fetched or recalculated, template statuses
+ * included. Otherwise "Updating…" shows while fresh data loads behind it.
  */
-type SavedResponse = { status: number; body: unknown };
+type SavedPageState = {
+  schemaFields: SchemaField[];
+  overviewFields: FieldSetting[];
+  agentsList: { id: string; agent_name?: string; name?: string; [key: string]: any }[];
+  deals: Record<string, any>[];
+  deletedDeals: Record<string, any>[];
+  statusLookups: StatusLookup[];
+  transactionViews: TransactionView[];
+  defaultViewId: string;
+  defaultView: TransactionDefaultView;
+  defaultSortRules: TransactionSortRule[] | null;
+  scorecards: TransactionScorecard[];
+  commissionTemplates: { id: string; template_name: string; eligibility_formula?: string | null; is_active?: boolean | null }[];
+  submittedTemplates: Map<string, SubmittedTemplate[]>;
+  tmsConnectorActive: boolean;
+  syncHighlights: Map<string, Set<string>>;
+  syncNotice: { tone: 'ok' | 'error'; text: string; finishedAt?: string; createdCount?: number; updatedCount?: number; errorCount?: number } | null;
+  syncResult: { summary: string; note: string | null; details: SyncRunDetail[] } | null;
+  sourceTmsIds: Set<string> | null;
+  paymentDriftCheckedIds: Set<string>;
+  paymentDriftIds: Set<string>;
+  paymentDriftReady: boolean;
+};
 type PageSnapshot = {
   clientId: string;
   loadedAt: number;
   version: number;
-  responses: Map<string, SavedResponse>;
-  drift: { checked: string[]; drifted: string[] } | null;
+  state: SavedPageState | null;
 };
 const SNAPSHOT_MAX_AGE_MS = 60 * 60 * 1000;
 let pageSnapshot: PageSnapshot | null = null;
@@ -379,17 +400,23 @@ async function readDataVersion(): Promise<{ clientId: string; version: number } 
 export default function TransactionsListPage() {
   const router = useRouter();
   const { access } = useAccess();
+  // The saved page for this client, read once on mount. Another client's page is never shown.
+  const [restore] = useState(() => (
+    pageSnapshot?.state && access?.clientId && pageSnapshot.clientId === access.clientId ? pageSnapshot : null
+  ));
+  const saved = restore?.state ?? null;
   const canWriteTracker = Boolean(access?.permissions.commissionTrackerWrite);
-  const [schemaFields, setSchemaFields] = useState<SchemaField[]>([]);
-  const [deals, setDeals] = useState<Record<string, any>[]>([]);
-  const [deletedDeals, setDeletedDeals] = useState<Record<string, any>[]>([]);
-  const [agentsList, setAgentsList] = useState<{ id: string; agent_name?: string; name?: string; [key: string]: any }[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [schemaFields, setSchemaFields] = useState<SchemaField[]>(() => (saved ? saved.schemaFields : []));
+  const [deals, setDeals] = useState<Record<string, any>[]>(() => (saved ? saved.deals : []));
+  const [deletedDeals, setDeletedDeals] = useState<Record<string, any>[]>(() => (saved ? saved.deletedDeals : []));
+  const [agentsList, setAgentsList] = useState<{ id: string; agent_name?: string; name?: string; [key: string]: any }[]>(() => (saved ? saved.agentsList : []));
+  const [isLoading, setIsLoading] = useState<boolean>(() => !saved);
   // True while a saved list is on screen and fresh data is loading behind it.
   const [isRefreshing, setIsRefreshing] = useState(false);
-  // The deals list that came from the saved snapshot. While it is on screen, its saved template statuses
-  // are shown as they were; any other list gets a live check.
-  const snapshotDealsRef = useRef<Record<string, any>[] | null>(null);
+  // The deals list restored from the saved page. While it is on screen with its saved template statuses,
+  // those statuses stay as they were; any other list gets a live check.
+  const restoredDealsRef = useRef<Record<string, any>[] | null>(saved && saved.paymentDriftReady ? saved.deals : null);
+  const [snapshotTick, setSnapshotTick] = useState(0);
   const [showFilters, setShowFilters] = useState<boolean>(false);
   const [compactRows, setCompactRows] = useState(false);
 
@@ -412,8 +439,8 @@ export default function TransactionsListPage() {
   const statusMenuButtonRef = useRef<HTMLButtonElement>(null);
   const statusMenuPanelRef = useRef<HTMLDivElement>(null);
   const [statusMenuBox, setStatusMenuBox] = useState({ top: 0, left: 0 });
-  const [sourceTmsIds, setSourceTmsIds] = useState<Set<string> | null>(null);
-  const [tmsConnectorActive, setTmsConnectorActive] = useState(false);
+  const [sourceTmsIds, setSourceTmsIds] = useState<Set<string> | null>(() => (saved ? saved.sourceTmsIds : null));
+  const [tmsConnectorActive, setTmsConnectorActive] = useState(() => (saved ? saved.tmsConnectorActive : false));
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncNotice, setSyncNotice] = useState<{
     tone: 'ok' | 'error';
@@ -422,25 +449,25 @@ export default function TransactionsListPage() {
     createdCount?: number;
     updatedCount?: number;
     errorCount?: number;
-  } | null>(null);
-  const [syncResult, setSyncResult] = useState<{ summary: string; note: string | null; details: SyncRunDetail[] } | null>(null);
+  } | null>(() => (saved ? saved.syncNotice : null));
+  const [syncResult, setSyncResult] = useState<{ summary: string; note: string | null; details: SyncRunDetail[] } | null>(() => (saved ? saved.syncResult : null));
   const [syncResultOpen, setSyncResultOpen] = useState(false);
   const [syncResultFocus, setSyncResultFocus] = useState<'added' | 'updated' | null>(null);
   const [syncChangesOn, setSyncChangesOn] = useState(false);
-  const [syncHighlights, setSyncHighlights] = useState<Map<string, Set<string>>>(() => new Map());
+  const [syncHighlights, setSyncHighlights] = useState<Map<string, Set<string>>>(() => (saved ? saved.syncHighlights : new Map()));
   const [syncErrorsOpen, setSyncErrorsOpen] = useState(false);
-  const [statusLookups, setStatusLookups] = useState<StatusLookup[]>([]);
-  const [defaultView, setDefaultView] = useState<TransactionDefaultView>({ filterFormula: '', sortRules: [] });
-  const [transactionViews, setTransactionViews] = useState<TransactionView[]>([]);
-  const [defaultViewId, setDefaultViewId] = useState('');
-  const [scorecards, setScorecards] = useState<TransactionScorecard[]>(DEMO_TRANSACTION_SCORECARDS);
-  const [defaultSortRules, setDefaultSortRules] = useState<TransactionSortRule[] | null>(null);
-  const [commissionTemplates, setCommissionTemplates] = useState<{ id: string; template_name: string; eligibility_formula?: string | null; is_active?: boolean | null }[]>([]);
-  const [submittedTemplates, setSubmittedTemplates] = useState<Map<string, SubmittedTemplate[]>>(new Map());
-  const [overviewFields, setOverviewFields] = useState<FieldSetting[]>([]);
-  const [paymentDriftIds, setPaymentDriftIds] = useState<Set<string>>(new Set());
-  const [paymentDriftCheckedIds, setPaymentDriftCheckedIds] = useState<Set<string>>(new Set());
-  const [paymentDriftReady, setPaymentDriftReady] = useState(false);
+  const [statusLookups, setStatusLookups] = useState<StatusLookup[]>(() => (saved ? saved.statusLookups : []));
+  const [defaultView, setDefaultView] = useState<TransactionDefaultView>(() => (saved ? saved.defaultView : { filterFormula: '', sortRules: [] }));
+  const [transactionViews, setTransactionViews] = useState<TransactionView[]>(() => (saved ? saved.transactionViews : []));
+  const [defaultViewId, setDefaultViewId] = useState(() => (saved ? saved.defaultViewId : ''));
+  const [scorecards, setScorecards] = useState<TransactionScorecard[]>(() => (saved ? saved.scorecards : DEMO_TRANSACTION_SCORECARDS));
+  const [defaultSortRules, setDefaultSortRules] = useState<TransactionSortRule[] | null>(() => (saved ? saved.defaultSortRules : null));
+  const [commissionTemplates, setCommissionTemplates] = useState<{ id: string; template_name: string; eligibility_formula?: string | null; is_active?: boolean | null }[]>(() => (saved ? saved.commissionTemplates : []));
+  const [submittedTemplates, setSubmittedTemplates] = useState<Map<string, SubmittedTemplate[]>>(() => (saved ? saved.submittedTemplates : new Map()));
+  const [overviewFields, setOverviewFields] = useState<FieldSetting[]>(() => (saved ? saved.overviewFields : []));
+  const [paymentDriftIds, setPaymentDriftIds] = useState<Set<string>>(() => (saved ? saved.paymentDriftIds : new Set()));
+  const [paymentDriftCheckedIds, setPaymentDriftCheckedIds] = useState<Set<string>>(() => (saved ? saved.paymentDriftCheckedIds : new Set()));
+  const [paymentDriftReady, setPaymentDriftReady] = useState(() => (saved ? saved.paymentDriftReady : false));
   const [rowDisplayLimit, setRowDisplayLimit] = useState(100);
   const viewedDealsRef = useRef<Record<string, any>[]>([]);
   
@@ -550,7 +577,7 @@ export default function TransactionsListPage() {
   // 1. Fetch Schema Fields & Transactions Data in Parallel
   useEffect(() => {
     type Loader = (url: string, options: RequestInit) => Promise<Response>;
-    async function runLoad(load: Loader, showLoading: boolean, fromSaved = false) {
+    async function runLoad(load: Loader, showLoading: boolean) {
       try {
         if (showLoading) setIsLoading(true);
 
@@ -683,9 +710,7 @@ export default function TransactionsListPage() {
         if (dealsRes.ok) {
           const dealsData = await dealsRes.json();
           const list = dealsData.transactions || dealsData.deals || dealsData.catalog || [];
-          const nextDeals = Array.isArray(list) ? list : [];
-          snapshotDealsRef.current = fromSaved ? nextDeals : null;
-          setDeals(nextDeals);
+          setDeals(Array.isArray(list) ? list : []);
           if (Array.isArray(list) && list.length > 0) {
             rememberTransactions(list);
             const dealClientId = list.find((deal: Record<string, unknown>) => deal?.client_id)?.client_id;
@@ -790,48 +815,27 @@ export default function TransactionsListPage() {
     }
 
     async function initData() {
-      const snapshot = pageSnapshot;
-      // With nothing saved there is nothing to compare, so the version is read alongside the data.
       const versionRead = readDataVersion();
-      const versionAtStart = snapshot ? await versionRead : null;
-      const usable = Boolean(snapshot && versionAtStart && snapshot.clientId === versionAtStart.clientId);
-      const fresh = usable && Date.now() - (snapshot as PageSnapshot).loadedAt < SNAPSHOT_MAX_AGE_MS;
+      const network: Loader = (url, options) => fetch(url, options);
 
-      const fromSnapshot: Loader = async (url, options) => {
-        const saved = snapshot?.responses.get(url);
-        if (saved) return new Response(JSON.stringify(saved.body), { status: saved.status, headers: { 'Content-Type': 'application/json' } });
-        return fetch(url, options);
-      };
-
-      // Nothing changed and under an hour old: the saved page, as it was, with its template statuses.
-      if (usable && fresh && snapshot && versionAtStart && snapshot.version === versionAtStart.version) {
-        await runLoad(fromSnapshot, true, true);
+      if (restore) {
+        const current = await versionRead;
+        const fresh = Date.now() - restore.loadedAt < SNAPSHOT_MAX_AGE_MS;
+        // Nothing changed since this page was loaded, under an hour ago: it stays exactly as shown.
+        if (current && current.clientId === restore.clientId && current.version === restore.version && fresh) return;
+        setIsRefreshing(true);
+        await runLoad(network, false);
+        setIsRefreshing(false);
+        pageSnapshot = current ? { clientId: current.clientId, loadedAt: Date.now(), version: current.version, state: null } : null;
+        setSnapshotTick((tick) => tick + 1);
         return;
       }
 
-      // Show what was saved while the fresh data loads, so the list is not empty in the meantime.
-      if (usable && snapshot) {
-        await runLoad(fromSnapshot, true, true);
-        setIsRefreshing(true);
-      }
-
-      const responses = new Map<string, SavedResponse>();
-      const fromNetwork: Loader = async (url, options) => {
-        const response = await fetch(url, options);
-        try {
-          responses.set(url, { status: response.status, body: await response.clone().json() });
-        } catch {
-          // A response that is not JSON is not saved; that call simply runs again next time.
-        }
-        return response;
-      };
-      await runLoad(fromNetwork, !(usable && snapshot));
-      setIsRefreshing(false);
-      // Saved under the version read at the start of loading, so a change made during the load is caught next time.
-      const savedVersion = versionAtStart ?? (await versionRead);
-      pageSnapshot = savedVersion
-        ? { clientId: savedVersion.clientId, loadedAt: Date.now(), version: savedVersion.version, responses, drift: null }
-        : null;
+      await runLoad(network, true);
+      // Saved under the version read as loading started, so a change made during the load is caught next time.
+      const savedVersion = await versionRead;
+      pageSnapshot = savedVersion ? { clientId: savedVersion.clientId, loadedAt: Date.now(), version: savedVersion.version, state: null } : null;
+      setSnapshotTick((tick) => tick + 1);
     }
 
     initData();
@@ -1122,13 +1126,9 @@ export default function TransactionsListPage() {
       return;
     }
 
-    // Statuses saved with the page snapshot are shown as they were, without recalculating.
-    if (snapshotDealsRef.current && deals === snapshotDealsRef.current && pageSnapshot?.drift) {
-      setPaymentDriftCheckedIds(new Set(pageSnapshot.drift.checked));
-      setPaymentDriftIds(new Set(pageSnapshot.drift.drifted));
-      setPaymentDriftReady(true);
-      return;
-    }
+    // The restored page keeps its saved template statuses; they are not recalculated.
+    if (restoredDealsRef.current && deals === restoredDealsRef.current) return;
+    restoredDealsRef.current = null;
 
     setPaymentDriftCheckedIds(new Set());
     setPaymentDriftReady(false);
@@ -1272,7 +1272,6 @@ export default function TransactionsListPage() {
 
       if (!cancelled) {
         setPaymentDriftReady(true);
-        if (pageSnapshot) pageSnapshot.drift = { checked: [...allChecked], drifted: [...drifted] };
       }
     };
 
@@ -1286,6 +1285,34 @@ export default function TransactionsListPage() {
       cancelled = true;
     };
   }, [isLoading, deals, submittedTemplates, commissionTemplates, fieldTypes, agentsList, overviewFields, defaultView.filterFormula, access?.clientId]);
+
+  // Keep the saved page current with what is on screen, so a return starts from exactly this.
+  useEffect(() => {
+    if (isLoading || isRefreshing || !pageSnapshot) return;
+    pageSnapshot.state = {
+      schemaFields,
+      overviewFields,
+      agentsList,
+      deals,
+      deletedDeals,
+      statusLookups,
+      transactionViews,
+      defaultViewId,
+      defaultView,
+      defaultSortRules,
+      scorecards,
+      commissionTemplates,
+      submittedTemplates,
+      tmsConnectorActive,
+      syncHighlights,
+      syncNotice,
+      syncResult,
+      sourceTmsIds,
+      paymentDriftCheckedIds,
+      paymentDriftIds,
+      paymentDriftReady,
+    };
+  }, [isLoading, isRefreshing, snapshotTick, schemaFields, overviewFields, agentsList, deals, deletedDeals, statusLookups, transactionViews, defaultViewId, defaultView, defaultSortRules, scorecards, commissionTemplates, submittedTemplates, tmsConnectorActive, syncHighlights, syncNotice, syncResult, sourceTmsIds, paymentDriftCheckedIds, paymentDriftIds, paymentDriftReady]);
 
   const templateBolt = useCallback((deal: Record<string, any>): { tone: BoltTone; label: string } | null => {
     const dealId = String(deal.id || '');
