@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* UI refresh type: Instrument Sans for the interface, IBM Plex Mono for display figures. */
+/* UI refresh type: Onest for the interface and money (tabular figures), DM Mono for IDs and keys. */
 /* Brand: the sky from the logo, for what you can act on (active, selected, focus, primary actions).
    Emerald stays for money in, paid, and done. */
 @theme {
@@ -26,7 +26,7 @@
 
 @theme inline {
   --font-sans: var(--font-ui), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: var(--font-figure), ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-mono: var(--font-code), ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
 
 /* A thin status-colored edge at the start of each Transactions row, in the status's scorecard color. */

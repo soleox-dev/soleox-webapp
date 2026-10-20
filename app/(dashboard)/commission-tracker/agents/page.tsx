@@ -1431,7 +1431,7 @@ export default function AgentsPage() {
                       // Currency Cell
                       if (cfg.field_type === 'CURRENCY') {
                         return (
-                          <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap text-right font-mono text-[12.5px]`}>
+                          <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap text-right tabular-nums`}>
                             {formatCurrency(Number(rawVal) || 0)}
                           </td>
                         );
@@ -1440,7 +1440,7 @@ export default function AgentsPage() {
                       // Percent Cell
                       if (cfg.field_type === 'PERCENT') {
                         return (
-                          <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap text-right font-mono text-[12.5px]`}>
+                          <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap text-right tabular-nums`}>
                             {formatTablePercent(rawVal)}
                           </td>
                         );

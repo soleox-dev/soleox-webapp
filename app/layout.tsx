@@ -1,7 +1,7 @@
 // app/layout.tsx
 
 import type { Metadata } from 'next';
-import { IBM_Plex_Mono, Instrument_Sans } from 'next/font/google';
+import { DM_Mono, Onest } from 'next/font/google';
 import { AuthProvider } from '@/components/auth-provider';
 import { AccessProvider } from '@/components/access-provider';
 import { Providers } from './providers';
@@ -11,9 +11,10 @@ import { PageTitle } from '@/components/PageTitle';
 import { ModalScrollLock } from '@/components/ui/ModalScrollLock';
 import './globals.css';
 
-// Interface face and the tabular face for money and dates. Next self-hosts both.
-const uiFont = Instrument_Sans({ subsets: ['latin'], variable: '--font-ui', display: 'swap' });
-const figureFont = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-figure', display: 'swap' });
+// Interface face (its tabular figures carry money and dates) and a mono face for IDs and keys.
+// Next self-hosts both. To try another pairing, change these two lines.
+const uiFont = Onest({ subsets: ['latin'], variable: '--font-ui', display: 'swap' });
+const codeFont = DM_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-code', display: 'swap' });
 
 export const metadata: Metadata = {
   title: {
@@ -59,7 +60,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${uiFont.variable} ${figureFont.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${uiFont.variable} ${codeFont.variable}`}>
       <head>
         <script
           id="theme-initializer"

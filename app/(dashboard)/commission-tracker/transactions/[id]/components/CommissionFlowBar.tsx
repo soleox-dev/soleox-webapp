@@ -44,7 +44,7 @@ export function CommissionFlowBar({ total, agents, entities }: { total: number; 
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="text-sm text-slate-500 dark:text-slate-400">
           Where the commission goes
-          <span className="ml-2 font-mono text-lg font-semibold text-slate-900 dark:text-white">{money.format(total)}</span>
+          <span className="ml-2 text-lg font-semibold tabular-nums text-slate-900 dark:text-white">{money.format(total)}</span>
         </span>
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${balanced ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' : remainder > 0 ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' : 'bg-rose-500/10 text-rose-700 dark:text-rose-400'}`}>
           {balanced ? 'Fully allocated' : remainder > 0 ? `${money.format(remainder)} unallocated` : `${money.format(-remainder)} over the commission`}
@@ -65,7 +65,7 @@ export function CommissionFlowBar({ total, agents, entities }: { total: number; 
           <span key={item.name} className="inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
             <span aria-hidden className={`h-2 w-2 shrink-0 rounded-sm ${item.tone}`} />
             {item.name}
-            <span className="font-mono text-[12.5px] font-medium text-slate-900 dark:text-white">{money.format(item.amount)}</span>
+            <span className="text-[13px] font-semibold tabular-nums text-slate-900 dark:text-white">{money.format(item.amount)}</span>
           </span>
         ))}
         {/* A negative payout has no segment to draw, so it shows here in rose. */}
@@ -73,7 +73,7 @@ export function CommissionFlowBar({ total, agents, entities }: { total: number; 
           <span key={`negative-${item.name}`} className="inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
             <span aria-hidden className="h-2 w-2 shrink-0 rounded-sm border border-rose-400" />
             {item.name}
-            <span className="font-mono text-[12.5px] font-medium text-rose-600 dark:text-rose-400">{money.format(item.amount)}</span>
+            <span className="text-[13px] font-semibold tabular-nums text-rose-600 dark:text-rose-400">{money.format(item.amount)}</span>
           </span>
         ))}
       </div>
