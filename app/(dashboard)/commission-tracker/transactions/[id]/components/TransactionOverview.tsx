@@ -177,21 +177,21 @@ export function TransactionOverview({
                   </div>
                   {/* The grid sits 1px outside its frame so the outer edges of the cell borders are clipped. */}
                   <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
-                    <dl className="-m-px grid [grid-template-columns:repeat(auto-fit,minmax(11rem,1fr))]">
+                    <dl className="-m-px grid [grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr))]">
                       {visibleFields.map((field) => {
                         const { text } = getFieldValue(field.key, field.type);
                         const stored = readTransactionField(selectedDeal, field.key);
                         const unmatched = validateFieldValue(field, stored ?? text).isLegacyUnmatched;
                         const empty = text === '—';
                         return (
-                          <div key={field.id} className="min-w-0 border-l border-t border-slate-200 px-3.5 py-2.5 dark:border-slate-700">
+                          <div key={field.id} className="min-w-0 border-l border-t border-slate-200 px-3 py-2 dark:border-slate-700">
                             <dt className="truncate text-[11px] text-slate-500 dark:text-slate-400">
                               {field.label}
                               {field.is_required && <span className="text-rose-500" title="Required Field">*</span>}
                             </dt>
                             <dd
                               title={unmatched ? validateFieldValue(field, stored ?? text).message : undefined}
-                              className={`mt-0.5 truncate text-base font-semibold ${
+                              className={`mt-0.5 truncate text-[15px] font-semibold ${
                                 unmatched
                                   ? 'text-amber-600 dark:text-amber-400'
                                   : empty
