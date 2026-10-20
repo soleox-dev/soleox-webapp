@@ -1,6 +1,6 @@
 // app/commission-tracker/transactions/[id]/components/CommissionWaterfall.tsx
-import React, { useEffect, useState } from 'react';
-import { Eraser, LayoutGrid, Table2 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Eraser, LayoutGrid, MoreHorizontal, Table2 } from 'lucide-react';
 import { toPercentPoints } from '@/lib/percent';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { AgentConfig, DynamicRule, CommissionEntityOption, KnownAgentInfo } from '../types';
@@ -253,13 +253,13 @@ export function CommissionWaterfall({
   };
 
   const agentLayoutToggle = (
-    <div role="group" aria-label="Agent splits layout" className="inline-flex h-9 shrink-0 items-stretch rounded-lg border border-slate-200 dark:border-slate-700 p-0.5">
+    <div role="group" aria-label="Agent splits layout" className="inline-flex h-9 shrink-0 items-stretch gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
       <button
         type="button"
         onClick={() => chooseAgentLayout('table')}
         title="Table"
         aria-label="Table"
-        className={`inline-flex h-full w-8 items-center justify-center rounded-md cursor-pointer ${agentLayout === 'table' ? 'bg-emerald-500 text-slate-950' : 'text-slate-500 dark:text-slate-400'}`}
+        className={`inline-flex h-full w-8 items-center justify-center rounded-md cursor-pointer transition ${agentLayout === 'table' ? 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}
       >
         <Table2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
       </button>
@@ -268,7 +268,7 @@ export function CommissionWaterfall({
         onClick={() => chooseAgentLayout('cards')}
         title="Cards"
         aria-label="Cards"
-        className={`inline-flex h-full w-8 items-center justify-center rounded-md cursor-pointer ${agentLayout === 'cards' ? 'bg-emerald-500 text-slate-950' : 'text-slate-500 dark:text-slate-400'}`}
+        className={`inline-flex h-full w-8 items-center justify-center rounded-md cursor-pointer transition ${agentLayout === 'cards' ? 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}
       >
         <LayoutGrid className="h-4 w-4" strokeWidth={1.75} aria-hidden />
       </button>
@@ -541,6 +541,7 @@ export function CommissionWaterfall({
         <div className="flex items-center gap-3">
           {canWrite && (
           <CommissionTemplatePanel
+            key={transactionId || 'new'}
             embedded
             clientId={clientId}
             transactionId={transactionId}
@@ -556,16 +557,6 @@ export function CommissionWaterfall({
             pendingSubmission={pendingTemplateSubmission}
             submissionRevision={submissionRevision}
           />
-          )}
-          {canWrite && onResetWaterfall && (
-            <button
-              type="button"
-              onClick={() => setConfirmReset(true)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 cursor-pointer dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-950/70"
-            >
-              <Eraser className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-              Reset waterfall
-            </button>
           )}
           {agentLayoutToggle}
           {canWrite && !isEditing ? (
@@ -601,7 +592,9 @@ export function CommissionWaterfall({
               )}
             </div>
           ) : null}
-
+          {canWrite && onResetWaterfall && (
+            <WaterfallMoreMenu onReset={() => setConfirmReset(true)} />
+          )}
         </div>
       </div>
 
@@ -1718,5 +1711,59 @@ export function CommissionWaterfall({
         </div>
       )}
     </section>
+  );
+}
+
+/** Less common Waterfall actions, kept out of the header so a rare, destructive reset is one click further away. */
+function WaterfallMoreMenu({ onReset }: { onReset: () => void }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnOutside = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [open]);
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-label="More Waterfall actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="More actions"
+        className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition cursor-pointer ${open ? 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-white' : 'text-slate-400 hover:bg-slate-200/70 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-700/60 dark:hover:text-slate-200'}`}
+      >
+        <MoreHorizontal className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 top-full z-50 mt-1 min-w-[11rem] rounded-lg border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onReset();
+            }}
+            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs font-semibold text-amber-800 transition hover:bg-amber-50 cursor-pointer dark:text-amber-200 dark:hover:bg-amber-950/50"
+          >
+            <Eraser className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+            Reset waterfall
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

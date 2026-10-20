@@ -1,4 +1,5 @@
 import React, { useLayoutEffect, useRef } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { SectionLinks, type TransactionSectionId, type TransactionSectionLink } from './SectionLinks';
 
@@ -13,6 +14,8 @@ interface HeaderCardProps {
   saveBlockedReason?: string;
   /** The pinned strip's height, which places the sticky sidebar under it. */
   onHeightChange?: (height: number) => void;
+  /** Returns to the Transactions list. */
+  onBack?: () => void;
   sections?: TransactionSectionLink[];
   activeSection?: TransactionSectionId;
   onSelectSection?: (id: TransactionSectionId) => void;
@@ -24,7 +27,7 @@ interface HeaderCardProps {
  * badges, and the actions, and stays pinned under the top bar. The page measures the pill
  * (#transaction-detail-header) to place the sticky sidebar under it.
  */
-export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDelete, hasUnsavedChanges = false, saveBlocked = false, saveBlockedReason, onHeightChange, sections, activeSection = 'overview', onSelectSection, children }: HeaderCardProps) {
+export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDelete, hasUnsavedChanges = false, saveBlocked = false, saveBlockedReason, onHeightChange, onBack, sections, activeSection = 'overview', onSelectSection, children }: HeaderCardProps) {
   // Measured here, on this card's own element, so the height stays right when the card remounts.
   const stripRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -52,6 +55,19 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
         className="sticky top-[var(--app-nav-offset,4rem)] z-40 !mb-3 -mx-4 bg-slate-100 px-4 py-3 md:-mx-6 md:px-6 transition-[top] duration-200 ease-out motion-reduce:transition-none dark:bg-slate-900"
       >
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-slate-200 bg-white py-1.5 pl-5 pr-2 shadow-xl transition-colors md:flex-nowrap md:rounded-full dark:border-slate-700 dark:bg-slate-800">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="Back to Transactions"
+              title="Back to Transactions"
+              className="-ml-3 inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700/60 dark:hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
+              <span className="hidden sm:inline">Back</span>
+            </button>
+          )}
+          {onBack && <span aria-hidden className="h-5 w-px shrink-0 bg-slate-200 dark:bg-slate-700" />}
           <div className="min-w-0 flex-1">{children}</div>
           {isNewTransaction && (
             <span className="shrink-0 px-2 py-0.5 bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 text-xs font-bold rounded-full">

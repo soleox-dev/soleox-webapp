@@ -1055,6 +1055,12 @@ export default function Dashboard() {
   );
   // The whole commission has to be allocated only when a commission template applies. A deal
   // that qualifies for none, such as a cancelled one, is not expected to have payments.
+  // The template button can judge the deal as soon as it is in the cached list, before this
+  // transaction's commission lines finish loading and selectedDeal is set.
+  const templateDeal = useMemo(
+    () => selectedDeal ?? (routeId && !isNewTransaction ? savedDeals.find((deal) => deal.id === routeId) ?? null : null),
+    [selectedDeal, routeId, isNewTransaction, savedDeals],
+  );
   const qualificationDeal = useMemo(
     () => (selectedDeal ? { ...selectedDeal, ...(overviewForm.isEditingOverview ? overviewForm.overviewFormValues : {}) } : null),
     [selectedDeal, overviewForm.isEditingOverview, overviewForm.overviewFormValues],
@@ -1749,6 +1755,7 @@ export default function Dashboard() {
         saveBlocked={saveBlocked}
         saveBlockedReason={saveBlockedReason}
         onHeightChange={setHeaderStick}
+        onBack={() => requestNavigation(() => router.push('/commission-tracker/transactions'))}
         sections={[
           { id: 'overview', label: 'Overview', count: overviewFields.length, countNoun: overviewFields.length === 1 ? 'field' : 'fields' },
           { id: 'commission', label: 'Waterfall', count: agents.length, countNoun: agents.length === 1 ? 'agent' : 'agents' },
@@ -1998,10 +2005,10 @@ export default function Dashboard() {
             knownAgents={knownAgents}
             preventMinus={(e) => { if (e.key === '-') e.preventDefault(); }}
             formatNumberWithCommas={(v) => String(v)}
-            clientId={selectedDeal?.client_id || 'DEMO'}
-            transactionId={selectedDeal?.id || dealId || ''}
+            clientId={templateDeal?.client_id || 'DEMO'}
+            transactionId={templateDeal?.id || dealId || ''}
             allocations={dealResult.allocationLines || []}
-            deal={selectedDeal}
+            deal={templateDeal}
             templateAgents={templateAgentRoster}
             primaryAgentId={primaryAgentId}
             onApplyTemplate={handleApplyTemplateRules}
