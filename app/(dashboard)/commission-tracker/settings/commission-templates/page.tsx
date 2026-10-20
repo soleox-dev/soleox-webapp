@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { underlineControl } from '@/components/ui/underline-field';
+import { SettingsHeader, SETTINGS_CARD, SETTINGS_PRIMARY_BUTTON } from '@/components/settings/SettingsHeader';
 
 interface CommissionTemplate {
   id: string;
@@ -16,7 +17,7 @@ interface CommissionTemplate {
 const underlineShell =
   'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600';
 const underlineLabel =
-  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
+  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400';
 
 export default function CommissionTemplatesPage() {
   const router = useRouter();
@@ -82,15 +83,11 @@ export default function CommissionTemplatesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-            Commission Templates
-          </h2>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-            Create a template, then define its parameters and calculation steps.
-          </p>
-        </div>
+      <div className={SETTINGS_CARD}>
+        <SettingsHeader
+          title="Commission Templates"
+          description="Create a template, then define its parameters and calculation steps."
+          actions={
         <button
           type="button"
           onClick={() => {
@@ -98,15 +95,17 @@ export default function CommissionTemplatesPage() {
             setDescription('');
             setIsModalOpen(true);
           }}
-          className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-lg cursor-pointer"
+          className={SETTINGS_PRIMARY_BUTTON}
         >
-          New Template
+          + New template
         </button>
+          }
+        />
       </div>
 
       {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
 
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden">
         {isLoading ? (
           <p className="p-6 text-xs text-slate-500 dark:text-slate-400">Loading templates...</p>
         ) : templates.length === 0 ? (

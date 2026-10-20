@@ -83,7 +83,7 @@ const PARAMETER_TYPES: { value: ParameterType; label: string }[] = [
 const underlineShell =
   'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600';
 const underlineLabel =
-  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
+  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400';
 const fieldColumn = 'w-full max-w-[39rem]';
 const sideLabel = 'pt-1 text-xs font-bold leading-4 text-slate-900 dark:text-white';
 
@@ -1171,7 +1171,7 @@ export default function CommissionTemplateDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-md">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-xs">
         <div className="grid min-h-[4.75rem] grid-cols-[minmax(0,1fr)_auto] grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-3">
           <Link href="/commission-tracker/settings/commission-templates" className="col-start-1 row-start-1 self-start text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline">
             ← All templates
@@ -1205,7 +1205,7 @@ export default function CommissionTemplateDetailPage() {
               <button
                 type="button"
                 onClick={openEditTemplate}
-                className={`${rowActionClass} text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700`}
+                className={`${rowActionClass} text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700`}
                 title="Edit template"
                 aria-label="Edit template"
               >
@@ -1228,7 +1228,7 @@ export default function CommissionTemplateDetailPage() {
 
       {!isLoading && template && (
         <>
-          <section className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md overflow-clip">
+          <section className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-clip">
             <div className={`px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${parametersCollapsed ? '' : 'border-b border-slate-200 dark:border-slate-700'}`}>
               <button
                 type="button"
@@ -1410,7 +1410,7 @@ export default function CommissionTemplateDetailPage() {
                               isFirst={itemIndex === 0 || isReordering || Boolean(parameterSearch.trim())}
                               isLast={itemIndex === group.items.length - 1 || isReordering || Boolean(parameterSearch.trim())}
                             />
-                            <button type="button" onClick={() => openEditParameter(parameter)} className={`${rowActionClass} text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700`} title="Edit" aria-label="Edit">
+                            <button type="button" onClick={() => openEditParameter(parameter)} className={`${rowActionClass} text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700`} title="Edit" aria-label="Edit">
                               <EditPencil className="h-[18px] w-[18px]" />
                             </button>
                             <button type="button" onClick={() => setConfirmDelete({ kind: 'parameter', id: parameter.id, label: parameter.parameter_name })} className={`${rowActionClass} text-[18px] leading-none text-rose-500 hover:text-rose-600 hover:bg-rose-500/10`} title="Delete" aria-label="Delete"><TrashIcon /></button>
@@ -1427,7 +1427,7 @@ export default function CommissionTemplateDetailPage() {
             )}
           </section>
 
-          <section className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md overflow-clip">
+          <section className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-clip">
             <div className={`px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${logicCollapsed ? '' : 'border-b border-slate-200 dark:border-slate-700'}`}>
               <button
                 type="button"
@@ -1630,7 +1630,7 @@ export default function CommissionTemplateDetailPage() {
                               isFirst={itemIndex === 0 || isReordering || Boolean(logicSearch.trim())}
                               isLast={itemIndex === group.items.length - 1 || isReordering || Boolean(logicSearch.trim())}
                             />
-                            <button type="button" onClick={() => openEditLogic(step)} className={`${rowActionClass} text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700`} title="Edit" aria-label="Edit">
+                            <button type="button" onClick={() => openEditLogic(step)} className={`${rowActionClass} text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700`} title="Edit" aria-label="Edit">
                               <EditPencil className="h-[18px] w-[18px]" />
                             </button>
                             <button type="button" onClick={() => setConfirmDelete({ kind: 'logic', id: step.id, label: step.rule_name })} className={`${rowActionClass} text-[18px] leading-none text-rose-500 hover:text-rose-600 hover:bg-rose-500/10`} title="Delete" aria-label="Delete"><TrashIcon /></button>
@@ -1838,7 +1838,7 @@ export default function CommissionTemplateDetailPage() {
                             setRenamingOption(option);
                             setRenameDraft(option);
                           }}
-                          className="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
+                          className="text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
                           title={`Rename "${option}"`}
                         >
                           <EditPencil />

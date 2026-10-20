@@ -233,7 +233,7 @@ export default function TransactionViewsPage() {
     <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-700 dark:bg-slate-800">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Transactions: Views</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Views</h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
             These names are the tabs on Transactions, after All. Add up to {MAX_TRANSACTION_VIEWS}. One view is the default: it opens after sign-in, and it chooses which transactions sync with TMS and which ones get a commission template status.
           </p>
@@ -242,7 +242,7 @@ export default function TransactionViewsPage() {
           type="button"
           onClick={addView}
           disabled={isLoading || config.views.length >= MAX_TRANSACTION_VIEWS}
-          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 cursor-pointer disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-brand-500/10 hover:text-brand-700 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-brand-500/15 dark:hover:text-brand-400 cursor-pointer disabled:cursor-not-allowed"
         >
           <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden />
           Add view
@@ -278,8 +278,8 @@ export default function TransactionViewsPage() {
                       onClick={() => setConfig((current) => ({ ...current, defaultViewId: view.id }))}
                       className={`mb-0.5 rounded-md px-2.5 py-1 text-xs font-bold cursor-pointer ${
                         isDefault
-                          ? 'bg-emerald-500 text-slate-950'
-                          : 'border border-slate-300 text-slate-600 hover:border-emerald-400 hover:text-emerald-600 dark:border-slate-600 dark:text-slate-300 dark:hover:text-emerald-400'
+                          ? 'bg-brand-600 text-white'
+                          : 'border border-slate-300 text-slate-600 hover:border-brand-400 hover:text-brand-700 dark:border-slate-600 dark:text-slate-300 dark:hover:text-brand-400'
                       }`}
                     >
                       {isDefault ? 'Default view' : 'Set as default'}
@@ -322,7 +322,7 @@ export default function TransactionViewsPage() {
                       onClick={() => updateView(view.id, {
                         sortRules: [...view.sortRules, { fieldKey: sortFields[0]?.name || 'closing_date', direction: 'asc' }],
                       })}
-                      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-400 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 cursor-pointer"
+                      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-brand-500/10 hover:text-brand-700 dark:text-slate-400 dark:hover:bg-brand-500/15 dark:hover:text-brand-400 cursor-pointer"
                     >
                       <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                       Add column

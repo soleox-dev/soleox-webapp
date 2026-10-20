@@ -8,6 +8,7 @@ import { isHiddenRecordId } from '@/lib/fields';
 import { PostSplitOrder } from './PostSplitOrder';
 import { useRegisterSave } from '@/components/save-leave-guard';
 import { underlineControlPlain as underlineControl } from '@/components/ui/underline-field';
+import { SettingsHeader, SETTINGS_CARD, SETTINGS_PRIMARY_BUTTON } from '@/components/settings/SettingsHeader';
 
 export interface CommissionEntity {
   id: string;
@@ -38,7 +39,7 @@ const ENTITY_TYPES = ['REFERRAL', 'FRANCHISE', 'BROKERAGE', 'CLIENT', 'TEAM', 'V
 const underlineShell =
   'group/field relative underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600';
 const underlineLabel =
-  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
+  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400';
 
 function FieldChevron() {
   return (
@@ -381,21 +382,11 @@ export default function CommissionEntitiesPage() {
   return (
     <div className="space-y-6">
       {/* Header Bar */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-colors">
-        <div>
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-            Commission Entities Management
-          </h2>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-            Database Table: <code className="font-mono text-emerald-600 dark:text-emerald-400">commission_entities</code>
-            {!isLoading && (
-              <span className="ml-1 text-slate-400">
-                • Showing {processedEntities.length} of {entities.length} Entities
-              </span>
-            )}
-          </p>
-        </div>
-
+      <div className={SETTINGS_CARD}>
+        <SettingsHeader
+          title="Commission Entities"
+          description={<>The brokerage, referral partners, vendors, and fees that receive money in a waterfall.{!isLoading && <span className="ml-1 text-slate-400">Showing {processedEntities.length} of {entities.length}.</span>}</>}
+          actions={
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
           {/* Quick Search */}
           <div className={`relative w-full sm:w-72 ${underlineShell}`}>
@@ -418,17 +409,19 @@ export default function CommissionEntitiesPage() {
 
           <button
             onClick={handleOpenAdd}
-            className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-lg shadow-sm transition flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer"
+            className={`${SETTINGS_PRIMARY_BUTTON} justify-center whitespace-nowrap`}
           >
-            <span>+ Add New Entity</span>
+            <span>+ Add entity</span>
           </button>
         </div>
+          }
+        />
       </div>
 
       <PostSplitOrder entities={entities} loading={isLoading} onSaved={loadEntities} />
 
       {/* Table */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md overflow-hidden transition-colors">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden transition-colors">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-700 select-none">
@@ -487,7 +480,7 @@ export default function CommissionEntitiesPage() {
                       <td className="p-3.5 whitespace-nowrap">
                         <button
                           onClick={() => handleOpenEdit(ent)}
-                          className="font-bold text-slate-900 dark:text-white hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition text-left cursor-pointer"
+                          className="font-semibold text-slate-900 dark:text-white hover:text-brand-700 dark:hover:text-brand-400 hover:underline transition text-left cursor-pointer"
                         >
                           {ent.entity_name}
                         </button>
@@ -539,7 +532,7 @@ export default function CommissionEntitiesPage() {
                             type="button"
                             disabled={isActionLoading}
                             onClick={() => handleOpenEdit(ent)}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer disabled:opacity-50"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer disabled:opacity-50"
                             title="Edit"
                             aria-label={`Edit ${ent.entity_name}`}
                           >

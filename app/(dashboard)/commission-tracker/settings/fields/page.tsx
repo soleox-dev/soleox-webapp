@@ -133,7 +133,7 @@ const MANDATORY_SYSTEM_KEYS = new Set([
 const underlineShell =
   'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600';
 const underlineLabel =
-  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
+  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400';
 
 function FieldChevron() {
   return (
@@ -1503,7 +1503,7 @@ export default function FieldCustomizationsPage() {
                   disabled={availableCatalogOptions.length === 0}
                   className={`flex-1 py-1.5 rounded-md transition cursor-pointer ${
                     selectionMode === 'EXISTING'
-                      ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40'
+                      ? 'bg-brand-500/10 text-brand-700 dark:text-brand-400 border border-brand-500/30'
                       : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 disabled:opacity-40'
                   }`}
                 >
@@ -1529,7 +1529,7 @@ export default function FieldCustomizationsPage() {
                   }}
                   className={`flex-1 py-1.5 rounded-md transition cursor-pointer ${
                     selectionMode === 'CUSTOM'
-                      ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40'
+                      ? 'bg-brand-500/10 text-brand-700 dark:text-brand-400 border border-brand-500/30'
                       : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                   }`}
                 >
@@ -1923,7 +1923,7 @@ export default function FieldCustomizationsPage() {
                       <button
                         type="button"
                         onClick={handleAddDropdownOption}
-                        className="px-3 py-2 bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 rounded-lg font-bold hover:bg-emerald-500/30 transition cursor-pointer"
+                        className="px-3 py-2 bg-brand-500/10 text-brand-700 dark:text-brand-400 border border-brand-500/30 rounded-lg font-bold hover:bg-brand-500/30 transition cursor-pointer"
                       >
                         + Add Option
                       </button>
@@ -1945,7 +1945,7 @@ export default function FieldCustomizationsPage() {
                               <button
                                 type="button"
                                 onClick={() => handleStartRenameOption(opt)}
-                                className="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
+                                className="text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
                                 title={`Rename "${opt}" across all records`}
                               >
                                 <EditPencil />
@@ -2214,7 +2214,7 @@ export default function FieldCustomizationsPage() {
                   !renameModal.hasConfirmedUnderstanding
                 }
                 onClick={handleConfirmRename}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-lg text-xs transition flex items-center gap-2 cursor-pointer"
+                className="px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-lg text-xs transition flex items-center gap-2 cursor-pointer"
               >
                 {renameModal.isSubmitting ? (
                   <>
@@ -2273,7 +2273,7 @@ export default function FieldCustomizationsPage() {
                 type="button"
                 autoFocus
                 onClick={() => setRenameResultModal((prev) => ({ ...prev, isOpen: false }))}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition cursor-pointer"
+                className="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl text-xs transition cursor-pointer"
               >
                 OK
               </button>

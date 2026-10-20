@@ -10,6 +10,7 @@ import { normalizeTeamCapKey, teamCapKeyFormatError, teamCapKeyFromName } from '
 import { FormulaEditor, type FormulaName } from '../commission-templates/FormulaEditor';
 import { ALLOCATION_CLIENT_ID, AllocationFieldMenu, allocationFormulaHint, fieldOptions, useAllocationSchema, type AllocationAgent } from '../allocation-fields';
 import { useAccess } from '@/components/access-provider';
+import { SettingsHeader, SETTINGS_CARD, SETTINGS_PRIMARY_BUTTON } from '@/components/settings/SettingsHeader';
 
 type CapTab = 'team' | 'agent';
 
@@ -284,7 +285,22 @@ export default function CapsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3">
+      <div className={SETTINGS_CARD}>
+      <SettingsHeader
+        title="Caps"
+        description="Team caps move part of an agent's split to their team until a yearly limit is reached. Agent caps limit what a post-split entity takes from one agent."
+        actions={
+        <button
+          type="button"
+          onClick={() => void save()}
+          disabled={!dirty || isSaving || isLoading}
+          className={SETTINGS_PRIMARY_BUTTON}
+        >
+          {isSaving ? 'Saving…' : 'Save'}
+        </button>
+        }
+      />
+      <div className="mt-5 flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
           <button type="button" onClick={() => chooseTab('team')} className={tabClass(tab === 'team')}>
             <Gauge className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
@@ -295,14 +311,7 @@ export default function CapsPage() {
             Agent Caps
           </button>
         </div>
-        <button
-          type="button"
-          onClick={() => void save()}
-          disabled={!dirty || isSaving || isLoading}
-          className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
-        >
-          {isSaving ? 'Saving...' : 'Save'}
-        </button>
+      </div>
       </div>
 
       <p className="max-w-2xl text-[11px] text-slate-500 dark:text-slate-400">
@@ -353,7 +362,7 @@ function CapHeading({
       <button
         type="button"
         onClick={onAdd}
-        className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-400 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 cursor-pointer"
+        className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-brand-500/10 hover:text-brand-700 dark:text-slate-400 dark:hover:bg-brand-500/15 dark:hover:text-brand-400 cursor-pointer"
       >
         <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden />
         {action}
@@ -486,7 +495,7 @@ function TeamCapList({
         const keyError = keyErrorFor(cap, named);
         const token = cap.key.trim() || 'this key';
         return (
-          <section key={cap.id} className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-700 dark:bg-slate-800">
+          <section key={cap.id} className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-700 dark:bg-slate-800">
             <EnabledRow
               name={cap.name}
               enabled={cap.enabled}
@@ -578,7 +587,7 @@ function AgentCapList({
       ) : caps.map((cap) => {
         const keyError = keyErrorFor(cap, named);
         return (
-          <section key={cap.id} className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-700 dark:bg-slate-800">
+          <section key={cap.id} className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-700 dark:bg-slate-800">
             <EnabledRow
               name={cap.name}
               enabled={cap.enabled}

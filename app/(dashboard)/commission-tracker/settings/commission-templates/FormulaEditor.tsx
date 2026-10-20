@@ -356,7 +356,7 @@ export function FormulaExplain({
         onMouseLeave={hide}
         onFocus={show}
         onBlur={hide}
-        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-300 hover:border-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300 cursor-pointer"
+        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-300 hover:border-brand-500 hover:text-brand-700 dark:hover:text-brand-300 cursor-pointer"
       >
         <svg viewBox="0 0 16 16" aria-hidden className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
           <path d="M1.8 2.6h12.4v8.2H6.4L3.2 13.6V10.8H1.8V2.6Z" />
@@ -410,7 +410,7 @@ export function FormulaHint({ text }: { text: string }) {
         onMouseLeave={() => setOpen(false)}
         onFocus={show}
         onBlur={() => setOpen(false)}
-        className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-slate-300 font-serif text-[9px] italic font-semibold leading-none text-slate-500 hover:border-emerald-500 hover:text-emerald-700 dark:border-slate-600 dark:text-slate-400 dark:hover:text-emerald-300 cursor-pointer"
+        className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-slate-300 font-serif text-[9px] italic font-semibold leading-none text-slate-500 hover:border-brand-500 hover:text-brand-700 dark:border-slate-600 dark:text-slate-400 dark:hover:text-brand-300 cursor-pointer"
       >
         i
       </button>
@@ -650,7 +650,7 @@ export function FormulaEditor({
           </div>
           <div className="p-2">
             <label className="group/field underline-field mb-2 block rounded-t-md border-b border-b-slate-300 px-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600">
-              <span className="block truncate text-[10px] leading-3 font-medium text-slate-500 group-focus-within/field:text-emerald-600 dark:text-slate-400 dark:group-focus-within/field:text-emerald-400">Search</span>
+              <span className="block truncate text-[10px] leading-3 font-medium text-slate-500 group-focus-within/field:text-brand-600 dark:text-slate-400 dark:group-focus-within/field:text-brand-400">Search</span>
               <input
                 value={fieldQuery}
                 onChange={(event) => setFieldQuery(event.target.value)}
@@ -687,7 +687,7 @@ export function FormulaEditor({
       <div ref={formulaShellRef} className="group/field underline-field rounded-t-md border-b border-b-slate-300 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600">
       <div className="flex items-center justify-between gap-2 px-2.5 pt-1">
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="truncate text-[10px] leading-3 font-medium text-slate-500 group-focus-within/field:text-emerald-600 dark:text-slate-400 dark:group-focus-within/field:text-emerald-400">{label}</span>
+          <span className="truncate text-[10px] leading-3 font-medium text-slate-500 group-focus-within/field:text-brand-600 dark:text-slate-400 dark:group-focus-within/field:text-brand-400">{label}</span>
           {hint && <FormulaHint text={hint} />}
           <FormulaExplain value={value} names={names} />
         </div>

@@ -162,7 +162,7 @@ export function PostSplitOrder({
                 key={entity.id}
                 type="button"
                 onClick={() => commit(orderIds.includes(entity.id) ? orderIds : [...orderIds, entity.id])}
-                className="cursor-pointer rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-emerald-500 dark:hover:text-emerald-300"
+                className="cursor-pointer rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:border-brand-400 hover:text-brand-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-brand-500 dark:hover:text-brand-300"
               >
                 Add {entity.entity_name}
               </button>

@@ -34,7 +34,11 @@ const NAV: NavEntry[] = [
       { label: 'Agent Allocations', href: '/commission-tracker/settings/agent-allocations', icon: Scale },
     ],
   },
-  { kind: 'link', item: { label: 'Activity', href: '/commission-tracker/settings/activity', icon: ScrollText } },
+  {
+    kind: 'section',
+    label: 'Audit',
+    items: [{ label: 'Activity', href: '/commission-tracker/settings/activity', icon: ScrollText }],
+  },
 ];
 
 const NAV_LINKS = NAV.flatMap((entry) => (entry.kind === 'link' ? [entry.item] : entry.items));
