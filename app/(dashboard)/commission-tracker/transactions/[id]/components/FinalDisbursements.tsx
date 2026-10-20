@@ -60,7 +60,7 @@ function ColumnSubtotal({
           {totalCommission > 0 ? formatPercentRate(share) : '—'}
         </span>
         <span
-          className={`text-sm font-bold whitespace-nowrap ${
+          className={`font-mono text-[13px] font-semibold whitespace-nowrap ${
             isAgent ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'
           }`}
         >
@@ -128,7 +128,7 @@ function PaymentShareCard({
         <span className="ml-auto shrink-0 text-xs font-medium text-slate-500 dark:text-slate-400">
           {totalCommission > 0 ? formatPercentRate(share) : '—'}
         </span>
-        <span className={`shrink-0 text-sm font-bold whitespace-nowrap ${isAgent ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'}`}>
+        <span className={`shrink-0 font-mono text-[13px] font-semibold whitespace-nowrap ${isAgent ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'}`}>
           {formatCurrency(amount)}
         </span>
       </div>
@@ -263,7 +263,7 @@ export function FinalDisbursements({
           <span className={`text-sm font-medium ${paymentsOffCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-500 dark:text-slate-400'}`}>
             {totalCommission > 0 ? formatPercentRate(paymentsShare) : '—'}
           </span>
-          <span className={`text-lg font-semibold whitespace-nowrap ${paymentsOffCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-900 dark:text-white'}`}>
+          <span className={`font-mono text-lg font-semibold whitespace-nowrap ${paymentsOffCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-900 dark:text-white'}`}>
             {formatCurrency(totalPayments)}
           </span>
         </div>

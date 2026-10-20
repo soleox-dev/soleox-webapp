@@ -1,6 +1,7 @@
 // app/layout.tsx
 
 import type { Metadata } from 'next';
+import { IBM_Plex_Mono, Instrument_Sans } from 'next/font/google';
 import { AuthProvider } from '@/components/auth-provider';
 import { AccessProvider } from '@/components/access-provider';
 import { Providers } from './providers';
@@ -9,6 +10,10 @@ import { BackToTop } from '@/components/BackToTop';
 import { PageTitle } from '@/components/PageTitle';
 import { ModalScrollLock } from '@/components/ui/ModalScrollLock';
 import './globals.css';
+
+// Interface face and the tabular face for money and dates. Next self-hosts both.
+const uiFont = Instrument_Sans({ subsets: ['latin'], variable: '--font-ui', display: 'swap' });
+const figureFont = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-figure', display: 'swap' });
 
 export const metadata: Metadata = {
   title: {
@@ -54,7 +59,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={`${uiFont.variable} ${figureFont.variable}`}>
       <head>
         <script
           id="theme-initializer"

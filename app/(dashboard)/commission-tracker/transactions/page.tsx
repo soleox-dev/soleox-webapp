@@ -2643,7 +2643,7 @@ export default function TransactionsListPage() {
                         <td
                           key={field.field_key}
                           title={changedBySync ? 'Changed in the last TMS sync' : undefined}
-                          className={`${compactRows ? 'px-3 py-0.5 leading-4' : 'px-4 py-3'} whitespace-nowrap ${isNumericColumn(field) ? 'text-right tabular-nums' : ''} ${isDateColumn(field) ? 'text-center tabular-nums' : ''} ${isBooleanColumn(field) ? 'text-center' : ''} ${changedBySync ? 'bg-amber-100 text-amber-950 dark:bg-amber-400/20 dark:text-amber-100' : ''}`}
+                          className={`${compactRows ? 'px-3 py-0.5 leading-4' : 'px-4 py-3'} whitespace-nowrap ${isNumericColumn(field) ? 'text-right font-mono text-[12.5px]' : ''} ${isDateColumn(field) ? 'text-center font-mono text-[12.5px]' : ''} ${isBooleanColumn(field) ? 'text-center' : ''} ${changedBySync ? 'bg-amber-100 text-amber-950 dark:bg-amber-400/20 dark:text-amber-100' : ''}`}
                         >
                           {field.field_key === 'id' ? (
                             !rowNavigates ? (

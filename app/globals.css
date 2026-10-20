@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* UI refresh type: Instrument Sans for the interface, IBM Plex Mono for display figures. */
+@theme inline {
+  --font-sans: var(--font-ui), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-figure), ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+/* Digits line up in every column without changing widths. */
+body {
+  font-variant-numeric: tabular-nums;
+}
+
 @keyframes scorecard-pulse {
   0% { box-shadow: inset 0 0 0 100px rgb(16 185 129 / 0); }
   50% { box-shadow: inset 0 0 0 100px rgb(16 185 129 / 0.42); }
