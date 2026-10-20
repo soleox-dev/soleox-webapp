@@ -258,17 +258,18 @@ export default function Navbar() {
     ] : []),
   ];
   const currentModule = modules.find((item) => item.active);
-  const modulePages: { href: string; label: string; active: boolean }[] = isCommissionTracker
+  // Each page link carries the same icon as that page in ⌘K search.
+  const modulePages: { href: string; label: string; active: boolean; icon: LucideIcon }[] = isCommissionTracker
     ? [
-      ...(showTransactions ? [{ href: '/commission-tracker/transactions', label: 'Transactions', active: isTransactionsActive }] : []),
-      ...(showTransactions ? [{ href: '/commission-tracker/agents', label: 'Agents', active: isAgentsActive }] : []),
-      ...(showSettings ? [{ href: '/commission-tracker/settings', label: 'Settings', active: isSettingsActive }] : []),
+      ...(showTransactions ? [{ href: '/commission-tracker/transactions', label: 'Transactions', active: isTransactionsActive, icon: List }] : []),
+      ...(showTransactions ? [{ href: '/commission-tracker/agents', label: 'Agents', active: isAgentsActive, icon: Users }] : []),
+      ...(showSettings ? [{ href: '/commission-tracker/settings', label: 'Settings', active: isSettingsActive, icon: Settings }] : []),
     ]
     : isReports
       ? [
-        ...(showOwnerReports ? [{ href: '/owner-reports', label: 'Owner Reports', active: isOwnerReports }] : []),
-        ...(showDeferred ? [{ href: '/agent-reports', label: 'Agent Reports', active: isAgentReports }] : []),
-        ...(showDeferred ? [{ href: '/office-reports', label: 'Office Reports', active: isOfficeReports }] : []),
+        ...(showOwnerReports ? [{ href: '/owner-reports', label: 'Owner Reports', active: isOwnerReports, icon: BarChart3 }] : []),
+        ...(showDeferred ? [{ href: '/agent-reports', label: 'Agent Reports', active: isAgentReports, icon: Users }] : []),
+        ...(showDeferred ? [{ href: '/office-reports', label: 'Office Reports', active: isOfficeReports, icon: Building2 }] : []),
       ]
       : [];
   const CurrentModuleIcon = currentModule?.icon ?? LayoutGrid;
@@ -362,8 +363,9 @@ export default function Navbar() {
                   key={page.href}
                   href={page.href}
                   aria-current={page.active ? 'page' : undefined}
-                  className={`flex items-center border-b-2 pt-0.5 text-[13px] font-semibold transition ${page.active ? 'border-brand-500 text-brand-700 dark:text-brand-400' : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
+                  className={`flex items-center gap-1.5 border-b-2 pt-0.5 text-[13px] font-semibold transition ${page.active ? 'border-brand-500 text-brand-700 dark:text-brand-400' : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
                 >
+                  <page.icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
                   {page.label}
                 </Link>
               ))}
