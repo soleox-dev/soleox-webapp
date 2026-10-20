@@ -48,9 +48,9 @@ interface TransactionOverviewProps {
 
 /** Field types that make a section read as a strip of dates and amounts. */
 const STRIP_TYPES = new Set(['DATE', 'CURRENCY', 'NUMBER', 'PERCENT']);
-/** The date and amount strips take the logo's green (where its gold line meets the blue, about #80c360), tinted
-    like the blue pills of the other sections, so they read as their own sub-section. */
-const STRIP_PILL = 'flex items-center gap-2 rounded-full bg-[#80c360]/25 px-3 py-1 text-[#3b6b20] dark:bg-[#80c360]/15 dark:text-[#a8de88]';
+/** The date and amount strips use the same emerald as the amounts in them, tinted like the blue pills of the
+    other sections, so they read as their own sub-section. */
+const STRIP_PILL = 'flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-400';
 
 export function TransactionOverview({
   isEditing,
@@ -145,8 +145,8 @@ export function TransactionOverview({
     return { text: String(rawVal) };
   };
 
-  // Sections that are mostly dates and amounts sit side by side in one row at the top, in the
-  // client's section order; every other section keeps its place in the columns below. Decided by
+  // Sections that are mostly dates and amounts sit in one row at the top, in the client's section
+  // order, lined up with the columns below; every other section keeps its place in those columns. Decided by
   // field type, so it works for any client's own sections.
   const isStripSection = (fields: FieldSetting[]) => fields.length > 0
     && fields.filter((field) => STRIP_TYPES.has(String(field.type))).length * 2 >= fields.length;
@@ -170,11 +170,7 @@ export function TransactionOverview({
             // While viewing, a strip reads as a small table: one cell per field, label above a larger value.
             if (strip && !isEditing) {
               return (
-                <div
-                  key={sectionName}
-                  className="min-w-0 space-y-2 lg:[flex:var(--strip-fields)_1_0%]"
-                  style={{ '--strip-fields': visibleFields.length } as React.CSSProperties}
-                >
+                <div key={sectionName} className="min-w-0 space-y-2">
                   <div className={STRIP_PILL}>
                     <span className="min-w-0 text-xs font-bold">{sectionName}</span>
                   </div>
@@ -218,9 +214,7 @@ export function TransactionOverview({
             return (
               <div
                 key={sectionName}
-                className={`${strip ? 'min-w-0 lg:[flex:var(--strip-fields)_1_0%]' : 'mb-6 break-inside-avoid'} space-y-2`}
-                // On wide screens the strips share one row, each as wide as its field count, so field cells match.
-                style={strip ? ({ '--strip-fields': visibleFields.length } as React.CSSProperties) : undefined}
+                className={`${strip ? 'min-w-0' : 'mb-6 break-inside-avoid'} space-y-2`}
               >
                 {/* A full-width pill so each section title is easy to follow across the columns. */}
                 <div className={strip ? STRIP_PILL : 'flex items-center gap-2 rounded-full bg-brand-500/10 px-3 py-1 dark:bg-brand-500/15'}>
@@ -434,6 +428,11 @@ export function TransactionOverview({
             );
   };
 
+  // A strip whose fields are all hidden on this deal renders nothing, so it must not take a column.
+  const renderedStrips = stripSections
+    .map(([sectionName, fields]) => [sectionName, renderSection(sectionName, fields, true)] as const)
+    .filter(([, element]) => element !== null);
+
   return (
     <section id="overview" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height))] transition-colors">
       <div
@@ -484,9 +483,20 @@ export function TransactionOverview({
           </div>
         ) : (
           <div className="space-y-6">
-          {stripSections.length > 0 && (
-          <div className="flex flex-col gap-6 lg:flex-row">
-          {stripSections.map(([sectionName, fields]) => renderSection(sectionName, fields, true))}
+          {renderedStrips.length > 0 && (
+          // The strips sit on the same columns as the sections below (up to four, at least 20rem each).
+          // Each strip takes one column and the last one fills the rest of the row.
+          <div className="grid gap-6 lg:gap-x-8 lg:[grid-template-columns:repeat(auto-fill,minmax(max(20rem,calc((100%-6rem)/4)),1fr))]">
+          {renderedStrips.map(([sectionName, element], index) => (
+            <div
+              key={sectionName}
+              className="min-w-0 lg:[grid-column:var(--strip-span)]"
+              // The others fill columns 1, 2, 3 in turn, so the last one starts right after them and runs to the row's end.
+              style={{ '--strip-span': index === renderedStrips.length - 1 && index < 3 ? `${index + 1} / -1` : 'span 1' } as React.CSSProperties}
+            >
+              {element}
+            </div>
+          ))}
           </div>
           )}
           {columnSections.length > 0 && (
