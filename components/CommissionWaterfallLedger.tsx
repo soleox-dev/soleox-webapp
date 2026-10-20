@@ -66,7 +66,7 @@ export default function CommissionWaterfallLedger({ transactionId }: { transacti
 
       {/* 1. OFF-THE-TOP DEDUCTIONS */}
       <div className="bg-slate-900/40 rounded-lg border border-slate-800 p-4 space-y-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">1. Off-The-Top Deductions</h3>
+        <h3 className="text-xs font-bold text-slate-400">1. Off-The-Top Deductions</h3>
         {offTheTop.map((item) => (
           <div key={item.id} className="flex justify-between text-sm">
             <span className="text-slate-300">{item.rule_name}</span>
@@ -77,7 +77,7 @@ export default function CommissionWaterfallLedger({ transactionId }: { transacti
 
       {/* 2. PRE-SPLITS STAGE */}
       <div className="bg-slate-900/40 rounded-lg border border-slate-800 p-4 space-y-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">2. Pre-Splits Stage</h3>
+        <h3 className="text-xs font-bold text-slate-400">2. Pre-Splits Stage</h3>
         {preSplits.map((item) => (
           <div key={item.id} className="flex justify-between text-sm">
             <span className="text-slate-300">{item.rule_name}</span>
@@ -88,7 +88,7 @@ export default function CommissionWaterfallLedger({ transactionId }: { transacti
 
       {/* 3. POST-SPLIT DEDUCTIONS */}
       <div className="bg-slate-900/40 rounded-lg border border-slate-800 p-4 space-y-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">3. Post-Split Deductions</h3>
+        <h3 className="text-xs font-bold text-slate-400">3. Post-Split Deductions</h3>
         {postSplits.map((item) => (
           <div key={item.id} className="flex justify-between text-sm">
             <span className="text-slate-300">{item.rule_name}</span>

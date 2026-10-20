@@ -1158,7 +1158,7 @@ export default function FieldCustomizationsPage() {
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md overflow-hidden transition-colors">
         <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
           <div>
-            <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+            <h2 className="text-xs font-bold text-slate-900 dark:text-white">
               {activeTab === 'transactions' ? 'Transactions' : 'Agents'} Schema & Rules
             </h2>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -1180,7 +1180,7 @@ export default function FieldCustomizationsPage() {
               <div key={secName} className="p-4 space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
                   <div className="flex items-center gap-3">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-700 dark:text-brand-400 uppercase tracking-wider">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-700 dark:text-brand-400">
                       <Folder className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
                       Section:
                     </span>
@@ -1497,7 +1497,7 @@ export default function FieldCustomizationsPage() {
               {/* VISUAL CONDITIONAL VISIBILITY RULE BUILDER */}
               <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-700">
                 <div className="flex justify-between items-center">
-                  <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
+                  <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 block">
                     👁️ Custom Visibility Logic Builder
                   </span>
 
@@ -1541,7 +1541,7 @@ export default function FieldCustomizationsPage() {
                       return (
                         <div key={cond.id} className="space-y-2">
                           {idx > 0 && (
-                            <div className="text-center font-bold text-[10px] text-blue-500 uppercase tracking-wider">
+                            <div className="text-center font-bold text-[11px] text-blue-500">
                               — {ruleGroup.operator} —
                             </div>
                           )}
@@ -1657,7 +1657,7 @@ export default function FieldCustomizationsPage() {
 
               {/* Data Validation Enforcements Section */}
               <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-                <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider block">
+                <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 block">
                   🚨 Data Validation Enforcements
                 </span>
 
@@ -1850,7 +1850,7 @@ export default function FieldCustomizationsPage() {
                       }}
                       className="rounded text-purple-500 focus:ring-purple-500 cursor-pointer"
                     />
-                    <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+                    <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400">
                       🧮 Enable Calculation Formula
                     </span>
                   </label>
@@ -1970,7 +1970,7 @@ export default function FieldCustomizationsPage() {
             {/* Inputs & Values */}
             <div className="space-y-4">
               <div>
-                <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
                   Current Value
                 </label>
                 <div className="px-3 py-2 bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -1979,7 +1979,7 @@ export default function FieldCustomizationsPage() {
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1">
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
                   New Value *
                 </label>
                 <div className={underlineShell}>
@@ -2074,7 +2074,7 @@ export default function FieldCustomizationsPage() {
                   !renameModal.hasConfirmedUnderstanding
                 }
                 onClick={handleConfirmRename}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-lg text-xs shadow-md transition flex items-center gap-2 cursor-pointer"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-lg text-xs transition flex items-center gap-2 cursor-pointer"
               >
                 {renameModal.isSubmitting ? (
                   <>
@@ -2133,7 +2133,7 @@ export default function FieldCustomizationsPage() {
                 type="button"
                 autoFocus
                 onClick={() => setRenameResultModal((prev) => ({ ...prev, isOpen: false }))}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-md transition cursor-pointer"
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition cursor-pointer"
               >
                 OK
               </button>

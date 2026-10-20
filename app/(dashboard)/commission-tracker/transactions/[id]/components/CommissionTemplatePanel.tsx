@@ -1502,7 +1502,7 @@ export function CommissionTemplatePanel({
   const visibleGroups = activeGroup ? groups.filter((group) => group.name === activeGroup) : groups;
 
   return (
-    <div className={embedded ? `${singleTemplate ? 'shrink-0' : 'w-56 sm:w-64'} text-xs` : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xl space-y-3 text-xs transition-colors'}>
+    <div className={embedded ? `${singleTemplate ? 'shrink-0' : 'w-56 sm:w-64'} text-xs` : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xs space-y-3 text-xs transition-colors'}>
       {!embedded && (
         <span className="font-bold text-slate-800 dark:text-slate-300 block border-b border-slate-200 dark:border-slate-700 pb-2">
           Commission Template
@@ -1604,7 +1604,7 @@ export function CommissionTemplatePanel({
             )}
             <div className="@container/params mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl bg-slate-100 p-4 dark:bg-slate-900">
               <div className="space-y-6">
-              <section className="rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800">
+              <section className="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
                 <button
                   type="button"
                   onClick={() => setParametersOpen((open) => !open)}
@@ -1612,7 +1612,7 @@ export function CommissionTemplatePanel({
                   className="flex w-full items-center gap-2 px-3 py-2 text-left cursor-pointer"
                 >
                   <span className="w-3 shrink-0 text-center text-sm font-bold leading-none text-emerald-600 dark:text-emerald-400">{parametersOpen ? '−' : '+'}</span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">Parameters</span>
+                  <span className="text-[11px] font-bold text-brand-600 dark:text-brand-400">Parameters</span>
                 </button>
               {parametersOpen && (
                 <div className="border-t border-slate-200 px-3 py-2 dark:border-slate-700">
@@ -1637,7 +1637,7 @@ export function CommissionTemplatePanel({
                           <span className={`w-3 shrink-0 text-center text-sm font-bold leading-none ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                             {isCollapsed ? '+' : '−'}
                           </span>
-                          <span className={`text-[10px] font-bold uppercase tracking-wider ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                          <span className={`text-[11px] font-bold ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                             {group.name}
                           </span>
                         </button>
@@ -1672,9 +1672,9 @@ export function CommissionTemplatePanel({
               )}
               </section>
               {qualifyingCaps.length > 0 && (
-                <section className="rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800">
+                <section className="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
                   <div className="flex w-full items-center gap-2 px-3 py-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">Team Caps</span>
+                    <span className="text-[11px] font-bold text-brand-600 dark:text-brand-400">Team Caps</span>
                   </div>
                   <div className="flex flex-wrap items-center border-t border-slate-200 dark:border-slate-700">
                     {qualifyingCaps.map((cap, index) => (
@@ -1698,7 +1698,7 @@ export function CommissionTemplatePanel({
                 </section>
               )}
               {(ledgerError || logicGroups.length > 0 || (logicSteps.some((step) => step.show_in_popup) && (!ledger || !lookups))) && (
-                <section className="rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800">
+                <section className="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
                   <button
                     type="button"
                     onClick={() => setLogicOpen((open) => !open)}
@@ -1706,7 +1706,7 @@ export function CommissionTemplatePanel({
                     className="flex w-full items-center gap-2 px-3 py-2 text-left cursor-pointer"
                   >
                     <span className="w-3 shrink-0 text-center text-sm font-bold leading-none text-emerald-600 dark:text-emerald-400">{logicOpen ? '−' : '+'}</span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">Calculations</span>
+                    <span className="text-[11px] font-bold text-brand-600 dark:text-brand-400">Calculations</span>
                     <span className="text-[10px] font-semibold tracking-wide text-slate-400 dark:text-slate-500">(Read only)</span>
                   </button>
                   {logicOpen && (
@@ -1732,7 +1732,7 @@ export function CommissionTemplatePanel({
                                     <span className={`w-3 shrink-0 text-center text-sm font-bold leading-none ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                       {isCollapsed ? '+' : '−'}
                                     </span>
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                    <span className={`text-[11px] font-bold ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                       {group.name}
                                     </span>
                                   </button>

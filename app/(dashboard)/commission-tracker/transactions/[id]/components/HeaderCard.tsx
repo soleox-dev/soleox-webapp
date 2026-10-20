@@ -42,7 +42,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
 
   return (
     <>
-      <div className="!mb-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-6 py-4 shadow-xl transition-colors">
+      <div className="!mb-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-6 py-4 shadow-xs transition-colors">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Transaction Detail</h1>
         <p className="text-slate-500 dark:text-slate-400 text-sm">Overview, commission waterfall, and payments</p>
       </div>
@@ -107,7 +107,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
                 onClick={onSave}
                 disabled={isSaving || saveBlocked}
                 title={saveBlocked ? saveBlockedReason : undefined}
-                className="px-4 py-1.5 font-bold text-xs rounded-full shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer bg-amber-500 hover:bg-amber-400 text-slate-950"
+                className="px-4 py-1.5 font-bold text-xs rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer bg-amber-500 hover:bg-amber-400 text-slate-950"
               >
                 <span>{isSaving ? '⏳' : '💾'}</span>
                 <span>{isSaving ? 'Saving Transaction...' : 'Save Transaction'}</span>

@@ -49,7 +49,7 @@ function ColumnSubtotal({
       }`}
     >
       <span
-        className={`text-xs font-bold uppercase tracking-wider ${
+        className={`text-xs font-bold ${
           isAgent ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'
         }`}
       >
@@ -116,12 +116,12 @@ function PaymentShareCard({
           {name}
         </span>
         {isPrimary && (
-          <span className="shrink-0 rounded-full border border-brand-500/30 bg-brand-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-brand-800 dark:text-brand-300">
+          <span className="shrink-0 rounded-full border border-brand-500/30 bg-brand-500/20 px-1.5 py-0.5 text-[10.5px] font-bold text-brand-800 dark:text-brand-300">
             Primary
           </span>
         )}
         {isTeamLead && (
-          <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+          <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/20 px-1.5 py-0.5 text-[10.5px] font-bold text-amber-800 dark:text-amber-300">
             Lead
           </span>
         )}
@@ -157,7 +157,7 @@ export function FinalDisbursements({
   const showSplitWarning = agentSplitExcess > 0.009;
 
   return (
-    <section id="disbursements" className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height)+0.75rem)] transition-colors">
+    <section id="disbursements" className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height)+0.75rem)] transition-colors">
       <div
         className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center"
       >
@@ -180,7 +180,7 @@ export function FinalDisbursements({
 
       <div className={`grid grid-cols-1 gap-6 px-6 pb-6 md:grid-cols-2 md:gap-0 ${showSplitWarning ? 'pt-0' : 'pt-6'}`}>
         <div className="flex h-full flex-col gap-3 md:pr-6">
-          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
+          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block">
             Payments to Agents
           </span>
 
@@ -211,7 +211,7 @@ export function FinalDisbursements({
         </div>
 
         <div className="flex h-full flex-col gap-3 border-t border-slate-200 pt-6 dark:border-slate-700 md:border-t-0 md:border-l md:pt-0 md:pl-6">
-          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block">
             Payments to Entities
           </span>
 

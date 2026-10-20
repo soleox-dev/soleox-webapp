@@ -957,9 +957,9 @@ export default function AgentsPage() {
 
   return (
     <main className={`${pageFrame} min-h-screen bg-slate-100 py-6 text-slate-900 transition-colors duration-200 space-y-6 dark:bg-slate-900 dark:text-slate-100 md:py-8`}>
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl flex flex-wrap justify-between items-start sm:items-center gap-4 transition-colors">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs flex flex-wrap justify-between items-start sm:items-center gap-4 transition-colors">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider mb-1">
+          <div className="flex items-center gap-2 text-xs font-bold text-brand-600 dark:text-brand-400 mb-1">
             <span>Commission Tracker</span>
           </div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Agents</h1>
@@ -985,7 +985,7 @@ export default function AgentsPage() {
         )}
       </div>
 
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden p-5 space-y-4 transition-colors">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden p-5 space-y-4 transition-colors">
         {bulkNotice && (
           <p className="text-xs text-slate-600 dark:text-slate-300">{bulkNotice}</p>
         )}
@@ -1011,7 +1011,7 @@ export default function AgentsPage() {
                   key={tab.key}
                   type="button"
                   onClick={() => setActiveGroup(tab.key)}
-                  className={`inline-flex items-center px-3.5 py-1.5 rounded-md border text-xs font-bold uppercase tracking-wider transition whitespace-nowrap cursor-pointer ${tabClass}`}
+                  className={`inline-flex items-center px-3.5 py-1.5 rounded-md border text-xs font-bold transition whitespace-nowrap cursor-pointer ${tabClass}`}
                 >
                   {tab.label}
                   <span className="ml-1.5 tabular-nums opacity-70">
@@ -1145,7 +1145,7 @@ export default function AgentsPage() {
         >
           <table className="w-full text-left text-xs border-separate border-spacing-0">
             <thead className="sticky top-0 z-20 select-none bg-slate-100 dark:bg-slate-900">
-              <tr className="bg-slate-200 dark:bg-slate-950 text-[10px] font-bold uppercase tracking-widest text-brand-600 dark:text-brand-400">
+              <tr className="bg-slate-200 dark:bg-slate-950 text-[11px] font-bold text-brand-600 dark:text-brand-400">
                 {bulkMode && <th className={`${pinCheckSection} border-b border-slate-300 dark:border-slate-800`} />}
                 {sectionHeaderGroups.map((group, index) => {
                   const span = index === 0 ? group.span - 1 : group.span;
@@ -1177,7 +1177,7 @@ export default function AgentsPage() {
                 })}
                 {canWriteTracker && <th className="py-1.5 px-4 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />}
               </tr>
-              <tr className="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 uppercase tracking-wider font-semibold">
+              <tr className="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 font-semibold">
                 {bulkMode && (
                   <th className={`${pinCheckHead} ${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} align-middle border-b border-slate-200 dark:border-slate-700 text-center`}>
                     <span className="inline-flex items-center justify-center">
@@ -1382,12 +1382,12 @@ export default function AgentsPage() {
                               type="button"
                               onClick={() => toggleStatus(ag)}
                               disabled={!canToggle}
-                              className={`${badgeSize} rounded-full text-[10px] font-bold border uppercase tracking-wider transition ${canToggle ? 'cursor-pointer' : 'cursor-default'} ${badgeStyle}`}
+                              className={`${badgeSize} rounded-full text-[11px] font-bold border transition ${canToggle ? 'cursor-pointer' : 'cursor-default'} ${badgeStyle}`}
                             >
                               {st || '—'}
                             </button>
                             ) : (
-                            <span className={`${badgeSize} rounded-full text-[10px] font-bold border uppercase tracking-wider ${badgeStyle}`}>
+                            <span className={`${badgeSize} rounded-full text-[11px] font-bold border ${badgeStyle}`}>
                               {st || '—'}
                             </span>
                             )}
@@ -1411,7 +1411,7 @@ export default function AgentsPage() {
                         return (
                           <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap`}>
                             <span
-                              className={`${badgeSize} rounded-full text-[10px] font-bold border uppercase tracking-wider ${badgeStyle}`}
+                              className={`${badgeSize} rounded-full text-[11px] font-bold border ${badgeStyle}`}
                             >
                               {groupStr}
                             </span>
@@ -1536,7 +1536,7 @@ export default function AgentsPage() {
 
                 return (
                   <div key={secName} className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-700/60 first:border-t-0 first:pt-0">
-                    <h4 className="text-[11px] font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider">
+                    <h4 className="text-[11px] font-bold text-brand-600 dark:text-brand-400">
                       {secName}
                     </h4>
 

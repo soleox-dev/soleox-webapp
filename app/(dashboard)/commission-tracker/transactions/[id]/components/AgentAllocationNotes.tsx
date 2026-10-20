@@ -99,7 +99,7 @@ export function TeamCapAmount({
       <span className="inline-flex flex-col items-end">
         <span className="inline-flex w-[6.5rem] items-baseline justify-end gap-1 pr-2">
           <span className={`text-xs font-semibold ${amountTone}`}>{money.format(amount)}</span>
-          {edited ? <span className={`text-[9px] font-bold uppercase tracking-wide ${editedTone}`}>edited</span> : null}
+          {edited ? <span className={`text-[10.5px] font-bold ${editedTone}`}>edited</span> : null}
         </span>
         {standingNote}
       </span>
@@ -113,7 +113,7 @@ export function TeamCapAmount({
           type="button"
           onClick={() => onAmountChange?.(line.agent_id, line.team_cap_id || '', null)}
           title={`Use the calculated ${money.format(calculated)}`}
-          className={`text-[9px] font-bold uppercase tracking-wide cursor-pointer ${editedTone} ${exceeded ? 'hover:text-rose-700 dark:hover:text-rose-200' : 'hover:text-amber-900 dark:hover:text-amber-100'}`}
+          className={`text-[10.5px] font-bold cursor-pointer ${editedTone} ${exceeded ? 'hover:text-rose-700 dark:hover:text-rose-200' : 'hover:text-amber-900 dark:hover:text-amber-100'}`}
         >
           calculated
         </button>

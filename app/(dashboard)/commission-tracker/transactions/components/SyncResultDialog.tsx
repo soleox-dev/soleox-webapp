@@ -216,7 +216,7 @@ function SyncErrorGroups({
           <p className="text-sm text-slate-700 dark:text-slate-200">{group.label}</p>
           <table className="mt-2 w-full text-left text-sm">
             <thead>
-              <tr className="text-[10px] uppercase tracking-wider text-slate-500">
+              <tr className="text-[11px] text-slate-500">
                 <th className="py-2 pr-4 font-semibold">Property Address</th>
                 <th className="py-2 pr-4 font-semibold">Side</th>
                 <th className="px-4 py-2 text-center font-semibold">Sheet row</th>
@@ -403,7 +403,7 @@ export function SyncResultDialog({
           )}
           {showAdded && (
             <section>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Added from TMS</h4>
+              <h4 className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Added from TMS</h4>
               <ul className="mt-2 space-y-1">
                 {added.map((detail) => (
                   <li key={`add-${detail.transactionId || detail.tmsId}`}>
@@ -425,10 +425,10 @@ export function SyncResultDialog({
           )}
           {showUpdated && (
             <section>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">Updated from TMS</h4>
+              <h4 className="text-xs font-bold text-sky-600 dark:text-sky-400">Updated from TMS</h4>
               <table className="mt-2 w-full border-collapse text-left text-xs">
                 <thead className="sticky -top-3 z-10 bg-white dark:bg-slate-800">
-                  <tr className="text-[10px] uppercase tracking-wider text-slate-500">
+                  <tr className="text-[11px] text-slate-500">
                     <th className="w-[40%] py-1.5 pr-3 font-semibold">Transaction</th>
                     <th className="py-1.5 pr-3 font-semibold">Field</th>
                     <th className="py-1.5 pr-3 font-semibold">Before</th>
@@ -471,7 +471,7 @@ export function SyncResultDialog({
           )}
           {showRest && notAdded.length > 0 && (
             <section>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Not added</h4>
+              <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400">Not added</h4>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">These sheet rows are outside the default view, so Soleox did not create them.</p>
               <ul className="mt-2 space-y-1">
                 {notAdded.map((detail, index) => (
@@ -485,7 +485,7 @@ export function SyncResultDialog({
           )}
           {showRest && failed.length > 0 && (
             <section>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">Could not sync</h4>
+              <h4 className="text-xs font-bold text-rose-600 dark:text-rose-400">Could not sync</h4>
               <div className="mt-2">
                 <SyncErrorGroups details={failed} fieldLabels={fieldLabels} identityByTmsId={identityByTmsId} />
               </div>

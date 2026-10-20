@@ -244,7 +244,7 @@ export default function Navbar() {
       ? 'bg-brand-500/10 font-bold text-brand-700 dark:bg-brand-950/80 dark:text-brand-400'
       : 'text-slate-700 dark:text-slate-200'
   }`;
-  const sheetHeadingClass = 'px-3 pb-1 pt-3 text-[11px] font-bold uppercase tracking-wider text-slate-400';
+  const sheetHeadingClass = 'px-3 pb-1 pt-3 text-[11px] font-bold text-slate-400';
 
   // Desktop bar: a module switcher, then the current module's pages as links. Same permission checks
   // as the phone sheet. Modules that are not built yet show in the switcher as Soon.
@@ -424,7 +424,7 @@ export default function Navbar() {
                 </div>
                 {access && access.clients.length > 1 && (
                   <div className="py-1 border-b border-slate-100 dark:border-slate-800">
-                    <p className="px-4 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Client</p>
+                    <p className="px-4 pt-1.5 pb-1 text-[11px] font-bold text-slate-400">Client</p>
                     {access.clients.map((client) => (
                       <button
                         key={client.id}
@@ -446,7 +446,7 @@ export default function Navbar() {
                 )}
 
                 <div className="py-1 border-b border-slate-100 dark:border-slate-800">
-                  <p className="px-4 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Theme</p>
+                  <p className="px-4 pt-1.5 pb-1 text-[11px] font-bold text-slate-400">Theme</p>
                   {themeOptions.map((option) => {
                     const Icon = option.icon;
                     const selected = theme === option.id;

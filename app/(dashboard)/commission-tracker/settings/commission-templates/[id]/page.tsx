@@ -1179,7 +1179,7 @@ export default function CommissionTemplateDetailPage() {
           {isLoading ? (
             <p className="col-start-1 row-start-2 text-xs text-slate-500">Loading template...</p>
           ) : template ? (
-            <h2 className="col-start-1 row-start-2 text-sm font-bold leading-5 text-slate-900 dark:text-white uppercase tracking-wider">
+            <h2 className="col-start-1 row-start-2 text-sm font-bold leading-5 text-slate-900 dark:text-white">
               {template.template_name}
             </h2>
           ) : null}
@@ -1240,7 +1240,7 @@ export default function CommissionTemplateDetailPage() {
                   {parametersCollapsed ? '+' : '−'}
                 </span>
                 <span>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">
                     Parameters
                     <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 normal-case ml-1.5">
                       ({parameterSearch.trim() ? `${filteredParameters.length} of ${parameters.length}` : parameters.length})
@@ -1307,7 +1307,7 @@ export default function CommissionTemplateDetailPage() {
             ) : (
               <div ref={parameterScrollRef} className="max-h-[calc(100vh-7rem)] overflow-auto">
                 <table className={`w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700 ${compactRows ? '[&_th]:!px-3 [&_th]:!py-1.5 [&_td]:!px-3 [&_td]:!py-1 [&_tbody_td]:!align-middle' : ''}`}>
-                  <thead className="text-[10px] uppercase tracking-wider text-slate-500 [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-50 dark:[&>tr>th]:bg-slate-900 [&>tr>th:last-child]:z-30">
+                  <thead className="text-[11px] text-slate-500 [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-50 dark:[&>tr>th]:bg-slate-900 [&>tr>th:last-child]:z-30">
                     <tr>
                       <th className="px-4 py-3">#</th>
                       <th className="px-4 py-3">Parameter</th>
@@ -1341,7 +1341,7 @@ export default function CommissionTemplateDetailPage() {
                           <td colSpan={8} className={`px-4 py-2 ${dropTarget && 'sectionName' in dropTarget && dropTarget.sectionName === group.name ? (isUnsectioned ? 'bg-amber-500/20' : 'bg-brand-500/15') : 'bg-slate-50 dark:bg-slate-900/60'}`}>
                             <div className="flex items-center gap-2">
                               <span className={`w-2 h-2 rounded-full ${isUnsectioned ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                              <span className={`text-[10px] font-bold uppercase tracking-wider ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                              <span className={`text-[11px] font-bold ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                 Section: {group.name}
                               </span>
                               <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold ml-auto">
@@ -1375,7 +1375,7 @@ export default function CommissionTemplateDetailPage() {
                         <td className="px-4 py-3">
                           <p className="font-bold text-slate-900 dark:text-white">{parameter.parameter_name}</p>
                           {!compactRows && parameter.is_user_editable === false && (
-                            <p className="text-[10px] font-bold uppercase text-slate-400 mt-1">Read-only on the transaction</p>
+                            <p className="text-[11px] font-bold text-slate-400 mt-1">Read-only on the transaction</p>
                           )}
                           {!compactRows && parameter.notes && <p className="text-[11px] text-slate-500 mt-1">{parameter.notes}</p>}
                         </td>
@@ -1439,7 +1439,7 @@ export default function CommissionTemplateDetailPage() {
                   {logicCollapsed ? '+' : '−'}
                 </span>
                 <span>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">
                     Rules
                     <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 normal-case ml-1.5">
                       ({logicSearch.trim() ? `${filteredLogicSteps.length} of ${logicSteps.length}` : logicSteps.length})
@@ -1505,7 +1505,7 @@ export default function CommissionTemplateDetailPage() {
             ) : (
               <div ref={logicScrollRef} className="max-h-[calc(100vh-7rem)] overflow-auto">
                 <table className={`w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700 ${compactRows ? '[&_th]:!px-3 [&_th]:!py-1.5 [&_td]:!px-3 [&_td]:!py-1 [&_tbody_td]:!align-middle' : ''}`}>
-                  <thead className="text-[10px] uppercase tracking-wider text-slate-500 [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-50 dark:[&>tr>th]:bg-slate-900 [&>tr>th:last-child]:z-30">
+                  <thead className="text-[11px] text-slate-500 [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-50 dark:[&>tr>th]:bg-slate-900 [&>tr>th:last-child]:z-30">
                     <tr>
                       <th className="px-4 py-3">#</th>
                       <th className="px-4 py-3">Rule</th>
@@ -1542,7 +1542,7 @@ export default function CommissionTemplateDetailPage() {
                           <td colSpan={11} className={`px-4 py-2 ${logicDropTarget && 'sectionName' in logicDropTarget && logicDropTarget.sectionName === group.name ? (isUnsectioned ? 'bg-amber-500/20' : 'bg-brand-500/15') : 'bg-slate-50 dark:bg-slate-900/60'}`}>
                             <div className="flex items-center gap-2">
                               <span className={`w-2 h-2 rounded-full ${isUnsectioned ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                              <span className={`text-[10px] font-bold uppercase tracking-wider ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                              <span className={`text-[11px] font-bold ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                 Section: {group.name}
                               </span>
                               <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold ml-auto">
@@ -1576,7 +1576,7 @@ export default function CommissionTemplateDetailPage() {
                         <td className="px-4 py-3">
                           <div className="font-bold text-slate-900 dark:text-white">{step.rule_name}</div>
                           {!compactRows && step.rule_key?.trim() && <div className="mt-0.5 font-mono text-[11px] text-sky-700 dark:text-sky-300">{step.rule_key}</div>}
-                          {!compactRows && step.show_in_popup && <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Shown when applying{step.popup_section?.trim() ? ` · ${step.popup_section.trim()}` : ''}</div>}
+                          {!compactRows && step.show_in_popup && <div className="mt-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">Shown when applying{step.popup_section?.trim() ? ` · ${step.popup_section.trim()}` : ''}</div>}
                         </td>
                         <td className={`px-4 py-3 ${compactRows ? '' : 'min-w-[12rem]'} text-slate-600 dark:text-slate-300`}>
                           {canonicalLogicSection(step.section || '') === 'Calculation' ? '—' : step.apply_condition?.trim() ? (

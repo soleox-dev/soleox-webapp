@@ -215,7 +215,7 @@ export function CommandPalette({
           {!searching && results.length === 0 && <p className="px-3 py-6 text-center text-xs text-slate-400">No matches.</p>}
           {groups.map((group) => (
             <div key={group} className="pb-1">
-              <p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">{group}</p>
+              <p className="px-3 pb-1 pt-2 text-[11px] font-bold text-slate-400">{group}</p>
               {results.map((result, index) => {
                 if (result.group !== group) return null;
                 const Icon = result.icon;

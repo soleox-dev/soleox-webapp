@@ -141,7 +141,7 @@ export default function CommissionRulesSettingsPage() {
     <div className="space-y-6">
       
       {/* Header Card */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl flex justify-between items-center transition-colors">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs flex justify-between items-center transition-colors">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
             Global Commission Rules & Waterfall Templates
@@ -160,7 +160,7 @@ export default function CommissionRulesSettingsPage() {
       </div>
 
       {/* Rules Table Section */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl space-y-4 transition-colors">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs space-y-4 transition-colors">
         <div className="flex justify-between items-center gap-4">
           <div className={`w-full md:w-80 ${underlineShell}`}>
             <input
@@ -178,7 +178,7 @@ export default function CommissionRulesSettingsPage() {
 
         <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-lg">
           <table className="w-full text-left text-xs divide-y divide-slate-200 dark:divide-slate-700">
-            <thead className="bg-slate-50 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
+            <thead className="bg-slate-50 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 font-bold">
               <tr>
                 <th className="p-3.5">Rule Name & Details</th>
                 <th className="p-3.5">Waterfall Stage</th>

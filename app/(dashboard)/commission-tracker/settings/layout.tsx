@@ -137,7 +137,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     <main className={`${pageFrame} space-y-6 py-6 md:py-8`}>
       {/* Settings Master Banner */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-md transition-colors">
-        <div className="flex items-center gap-2 text-xs font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider mb-1">
+        <div className="flex items-center gap-2 text-xs font-bold text-brand-600 dark:text-brand-400 mb-1">
           <span>Commission Tracker</span>
           <span>•</span>
           <span className="text-slate-500 dark:text-slate-400">Settings & Rules Hub</span>
@@ -190,9 +190,9 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           )}
 
           <div className={pinnedOpen ? '' : `lg:absolute lg:left-0 lg:top-0 lg:z-50 lg:w-80 ${hoverOpen && !menuClosed ? '' : 'lg:hidden'}`}>
-            <div className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 space-y-1 transition-colors ${pinnedOpen ? 'shadow-md' : 'shadow-xl'}`}>
+            <div className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 space-y-1 transition-colors ${pinnedOpen ? 'shadow-md' : 'shadow-xs'}`}>
               <div className="flex items-center justify-between px-3 py-1.5">
-                <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase">
+                <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500">
                   Configurations
                 </span>
                 <button
@@ -209,7 +209,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                 if (entry.kind === 'section') {
                   return (
                     <div key={entry.label} className="pt-2">
-                      <div className="px-3.5 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                      <div className="px-3.5 pb-1 text-[11px] font-bold text-slate-400 dark:text-slate-500">
                         {entry.label}
                       </div>
                       <div className="space-y-1 border-l border-slate-200 ml-5 pl-2 dark:border-slate-700">

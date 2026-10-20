@@ -84,7 +84,7 @@ export default function CommissionTemplatesPage() {
     <div className="space-y-6">
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white">
             Commission Templates
           </h2>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">

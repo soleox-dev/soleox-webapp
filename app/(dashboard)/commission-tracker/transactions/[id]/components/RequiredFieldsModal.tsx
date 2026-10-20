@@ -37,7 +37,7 @@ export function RequiredFieldsModal({
           {missingLabels.map((lbl, i) => (
             <div key={i} className="py-1.5 first:pt-0 last:pb-0 flex items-center justify-between text-xs font-semibold text-rose-600 dark:text-rose-400">
               <span>{lbl}</span>
-              <span className="text-[10px] bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 rounded uppercase font-bold">
+              <span className="text-[11px] bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 rounded font-bold">
                 Blank
               </span>
             </div>

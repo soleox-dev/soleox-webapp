@@ -94,7 +94,7 @@ export function AgentPickerModal({
 
         {/* Step 1: Agent Selection */}
         <div className="space-y-2">
-          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
             1. Select Agent
           </label>
           <div className={underlineShell}>
@@ -151,7 +151,7 @@ export function AgentPickerModal({
 
         {/* Step 2: Split Type & Value */}
         <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-700">
-          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
             2. Choose Split Type & Enter Value
           </label>
 

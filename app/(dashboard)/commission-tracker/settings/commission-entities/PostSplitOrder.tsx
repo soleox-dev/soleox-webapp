@@ -98,7 +98,7 @@ export function PostSplitOrder({
     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-700 dark:bg-slate-800">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">Post-split order</h3>
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Post-split order</h3>
           <p className="mt-1 max-w-2xl text-[11px] text-slate-500 dark:text-slate-400">
             The waterfall table lists these entities in this order inside each post-split level. An entity left out stays at the bottom of its level.
           </p>
@@ -138,7 +138,7 @@ export function PostSplitOrder({
                 <button type="button" disabled={index === ordered.length - 1} onClick={() => move(index, index + 1)} className="cursor-pointer text-[9px] leading-none text-slate-400 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-20 dark:hover:text-slate-200" title="Move down" aria-label={`Move ${entity.entity_name} down`}>▼</button>
               </div>
               <span className="min-w-0 truncate text-xs font-semibold text-slate-900 dark:text-white">{entity.entity_name}</span>
-              <span className="rounded border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">{entity.entity_type || 'BROKERAGE'}</span>
+              <span className="rounded border border-slate-300 bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">{entity.entity_type || 'BROKERAGE'}</span>
               <button
                 type="button"
                 onClick={() => commit(orderIds.filter((id) => id !== entity.id))}
@@ -155,7 +155,7 @@ export function PostSplitOrder({
 
       {unordered.length > 0 && (
         <div className="mt-4">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Not ordered</p>
+          <p className="text-[11px] font-bold text-slate-400">Not ordered</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {unordered.map((entity) => (
               <button

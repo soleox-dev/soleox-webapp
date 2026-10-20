@@ -140,7 +140,7 @@ export function TransactionOverview({
   };
 
   return (
-    <section id="overview" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height)+0.75rem)] transition-colors">
+    <section id="overview" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height)+0.75rem)] transition-colors">
       <div
         className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center"
       >
@@ -171,7 +171,7 @@ export function TransactionOverview({
               {hasChanges && (
                 <button
                   onClick={onApplyEdit}
-                  className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg font-bold transition hover:bg-brand-500 shadow-md cursor-pointer"
+                  className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg font-bold transition hover:bg-brand-500 cursor-pointer"
                 >
                   Apply Changes
                 </button>
@@ -206,7 +206,7 @@ export function TransactionOverview({
               <div key={sectionName} className="mb-6 break-inside-avoid space-y-2">
                 <div className="border-b border-slate-300 dark:border-slate-700 pb-1 flex items-start gap-2">
                   <span className="mt-1 w-2 h-2 shrink-0 rounded-full bg-brand-500"></span>
-                  <span className="min-w-0 text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
+                  <span className="min-w-0 text-xs font-bold text-brand-600 dark:text-brand-400">
                     {sectionName}
                   </span>
                   <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500 font-semibold ml-auto">

@@ -528,7 +528,7 @@ export function CommissionWaterfall({
   };
 
   return (
-    <section id="commission" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height)+0.75rem)] transition-colors">
+    <section id="commission" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height)+0.75rem)] transition-colors">
       {/* Top Header */}
       <div
         className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center"
@@ -585,7 +585,7 @@ export function CommissionWaterfall({
                   onClick={onApplyEdit}
                   disabled={agentSplitsExceedPool}
                   title={agentSplitsExceedPool ? "Agent splits can't exceed 100% of the remaining commission." : undefined}
-                  className={`text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg font-bold transition shadow-md ${agentSplitsExceedPool ? 'opacity-40 cursor-not-allowed' : 'hover:bg-brand-500 cursor-pointer'}`}
+                  className={`text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg font-bold transition ${agentSplitsExceedPool ? 'opacity-40 cursor-not-allowed' : 'hover:bg-brand-500 cursor-pointer'}`}
                 >
                   Apply Changes
                 </button>
@@ -603,7 +603,7 @@ export function CommissionWaterfall({
         <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-3 shadow-sm">
           <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                 1. Off-The-Top Deductions
               </span>
               {isEditing && (
@@ -621,7 +621,7 @@ export function CommissionWaterfall({
               )}
             </div>
             <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg">
-              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
                 Total Commission:
               </span>
               <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
@@ -773,7 +773,7 @@ export function CommissionWaterfall({
         <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-3 shadow-sm">
           <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                 2. Pre-Split Deductions
               </span>
               {isEditing && (
@@ -975,7 +975,7 @@ export function CommissionWaterfall({
         <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-3 shadow-sm">
           <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                 3. Agent Splits
               </span>
               {isEditing && (
@@ -1031,7 +1031,7 @@ export function CommissionWaterfall({
                           <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                             👤 {agent.name}
                           </span>
-                          <span className="text-[10px] bg-brand-500/20 text-brand-800 dark:text-brand-300 border border-brand-500/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                          <span className="text-[11px] bg-brand-500/20 text-brand-800 dark:text-brand-300 border border-brand-500/30 px-2 py-0.5 rounded-full font-bold">
                             PRIMARY
                           </span>
                           <span className="relative inline-flex group/painfo">
@@ -1062,7 +1062,7 @@ export function CommissionWaterfall({
                             </span>
                           </span>
                           {agent.isTeamLead && (
-                            <span className="text-[10px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider">
+                            <span className="text-[11px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-semibold">
                               LEAD
                             </span>
                           )}
@@ -1127,7 +1127,7 @@ export function CommissionWaterfall({
                         )}
 
                         {agent.isTeamLead && (
-                          <span className="text-[10px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider">
+                          <span className="text-[11px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-semibold">
                             LEAD
                           </span>
                         )}
@@ -1165,7 +1165,7 @@ export function CommissionWaterfall({
         <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-4 shadow-sm">
           <div className="border-b border-slate-200 dark:border-slate-700 pb-3">
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                 4. Post-Split Deductions
               </span>
               <span className="relative inline-flex group/psinfo">
@@ -1236,7 +1236,7 @@ export function CommissionWaterfall({
                         👤 {agentName}
                       </span>
                       {agentObj?.isTeamLead && (
-                        <span className="text-[10px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-semibold uppercase">
+                        <span className="text-[11px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-semibold">
                           LEAD
                         </span>
                       )}
@@ -1250,7 +1250,7 @@ export function CommissionWaterfall({
                   <div className="bg-white dark:bg-slate-900/90 rounded-lg p-3 border border-slate-200 dark:border-slate-700 space-y-2">
                     <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2">
                       <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                        <span className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
                           <HoverNote label="Percent deductions are calculated from Agent Split">
                             <span className="inline-flex items-center whitespace-nowrap rounded-full border border-yellow-600/40 bg-yellow-400/25 px-2 py-0.5 tracking-normal text-yellow-900 dark:border-yellow-300/50 dark:bg-yellow-400/15 dark:text-yellow-200">
                               Level 1
@@ -1451,7 +1451,7 @@ export function CommissionWaterfall({
                   <div className="bg-white dark:bg-slate-900/90 rounded-lg p-3 border border-slate-200 dark:border-slate-700 space-y-2">
                     <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2">
                       <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                        <span className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
                           <HoverNote label="Percent deductions are calculated from Net after Level 1 Post-splits.">
                             <span className="inline-flex items-center whitespace-nowrap rounded-full border border-slate-400/60 bg-slate-300/50 px-2 py-0.5 tracking-normal text-slate-600 dark:border-slate-300/45 dark:bg-slate-400/20 dark:text-slate-200">
                               Level 2

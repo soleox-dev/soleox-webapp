@@ -1886,7 +1886,7 @@ export default function TransactionsListPage() {
 
       return (
         <span
-          className={`inline-flex items-center rounded border text-[10px] font-bold uppercase tracking-wider ${compactRows ? 'h-4 px-1.5 leading-none' : 'px-2 py-0.5'} ${badgeStyle}`}
+          className={`inline-flex items-center rounded border text-[11px] font-bold ${compactRows ? 'h-4 px-1.5 leading-none' : 'px-2 py-0.5'} ${badgeStyle}`}
         >
           {st}
         </span>
@@ -1899,9 +1899,9 @@ export default function TransactionsListPage() {
   return (
     <main className={`${pageFrame} min-h-screen bg-slate-100 py-6 text-slate-900 transition-colors duration-200 space-y-6 dark:bg-slate-900 dark:text-slate-100 md:py-8`}>
       {/* Top Banner */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xl flex flex-wrap justify-between items-start sm:items-center gap-4 transition-colors">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs flex flex-wrap justify-between items-start sm:items-center gap-4 transition-colors">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider mb-1">
+          <div className="flex items-center gap-2 text-xs font-bold text-brand-600 dark:text-brand-400 mb-1">
             <span>Commission Tracker</span>
           </div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Transactions</h1>
@@ -1950,9 +1950,9 @@ export default function TransactionsListPage() {
               key={card.id}
               type="button"
               onClick={() => selectScorecard(card, rows.length)}
-              className={`text-left bg-white dark:bg-slate-800 border border-l-4 ${styles.border} rounded-xl px-5 py-4 shadow-xl transition-colors cursor-pointer ${styles.hover} ${selected ? `ring-inset ${styles.ring} ${styles.selectedBorder}` : 'border-slate-200 dark:border-y-slate-700 dark:border-r-slate-700'}`}
+              className={`text-left bg-white dark:bg-slate-800 border border-l-4 ${styles.border} rounded-xl px-5 py-4 shadow-xs transition-colors cursor-pointer ${styles.hover} ${selected ? `ring-inset ${styles.ring} ${styles.selectedBorder}` : 'border-slate-200 dark:border-y-slate-700 dark:border-r-slate-700'}`}
             >
-              <p className={`text-[11px] ${styles.title} font-bold uppercase tracking-wider mb-3`}>{card.name}</p>
+              <p className={`text-[11px] ${styles.title} font-bold mb-3`}>{card.name}</p>
               <div className={card.metrics.length > 1 ? 'grid grid-cols-[35fr_65fr] gap-4' : ''}>
                 {card.metrics.map((metric, index) => {
                   const value = scorecardMetricValue(rows, metric);
@@ -1979,7 +1979,7 @@ export default function TransactionsListPage() {
       )}
 
       {/* Ledger Table Container */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden p-5 space-y-4 transition-colors">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden p-5 space-y-4 transition-colors">
         {restoreError && (
           <p className="text-xs text-rose-600 dark:text-rose-400">{restoreError}</p>
         )}
@@ -1999,15 +1999,15 @@ export default function TransactionsListPage() {
                 const selected = !activeScorecardId && ledgerView === tab.key;
                 const tabClass = tab.key === SYNCED_TAB
                   ? selected
-                    ? 'bg-amber-400 text-amber-950 border border-amber-400 uppercase tracking-wider'
-                    : 'bg-amber-100 text-amber-950 border border-amber-300 uppercase tracking-wider dark:bg-amber-400/20 dark:text-amber-100 dark:border-amber-400/40'
+                    ? 'bg-amber-400 text-amber-950 border border-amber-400'
+                    : 'bg-amber-100 text-amber-950 border border-amber-300 dark:bg-amber-400/20 dark:text-amber-100 dark:border-amber-400/40'
                   : tab.key === DELETED_TAB
                     ? selected
-                      ? 'bg-rose-600 text-white border border-rose-600 uppercase tracking-wider dark:bg-rose-500 dark:border-rose-500'
-                      : 'bg-rose-50 text-rose-700 border border-rose-300 uppercase tracking-wider dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/40'
+                      ? 'bg-rose-600 text-white border border-rose-600 dark:bg-rose-500 dark:border-rose-500'
+                      : 'bg-rose-50 text-rose-700 border border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/40'
                     : selected
-                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border border-transparent uppercase tracking-wider'
-                      : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 uppercase tracking-wider';
+                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border border-transparent'
+                      : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600';
                 const countClass = tab.key === SYNCED_TAB
                   ? selected
                     ? 'text-amber-950/70'
@@ -2252,7 +2252,7 @@ export default function TransactionsListPage() {
             <thead className="sticky top-0 z-20 select-none bg-slate-100 dark:bg-slate-900">
               
               {/* Section Group Header Row */}
-              <tr className="bg-slate-200 dark:bg-slate-950 text-[10px] font-bold uppercase tracking-widest text-brand-600 dark:text-brand-400">
+              <tr className="bg-slate-200 dark:bg-slate-950 text-[11px] font-bold text-brand-600 dark:text-brand-400">
                 {bulkMode && <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />}
                 {canWriteTracker && <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />}
                 {canWriteTracker && <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />}
@@ -2272,7 +2272,7 @@ export default function TransactionsListPage() {
               </tr>
 
               {/* Field Label Header Row */}
-              <tr className="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 uppercase tracking-wider font-semibold">
+              <tr className="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 font-semibold">
                 {bulkMode && (
                   <th className={`${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} w-8 align-middle bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
                     <span className="inline-flex items-center justify-center">
@@ -2390,10 +2390,10 @@ export default function TransactionsListPage() {
                                 setTmsMenuOpen(false);
                                 setStatusMenuOpen((open) => !open);
                               }}
-                              className="inline-flex cursor-pointer items-center rounded font-semibold uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-slate-800"
+                              className="inline-flex cursor-pointer items-center rounded font-semibold hover:bg-slate-200 dark:hover:bg-slate-800"
                             >
                               {statusLookup ? (
-                                <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusPill}`}>
+                                <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-bold ${statusPill}`}>
                                   {statusLookup.optionLabel}
                                 </span>
                               ) : (
@@ -2853,7 +2853,7 @@ export default function TransactionsListPage() {
                   selected ? 'bg-slate-100 dark:bg-slate-700' : 'hover:bg-slate-100 dark:hover:bg-slate-700'
                 }`}
               >
-                <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${pill}`}>
+                <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-bold ${pill}`}>
                   {lookup.optionLabel}
                 </span>
                 <span className={`ml-auto tabular-nums ${selected ? 'text-slate-700 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>

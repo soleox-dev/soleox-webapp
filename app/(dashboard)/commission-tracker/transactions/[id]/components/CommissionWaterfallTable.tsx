@@ -192,8 +192,8 @@ export function CommissionWaterfallTable({
 
   const labelCell = 'sticky left-0 z-10 bg-white dark:bg-slate-900 px-3 py-2 text-left align-middle border-b border-slate-200 dark:border-slate-700';
   const agentCell = 'px-2 py-2 text-center align-middle border-b border-slate-200 dark:border-slate-700 min-w-[14.5rem]';
-  const sectionLabel = 'sticky left-0 z-10 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap border-b border-slate-200 dark:border-slate-700';
-  const levelPill = 'inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-bold uppercase tracking-normal';
+  const sectionLabel = 'sticky left-0 z-10 px-3 py-2 text-left text-xs font-bold whitespace-nowrap border-b border-slate-200 dark:border-slate-700';
+  const levelPill = 'inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-bold tracking-normal';
   const level1Pill = `${levelPill} border-yellow-600/40 bg-yellow-400/25 text-yellow-900 dark:border-yellow-300/50 dark:bg-yellow-400/15 dark:text-yellow-200`;
   const level2Pill = `${levelPill} border-slate-400/60 bg-slate-300/50 text-slate-600 dark:border-slate-300/45 dark:bg-slate-400/20 dark:text-slate-200`;
   const trashButton = 'shrink-0 text-rose-500 hover:text-rose-600 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition';
@@ -359,7 +359,7 @@ export function CommissionWaterfallTable({
     <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 shadow-sm space-y-3">
       <div className="flex justify-between items-center gap-3">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
             3. Agent Splits
             <span className="mx-1.5 text-sm font-semibold normal-case tracking-normal text-emerald-600 dark:text-emerald-400">&</span>
             4. Post-split Deductions
@@ -405,10 +405,10 @@ export function CommissionWaterfallTable({
                     <div className="ml-auto flex w-max max-w-full flex-col items-end gap-1 pr-2">
                       <div className="flex h-5 items-center justify-end gap-1">
                         {agentIsPrimary && (
-                          <span className="text-[9px] bg-brand-500/20 text-brand-800 dark:text-brand-300 border border-brand-500/30 px-1.5 py-0.5 rounded-full font-bold uppercase">Primary</span>
+                          <span className="text-[10.5px] bg-brand-500/20 text-brand-800 dark:text-brand-300 border border-brand-500/30 px-1.5 py-0.5 rounded-full font-bold">Primary</span>
                         )}
                         {agent.isTeamLead && (
-                          <span className="text-[9px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-bold uppercase">Lead</span>
+                          <span className="text-[10.5px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-bold">Lead</span>
                         )}
                       </div>
                       <div className="flex h-5 items-center justify-end gap-1">

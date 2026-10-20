@@ -107,7 +107,7 @@ export default function AgentAllocationsPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">Agent allocations</h2>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white">Agent allocations</h2>
           <p className="mt-1 max-w-2xl text-[11px] text-slate-500 dark:text-slate-400">
             One rule for the amount allocated to the agents on a deal. It can follow sales price, or sales price times units. It does not change the agent splits. A blank qualifying formula applies to every deal.
           </p>

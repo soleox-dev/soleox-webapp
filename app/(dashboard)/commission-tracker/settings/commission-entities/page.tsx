@@ -383,7 +383,7 @@ export default function CommissionEntitiesPage() {
       {/* Header Bar */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-colors">
         <div>
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white">
             Commission Entities Management
           </h2>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -431,7 +431,7 @@ export default function CommissionEntitiesPage() {
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md overflow-hidden transition-colors">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold uppercase border-b border-slate-200 dark:border-slate-700 select-none">
+            <thead className="bg-slate-100 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-700 select-none">
               <tr>
                 {[
                   { key: 'id', label: 'Entity ID' },
@@ -494,7 +494,7 @@ export default function CommissionEntitiesPage() {
                       </td>
 
                       <td className="p-3.5 whitespace-nowrap">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 uppercase">
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
                           {ent.entity_type || 'BROKERAGE'}
                         </span>
                       </td>
@@ -516,7 +516,7 @@ export default function CommissionEntitiesPage() {
                         <button
                           disabled={isActionLoading}
                           onClick={() => toggleStatus(ent)}
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1 mx-auto ${
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold border transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1 mx-auto ${
                             ent.is_active
                               ? 'bg-brand-500/10 text-brand-700 dark:text-brand-400 border-brand-500/30'
                               : 'bg-slate-200 dark:bg-slate-900 text-slate-400 border-slate-300 dark:border-slate-700'

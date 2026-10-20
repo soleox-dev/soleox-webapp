@@ -127,7 +127,7 @@ function FormulaFunctionsButton({ onInsert }: { onInsert: (text: string) => void
           <div className="min-h-0 flex-1 overflow-y-auto">
             {FORMULA_FUNCTION_GROUPS.map((group) => (
               <section key={group.title}>
-                <p className="sticky top-0 border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">{group.title}</p>
+                <p className="sticky top-0 border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-bold text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">{group.title}</p>
                 <ul>
                   {group.items.map((item) => (
                     <li key={item.name} className="border-b border-slate-100 last:border-b-0 dark:border-slate-700">
@@ -829,7 +829,7 @@ export function FormulaEditor({
                 }`}
               >
                 <span className="font-mono font-medium">{suggestion.label}</span>
-                <span className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-slate-400">
+                <span className="flex items-center gap-2 text-[11px] text-slate-400">
                   <span>{suggestion.detail}</span>
                   {index === suggestionIndex && <span className="font-bold text-emerald-700 dark:text-emerald-400">Tab</span>}
                 </span>
