@@ -13,8 +13,9 @@ import { useAccess } from '@/components/access-provider';
 import { pageFrame } from '@/lib/page-frame';
 import { useIsDesktop, useIsDesktopNav } from '@/lib/use-media-query';
 import { OWNER_REPORTS, OWNER_REPORT_GROUPS } from '@/lib/owner-reports';
-import { ArrowLeft, Briefcase, Building2, ChevronLeft, ChevronRight, House, List, Menu, Monitor, Moon, Settings, Sun, Users, X, type LucideIcon } from 'lucide-react';
+import { BarChart3, Briefcase, Building2, ChevronDown, ChevronLeft, ChevronRight, House, LayoutGrid, List, Menu, Monitor, Moon, PieChart, Receipt, Search, Settings, Sun, Target, UserPlus, Users, X, type LucideIcon } from 'lucide-react';
 import type { ThemePreference } from '@/app/providers';
+import { CommandPalette } from '@/components/CommandPalette';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -36,7 +37,13 @@ export default function Navbar() {
   // The sheet's second level lists a report section's reports. It opens there while inside that section.
   const [phoneNavLevel, setPhoneNavLevel] = useState<'main' | 'owner-reports'>('main');
   const [reportsNavOpen, setReportsNavOpen] = useState(false);
-  const [closedMenu, setClosedMenu] = useState<'tracker' | 'reports' | null>(null);
+  const [moduleMenuOpen, setModuleMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchShortcut, setSearchShortcut] = useState('⌘K');
+  useEffect(() => {
+    if (!/Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent)) setSearchShortcut('Ctrl K');
+  }, []);
+  const moduleMenuRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
 
@@ -181,21 +188,47 @@ export default function Navbar() {
     };
   }, [navHidden]);
 
-  const hideMenu = (menu: 'tracker' | 'reports') => {
-    setClosedMenu(menu);
-    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-  };
-  const releaseMenu = (menu: 'tracker' | 'reports') => {
-    setClosedMenu((current) => (current === menu ? null : current));
-  };
-  const menuClass = (menu: 'tracker' | 'reports', openClass: string) => (
-    `absolute left-0 top-full z-50 pt-2 ${closedMenu === menu ? 'hidden' : `hidden ${openClass}`}`
-  );
+  // ⌘K (Ctrl+K on Windows) opens search from anywhere in the app.
+  useEffect(() => {
+    if (pathname === '/login') return;
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setSearchOpen((open) => !open);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [pathname]);
+  useEffect(() => {
+    setSearchOpen(false);
+  }, [pathname]);
+
+  // The module switcher closes on navigation, on a click outside it, and on Escape.
+  useEffect(() => {
+    setModuleMenuOpen(false);
+  }, [pathname]);
+  useEffect(() => {
+    if (!moduleMenuOpen) return;
+    const closeOnOutside = (event: MouseEvent) => {
+      if (!moduleMenuRef.current?.contains(event.target as Node)) setModuleMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setModuleMenuOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [moduleMenuOpen]);
 
   const concealReportsNav = (next: EventTarget | null) => {
     if (next instanceof Node && headerRef.current?.contains(next)) return;
     setReportsNavOpen(false);
     setIsUserMenuOpen(false);
+    setModuleMenuOpen(false);
   };
 
   // Do not render the top navbar on the login page
@@ -212,6 +245,33 @@ export default function Navbar() {
       : 'text-slate-700 dark:text-slate-200'
   }`;
   const sheetHeadingClass = 'px-3 pb-1 pt-3 text-[11px] font-bold uppercase tracking-wider text-slate-400';
+
+  // Desktop bar: a module switcher, then the current module's pages as links. Same permission checks
+  // as the phone sheet. Modules that are not built yet show in the switcher as Soon.
+  const modules: { id: string; label: string; icon: LucideIcon; href?: string; active: boolean; soon?: boolean }[] = [
+    ...(showTracker ? [{ id: 'tracker', label: 'Commission Tracker', icon: PieChart, href: trackerHref, active: isCommissionTracker }] : []),
+    ...(showReports ? [{ id: 'reports', label: 'Reports', icon: BarChart3, href: reportsHref, active: isReports }] : []),
+    ...(showDeferred ? [
+      { id: 'goals', label: 'Goals', icon: Target, active: false, soon: true },
+      { id: 'leads', label: 'Leads', icon: UserPlus, active: false, soon: true },
+      { id: 'expenses', label: 'Operating Expenses', icon: Receipt, active: false, soon: true },
+    ] : []),
+  ];
+  const currentModule = modules.find((item) => item.active);
+  const modulePages: { href: string; label: string; active: boolean }[] = isCommissionTracker
+    ? [
+      ...(showTransactions ? [{ href: '/commission-tracker/transactions', label: 'Transactions', active: isTransactionsActive }] : []),
+      ...(showTransactions ? [{ href: '/commission-tracker/agents', label: 'Agents', active: isAgentsActive }] : []),
+      ...(showSettings ? [{ href: '/commission-tracker/settings', label: 'Settings', active: isSettingsActive }] : []),
+    ]
+    : isReports
+      ? [
+        ...(showOwnerReports ? [{ href: '/owner-reports', label: 'Owner Reports', active: isOwnerReports }] : []),
+        ...(showDeferred ? [{ href: '/agent-reports', label: 'Agent Reports', active: isAgentReports }] : []),
+        ...(showDeferred ? [{ href: '/office-reports', label: 'Office Reports', active: isOfficeReports }] : []),
+      ]
+      : [];
+  const CurrentModuleIcon = currentModule?.icon ?? LayoutGrid;
 
   return (
     <header
@@ -232,106 +292,98 @@ export default function Navbar() {
               REBI
             </span>
           </Link>
-          {isTransactionDetail && (
-            <Link
-              href="/commission-tracker/transactions"
-              aria-label="Back to Transactions"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 transition hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300 desktop-nav:hidden"
-            >
-              <ArrowLeft className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
-              Transactions
-            </Link>
+
+          {/* Module switcher and the current module's pages. Desktop only; phones use the menu sheet. */}
+          {modules.length > 0 && <span aria-hidden className="hidden desktop-nav:block h-6 w-px bg-slate-200 dark:bg-slate-800" />}
+          {modules.length > 0 && (
+            <div ref={moduleMenuRef} className="relative hidden desktop-nav:block">
+              <button
+                type="button"
+                onClick={() => setModuleMenuOpen((open) => !open)}
+                aria-haspopup="menu"
+                aria-expanded={moduleMenuOpen}
+                className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-[13px] font-semibold transition cursor-pointer ${moduleMenuOpen ? 'bg-slate-200 text-slate-900 dark:bg-slate-800 dark:text-white' : 'bg-slate-100 text-slate-800 hover:bg-slate-200 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-800'}`}
+              >
+                <CurrentModuleIcon className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} aria-hidden />
+                {currentModule?.label ?? 'Modules'}
+                <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${moduleMenuOpen ? 'rotate-180' : ''}`} strokeWidth={2} aria-hidden />
+              </button>
+              {moduleMenuOpen && (
+                <div role="menu" className="absolute left-0 top-full z-50 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                  {modules.map((item) => {
+                    const Icon = item.icon;
+                    if (item.soon || !item.href) {
+                      return (
+                        <div key={item.id} role="menuitem" aria-disabled="true" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-slate-400 dark:text-slate-500">
+                          <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                          {item.label}
+                          <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-400 dark:bg-slate-800 dark:text-slate-500">Soon</span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <Link
+                        key={item.id}
+                        href={item.href}
+                        role="menuitem"
+                        onClick={() => setModuleMenuOpen(false)}
+                        className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${item.active ? 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400' : 'text-slate-800 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                  <Link
+                    href="/"
+                    role="menuitem"
+                    onClick={() => setModuleMenuOpen(false)}
+                    className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${isMainMenu ? 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400' : 'text-slate-800 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}
+                  >
+                    <LayoutGrid className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                    All modules
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+          {modulePages.length > 0 && (
+            <nav aria-label={currentModule?.label ?? 'Pages'} className="hidden desktop-nav:flex h-16 items-stretch gap-5 pl-1">
+              {modulePages.map((page) => (
+                <Link
+                  key={page.href}
+                  href={page.href}
+                  aria-current={page.active ? 'page' : undefined}
+                  className={`flex items-center border-b-2 pt-0.5 text-[13px] font-semibold transition ${page.active ? 'border-emerald-500 text-emerald-700 dark:text-emerald-400' : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
+                >
+                  {page.label}
+                </Link>
+              ))}
+            </nav>
           )}
         </div>
 
-        {/* Central Nav Container with Pill Outline */}
-        <nav className="hidden desktop-nav:flex items-center space-x-2 bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-1 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400">
-          {showTracker && <div className="group/tracker relative" onMouseLeave={() => releaseMenu('tracker')}>
-            <Link
-              href={isTransactionDetail ? '/commission-tracker/transactions' : trackerHref}
-              aria-label={isTransactionDetail ? 'Back to Transactions' : undefined}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition ${
-                isCommissionTracker
-                  ? 'bg-emerald-500/10 dark:bg-emerald-950/80 border border-emerald-500/80 text-emerald-700 dark:text-emerald-400 font-bold'
-                  : 'hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              {isTransactionDetail ? (
-                <>
-                  <ArrowLeft className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
-                  Transactions
-                </>
-              ) : (
-                'Commission Tracker'
-              )}
-            </Link>
-            <div className={menuClass('tracker', 'group-hover/tracker:block group-focus-within/tracker:block')} onClick={() => hideMenu('tracker')}>
-              <div className="w-44 rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
-                {showTransactions && <Link
-                  href="/commission-tracker/transactions"
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 ${
-                    isTransactionsActive
-                      ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400'
-                      : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  <List className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Transactions
-                </Link>}
-                {showTransactions && <Link
-                  href="/commission-tracker/agents"
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 ${
-                    isAgentsActive
-                      ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400'
-                      : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  <Users className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Agents
-                </Link>}
-                {showSettings && <Link
-                  href="/commission-tracker/settings"
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 ${
-                    isSettingsActive
-                      ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400'
-                      : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  <Settings className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Settings
-                </Link>}
-              </div>
-            </div>
-          </div>}
-          {showReports && <div className="group/reports relative" onMouseLeave={() => releaseMenu('reports')}>
-            <Link
-              href={reportsHref}
-              className={`block px-3 py-1.5 rounded-lg transition ${
-                isReports
-                  ? 'bg-emerald-500/10 dark:bg-emerald-950/80 border border-emerald-500/80 text-emerald-700 dark:text-emerald-400 font-bold'
-                  : 'hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              Reports
-            </Link>
-            <div className={menuClass('reports', 'group-hover/reports:block group-focus-within/reports:block')} onClick={() => hideMenu('reports')}>
-              <div className="w-48 rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
-                {showOwnerReports && <Link href="/owner-reports" className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isOwnerReports ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}>
-                  <Briefcase className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Owner Reports
-                </Link>}
-                {showDeferred && <Link href="/agent-reports" className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isAgentReports ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}>
-                  <Users className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Agent Reports
-                </Link>}
-                {showDeferred && <Link href="/office-reports" className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isOfficeReports ? 'bg-emerald-500/10 font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}>
-                  <Building2 className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Office Reports
-                </Link>}
-              </div>
-            </div>
-          </div>}
-          {showDeferred && <span className="px-3 py-1.5 opacity-50 cursor-not-allowed">Goals</span>}
-          {showDeferred && <span className="px-3 py-1.5 opacity-50 cursor-not-allowed">Leads</span>}
-          {showDeferred && <span className="px-3 py-1.5 opacity-50 cursor-not-allowed">Operating Expenses</span>}
-        </nav>
-
         {/* Right Nav Actions */}
         <div className="flex items-center space-x-3 text-xs font-medium text-slate-700 dark:text-slate-300">
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            aria-label="Search"
+            className="hidden desktop-nav:flex h-9 w-56 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs text-slate-400 transition hover:border-slate-300 hover:text-slate-600 cursor-pointer dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-500 dark:hover:border-slate-700 dark:hover:text-slate-300 xl:w-64"
+          >
+            <Search className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+            <span className="truncate">{showTransactions ? 'Search transactions, agents…' : 'Search…'}</span>
+            <kbd className="ml-auto shrink-0 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">{searchShortcut}</kbd>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            aria-label="Search"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-slate-700 dark:text-slate-200 desktop-nav:hidden cursor-pointer"
+          >
+            <Search className="h-5 w-5" strokeWidth={2} aria-hidden />
+          </button>
           {/* Phone menu button. Desktop keeps the pill nav and the avatar menu. */}
           <button
             type="button"
@@ -345,20 +397,6 @@ export default function Navbar() {
           >
             <Menu className="h-5 w-5" strokeWidth={2} aria-hidden />
           </button>
-
-          {!isMainMenu && (
-            <Link
-              href="/"
-              className="hidden desktop-nav:flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:text-slate-900 dark:hover:text-white transition"
-            >
-              <House className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden /> Main Menu
-            </Link>
-          )}
-
-          {/* Vertical Divider */}
-          {!isMainMenu && (
-            <div className="hidden desktop-nav:block h-4 w-px bg-slate-200 dark:bg-slate-800 my-auto" />
-          )}
 
           {/* User Badge & Sign Out Dropdown */}
           <div className="relative hidden desktop-nav:block" ref={dropdownRef}>
@@ -454,6 +492,13 @@ export default function Navbar() {
         </div>
 
       </div>
+      <CommandPalette
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        canSearchTracker={showTransactions}
+        canSettings={showSettings}
+        canReports={showOwnerReports}
+      />
       {/* Phone navigation sheet. Same permission checks as the pill nav and avatar menu.
           Portaled to <body>: on a landscape phone the Owner Reports bar is transformed, which would trap a fixed sheet inside it. */}
       {phoneNavOpen && createPortal(
