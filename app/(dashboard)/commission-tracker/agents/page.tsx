@@ -4,7 +4,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallba
 import { ListChecks, ListFilter, Plus, Rows3 } from 'lucide-react';
 import { BulkUpdateDialog } from '@/app/(dashboard)/commission-tracker/transactions/components/BulkUpdateDialog';
 import { HoverNote } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/HoverNote';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ConfirmDialog, useConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { PERCENT_POINT_DECIMALS, formatPercentPoints, formatTablePercent, fromPercentPoints, toPercentPoints } from '@/lib/percent';
 import { isAgentBulkEditableField } from '@/lib/agent-bulk';
 import { isHiddenRecordId } from '@/lib/fields';
@@ -283,6 +283,7 @@ export default function AgentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { confirm: confirmAction, notify, dialog: confirmDialog } = useConfirmDialog();
   const [editingAgent, setEditingAgent] = useState<AgentRecord | null>(null);
   const [formData, setFormData] = useState<Partial<AgentRecord>>({});
 
@@ -834,7 +835,7 @@ export default function AgentsPage() {
       return true;
     } catch (err) {
       console.error('Save error:', err);
-      alert('Failed to save changes to the database.');
+      void notify({ title: "Couldn't save changes", message: 'Failed to save changes to the database.' });
       return false;
     } finally {
       setIsSubmitting(false);
@@ -865,9 +866,14 @@ export default function AgentsPage() {
     const current = String(agent.agent_status || '');
     const currentIndex = statusOptions.findIndex((option) => option.toLowerCase() === current.toLowerCase());
     const nextStatus = statusOptions[(currentIndex + 1) % statusOptions.length];
-    const actionLabel = `set the status to ${nextStatus}`;
 
-    if (!confirm(`Are you sure you want to ${actionLabel} "${agent.agent_name}"?`)) {
+    const confirmed = await confirmAction({
+      title: 'Change status?',
+      message: `Set the status of "${agent.agent_name}" to ${nextStatus}?`,
+      confirmLabel: `Set to ${nextStatus}`,
+      tone: 'primary',
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -885,19 +891,24 @@ export default function AgentsPage() {
       await loadLiveAgents();
     } catch (err) {
       console.error('Status toggle failed:', err);
-      alert('Failed to update agent status.');
+      void notify({ title: "Couldn't update status", message: 'Failed to update agent status.' });
     }
   };
 
   const handleDelete = async (agent: AgentRecord) => {
     if (agent.has_transactions) {
-      alert(
-        `Cannot delete "${agent.agent_name}" because they have active or historical transactions attached. You can change their status instead.`
-      );
+      void notify({
+        title: "Can't delete this agent",
+        message: `Cannot delete "${agent.agent_name}" because they have active or historical transactions attached. You can change their status instead.`,
+      });
       return;
     }
 
-    if (!confirm(`Are you sure you want to permanently delete "${agent.agent_name}"?`)) {
+    const confirmed = await confirmAction({
+      title: `Delete "${agent.agent_name}"?`,
+      message: `Are you sure you want to permanently delete "${agent.agent_name}"?`,
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -911,7 +922,7 @@ export default function AgentsPage() {
       await loadLiveAgents();
     } catch (err) {
       console.error('Delete failed:', err);
-      alert('Failed to delete agent.');
+      void notify({ title: "Couldn't delete agent", message: 'Failed to delete agent.' });
     }
   };
 
@@ -1731,6 +1742,7 @@ export default function AgentsPage() {
           </div>
         </div>
       )}
+      {confirmDialog}
       {pendingBulkDelete && (
         <ConfirmDialog
           title={`Delete ${selectedIds.size} ${selectedIds.size === 1 ? 'agent' : 'agents'}?`}

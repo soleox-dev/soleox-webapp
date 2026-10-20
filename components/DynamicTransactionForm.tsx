@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { DynamicFormSection, LookupValue } from '@/lib/fields';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface DynamicTransactionFormProps {
   clientId?: string;
@@ -24,6 +25,7 @@ export default function DynamicTransactionForm({
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const { notify, dialog: noticeDialog } = useConfirmDialog();
 
   useEffect(() => {
     async function loadFormSchema() {
@@ -78,7 +80,7 @@ export default function DynamicTransactionForm({
 
       if (data.success) {
         if (onSuccess) onSuccess(data.transactionId);
-        alert(`Transaction ${data.transactionId} created and waterfall calculated!`);
+        void notify({ title: 'Transaction created', message: `Transaction ${data.transactionId} created and waterfall calculated!` });
       } else {
         setError(data.error || 'Failed to submit transaction');
       }
@@ -94,6 +96,7 @@ export default function DynamicTransactionForm({
 
   return (
     <form onSubmit={handleSubmit} className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow space-y-8">
+      {noticeDialog}
       <h2 className="text-2xl font-bold text-gray-800 border-b pb-2">New Transaction</h2>
 
       {sections.map((section) => (

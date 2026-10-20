@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { underlineControl, underlineShell } from '@/components/ui/underline-field';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface ListCategory {
   id: string;
@@ -15,6 +16,7 @@ interface ListCategory {
 export default function ListsSettingsPage() {
   const [search, setSearch] = useState('');
   const [selectedList, setSelectedList] = useState<string | null>(null);
+  const { notify, dialog: noticeDialog } = useConfirmDialog();
 
   const lists: ListCategory[] = [
     {
@@ -59,7 +61,8 @@ export default function ListsSettingsPage() {
 
   return (
     <div className="space-y-6">
-      
+      {noticeDialog}
+
       {/* Header Card */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs flex justify-between items-center transition-colors">
         <div>
@@ -116,7 +119,7 @@ export default function ListsSettingsPage() {
                   </td>
                   <td className="p-3.5 text-right">
                     <button
-                      onClick={() => alert(`Opening editor for ${list.name}`)}
+                      onClick={() => void notify({ title: list.name, message: `Opening editor for ${list.name}` })}
                       className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 px-3 py-1 rounded-lg font-semibold transition"
                     >
                       Manage Items

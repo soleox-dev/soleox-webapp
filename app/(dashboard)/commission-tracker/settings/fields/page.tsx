@@ -11,6 +11,7 @@ import { EditPencil } from '@/components/ui/edit-pencil';
 import { Folder, List, User } from 'lucide-react';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { ToastBanner } from '@/components/ui/ToastBanner';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DB_TRANSACTION_COLUMNS, DB_AGENT_COLUMNS } from '@/lib/fields';
 import { useRegisterSave } from '@/components/save-leave-guard';
 import { underlineControl } from '@/components/ui/underline-field';
@@ -176,6 +177,7 @@ function FieldCalendar({ label }: { label: string }) {
 
 export default function FieldCustomizationsPage() {
   const [activeTab, setActiveTab] = useState<'transactions' | 'agents'>('transactions');
+  const { confirm: confirmAction, dialog: confirmDialog } = useConfirmDialog();
   const [isSavingField, setIsSavingField] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
@@ -1037,7 +1039,11 @@ export default function FieldCustomizationsPage() {
       return;
     }
 
-    if (!confirm(`Are you sure you want to delete field "${target?.field_label}"?`)) return;
+    const confirmed = await confirmAction({
+      title: `Delete field "${target?.field_label}"?`,
+      message: 'Are you sure you want to delete this field?',
+    });
+    if (!confirmed) return;
 
     try {
       const params = new URLSearchParams({
@@ -1107,6 +1113,7 @@ export default function FieldCustomizationsPage() {
   return (
     <div className="space-y-6 relative">
       {toast && <ToastBanner message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
+      {confirmDialog}
 
       {/* Top Controller Bar */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-md flex justify-between items-center transition-colors">
