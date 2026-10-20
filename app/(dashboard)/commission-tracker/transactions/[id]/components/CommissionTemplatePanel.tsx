@@ -449,6 +449,8 @@ function NumericParameterInput({
       aria-invalid={invalid}
       value={focused ? draft : shown}
       onFocus={() => {
+        // A locked field keeps its formatted value; only an editable one switches to the raw number for typing.
+        if (readOnly) return;
         setDraft(core ?? value);
         setFocused(true);
       }}
@@ -1723,7 +1725,7 @@ export function CommissionTemplatePanel({
                           type="button"
                           onClick={() => toggleSection(group.name)}
                           title={isCollapsed ? 'Expand Section' : 'Collapse Section'}
-                          className="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
+                          className={`flex min-w-0 flex-1 items-center gap-2 rounded-full px-3 py-1 text-left cursor-pointer ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}
                         >
                           <span className={`w-3 shrink-0 text-center text-sm font-bold leading-none ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}>
                             {isCollapsed ? '+' : '−'}
@@ -1834,7 +1836,7 @@ export function CommissionTemplatePanel({
                                     type="button"
                                     onClick={() => toggleLogicSection(group.name)}
                                     title={isCollapsed ? 'Expand Section' : 'Collapse Section'}
-                                    className="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
+                                    className={`flex min-w-0 flex-1 items-center gap-2 rounded-full px-3 py-1 text-left cursor-pointer ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}
                                   >
                                     <span className={`w-3 shrink-0 text-center text-sm font-bold leading-none ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}>
                                       {isCollapsed ? '+' : '−'}
