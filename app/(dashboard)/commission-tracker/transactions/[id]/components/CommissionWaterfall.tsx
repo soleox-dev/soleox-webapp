@@ -533,6 +533,7 @@ export function CommissionWaterfall({
 
   const offTopEmpty = offTheTopRules.length === 0 && !isAddingOffTop;
   const preSplitEmpty = preSplitRules.length === 0 && !isAddingPreSplit;
+  const bothDeductionsEmpty = offTopEmpty && preSplitEmpty && !isEditing;
 
   return (
     <section id="commission" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height))] transition-colors">
@@ -607,334 +608,358 @@ export function CommissionWaterfall({
 
       <div className="p-6 space-y-4" {...editOnDoublePress}>
         {flow && <CommissionFlowBar total={flow.total} agents={flow.agents} entities={flow.entities} />}
-        {/* Step 1: Off-The-Top Deductions. With nothing in it, the section is one row: its name, None, and the total. */}
-        <div className={`border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm ${offTopEmpty ? 'px-4 py-2' : 'p-4 space-y-3'}`}>
-          <div className={`flex justify-between items-center ${offTopEmpty ? 'min-h-8' : 'border-b border-slate-200 dark:border-slate-700 pb-3'}`}>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                1. Off-The-Top Deductions
-              </span>
-              {offTopEmpty && <span className="text-xs italic text-slate-400">None</span>}
-              {isEditing && (
-                <button
-                  type="button"
-                  onClick={handleStartAddOffTop}
-                  title="Add New Off-the-top Deduction"
-                  aria-label="Add New Off-the-top Deduction"
-                  className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
-                >
-                  <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
-                    <path d="M8 3.25v9.5M3.25 8h9.5" />
-                  </svg>
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg">
-              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                Total Commission:
-              </span>
-              <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                {formatCurrency(baselineTotalCommission)}
-              </span>
-            </div>
-          </div>
-
-          {isEditing && isAddingOffTop && (
-            <div data-inline-save className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-lg border border-emerald-500/30 space-y-2 mb-2">
-              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block">
-                Add Off-The-Top Deduction
-              </span>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                {knownEntities.length > 0 ? (
-                  <ClearableSelect
-                    value={newOffTopEntity}
-                    onChange={(e) => setNewOffTopEntity(e.target.value)}
-                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
-                  >
-                    {knownEntities.map((ent) => (
-                      <option key={ent.id} value={ent.name}>{ent.name}</option>
-                    ))}
-                  </ClearableSelect>
-                ) : (
-                  <input
-                    type="text"
-                    placeholder="Entity Name (e.g. Soleox Realty)"
-                    value={newOffTopEntity}
-                    onChange={(e) => setNewOffTopEntity(e.target.value)}
-                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
-                  />
-                )}
-                <SplitPair
-                  isEditing
-                  type={newOffTopType}
-                  percentPoints={newOffTopType === 'PERCENT' ? toPercentPoints(newOffTopValue) : (baselineTotalCommission > 0 ? (newOffTopValue / baselineTotalCommission) * 100 : 0)}
-                  dollarAmount={newOffTopType === 'AMOUNT' ? newOffTopValue : baselineTotalCommission * newOffTopValue}
-                  onPercentChange={(val) => {
-                    if (newOffTopType !== 'PERCENT') toggleNewOffTopType();
-                    setNewOffTopValue(val);
-                  }}
-                  onAmountChange={(val) => {
-                    if (newOffTopType !== 'AMOUNT') toggleNewOffTopType();
-                    setNewOffTopValue(val);
-                  }}
-                  preventMinus={preventMinus}
-                />
-                <div className="flex items-center gap-2 justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingOffTop(false)}
-                    className="text-xs px-2.5 py-1 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveOffTop}
-                    className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded font-semibold cursor-pointer shadow-sm whitespace-nowrap"
-                  >
-                    Save
-                  </button>
-                </div>
+        {/* With both empty and not editing, steps 1 and 2 share one row. Editing splits them again for their + buttons. */}
+        {bothDeductionsEmpty ? (
+          <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm px-4 py-2">
+            <div className="flex min-h-8 justify-between items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  1. Off-The-Top &amp; 2. Pre-Split Deductions
+                </span>
+                <span className="text-xs italic text-slate-400">None</span>
+              </div>
+              <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg">
+                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                  Total Commission:
+                </span>
+                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                  {formatCurrency(baselineTotalCommission)}
+                </span>
               </div>
             </div>
-          )}
+          </div>
+        ) : (
+          <>
+          {/* Step 1: Off-The-Top Deductions. With nothing in it, the section is one row: its name, None, and the total. */}
+          <div className={`border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm ${offTopEmpty ? 'px-4 py-2' : 'p-4 space-y-3'}`}>
+            <div className={`flex justify-between items-center ${offTopEmpty ? 'min-h-8' : 'border-b border-slate-200 dark:border-slate-700 pb-3'}`}>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  1. Off-The-Top Deductions
+                </span>
+                {offTopEmpty && <span className="text-xs italic text-slate-400">None</span>}
+                {isEditing && (
+                  <button
+                    type="button"
+                    onClick={handleStartAddOffTop}
+                    title="Add New Off-the-top Deduction"
+                    aria-label="Add New Off-the-top Deduction"
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
+                  >
+                    <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
+                      <path d="M8 3.25v9.5M3.25 8h9.5" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg">
+                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                  Total Commission:
+                </span>
+                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                  {formatCurrency(baselineTotalCommission)}
+                </span>
+              </div>
+            </div>
 
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {offTheTopRules.map((rule, idx) => {
-              const calculatedItem = (dealResult.offTheTopItems || []).find((i: any) => i.id === rule.id);
-              return (
-                <div
-                  key={rule.id}
-                  {...getDragRowProps(idx, 'offTop', onReorderOffTopRules)}
-                  className="py-2.5 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
-                >
-                  <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
-                    {renderReorderControls(idx, offTheTopRules.length, onReorderOffTopRules, 'offTop')}
-                    {isEditing && (
-                      <button
-                        type="button"
-                        onClick={() => onDeleteOffTopRule(rule.id)}
-                        className="text-rose-500 hover:text-rose-600 font-bold cursor-pointer transition p-0.5"
-                        title="Delete rule"
-                      >
-                        <TrashIcon />
-                      </button>
-                    )}
-
-                    {isEditing ? (
-                      knownEntities.length > 0 ? (
-                        <ClearableSelect
-                          value={rule.entity}
-                          onChange={(e) => onUpdateOffTopRuleEntity?.(rule.id, e.target.value)}
-                          className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] cursor-pointer max-w-[150px] sm:max-w-[190px]"
-                          title="Switch entity"
-                        >
-                          <option value={rule.entity}>{rule.entity}</option>
-                          {knownEntities.filter((e) => e.name !== rule.entity).map((ent) => (
-                            <option key={ent.id} value={ent.name}>{ent.name}</option>
-                          ))}
-                        </ClearableSelect>
-                      ) : (
-                        <input
-                          type="text"
-                          value={rule.entity}
-                          onChange={(e) => onUpdateOffTopRuleEntity?.(rule.id, e.target.value)}
-                          className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] w-28"
-                        />
-                      )
-                    ) : (
-                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[190px] truncate" title={rule.entity}>
-                        {rule.entity || '—'}
-                      </span>
-                    )}
-
-                  </div>
-                  <div className={isEditing ? undefined : 'pr-2'}>
+            {isEditing && isAddingOffTop && (
+              <div data-inline-save className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-lg border border-emerald-500/30 space-y-2 mb-2">
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block">
+                  Add Off-The-Top Deduction
+                </span>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  {knownEntities.length > 0 ? (
+                    <ClearableSelect
+                      value={newOffTopEntity}
+                      onChange={(e) => setNewOffTopEntity(e.target.value)}
+                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
+                    >
+                      {knownEntities.map((ent) => (
+                        <option key={ent.id} value={ent.name}>{ent.name}</option>
+                      ))}
+                    </ClearableSelect>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="Entity Name (e.g. Soleox Realty)"
+                      value={newOffTopEntity}
+                      onChange={(e) => setNewOffTopEntity(e.target.value)}
+                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
+                    />
+                  )}
                   <SplitPair
-                    compact={!isEditing}
-                    isEditing={isEditing}
-                    type={rule.type}
-                    percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (baselineTotalCommission > 0 ? ((calculatedItem?.amount || 0) / baselineTotalCommission) * 100 : 0)}
-                    dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
-                    deduction
+                    isEditing
+                    type={newOffTopType}
+                    percentPoints={newOffTopType === 'PERCENT' ? toPercentPoints(newOffTopValue) : (baselineTotalCommission > 0 ? (newOffTopValue / baselineTotalCommission) * 100 : 0)}
+                    dollarAmount={newOffTopType === 'AMOUNT' ? newOffTopValue : baselineTotalCommission * newOffTopValue}
                     onPercentChange={(val) => {
-                      if (rule.type !== 'PERCENT') onToggleOffTopRuleType(rule.id);
-                      onUpdateOffTopRuleValue(rule.id, val);
+                      if (newOffTopType !== 'PERCENT') toggleNewOffTopType();
+                      setNewOffTopValue(val);
                     }}
                     onAmountChange={(val) => {
-                      if (rule.type !== 'AMOUNT') onToggleOffTopRuleType(rule.id);
-                      onUpdateOffTopRuleValue(rule.id, val);
+                      if (newOffTopType !== 'AMOUNT') toggleNewOffTopType();
+                      setNewOffTopValue(val);
                     }}
                     preventMinus={preventMinus}
                   />
+                  <div className="flex items-center gap-2 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingOffTop(false)}
+                      className="text-xs px-2.5 py-1 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveOffTop}
+                      className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded font-semibold cursor-pointer shadow-sm whitespace-nowrap"
+                    >
+                      Save
+                    </button>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Step 2: Pre-Split Deductions. One row when empty, like step 1. */}
-        <div className={`border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm ${preSplitEmpty ? 'px-4 py-2' : 'p-4 space-y-3'}`}>
-          <div className={`flex justify-between items-center ${preSplitEmpty ? 'min-h-8' : 'border-b border-slate-200 dark:border-slate-700 pb-3'}`}>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                2. Pre-Split Deductions
-              </span>
-              {preSplitEmpty && <span className="text-xs italic text-slate-400">None</span>}
-              {isEditing && (
-                <button
-                  type="button"
-                  onClick={handleStartAddPreSplit}
-                  title="Add New Pre-split Deduction"
-                  aria-label="Add New Pre-split Deduction"
-                  className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
-                >
-                  <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
-                    <path d="M8 3.25v9.5M3.25 8h9.5" />
-                  </svg>
-                </button>
-              )}
-            </div>
-            <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-4'}`}>
-              Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterOffTop)}</strong>
-            </span>
-          </div>
-
-          {isEditing && isAddingPreSplit && (
-            <div data-inline-save className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-lg border border-emerald-500/30 space-y-2 mb-2">
-              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block">
-                Add Pre-Split Deduction
-              </span>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                {knownEntities.length > 0 ? (
-                  <ClearableSelect
-                    value={newPreSplitEntity}
-                    onChange={(e) => setNewPreSplitEntity(e.target.value)}
-                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
-                  >
-                    {knownEntities.map((ent) => (
-                      <option key={ent.id} value={ent.name}>{ent.name}</option>
-                    ))}
-                  </ClearableSelect>
-                ) : (
-                  <input
-                    type="text"
-                    placeholder="Entity Name (e.g. TC Fee, Referral)"
-                    value={newPreSplitEntity}
-                    onChange={(e) => setNewPreSplitEntity(e.target.value)}
-                    className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
-                  />
-                )}
-                <SplitPair
-                  isEditing
-                  type={newPreSplitType}
-                  percentPoints={newPreSplitType === 'PERCENT' ? toPercentPoints(newPreSplitValue) : (commissionAfterOffTop > 0 ? (newPreSplitValue / commissionAfterOffTop) * 100 : 0)}
-                  dollarAmount={newPreSplitType === 'AMOUNT' ? newPreSplitValue : commissionAfterOffTop * newPreSplitValue}
-                  onPercentChange={(val) => {
-                    if (newPreSplitType !== 'PERCENT') toggleNewPreSplitType();
-                    setNewPreSplitValue(val);
-                  }}
-                  onAmountChange={(val) => {
-                    if (newPreSplitType !== 'AMOUNT') toggleNewPreSplitType();
-                    setNewPreSplitValue(val);
-                  }}
-                  preventMinus={preventMinus}
-                />
-                <div className="flex items-center gap-2 justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingPreSplit(false)}
-                    className="text-xs px-2.5 py-1 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSavePreSplit}
-                    className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded font-semibold cursor-pointer shadow-sm whitespace-nowrap"
-                  >
-                    Save
-                  </button>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {preSplitRules.map((rule, idx) => {
-              const calculatedItem = (dealResult.preSplitItems || []).find((i: any) => i.id === rule.id);
-              return (
-                <div
-                  key={rule.id}
-                  {...getDragRowProps(idx, 'preSplit', onReorderPreSplitRules)}
-                  className="py-2.5 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
-                >
-                  <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
-                    {renderReorderControls(idx, preSplitRules.length, onReorderPreSplitRules, 'preSplit')}
-                    {isEditing && (
-                      <button
-                        type="button"
-                        onClick={() => onDeletePreSplitRule?.(rule.id)}
-                        className="text-rose-500 hover:text-rose-600 font-bold cursor-pointer transition p-0.5"
-                        title="Delete rule"
-                      >
-                        <TrashIcon />
-                      </button>
-                    )}
-
-                    {isEditing ? (
-                      knownEntities.length > 0 ? (
-                        <ClearableSelect
-                          value={rule.entity}
-                          onChange={(e) => onUpdatePreSplitRuleEntity?.(rule.id, e.target.value)}
-                          className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] cursor-pointer max-w-[150px] sm:max-w-[190px]"
-                          title="Switch entity"
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {offTheTopRules.map((rule, idx) => {
+                const calculatedItem = (dealResult.offTheTopItems || []).find((i: any) => i.id === rule.id);
+                return (
+                  <div
+                    key={rule.id}
+                    {...getDragRowProps(idx, 'offTop', onReorderOffTopRules)}
+                    className="py-2.5 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
+                  >
+                    <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+                      {renderReorderControls(idx, offTheTopRules.length, onReorderOffTopRules, 'offTop')}
+                      {isEditing && (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteOffTopRule(rule.id)}
+                          className="text-rose-500 hover:text-rose-600 font-bold cursor-pointer transition p-0.5"
+                          title="Delete rule"
                         >
-                          <option value={rule.entity}>{rule.entity}</option>
-                          {knownEntities.filter((e) => e.name !== rule.entity).map((ent) => (
-                            <option key={ent.id} value={ent.name}>{ent.name}</option>
-                          ))}
-                        </ClearableSelect>
-                      ) : (
-                        <input
-                          type="text"
-                          value={rule.entity}
-                          onChange={(e) => onUpdatePreSplitRuleEntity?.(rule.id, e.target.value)}
-                          className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] w-28"
-                        />
-                      )
-                    ) : (
-                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[190px] truncate" title={rule.entity}>
-                        {rule.entity || '—'}
-                      </span>
-                    )}
+                          <TrashIcon />
+                        </button>
+                      )}
 
+                      {isEditing ? (
+                        knownEntities.length > 0 ? (
+                          <ClearableSelect
+                            value={rule.entity}
+                            onChange={(e) => onUpdateOffTopRuleEntity?.(rule.id, e.target.value)}
+                            className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] cursor-pointer max-w-[150px] sm:max-w-[190px]"
+                            title="Switch entity"
+                          >
+                            <option value={rule.entity}>{rule.entity}</option>
+                            {knownEntities.filter((e) => e.name !== rule.entity).map((ent) => (
+                              <option key={ent.id} value={ent.name}>{ent.name}</option>
+                            ))}
+                          </ClearableSelect>
+                        ) : (
+                          <input
+                            type="text"
+                            value={rule.entity}
+                            onChange={(e) => onUpdateOffTopRuleEntity?.(rule.id, e.target.value)}
+                            className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] w-28"
+                          />
+                        )
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[190px] truncate" title={rule.entity}>
+                          {rule.entity || '—'}
+                        </span>
+                      )}
+
+                    </div>
+                    <div className={isEditing ? undefined : 'pr-2'}>
+                    <SplitPair
+                      compact={!isEditing}
+                      isEditing={isEditing}
+                      type={rule.type}
+                      percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (baselineTotalCommission > 0 ? ((calculatedItem?.amount || 0) / baselineTotalCommission) * 100 : 0)}
+                      dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
+                      deduction
+                      onPercentChange={(val) => {
+                        if (rule.type !== 'PERCENT') onToggleOffTopRuleType(rule.id);
+                        onUpdateOffTopRuleValue(rule.id, val);
+                      }}
+                      onAmountChange={(val) => {
+                        if (rule.type !== 'AMOUNT') onToggleOffTopRuleType(rule.id);
+                        onUpdateOffTopRuleValue(rule.id, val);
+                      }}
+                      preventMinus={preventMinus}
+                    />
+                    </div>
                   </div>
-                  <div className={isEditing ? undefined : 'pr-2'}>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Step 2: Pre-Split Deductions. One row when empty, like step 1. */}
+          <div className={`border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm ${preSplitEmpty ? 'px-4 py-2' : 'p-4 space-y-3'}`}>
+            <div className={`flex justify-between items-center ${preSplitEmpty ? 'min-h-8' : 'border-b border-slate-200 dark:border-slate-700 pb-3'}`}>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  2. Pre-Split Deductions
+                </span>
+                {preSplitEmpty && <span className="text-xs italic text-slate-400">None</span>}
+                {isEditing && (
+                  <button
+                    type="button"
+                    onClick={handleStartAddPreSplit}
+                    title="Add New Pre-split Deduction"
+                    aria-label="Add New Pre-split Deduction"
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400 transition cursor-pointer"
+                  >
+                    <svg viewBox="0 0 16 16" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round">
+                      <path d="M8 3.25v9.5M3.25 8h9.5" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-4'}`}>
+                Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterOffTop)}</strong>
+              </span>
+            </div>
+
+            {isEditing && isAddingPreSplit && (
+              <div data-inline-save className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-lg border border-emerald-500/30 space-y-2 mb-2">
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block">
+                  Add Pre-Split Deduction
+                </span>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  {knownEntities.length > 0 ? (
+                    <ClearableSelect
+                      value={newPreSplitEntity}
+                      onChange={(e) => setNewPreSplitEntity(e.target.value)}
+                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
+                    >
+                      {knownEntities.map((ent) => (
+                        <option key={ent.id} value={ent.name}>{ent.name}</option>
+                      ))}
+                    </ClearableSelect>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="Entity Name (e.g. TC Fee, Referral)"
+                      value={newPreSplitEntity}
+                      onChange={(e) => setNewPreSplitEntity(e.target.value)}
+                      className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] font-medium sm:w-44"
+                    />
+                  )}
                   <SplitPair
-                    compact={!isEditing}
-                    isEditing={isEditing}
-                    type={rule.type}
-                    percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (commissionAfterOffTop > 0 ? ((calculatedItem?.amount || 0) / commissionAfterOffTop) * 100 : 0)}
-                    dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
-                    deduction
+                    isEditing
+                    type={newPreSplitType}
+                    percentPoints={newPreSplitType === 'PERCENT' ? toPercentPoints(newPreSplitValue) : (commissionAfterOffTop > 0 ? (newPreSplitValue / commissionAfterOffTop) * 100 : 0)}
+                    dollarAmount={newPreSplitType === 'AMOUNT' ? newPreSplitValue : commissionAfterOffTop * newPreSplitValue}
                     onPercentChange={(val) => {
-                      if (rule.type !== 'PERCENT') onTogglePreSplitRuleType?.(rule.id);
-                      onUpdatePreSplitRuleValue?.(rule.id, val);
+                      if (newPreSplitType !== 'PERCENT') toggleNewPreSplitType();
+                      setNewPreSplitValue(val);
                     }}
                     onAmountChange={(val) => {
-                      if (rule.type !== 'AMOUNT') onTogglePreSplitRuleType?.(rule.id);
-                      onUpdatePreSplitRuleValue?.(rule.id, val);
+                      if (newPreSplitType !== 'AMOUNT') toggleNewPreSplitType();
+                      setNewPreSplitValue(val);
                     }}
                     preventMinus={preventMinus}
                   />
+                  <div className="flex items-center gap-2 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingPreSplit(false)}
+                      className="text-xs px-2.5 py-1 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSavePreSplit}
+                      className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded font-semibold cursor-pointer shadow-sm whitespace-nowrap"
+                    >
+                      Save
+                    </button>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            )}
+
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {preSplitRules.map((rule, idx) => {
+                const calculatedItem = (dealResult.preSplitItems || []).find((i: any) => i.id === rule.id);
+                return (
+                  <div
+                    key={rule.id}
+                    {...getDragRowProps(idx, 'preSplit', onReorderPreSplitRules)}
+                    className="py-2.5 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
+                  >
+                    <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+                      {renderReorderControls(idx, preSplitRules.length, onReorderPreSplitRules, 'preSplit')}
+                      {isEditing && (
+                        <button
+                          type="button"
+                          onClick={() => onDeletePreSplitRule?.(rule.id)}
+                          className="text-rose-500 hover:text-rose-600 font-bold cursor-pointer transition p-0.5"
+                          title="Delete rule"
+                        >
+                          <TrashIcon />
+                        </button>
+                      )}
+
+                      {isEditing ? (
+                        knownEntities.length > 0 ? (
+                          <ClearableSelect
+                            value={rule.entity}
+                            onChange={(e) => onUpdatePreSplitRuleEntity?.(rule.id, e.target.value)}
+                            className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] cursor-pointer max-w-[150px] sm:max-w-[190px]"
+                            title="Switch entity"
+                          >
+                            <option value={rule.entity}>{rule.entity}</option>
+                            {knownEntities.filter((e) => e.name !== rule.entity).map((ent) => (
+                              <option key={ent.id} value={ent.name}>{ent.name}</option>
+                            ))}
+                          </ClearableSelect>
+                        ) : (
+                          <input
+                            type="text"
+                            value={rule.entity}
+                            onChange={(e) => onUpdatePreSplitRuleEntity?.(rule.id, e.target.value)}
+                            className="bg-transparent border-b border-slate-300 dark:border-slate-600 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] w-28"
+                          />
+                        )
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[190px] truncate" title={rule.entity}>
+                          {rule.entity || '—'}
+                        </span>
+                      )}
+
+                    </div>
+                    <div className={isEditing ? undefined : 'pr-2'}>
+                    <SplitPair
+                      compact={!isEditing}
+                      isEditing={isEditing}
+                      type={rule.type}
+                      percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (commissionAfterOffTop > 0 ? ((calculatedItem?.amount || 0) / commissionAfterOffTop) * 100 : 0)}
+                      dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
+                      deduction
+                      onPercentChange={(val) => {
+                        if (rule.type !== 'PERCENT') onTogglePreSplitRuleType?.(rule.id);
+                        onUpdatePreSplitRuleValue?.(rule.id, val);
+                      }}
+                      onAmountChange={(val) => {
+                        if (rule.type !== 'AMOUNT') onTogglePreSplitRuleType?.(rule.id);
+                        onUpdatePreSplitRuleValue?.(rule.id, val);
+                      }}
+                      preventMinus={preventMinus}
+                    />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+          </>
+        )}
 
         {agentLayout === 'table' ? (
           <CommissionWaterfallTable
