@@ -12,7 +12,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Soleox REBI > Main Menu',
+    default: 'Soleox REBI > Home',
     template: 'Soleox REBI > %s',
   },
   description: 'Soleox Real Estate Business Intelligence',

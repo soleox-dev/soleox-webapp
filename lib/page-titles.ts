@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 export function titleForPath(pathname: string): string | null {
   const path = pathname.split('?')[0].replace(/\/$/, '') || '/';
 
-  if (path === '/') return 'Main Menu';
+  if (path === '/') return 'Home';
   if (path.startsWith('/owner-reports')) return 'Owner Reports';
   if (path.startsWith('/agent-reports')) return 'Agent Reports';
   if (path.startsWith('/office-reports')) return 'Office Reports';
