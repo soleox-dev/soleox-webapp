@@ -15,7 +15,7 @@ export function titleForPath(pathname: string): string | null {
   if (path === '/commission-tracker/transactions/new') return 'New Transaction';
   if (path.startsWith('/commission-tracker/transactions/')) return 'Transaction Detail';
   if (path.startsWith('/commission-tracker/agents')) return 'Agents';
-  if (path.startsWith('/commission-tracker/settings/fields')) return 'Field Customizations';
+  if (path.startsWith('/commission-tracker/settings/fields')) return 'Fields';
   if (path.startsWith('/commission-tracker/settings/transaction-view')) return 'Transactions: Views';
   if (path.startsWith('/commission-tracker/settings/integrations')) return 'Transactions: TMS Integrations';
   if (path.startsWith('/commission-tracker/settings/scorecards')) return 'Transactions: Scorecards';

@@ -8,7 +8,7 @@ import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { OptionMenu } from '@/components/ui/option-menu';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
 import { EditPencil } from '@/components/ui/edit-pencil';
-import { Folder, List, User } from 'lucide-react';
+import { GripVertical, List, User } from 'lucide-react';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { ToastBanner } from '@/components/ui/ToastBanner';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -62,6 +62,20 @@ interface FieldConfig {
   /** Place in Key Terms on Transaction Detail; null when the field is not in Key Terms. */
   key_terms_position?: number | null;
 }
+
+/** Field types as people say them. */
+const FIELD_TYPE_LABELS: Record<string, string> = {
+  TEXT: 'Text',
+  NUMBER: 'Number',
+  CURRENCY: 'Currency',
+  PERCENT: 'Percent',
+  DATE: 'Date',
+  SELECT: 'Dropdown',
+  AGENT_PICKER: 'Agent',
+  BOOLEAN: 'Checkbox',
+};
+/** A quiet chip for facts about a field: its type, options, and limits. */
+const META_CHIP = 'rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-700/60 dark:text-slate-300';
 
 interface ExistingCatalogField {
   field_key: string;
@@ -529,6 +543,73 @@ export default function FieldCustomizationsPage() {
     if (activeTab === 'transactions') setTxFields(newFields);
     else setAgentFields(newFields);
 
+    await persistFieldsList(newFields);
+  };
+
+  // Drag and drop: a section moves to the place of the section it is dropped on; a field lands before the
+  // field it is dropped on, or at the end of a section, and can change section that way. Saves like the arrows.
+  type DragItem = { kind: 'section'; name: string } | { kind: 'field'; id: string; section: string };
+  const [dragItem, setDragItem] = useState<DragItem | null>(null);
+  // fieldId: a field to drop before, null for the end of the section, undefined for a section drop.
+  const [dropTarget, setDropTarget] = useState<{ section: string; fieldId?: string | null } | null>(null);
+  const clearDrag = () => {
+    setDragItem(null);
+    setDropTarget(null);
+  };
+
+  const handleDrop = async () => {
+    const item = dragItem;
+    const target = dropTarget;
+    clearDrag();
+    if (!item || !target) return;
+    const list = activeTab === 'transactions' ? txFields : agentFields;
+
+    if (item.kind === 'section') {
+      const from = orderedSectionNames.indexOf(item.name);
+      const to = orderedSectionNames.indexOf(target.section);
+      if (from === -1 || to === -1 || from === to) return;
+      const order = [...orderedSectionNames];
+      order.splice(from, 1);
+      order.splice(to, 0, item.name);
+      const newFields = list.map((field) => {
+        const index = order.indexOf(field.section_name || 'General');
+        return index === -1 ? field : { ...field, section_sort_order: index + 1 };
+      });
+      if (activeTab === 'transactions') setTxFields(newFields);
+      else setAgentFields(newFields);
+      await persistFieldsList(newFields);
+      return;
+    }
+
+    if (target.fieldId === item.id) return;
+    const moving = list.find((field) => field.id === item.id);
+    if (!moving) return;
+    const targetSection = target.section;
+    const sectionOrder = orderedSectionNames.indexOf(targetSection) + 1;
+    const destination = list
+      .filter((field) => (field.section_name || 'General') === targetSection && field.id !== item.id)
+      .sort((a, b) => a.sort_order - b.sort_order);
+    const insertAt = target.fieldId ? destination.findIndex((field) => field.id === target.fieldId) : destination.length;
+    destination.splice(insertAt === -1 ? destination.length : insertAt, 0, moving);
+    const source = item.section === targetSection
+      ? []
+      : list
+        .filter((field) => (field.section_name || 'General') === item.section && field.id !== item.id)
+        .sort((a, b) => a.sort_order - b.sort_order);
+
+    const newFields = list.map((field) => {
+      const destIndex = destination.findIndex((other) => other.id === field.id);
+      if (destIndex !== -1) {
+        return { ...field, section_name: targetSection, section_sort_order: sectionOrder || field.section_sort_order, sort_order: destIndex + 1 };
+      }
+      const sourceIndex = source.findIndex((other) => other.id === field.id);
+      return sourceIndex === -1 ? field : { ...field, sort_order: sourceIndex + 1 };
+    });
+    const unchanged = newFields.every((field, index) => field === list[index]
+      || (field.sort_order === list[index].sort_order && field.section_name === list[index].section_name));
+    if (unchanged) return;
+    if (activeTab === 'transactions') setTxFields(newFields);
+    else setAgentFields(newFields);
     await persistFieldsList(newFields);
   };
 
@@ -1077,34 +1158,31 @@ export default function FieldCustomizationsPage() {
   };
 
   const renderValidationBadge = (field: FieldConfig) => {
+    // Only rules that are actually set; an empty min or max is not a rule.
     const rules: string[] = [];
-    if (field.min_value !== undefined) rules.push(`Min: ${field.min_value}`);
-    if (field.max_value !== undefined) rules.push(`Max: ${field.max_value}`);
-    if (field.min_date) rules.push(`Min Date: ${field.min_date}`);
-    if (field.max_length) rules.push(`Max Len: ${field.max_length}ch`);
-    if (field.regex_pattern) rules.push(`RegEx ${field.regex_mode === 'EQUALS' ? 'Equals' : 'Matches'}`);
+    if (field.min_value != null) rules.push(`Min ${field.min_value}`);
+    if (field.max_value != null) rules.push(`Max ${field.max_value}`);
+    if (field.min_date) rules.push(`From ${field.min_date}`);
+    if (field.max_length) rules.push(`Up to ${field.max_length} characters`);
+    if (field.regex_pattern) rules.push(field.regex_mode === 'EQUALS' ? 'Must equal a pattern' : 'Must match a pattern');
     if (field.dropdown_options && field.dropdown_options.length > 0) {
-      rules.push(`${field.dropdown_options.length} Options`);
+      rules.push(`${field.dropdown_options.length} ${field.dropdown_options.length === 1 ? 'option' : 'options'}`);
     }
 
-    if (rules.length === 0) return <span className="text-slate-400 font-normal">None</span>;
-
-    return (
-      <span className="text-[10px] bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
-        {rules.join(' | ')}
-      </span>
-    );
+    return rules.map((rule) => (
+      <span key={rule} className={META_CHIP}>{rule}</span>
+    ));
   };
 
   const renderRuleSummary = (ruleGroup?: VisibilityRuleGroup) => {
-    if (!ruleGroup || !Array.isArray(ruleGroup.conditions) || ruleGroup.conditions.length === 0) {
-      return <span className="text-slate-400 font-normal">Always Visible</span>;
-    }
+    // A field with no rules is always shown, so it gets no chip.
+    if (!ruleGroup || !Array.isArray(ruleGroup.conditions) || ruleGroup.conditions.length === 0) return null;
 
     const count = ruleGroup.conditions.length;
+    const joiner = count > 1 ? (ruleGroup.operator === 'AND' ? ', all must match' : ', any can match') : '';
     return (
-      <span className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/30 px-1.5 py-0.5 rounded font-bold">
-        👁️ Rules: {count} Condition{count > 1 ? 's' : ''} ({ruleGroup.operator})
+      <span className="rounded-full bg-brand-500/10 px-2 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-400">
+        Shown when {count} {count === 1 ? 'condition matches' : `conditions${joiner}`}
       </span>
     );
   };
@@ -1119,7 +1197,7 @@ export default function FieldCustomizationsPage() {
       {confirmDialog}
 
       {/* Top Controller Bar */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-md flex justify-between items-center transition-colors">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-xs flex flex-wrap justify-between items-center gap-3 transition-colors">
         <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
           <button
             onClick={() => setActiveTab('transactions')}
@@ -1130,7 +1208,7 @@ export default function FieldCustomizationsPage() {
             }`}
           >
             <List className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-            Transactions Schema
+            Transactions
           </button>
 
           <button
@@ -1142,7 +1220,7 @@ export default function FieldCustomizationsPage() {
             }`}
           >
             <User className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-            Agents Schema
+            Agents
           </button>
         </div>
 
@@ -1152,7 +1230,7 @@ export default function FieldCustomizationsPage() {
             disabled={isSavingField}
             className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
-            <span>+ Add Field Config</span>
+            <span>+ Add field</span>
           </button>
         </div>
       </div>
@@ -1179,65 +1257,119 @@ export default function FieldCustomizationsPage() {
       )}
 
       {/* Configurations Table */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md overflow-hidden transition-colors">
-        <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden transition-colors">
+        <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex flex-wrap justify-between items-center gap-2">
           <div>
             <h2 className="text-xs font-bold text-slate-900 dark:text-white">
-              {activeTab === 'transactions' ? 'Transactions' : 'Agents'} Schema & Rules
+              {activeTab === 'transactions' ? 'Transaction' : 'Agent'} fields
             </h2>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-              Table: <code className="font-mono text-emerald-600 dark:text-emerald-400">client_field_configurations</code>
+              Sections and their order set the order of {activeTab === 'transactions' ? 'the Transactions table and the Transaction Detail' : 'the Agents table and the agent form'}.
             </p>
           </div>
-          <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold px-2 py-1 rounded border border-slate-200 dark:border-slate-700">
-            {currentFields.length} Configurations Active
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            {currentFields.length} {currentFields.length === 1 ? 'field' : 'fields'}
           </span>
         </div>
 
-        <div className="divide-y divide-slate-200 dark:divide-slate-700/60 max-h-[700px] overflow-y-auto">
+        {/* Sections and fields reorder by dragging the grip, or with the arrows from the keyboard. Each move saves right away. */}
+        <div className="divide-y divide-slate-200 dark:divide-slate-700/60">
           {orderedSectionNames.map((secName, secIdx) => {
             const fields = currentFields
               .filter((f) => (f.section_name || 'General') === secName)
               .sort((a, b) => a.sort_order - b.sort_order);
+            const sectionDropHere = dragItem?.kind === 'section' && dragItem.name !== secName && dropTarget?.section === secName && !dropTarget.fieldId;
+            const fieldDropAtEnd = dragItem?.kind === 'field' && dropTarget?.section === secName && dropTarget.fieldId === null;
 
             return (
-              <div key={secName} className="p-4 space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-700 dark:text-brand-400">
-                      <Folder className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-                      Section:
-                    </span>
-                    <span className="bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/20 text-xs font-bold text-slate-900 dark:text-white">
-                      {secName}
-                    </span>
-
-                    <ReorderControls
-                      onMoveUp={() => handleMoveSection(secName, 'UP')}
-                      onMoveDown={() => handleMoveSection(secName, 'DOWN')}
-                      isFirst={secIdx === 0}
-                      isLast={secIdx === orderedSectionNames.length - 1}
-                    />
-                  </div>
-
-                  <span className="text-[10px] text-slate-400">{fields.length} Fields</span>
+              <div
+                key={secName}
+                className={`p-4 space-y-2 transition-colors ${dragItem?.kind === 'section' && dragItem.name === secName ? 'opacity-50' : ''}`}
+                onDragOver={(event) => {
+                  if (!dragItem) return;
+                  event.preventDefault();
+                  if (dragItem.kind === 'section') setDropTarget({ section: secName, fieldId: undefined });
+                  else if (event.target === event.currentTarget) setDropTarget({ section: secName, fieldId: null });
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  void handleDrop();
+                }}
+              >
+                <div
+                  className={`flex items-center gap-2 rounded-full bg-brand-500/10 py-1 pl-1.5 pr-3 dark:bg-brand-500/15 ${sectionDropHere ? 'ring-2 ring-brand-500' : ''}`}
+                >
+                  <span
+                    draggable
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = 'move';
+                      event.dataTransfer.setData('text/plain', secName);
+                      setDragItem({ kind: 'section', name: secName });
+                    }}
+                    onDragEnd={clearDrag}
+                    title="Drag to reorder sections"
+                    aria-hidden
+                    className="inline-flex h-6 w-5 shrink-0 cursor-grab items-center justify-center rounded-full text-brand-700/60 hover:text-brand-700 active:cursor-grabbing dark:text-brand-400/60 dark:hover:text-brand-400"
+                  >
+                    <GripVertical className="h-3.5 w-3.5" strokeWidth={2} />
+                  </span>
+                  <span className="min-w-0 truncate text-xs font-bold text-brand-700 dark:text-brand-400">{secName}</span>
+                  <ReorderControls
+                    size="sm"
+                    onMoveUp={() => handleMoveSection(secName, 'UP')}
+                    onMoveDown={() => handleMoveSection(secName, 'DOWN')}
+                    isFirst={secIdx === 0}
+                    isLast={secIdx === orderedSectionNames.length - 1}
+                    upTooltip="Move section up"
+                    downTooltip="Move section down"
+                  />
+                  <span className="ml-auto shrink-0 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    {fields.length} {fields.length === 1 ? 'field' : 'fields'}
+                  </span>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {fields.map((f, fieldIdx) => {
                     const isSystemMandatory = MANDATORY_SYSTEM_KEYS.has(f.field_key) || f.is_system;
                     const isAudit = READ_ONLY_AUDIT_KEYS.has(f.field_key);
-                    
+
                     // Strict formula badge check: Field type must be CURRENCY, NUMBER, or PERCENT and formula string must not be empty
                     const isNumericType = f.field_type === 'CURRENCY' || f.field_type === 'NUMBER' || f.field_type === 'PERCENT';
                     const hasFormula = Boolean(isNumericType && f.calculation_formula && f.calculation_formula.trim().length > 0);
+                    const isDragging = dragItem?.kind === 'field' && dragItem.id === f.id;
+                    const dropBefore = dragItem?.kind === 'field' && !isDragging && dropTarget?.fieldId === f.id;
 
                     return (
                       <div
                         key={f.id}
-                        className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900/60 rounded-lg border border-slate-200 dark:border-slate-700 text-xs hover:border-slate-300 dark:hover:border-slate-600 transition"
+                        onDragOver={(event) => {
+                          if (dragItem?.kind !== 'field') return;
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setDropTarget({ section: secName, fieldId: f.id });
+                        }}
+                        className={`relative flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border bg-white px-2 py-2 text-xs transition dark:bg-slate-900/40 ${
+                          isDragging ? 'opacity-40' : ''
+                        } ${f.is_enabled || isAudit ? '' : 'opacity-60'} border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600`}
                       >
-                        <div className="flex items-center gap-3">
+                        {dropBefore && <span aria-hidden className="pointer-events-none absolute inset-x-1 -top-1 h-0.5 rounded-full bg-brand-500" />}
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                          <span
+                            draggable
+                            onDragStart={(event) => {
+                              event.dataTransfer.effectAllowed = 'move';
+                              event.dataTransfer.setData('text/plain', f.id);
+                              const row = event.currentTarget.closest('[class*="rounded-lg"]');
+                              if (row instanceof HTMLElement) event.dataTransfer.setDragImage(row, 16, 16);
+                              setDragItem({ kind: 'field', id: f.id, section: secName });
+                            }}
+                            onDragEnd={clearDrag}
+                            title="Drag to reorder, or into another section"
+                            aria-hidden
+                            className="inline-flex h-8 w-5 shrink-0 cursor-grab items-center justify-center rounded text-slate-300 hover:text-slate-500 active:cursor-grabbing dark:text-slate-600 dark:hover:text-slate-400"
+                          >
+                            <GripVertical className="h-4 w-4" strokeWidth={2} />
+                          </span>
                           <ReorderControls
                             size="sm"
                             orientation="vertical"
@@ -1247,53 +1379,34 @@ export default function FieldCustomizationsPage() {
                             isLast={fieldIdx === fields.length - 1}
                           />
 
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-slate-900 dark:text-white">{f.field_label}</span>
-                              {isSystemMandatory && (
-                                <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300 font-mono">
-                                  SYSTEM
-                                </span>
-                              )}
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <span className="font-semibold text-slate-900 dark:text-white">{f.field_label}</span>
+                              <span className="font-mono text-[10.5px] text-slate-400 dark:text-slate-500">{f.field_key}</span>
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              <span className={META_CHIP}>{FIELD_TYPE_LABELS[f.field_type] || f.field_type}</span>
+                              {isSystemMandatory && <span className={META_CHIP}>System</span>}
                               {f.storage_type === 'CUSTOM_JSON' && (
-                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30">
-                                  CUSTOM ATTRIBUTE
-                                </span>
+                                <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300">Custom</span>
                               )}
                               {hasFormula && (
-                                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30 font-mono">
-                                  FORMULA
-                                </span>
+                                <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300">Formula</span>
                               )}
-                            </div>
-
-                            <div className="flex items-center gap-3 mt-1">
-                              <span className="text-[10px] font-mono text-slate-400">Key: {f.field_key}</span>
-                              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 rounded border border-emerald-500/20">
-                                {f.field_type}
-                              </span>
-
-                              <div className="flex items-center gap-1 text-[10px]">
-                                <span className="text-slate-400">Visibility:</span>
-                                {renderRuleSummary(f.visibility_rules)}
-                              </div>
-
-                              <div className="flex items-center gap-1 text-[10px]">
-                                <span className="text-slate-400">Validations:</span>
-                                {renderValidationBadge(f)}
-                              </div>
+                              {renderRuleSummary(f.visibility_rules)}
+                              {renderValidationBadge(f)}
                             </div>
                           </div>
                         </div>
 
                         {/* Inline Controls & Action Buttons */}
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-3 border-r border-slate-200 dark:border-slate-700 pr-3 text-[11px]">
+                        <div className="ml-auto flex shrink-0 items-center gap-3">
+                          <div className="flex items-center gap-4 border-r border-slate-200 pr-3 text-[11px] dark:border-slate-700">
                             <label
                               className={`flex items-center gap-1.5 ${
                                 isAudit ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
                               }`}
-                              title={isAudit ? 'Audit field state cannot be modified' : 'Toggle field visibility in forms'}
+                              title={isAudit ? 'Audit field state cannot be modified' : 'Turn the field on or off in forms'}
                             >
                               <input
                                 type="checkbox"
@@ -1302,14 +1415,14 @@ export default function FieldCustomizationsPage() {
                                 onChange={(e) => handleInlineToggle(f, 'is_enabled', e.target.checked)}
                                 className="rounded text-emerald-500 focus:ring-brand-500 disabled:cursor-not-allowed cursor-pointer"
                               />
-                              <span className="text-slate-600 dark:text-slate-400 font-medium">Enabled</span>
+                              <span className="text-slate-600 dark:text-slate-300 font-medium">Enabled</span>
                             </label>
 
                             <label
                               className={`flex items-center gap-1.5 ${
                                 isSystemMandatory ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
                               }`}
-                              title={isSystemMandatory ? 'System fields are required by default' : 'Toggle required validation'}
+                              title={isSystemMandatory ? 'System fields are always required' : 'Make the field required'}
                             >
                               <input
                                 type="checkbox"
@@ -1318,27 +1431,29 @@ export default function FieldCustomizationsPage() {
                                 onChange={(e) => handleInlineToggle(f, 'is_required', e.target.checked)}
                                 className="rounded text-emerald-500 focus:ring-brand-500 disabled:cursor-not-allowed cursor-pointer"
                               />
-                              <span className="text-slate-600 dark:text-slate-400 font-medium">Required</span>
+                              <span className="text-slate-600 dark:text-slate-300 font-medium">Required</span>
                             </label>
                           </div>
 
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(f)}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
-                            title="Configure"
-                            aria-label={`Configure ${f.field_label}`}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
+                            title="Edit field"
+                            aria-label={`Edit ${f.field_label}`}
                           >
                             <EditPencil className="h-[18px] w-[18px]" />
                           </button>
 
                           <button
+                            type="button"
                             disabled={isSystemMandatory}
                             onClick={() => handleDeleteField(f.id)}
-                            className={`text-rose-500 hover:text-rose-600 font-bold p-1 rounded hover:bg-rose-500/10 cursor-pointer ${
-                              isSystemMandatory ? 'opacity-20 cursor-not-allowed' : ''
+                            aria-label={`Delete ${f.field_label}`}
+                            className={`inline-flex h-7 w-7 items-center justify-center rounded text-slate-400 transition ${
+                              isSystemMandatory ? 'invisible' : 'hover:bg-rose-500/10 hover:text-rose-600 cursor-pointer'
                             }`}
-                            title={isSystemMandatory ? 'Mandatory system fields cannot be deleted' : 'Delete field configuration'}
+                            title={isSystemMandatory ? 'System fields cannot be deleted' : 'Delete field'}
                           >
                             <TrashIcon />
                           </button>
@@ -1346,6 +1461,7 @@ export default function FieldCustomizationsPage() {
                       </div>
                     );
                   })}
+                  {fieldDropAtEnd && <div aria-hidden className="h-0.5 rounded-full bg-brand-500" />}
                 </div>
               </div>
             );
@@ -1359,7 +1475,7 @@ export default function FieldCustomizationsPage() {
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-xl rounded-xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                {editingField ? `Configure ${editingField.field_label}` : 'Add Field Configuration'}
+                {editingField ? `Edit ${editingField.field_label}` : 'Add field'}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -1391,7 +1507,7 @@ export default function FieldCustomizationsPage() {
                       : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 disabled:opacity-40'
                   }`}
                 >
-                  Select Existing DB Column ({availableCatalogOptions.length})
+                  Built-in field ({availableCatalogOptions.length})
                 </button>
                 <button
                   type="button"
@@ -1417,7 +1533,7 @@ export default function FieldCustomizationsPage() {
                       : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                   }`}
                 >
-                  + Create Custom JSON Field
+                  + Custom field
                 </button>
               </div>
             )}

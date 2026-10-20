@@ -103,7 +103,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     | { kind: 'section'; label: string; items: NavLink[] };
 
   const nav: NavEntry[] = [
-    { kind: 'link', item: { label: 'Field Customizations', href: '/commission-tracker/settings/fields', icon: Settings2 } },
+    { kind: 'link', item: { label: 'Fields', href: '/commission-tracker/settings/fields', icon: Settings2 } },
     {
       kind: 'section',
       label: 'Transactions',

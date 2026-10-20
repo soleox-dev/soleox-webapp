@@ -143,7 +143,7 @@ export function TransactionOverview({
     return { text: String(rawVal) };
   };
 
-  // Key Terms: the fields the client picked in Field Customizations, in their Key Terms order, as one
+  // Key Terms: the fields the client picked in Settings › Fields, in their Key Terms order, as one
   // table at the top. Those fields leave their own sections here; sections and the Transactions table
   // keep their order. A section with nothing left drops out of the columns.
   const keyTermsFields = Object.values(groupedSections)

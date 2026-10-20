@@ -12,7 +12,7 @@ Use `underlineShell`, `underlineLabel`, `underlineControl`, and `UnderlineField`
 
 Use `OptionMenu` from `@/components/ui/option-menu` for a single-choice dropdown. `ClearableSelect` is that same menu. The closed control is an underline field with a chevron. The open list is a rounded panel, and the row under the pointer is the brand sky. The list is created only while the menu is open. `FieldChevron` sits in the shell when the control uses `overview-field-select`, which hides the extra chevron.
 
-A dropdown that must accept a new typed value uses `allowCustom`, the way Section does on Field Customizations.
+A dropdown that must accept a new typed value uses `allowCustom`, the way Section does on Settings › Fields.
 
 Commission waterfall text inputs keep their own compact underline. Do not restyle them.
 

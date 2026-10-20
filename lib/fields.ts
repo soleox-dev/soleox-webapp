@@ -170,7 +170,7 @@ export function formatPercent(val: unknown, _decimals?: number): string {
 }
 
 /**
- * Internal record keys stay in Field Customizations so formulas can reference them.
+ * Internal record keys stay in Settings › Fields so formulas can reference them.
  * Tables and data-entry forms do not render them.
  * On a transaction, agent_id is the Primary Agent and stays visible.
  */
