@@ -1263,7 +1263,7 @@ export default function AgentsPage() {
                 </tr>
               )}
             </thead>
-            <tbody className="font-medium text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800">
+            <tbody className="font-normal text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800">
               {isLoading ? (
                 <tr>
                   <td colSpan={activeConfigs.length + (canWriteTracker ? 1 : 0) + (bulkMode ? 1 : 0)} className="p-5 text-center text-slate-400">
@@ -1329,11 +1329,11 @@ export default function AgentsPage() {
                       // Column: ID Column
                       if (cfg.field_key === 'id' || cfg.field_key === 'agent_id') {
                         return (
-                          <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap font-bold`}>
+                          <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap font-mono text-[12px]`}>
                             {canWriteTracker ? (
                             <button
                               onClick={() => handleOpenEdit(ag)}
-                              className="text-emerald-600 dark:text-emerald-400 hover:underline transition text-left cursor-pointer"
+                              className="text-brand-700 dark:text-brand-400 hover:underline transition text-left cursor-pointer"
                             >
                               {String(rawVal || ag.id)}
                             </button>
@@ -1351,12 +1351,12 @@ export default function AgentsPage() {
                             {canWriteTracker ? (
                             <button
                               onClick={() => handleOpenEdit(ag)}
-                              className="font-bold text-slate-900 dark:text-white hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition text-left cursor-pointer"
+                              className="font-medium text-slate-900 dark:text-white hover:text-brand-700 dark:hover:text-brand-400 hover:underline transition text-left cursor-pointer"
                             >
                               {String(rawVal || '—')}
                             </button>
                             ) : (
-                            <span className="font-bold text-slate-900 dark:text-white">{String(rawVal || '—')}</span>
+                            <span className="font-medium text-slate-900 dark:text-white">{String(rawVal || '—')}</span>
                             )}
                           </td>
                         );
@@ -1382,12 +1382,12 @@ export default function AgentsPage() {
                               type="button"
                               onClick={() => toggleStatus(ag)}
                               disabled={!canToggle}
-                              className={`${badgeSize} rounded-full text-[11px] font-bold border transition ${canToggle ? 'cursor-pointer' : 'cursor-default'} ${badgeStyle}`}
+                              className={`${badgeSize} rounded-full text-[11px] font-semibold border transition ${canToggle ? 'cursor-pointer' : 'cursor-default'} ${badgeStyle}`}
                             >
                               {st || '—'}
                             </button>
                             ) : (
-                            <span className={`${badgeSize} rounded-full text-[11px] font-bold border ${badgeStyle}`}>
+                            <span className={`${badgeSize} rounded-full text-[11px] font-semibold border ${badgeStyle}`}>
                               {st || '—'}
                             </span>
                             )}
@@ -1411,7 +1411,7 @@ export default function AgentsPage() {
                         return (
                           <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap`}>
                             <span
-                              className={`${badgeSize} rounded-full text-[11px] font-bold border ${badgeStyle}`}
+                              className={`${badgeSize} rounded-full text-[11px] font-semibold border ${badgeStyle}`}
                             >
                               {groupStr}
                             </span>

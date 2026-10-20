@@ -1868,7 +1868,7 @@ export default function TransactionsListPage() {
     }
 
     if (field.field_type === 'CURRENCY') {
-      return <span className="font-bold text-slate-900 dark:text-white">{formatTableCurrency(Number(rawVal))}</span>;
+      return <span className="text-slate-900 dark:text-white">{formatTableCurrency(Number(rawVal))}</span>;
     }
 
     if (field.field_type === 'PERCENT' || field.field_key === 'gci_perc') {
@@ -1881,7 +1881,7 @@ export default function TransactionsListPage() {
 
     if (field.field_key === 'agent_id' || field.field_type === 'AGENT_PICKER' || field.field_key === 'primary_agent') {
       const agentDisplayName = getAgentName(rawVal, deal);
-      return <span className="font-semibold text-slate-900 dark:text-white">{agentDisplayName}</span>;
+      return <span className="font-medium text-slate-900 dark:text-white">{agentDisplayName}</span>;
     }
 
     if (field.field_key === 'transaction_status' || field.field_key === 'status') {
@@ -1893,7 +1893,7 @@ export default function TransactionsListPage() {
 
       return (
         <span
-          className={`inline-flex items-center rounded border text-[11px] font-bold ${compactRows ? 'h-4 px-1.5 leading-none' : 'px-2 py-0.5'} ${badgeStyle}`}
+          className={`inline-flex items-center rounded border text-[11px] font-semibold ${compactRows ? 'h-4 px-1.5 leading-none' : 'px-2 py-0.5'} ${badgeStyle}`}
         >
           {st}
         </span>
@@ -2413,7 +2413,7 @@ export default function TransactionsListPage() {
                               className="inline-flex cursor-pointer items-center rounded font-semibold hover:bg-slate-200 dark:hover:bg-slate-800"
                             >
                               {statusLookup ? (
-                                <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-bold ${statusPill}`}>
+                                <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-semibold ${statusPill}`}>
                                   {statusLookup.optionLabel}
                                 </span>
                               ) : (
@@ -2528,7 +2528,7 @@ export default function TransactionsListPage() {
             </thead>
 
             {/* Dynamic Table Body */}
-            <tbody className="text-slate-800 dark:text-slate-200 font-medium bg-white dark:bg-slate-800">
+            <tbody className="text-slate-800 dark:text-slate-200 font-normal bg-white dark:bg-slate-800">
               {isLoading ? (
                 <tr>
                   <td colSpan={schemaFields.length + (canWriteTracker ? 3 : 0) + (bulkMode ? 1 : 0)} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
@@ -2670,11 +2670,11 @@ export default function TransactionsListPage() {
                         >
                           {field.field_key === 'id' ? (
                             !rowNavigates ? (
-                              <span className="font-bold text-slate-800 dark:text-slate-100">{String(deal[field.field_key] || dealId)}</span>
+                              <span className="font-mono text-[12px] text-slate-700 dark:text-slate-300">{String(deal[field.field_key] || dealId)}</span>
                             ) : (
                             <Link
                               href={`/commission-tracker/transactions/${dealId}`}
-                              className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                              className="font-mono text-[12px] text-brand-700 dark:text-brand-400 hover:underline"
                             >
                               {String(deal[field.field_key] || dealId)}
                             </Link>
@@ -2682,12 +2682,12 @@ export default function TransactionsListPage() {
                           ) : field.field_key === 'property_address' ? (
                             !rowNavigates ? (
                               deal.property_address
-                                ? <span className="font-semibold text-slate-800 dark:text-slate-100">{String(deal.property_address)}</span>
+                                ? <span className="font-medium text-slate-800 dark:text-slate-100">{String(deal.property_address)}</span>
                                 : <span className="text-slate-400 italic font-normal">-</span>
                             ) : (
                             <Link
                               href={`/commission-tracker/transactions/${dealId}`}
-                              className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+                              className="font-medium text-brand-700 dark:text-brand-400 hover:underline"
                             >
                               {deal.property_address
                                 ? String(deal.property_address)
@@ -2758,7 +2758,7 @@ export default function TransactionsListPage() {
                         <button
                           type="button"
                           onClick={() => setRowDisplayLimit((prev) => Math.min(prev + 100, processedDeals.length))}
-                          className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                          className="font-semibold text-brand-700 dark:text-brand-400 hover:underline cursor-pointer"
                         >
                           Load next 100
                         </button>
@@ -2876,7 +2876,7 @@ export default function TransactionsListPage() {
                   selected ? 'bg-slate-100 dark:bg-slate-700' : 'hover:bg-slate-100 dark:hover:bg-slate-700'
                 }`}
               >
-                <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-bold ${pill}`}>
+                <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-semibold ${pill}`}>
                   {lookup.optionLabel}
                 </span>
                 <span className={`ml-auto tabular-nums ${selected ? 'text-slate-700 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>
