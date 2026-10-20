@@ -2039,28 +2039,13 @@ export default function TransactionsListPage() {
                 ...(deletedDeals.length > 0 ? [{ key: DELETED_TAB, label: 'Deleted' }] : []),
               ].map((tab) => {
                 const selected = !activeScorecardId && ledgerView === tab.key;
-                const tabClass = tab.key === SYNCED_TAB
-                  ? selected
-                    ? 'bg-amber-400 text-amber-950 border border-amber-400'
-                    : 'bg-amber-100 text-amber-950 border border-amber-300 dark:bg-amber-400/20 dark:text-amber-100 dark:border-amber-400/40'
-                  : tab.key === DELETED_TAB
-                    ? selected
-                      ? 'bg-rose-600 text-white border border-rose-600 dark:bg-rose-500 dark:border-rose-500'
-                      : 'bg-rose-50 text-rose-700 border border-rose-300 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/40'
-                    : selected
-                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border border-transparent'
-                      : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600';
-                const countClass = tab.key === SYNCED_TAB
-                  ? selected
-                    ? 'text-amber-950/70'
-                    : 'text-amber-800/80 dark:text-amber-100/80'
-                  : tab.key === DELETED_TAB
-                    ? selected
-                      ? 'text-white/80'
-                      : 'text-rose-600/80 dark:text-rose-300/80'
-                    : selected
-                      ? 'text-white/80 dark:text-slate-900/70'
-                      : 'text-slate-500 dark:text-slate-400';
+                // Same look as the Agents group tabs: neutral tabs, a raised white tab for the selection, and a
+                // small dot for the two special tabs (amber for Just Synced, rose for Deleted).
+                const tabClass = selected
+                  ? 'bg-white text-slate-900 shadow-xs ring-1 ring-slate-200 dark:bg-slate-700 dark:text-white dark:ring-slate-600'
+                  : 'text-slate-600 hover:bg-white/70 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white';
+                const countClass = selected ? 'text-slate-500 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500';
+                const dotClass = tab.key === SYNCED_TAB ? 'bg-amber-500' : tab.key === DELETED_TAB ? 'bg-rose-500' : '';
                 const count = tab.key === SYNCED_TAB
                   ? syncedMatchCount
                   : tab.key === ALL_TAB
@@ -2083,10 +2068,12 @@ export default function TransactionsListPage() {
                         setActiveScorecardId(null);
                       }
                     }}
-                    className={`inline-flex items-center px-3.5 py-1.5 rounded-md text-xs font-bold transition whitespace-nowrap cursor-pointer ${tabClass}`}
+                    aria-pressed={selected}
+                    className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer ${tabClass}`}
                   >
+                    {dotClass && <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${dotClass}`} />}
                     {tab.label}
-                    <span className={`ml-1.5 tabular-nums ${countClass}`}>
+                    <span className={`tabular-nums ${countClass}`}>
                       {count}
                     </span>
                   </button>
