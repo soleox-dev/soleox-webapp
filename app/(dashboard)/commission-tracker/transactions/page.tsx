@@ -348,6 +348,34 @@ function FitVolume({ value, className }: { value: number; className: string }) {
 }
 
 
+/**
+ * What the page loaded, kept for this browser tab. On return, if it is under an hour old and the client's data
+ * version (migration 052) has not moved, the page runs on these saved responses and keeps the saved template
+ * statuses, so nothing is fetched again or recalculated. Otherwise it shows them with "Updating…" while it
+ * reloads, then checks template statuses on the fresh data.
+ */
+type SavedResponse = { status: number; body: unknown };
+type PageSnapshot = {
+  clientId: string;
+  loadedAt: number;
+  version: number;
+  responses: Map<string, SavedResponse>;
+  drift: { checked: string[]; drifted: string[] } | null;
+};
+const SNAPSHOT_MAX_AGE_MS = 60 * 60 * 1000;
+let pageSnapshot: PageSnapshot | null = null;
+
+async function readDataVersion(): Promise<{ clientId: string; version: number } | null> {
+  try {
+    const response = await fetch('/api/data-version', { cache: 'no-store' });
+    const data = await response.json();
+    if (!response.ok || !data.available || !data.clientId) return null;
+    return { clientId: String(data.clientId), version: Number(data.version) || 0 };
+  } catch {
+    return null;
+  }
+}
+
 export default function TransactionsListPage() {
   const router = useRouter();
   const { access } = useAccess();
@@ -357,6 +385,11 @@ export default function TransactionsListPage() {
   const [deletedDeals, setDeletedDeals] = useState<Record<string, any>[]>([]);
   const [agentsList, setAgentsList] = useState<{ id: string; agent_name?: string; name?: string; [key: string]: any }[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  // True while a saved list is on screen and fresh data is loading behind it.
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  // The deals list that came from the saved snapshot. While it is on screen, its saved template statuses
+  // are shown as they were; any other list gets a live check.
+  const snapshotDealsRef = useRef<Record<string, any>[] | null>(null);
   const [showFilters, setShowFilters] = useState<boolean>(false);
   const [compactRows, setCompactRows] = useState(false);
 
@@ -516,9 +549,10 @@ export default function TransactionsListPage() {
 
   // 1. Fetch Schema Fields & Transactions Data in Parallel
   useEffect(() => {
-    async function initData() {
+    type Loader = (url: string, options: RequestInit) => Promise<Response>;
+    async function runLoad(load: Loader, showLoading: boolean, fromSaved = false) {
       try {
-        setIsLoading(true);
+        if (showLoading) setIsLoading(true);
 
         // Active client ID from session access context
         const activeClientId = access?.clientId || 'DEMO';
@@ -534,23 +568,23 @@ export default function TransactionsListPage() {
         };
 
         const [schemaRes, dealsRes, agentsRes, statusRes, viewRes, scoreRes, templateRes, submissionRes] = await Promise.all([
-          fetch('/api/schema/transactions', fetchOptions),
-          fetch('/api/transactions', fetchOptions),
-          fetch('/api/agents?include_archived=true', fetchOptions),
-          fetch('/api/client-lookup-values?category=TRANSACTION_STATUS', fetchOptions),
-          fetch('/api/transaction-default-view', fetchOptions),
-          fetch('/api/transaction-scorecards', fetchOptions),
-          fetch('/api/commission-templates', fetchOptions),
-          fetch(`/api/commission-template-submissions?client_id=${encodeURIComponent(activeClientId)}`, fetchOptions),
+          load('/api/schema/transactions', fetchOptions),
+          load('/api/transactions', fetchOptions),
+          load('/api/agents?include_archived=true', fetchOptions),
+          load('/api/client-lookup-values?category=TRANSACTION_STATUS', fetchOptions),
+          load('/api/transaction-default-view', fetchOptions),
+          load('/api/transaction-scorecards', fetchOptions),
+          load('/api/commission-templates', fetchOptions),
+          load(`/api/commission-template-submissions?client_id=${encodeURIComponent(activeClientId)}`, fetchOptions),
         ]);
 
         // Load non-blocking secondary integrations & deleted deals in the background
         void (async () => {
           try {
             const [deletedRes, tmsIdsRes, sheetsRes] = await Promise.all([
-              fetch('/api/transactions?view=deleted', fetchOptions),
-              fetch('/api/integrations/tms-ids', fetchOptions),
-              fetch('/api/integrations/google-sheets', fetchOptions),
+              load('/api/transactions?view=deleted', fetchOptions),
+              load('/api/integrations/tms-ids', fetchOptions),
+              load('/api/integrations/google-sheets', fetchOptions),
             ]);
 
             if (deletedRes.ok) {
@@ -649,7 +683,9 @@ export default function TransactionsListPage() {
         if (dealsRes.ok) {
           const dealsData = await dealsRes.json();
           const list = dealsData.transactions || dealsData.deals || dealsData.catalog || [];
-          setDeals(Array.isArray(list) ? list : []);
+          const nextDeals = Array.isArray(list) ? list : [];
+          snapshotDealsRef.current = fromSaved ? nextDeals : null;
+          setDeals(nextDeals);
           if (Array.isArray(list) && list.length > 0) {
             rememberTransactions(list);
             const dealClientId = list.find((deal: Record<string, unknown>) => deal?.client_id)?.client_id;
@@ -751,6 +787,51 @@ export default function TransactionsListPage() {
       } finally {
         setIsLoading(false);
       }
+    }
+
+    async function initData() {
+      const snapshot = pageSnapshot;
+      // With nothing saved there is nothing to compare, so the version is read alongside the data.
+      const versionRead = readDataVersion();
+      const versionAtStart = snapshot ? await versionRead : null;
+      const usable = Boolean(snapshot && versionAtStart && snapshot.clientId === versionAtStart.clientId);
+      const fresh = usable && Date.now() - (snapshot as PageSnapshot).loadedAt < SNAPSHOT_MAX_AGE_MS;
+
+      const fromSnapshot: Loader = async (url, options) => {
+        const saved = snapshot?.responses.get(url);
+        if (saved) return new Response(JSON.stringify(saved.body), { status: saved.status, headers: { 'Content-Type': 'application/json' } });
+        return fetch(url, options);
+      };
+
+      // Nothing changed and under an hour old: the saved page, as it was, with its template statuses.
+      if (usable && fresh && snapshot && versionAtStart && snapshot.version === versionAtStart.version) {
+        await runLoad(fromSnapshot, true, true);
+        return;
+      }
+
+      // Show what was saved while the fresh data loads, so the list is not empty in the meantime.
+      if (usable && snapshot) {
+        await runLoad(fromSnapshot, true, true);
+        setIsRefreshing(true);
+      }
+
+      const responses = new Map<string, SavedResponse>();
+      const fromNetwork: Loader = async (url, options) => {
+        const response = await fetch(url, options);
+        try {
+          responses.set(url, { status: response.status, body: await response.clone().json() });
+        } catch {
+          // A response that is not JSON is not saved; that call simply runs again next time.
+        }
+        return response;
+      };
+      await runLoad(fromNetwork, !(usable && snapshot));
+      setIsRefreshing(false);
+      // Saved under the version read at the start of loading, so a change made during the load is caught next time.
+      const savedVersion = versionAtStart ?? (await versionRead);
+      pageSnapshot = savedVersion
+        ? { clientId: savedVersion.clientId, loadedAt: Date.now(), version: savedVersion.version, responses, drift: null }
+        : null;
     }
 
     initData();
@@ -1041,6 +1122,14 @@ export default function TransactionsListPage() {
       return;
     }
 
+    // Statuses saved with the page snapshot are shown as they were, without recalculating.
+    if (snapshotDealsRef.current && deals === snapshotDealsRef.current && pageSnapshot?.drift) {
+      setPaymentDriftCheckedIds(new Set(pageSnapshot.drift.checked));
+      setPaymentDriftIds(new Set(pageSnapshot.drift.drifted));
+      setPaymentDriftReady(true);
+      return;
+    }
+
     setPaymentDriftCheckedIds(new Set());
     setPaymentDriftReady(false);
 
@@ -1183,6 +1272,7 @@ export default function TransactionsListPage() {
 
       if (!cancelled) {
         setPaymentDriftReady(true);
+        if (pageSnapshot) pageSnapshot.drift = { checked: [...allChecked], drifted: [...drifted] };
       }
     };
 
@@ -2233,6 +2323,7 @@ export default function TransactionsListPage() {
 
         <p className="text-left text-xs text-slate-500 dark:text-slate-400">
           Displaying {processedDeals.length} of {showingDeleted ? deletedDeals.length : deals.length} records
+          {isRefreshing && <span className="ml-2 text-amber-700 dark:text-amber-400">· Updating…</span>}
           {driftCount > 0 && !showingDeleted && (
             <>
               <span className="mx-2 inline-block h-1.5 w-1.5 rounded-full bg-violet-500 align-middle" aria-hidden />

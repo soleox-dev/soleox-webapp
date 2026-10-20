@@ -54,7 +54,7 @@ Soleox REBI (Real Estate Business Intelligence) is a multi-tenant B2B real estat
 - Return browser-safe errors with `publicError` / `apiError` from `lib/session.ts`; they keep Postgres/PostgREST details in the server log.
 
 ### Database Schema & Migrations
-- Schema changes are numbered SQL files in `db/migrations/` (`001_…` through `051_payments_payee_entity_index.sql`). Add the next number; never edit an applied migration. Seeds live in `db/seeds/`.
+- Schema changes are numbered SQL files in `db/migrations/` (`001_…` through `052_client_data_versions.sql`). Add the next number; never edit an applied migration. Seeds live in `db/seeds/`.
 - Primary keys use `public.generate_prefixed_id(prefix)` → `PREFIX_<12 uppercase hex>` (e.g. `TXN_`, `AGT_`, `TCI_`, `ENT_`, `TPL_`, `CTR_`). External system IDs go in `tms_id`, never the primary key. Agent names are stored `First Last`. Full prefix registry and entity conventions: `ARCHITECTURE.md`.
 
 ---
