@@ -35,7 +35,7 @@ Soleox REBI (Real Estate Business Intelligence) is a multi-tenant B2B real estat
 
 - **Framework**: Next.js (App Router, React 19, Turbopack)
 - **Language**: TypeScript (strict mode enabled)
-- **Styling**: Tailwind CSS v4 (dark slate palette, emerald accents `#10b981`, custom blocking script for light/dark theme)
+- **Styling**: Tailwind CSS v4 with a custom blocking script for light/dark theme. Instrument Sans for the interface and IBM Plex Mono for display figures (`font-mono`); digits are tabular app-wide. Color roles: `brand-*` (the sky from the logo, defined in `app/globals.css`) marks what you can act on: focus, selection, active nav and tabs, primary buttons. Emerald means money in, paid, closed, or success. Amber is waiting, rose is a problem. Dark mode uses neutral near-blacks (slate-700 to 950 are retuned in the theme). Report colors follow `report-requirements.mdc`.
 - **Database & BaaS**: Supabase (PostgreSQL with Row Level Security)
 - **Authentication**: NextAuth.js (Auth.js) using Google & Microsoft Azure AD OAuth
 - **Database Security Strategy (Custom JWT + RLS)**:
@@ -152,7 +152,7 @@ When resolving custom attributes or fields in formulas (e.g., `XLOOKUP(agent_1, 
 - Do not introduce nested max-widths or extra horizontal padding inside pages wrapped by `pageFrame`.
 
 ### Form Controls
-- **Inputs & Fields**: Use `underlineShell`, `underlineLabel`, `underlineControl`, and `UnderlineField` from `@/components/ui/underline-field`. Faint bottom underline that transitions to emerald on focus.
+- **Inputs & Fields**: Use `underlineShell`, `underlineLabel`, `underlineControl`, and `UnderlineField` from `@/components/ui/underline-field`. Faint bottom underline that turns the brand sky on focus.
 - **Single-Select Dropdowns**: Use `OptionMenu` or `ClearableSelect` from `@/components/ui/option-menu`.
 - **Comboboxes / Custom Inputs**: Use `allowCustom` on `OptionMenu` for dropdowns that accept custom typed entries.
 - **Commission Waterfall Inputs**: Waterfall amount/percentage inputs maintain their own compact styling. Do not alter their layout.
@@ -160,6 +160,11 @@ When resolving custom attributes or fields in formulas (e.g., `XLOOKUP(agent_1, 
 ### Unsaved Changes Guard
 - If a page has a visible, enabled **Save** button, wrap the view with `useRegisterSave` from `@/components/save-leave-guard`.
 - Prevents navigation and displays the three-option dialog: **Save**, **Discard**, or **Stay**.
+
+### Surfaces & Labels
+- Page panels keep a border and at most `shadow-xs`; shadows are for things that float (menus, dialogs, the pinned search pill).
+- Labels, table headers, and chips use sentence case; do not force `uppercase` with wide tracking.
+- On Transactions, each row starts with a thin edge in its status's scorecard color (`status-stripe` in `app/globals.css`).
 
 ### Tables & Owner Reports
 Detailed filter, table, and per-report requirements for Owner/Agent/Office Reports live in `.cursor/rules/report-requirements.mdc`; read it before changing any report.

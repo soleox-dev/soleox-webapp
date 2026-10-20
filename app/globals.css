@@ -307,7 +307,7 @@ thead th.sticky[class*="left-"] {
 /* Enable class-based dark mode for Tailwind v4 */
 @variant dark (&:where(.dark, .dark *));
 
-/* Checkboxes: one modern look everywhere. A rounded box that fills emerald with a white check.
+/* Checkboxes: one modern look everywhere. A rounded box that fills with the brand sky with a white check.
    In the base layer so size, radius and color utilities on an input still win. */
 @layer base {
   input[type="checkbox"] {
@@ -329,20 +329,20 @@ thead th.sticky[class*="left-"] {
   }
 
   input[type="checkbox"]:checked {
-    border-color: #10b981;
-    background-color: #10b981;
+    border-color: #0284c7;
+    background-color: #0284c7;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E");
   }
 
   input[type="checkbox"]:indeterminate {
-    border-color: #10b981;
-    background-color: #10b981;
+    border-color: #0284c7;
+    background-color: #0284c7;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M4 8h8'/%3E%3C/svg%3E");
   }
 
   input[type="checkbox"]:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px rgb(16 185 129 / 0.35);
+    box-shadow: 0 0 0 3px rgb(2 132 199 / 0.35);
   }
 
   input[type="checkbox"]:disabled {
@@ -352,7 +352,7 @@ thead th.sticky[class*="left-"] {
 
   @media (hover: hover) {
     input[type="checkbox"]:not(:disabled):not(:checked):not(:indeterminate):hover {
-      border-color: #10b981;
+      border-color: #0284c7;
     }
   }
 
