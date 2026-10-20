@@ -198,76 +198,60 @@ function AgentAmountInput({
   );
 }
 
-type GroupTone = { pill: string; selected: string };
+type GroupTone = { pill: string };
 
-const GROUP_TONES: Record<string, GroupTone> = {
-  'group a': {
-    pill: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/30',
-    selected: 'bg-indigo-600 text-white border-indigo-600 dark:bg-indigo-500 dark:border-indigo-500',
-  },
-  'group b': {
-    pill: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30',
-    selected: 'bg-amber-500 text-amber-950 border-amber-500',
-  },
-  'group c': {
-    pill: 'bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-500/30',
-    selected: 'bg-teal-600 text-white border-teal-600 dark:bg-teal-500 dark:border-teal-500',
-  },
-  'group d': {
-    pill: 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30',
-    selected: 'bg-rose-600 text-white border-rose-600 dark:bg-rose-500 dark:border-rose-500',
-  },
-  'orange county': {
-    pill: 'bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30',
-    selected: 'bg-orange-500 text-white border-orange-500',
-  },
-};
-
-const DYNAMIC_GROUP_TONES: GroupTone[] = [
-  GROUP_TONES['group a'],
-  GROUP_TONES['group b'],
-  {
-    pill: 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30',
-    selected: 'bg-purple-600 text-white border-purple-600 dark:bg-purple-500 dark:border-purple-500',
-  },
-  GROUP_TONES['group c'],
-  GROUP_TONES['group d'],
-  {
-    pill: 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30',
-    selected: 'bg-sky-600 text-white border-sky-600 dark:bg-sky-500 dark:border-sky-500',
-  },
-  GROUP_TONES['orange county'],
-  {
-    pill: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30',
-    selected: 'bg-emerald-600 text-white border-emerald-600 dark:bg-emerald-500 dark:border-emerald-500',
-  },
-  {
-    pill: 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-400 border-fuchsia-500/30',
-    selected: 'bg-fuchsia-600 text-white border-fuchsia-600 dark:bg-fuchsia-500 dark:border-fuchsia-500',
-  },
-  {
-    pill: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/30',
-    selected: 'bg-cyan-600 text-cyan-950 border-cyan-600 dark:bg-cyan-500 dark:border-cyan-500',
-  },
-  {
-    pill: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30',
-    selected: 'bg-blue-600 text-white border-blue-600 dark:bg-blue-500 dark:border-blue-500',
-  },
-  {
-    pill: 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/30',
-    selected: 'bg-violet-600 text-white border-violet-600 dark:bg-violet-500 dark:border-violet-500',
-  },
+/** Soft group colors, chosen so no two read as the same hue. */
+const GROUP_PALETTE: GroupTone[] = [
+  { pill: 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/25' },
+  { pill: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/25' },
+  { pill: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25' },
+  { pill: 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/25' },
+  { pill: 'bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/25' },
+  { pill: 'bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/25' },
+  { pill: 'bg-lime-500/10 text-lime-700 dark:text-lime-300 border-lime-500/25' },
+  { pill: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/25' },
+  { pill: 'bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/25' },
+  { pill: 'bg-stone-500/10 text-stone-700 dark:text-stone-300 border-stone-500/25' },
 ];
+const UNKNOWN_GROUP_TONE: GroupTone = { pill: 'bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-500/25' };
 
-function groupTone(groupName: string): GroupTone {
-  const clean = groupName.trim().toLowerCase();
-  if (GROUP_TONES[clean]) return GROUP_TONES[clean];
+function nameHash(clean: string): number {
   let hash = 0;
   for (let i = 0; i < clean.length; i++) {
     hash = (hash << 5) - hash + clean.charCodeAt(i);
     hash |= 0;
   }
-  return DYNAMIC_GROUP_TONES[Math.abs(hash) % DYNAMIC_GROUP_TONES.length];
+  return Math.abs(hash);
+}
+
+const isUnknownGroup = (clean: string) => clean.replace(/[^a-z]/g, '') === 'unknown';
+
+/**
+ * Colors for the client's current groups: each starts at its own hashed slot and moves to the next free one,
+ * so no two groups share a color until there are more groups than colors. The same group list always gives the
+ * same colors, and adding a group only moves a group it collides with.
+ */
+let assignedGroupTones = new Map<string, GroupTone>();
+function assignGroupTones(groupNames: string[]) {
+  const next = new Map<string, GroupTone>();
+  const used = new Set<number>();
+  const cleanNames = [...new Set(groupNames.map((name) => name.trim().toLowerCase()).filter((name) => name && !isUnknownGroup(name)))]
+    .sort((a, b) => nameHash(a) - nameHash(b) || a.localeCompare(b));
+  cleanNames.forEach((clean) => {
+    let slot = nameHash(clean) % GROUP_PALETTE.length;
+    if (used.size < GROUP_PALETTE.length) {
+      while (used.has(slot)) slot = (slot + 1) % GROUP_PALETTE.length;
+    }
+    used.add(slot);
+    next.set(clean, GROUP_PALETTE[slot]);
+  });
+  assignedGroupTones = next;
+}
+
+function groupTone(groupName: string): GroupTone {
+  const clean = groupName.trim().toLowerCase();
+  if (isUnknownGroup(clean)) return UNKNOWN_GROUP_TONE;
+  return assignedGroupTones.get(clean) ?? GROUP_PALETTE[nameHash(clean) % GROUP_PALETTE.length];
 }
 
 function getGroupBadgeStyle(groupName: string): string {
@@ -441,6 +425,11 @@ export default function AgentsPage() {
       return true;
     });
   }, [activeConfigs]);
+
+  // Give the client's groups their colors before anything renders a group badge or tab.
+  useMemo(() => {
+    assignGroupTones([...groupOptions, ...agents.map((agent) => agentGroupValue(agent))]);
+  }, [agents, groupOptions]);
 
   const groupCounts = useMemo(() => {
     const counts = new Map<string, number>();
