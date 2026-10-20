@@ -3,7 +3,7 @@ import { generatePrefixedId } from '@/lib/id';
 import { validateFormula } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-validator';
 import { transactionDefaultViewFromSettings } from '@/lib/transaction-default-view';
 import { readGoogleSheet } from '@/lib/google-sheets';
-import { rememberSourceTmsIds } from '@/lib/google-sheet-connection';
+import { loadTmsName, rememberSourceTmsIds } from '@/lib/google-sheet-connection';
 import { transactionDealLabel } from '@/lib/transaction-label';
 import { formatTablePercent } from '@/lib/percent';
 import { fetchAllPages } from '@/lib/supabase-pagination';
@@ -348,11 +348,14 @@ export async function syncGoogleSheetConnection(
     notReady: inspected.validRows === 0 || inspected.errorRows > 0,
   };
   if (sheet.notReady) {
-    console.warn(`[sync] ${clientId} ${connectionId}: stopped after ${attempts} reads of "${tabName}" (${inspected.errorRows} TMS ID errors, ${inspected.validRows} TMS IDs). Nothing was changed.`);
     const errorRowNumbers = table.rows.filter((row) => isSheetErrorRow(row, tmsHeader)).map((row) => row.rowNumber);
+    console.warn(`[sync] ${clientId} ${connectionId}: stopped after ${attempts} reads of "${tabName}" (${inspected.errorRows} TMS ID errors, ${inspected.validRows} TMS IDs). Error rows: ${errorRowNumbers.slice(0, 50).join(', ') || 'none'}. Nothing was changed.`);
+    // Users know their TMS, not the integration tab, so the message names the TMS.
+    const tms = (await loadTmsName(sb, clientId, connectionId)) || 'Your TMS';
+    const count = errorRowNumbers.length;
     const message = inspected.validRows === 0
-      ? `The ${tabName} tab was still loading, so nothing was changed. Try again in a minute.`
-      : `${errorRowNumbers.length === 1 ? 'Row' : 'Rows'} ${errorRowNumbers.slice(0, 10).join(', ')}${errorRowNumbers.length > 10 ? ` and ${errorRowNumbers.length - 10} more` : ''} of the ${tabName} tab ${errorRowNumbers.length === 1 ? 'shows' : 'show'} a sheet error in ${tmsHeader}, so nothing was changed. Fix ${errorRowNumbers.length === 1 ? 'it' : 'them'} or try again in a minute.`;
+      ? `${tms} was still sending transactions, so nothing was changed. Try again in a minute.`
+      : `${tms} sent ${count} transaction${count === 1 ? '' : 's'} without a ${tmsHeader || 'TMS ID'}, so nothing was changed. Try again in a minute.`;
     const blockedRun = await fail(message, 'blocked');
     return { ...blockedRun, sheet };
   }
