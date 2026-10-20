@@ -267,6 +267,18 @@ export function computeTransactionWaterfall({
       netPayouts[r2.entity] = roundCurrency((netPayouts[r2.entity] || 0) + r2.amount);
     });
 
+    // An agent other than the primary whose split comes to $0 once team caps are worked out, and who pays nothing
+    // in any post-split, takes no part in the deal: a team cap recipient that the cap ends up not paying, for one.
+    // The page leaves these agents out of the waterfall, the payments, and what it saves.
+    const idleAgentIds = agents.flatMap((ag) => {
+      const split = splitCalculated.find((item) => item?.agentId === ag.id);
+      if (split?.isPrimary) return [];
+      if (Math.abs(Number(split?.amount) || 0) >= 0.005) return [];
+      const paysPostSplit = [...postSplitCalculated, ...postSplit2Calculated]
+        .some((item) => item.agentId === ag.id && Math.abs(Number(item.amount) || 0) >= 0.005);
+      return paysPostSplit ? [] : [ag.id];
+    });
+
     const agentSplitTotal = roundCurrency(splitCalculated.reduce((sum, item) => sum + (Number(item?.amount) || 0), 0));
     const agentSplitExcess = roundCurrency(Math.max(0, agentSplitTotal - netToSplit));
 
@@ -285,6 +297,7 @@ export function computeTransactionWaterfall({
       netPayouts,
       agentSplitTotal,
       agentSplitExcess,
+      idleAgentIds,
       displayPostSplitRulesByAgent: level1Rules,
       displayPostSplit2RulesByAgent: level2Rules,
     };

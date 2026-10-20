@@ -885,6 +885,11 @@ export default function Dashboard() {
     allocation: allocationForWaterfall,
     templateReplay,
   });
+  // Agents with a $0 split and no post-split to pay, such as a team cap recipient the cap does not pay on this deal.
+  // They stay in the list while the waterfall is being edited, so a split can still be given to them.
+  const idleAgentIds = new Set<string>(dealResult.idleAgentIds || []);
+  const isIdleAgentItem = (item: { agentId?: string | null }) => Boolean(item.agentId && idleAgentIds.has(item.agentId));
+  const waterfallAgents = isEditingWaterfall ? agents : agents.filter((agent) => !idleAgentIds.has(agent.id));
 
   type AllocationSaveRow = {
     agentId: string;
@@ -1246,7 +1251,7 @@ export default function Dashboard() {
           final_amount: item.amount,
         };
       }),
-      ...dealResult.agentSplitItems.map((item: any, idx: number) => {
+      ...dealResult.agentSplitItems.filter((item: any) => !isIdleAgentItem(item)).map((item: any, idx: number) => {
         const matchedAgent = knownAgents.find((a) => a.id === item.agentId || a.name === item.agentName);
         const splitType = item.splitType || 'PERCENT';
         let cleanSplitVal: number | null = null;
@@ -1275,7 +1280,7 @@ export default function Dashboard() {
           final_amount: item.amount,
         };
       }),
-      ...dealResult.postSplitItems.map((item: any, idx: number) => {
+      ...dealResult.postSplitItems.filter((item: any) => !isIdleAgentItem(item)).map((item: any, idx: number) => {
         const matchedEntity = knownEntities.find((e) => e.name === item.entity || e.id === item.entity);
         const matchedAgent = knownAgents.find((a) => a.id === item.agentId || a.name === item.agentName);
         const splitType = item.type || 'PERCENT';
@@ -1297,7 +1302,7 @@ export default function Dashboard() {
           final_amount: item.amount,
         };
       }),
-      ...(dealResult.postSplit2Items || []).map((item: any, idx: number) => {
+      ...(dealResult.postSplit2Items || []).filter((item: any) => !isIdleAgentItem(item)).map((item: any, idx: number) => {
         const matchedEntity = knownEntities.find((e) => e.name === item.entity || e.id === item.entity);
         const matchedAgent = knownAgents.find((a) => a.id === item.agentId || a.name === item.agentName);
         const splitType = item.type || 'PERCENT';
@@ -1322,7 +1327,7 @@ export default function Dashboard() {
     ];
 
     // Build Final Disbursements & Payment Authorizations
-    const currentAgentDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => agents.some((a) => a.name === e)) as [string, number][];
+    const currentAgentDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => agents.some((a) => a.name === e && !idleAgentIds.has(a.id))) as [string, number][];
     const currentEntityDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => !agents.some((a) => a.name === e)) as [string, number][];
     const primaryAgentName = agents.find((agent) => isPrimaryAgent(agent, primaryAgentId))?.name || (typeof primaryAgent === 'string' ? primaryAgent : '') || 'Primary Agent';
 
@@ -1414,7 +1419,7 @@ export default function Dashboard() {
   };
 
   const agentDisbursements = Object.entries(dealResult.netPayouts)
-    .filter(([name]) => agents.some((agent) => agent.name === name))
+    .filter(([name]) => agents.some((agent) => agent.name === name && !idleAgentIds.has(agent.id)))
     .map(([name, amount]) => {
       const agent = agents.find((item) => item.name === name);
       const isPrimary = agent
@@ -1861,7 +1866,7 @@ export default function Dashboard() {
             onStartEdit={handleStartWaterfallEdit}
             onCancelEdit={handleCancelWaterfallEdit}
             onApplyEdit={handleApplyWaterfallEdit}
-            agents={agents}
+            agents={waterfallAgents}
             onOpenAddAgentModal={() => {
               if (!isEditingWaterfall) return;
               setIsAddAgentModalOpen(true);
