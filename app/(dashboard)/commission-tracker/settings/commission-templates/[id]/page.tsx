@@ -28,6 +28,8 @@ interface CommissionTemplate {
   is_active?: boolean | null;
   archived?: boolean | null;
   created_by?: string | null;
+  /** Display names for rule sections; the rules keep their waterfall stage. */
+  rule_section_labels?: Record<string, string> | null;
 }
 
 interface TemplateParameter {
@@ -268,6 +270,14 @@ export default function CommissionTemplateDetailPage() {
   const restoreScrollRef = useRef<{ parameter: number; logic: number; window: number } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
+  // Renaming a parameter section: the section being renamed and the name typed so far.
+  const [renamingSection, setRenamingSection] = useState<string | null>(null);
+  const [sectionDraft, setSectionDraft] = useState('');
+  const [sectionRenameError, setSectionRenameError] = useState<string | null>(null);
+  const [renamingRuleSection, setRenamingRuleSection] = useState<string | null>(null);
+  const [ruleSectionDraft, setRuleSectionDraft] = useState('');
+  const [ruleRenameError, setRuleRenameError] = useState<string | null>(null);
+  const [isSavingRuleLabel, setIsSavingRuleLabel] = useState(false);
   const [dropTarget, setDropTarget] = useState<null | { parameterId: string; placement: 'before' | 'after' } | { sectionName: string }>(null);
   const [logicDropTarget, setLogicDropTarget] = useState<null | { stepId: string; placement: 'before' | 'after' } | { sectionName: string }>(null);
   const [parametersCollapsed, setParametersCollapsed] = useState(true);
@@ -529,6 +539,80 @@ export default function CommissionTemplateDetailPage() {
       await loadTemplate({ keepPlace: true });
     } finally {
       setIsReordering(false);
+    }
+  };
+
+  // Renames a section by moving every parameter in it to the new name. Their order stays as it is.
+  const renameSection = async (oldName: string, nextName: string) => {
+    const name = nextName.trim();
+    const fromUnsectioned = oldName === 'No Section';
+    if (!name || name === oldName) {
+      setRenamingSection(null);
+      return;
+    }
+    const taken = parameters.some((item) => (item.section?.trim() || '') === name);
+    if (taken) {
+      setSectionRenameError(`A section named "${name}" already exists. Pick another name, or move the parameters there instead.`);
+      return;
+    }
+    setSectionRenameError(null);
+    setRenamingSection(null);
+    await commitParameterLayout(parameters.map((item) => {
+      const current = item.section?.trim() || '';
+      const inSection = fromUnsectioned ? current === '' : current === oldName;
+      return inSection ? { ...item, section: name } : item;
+    }));
+  };
+
+  // A rule section's display name. The rules keep their section, which is their waterfall stage.
+  const ruleSectionLabel = (section: string) => template?.rule_section_labels?.[section]?.trim() || section;
+
+  const renameRuleSection = async (section: string, nextName: string) => {
+    if (!template) return;
+    const name = nextName.trim();
+    const current = template.rule_section_labels || {};
+    if (name === ruleSectionLabel(section)) {
+      setRenamingRuleSection(null);
+      return;
+    }
+    const otherSections = [...new Set(logicSteps.map((step) => canonicalLogicSection(step.section || '') || step.section?.trim() || 'No Section'))].filter((other) => other !== section);
+    if (name && otherSections.some((other) => ruleSectionLabel(other).toLowerCase() === name.toLowerCase())) {
+      setRuleRenameError(`Another section is already called "${name}".`);
+      return;
+    }
+    // An empty name, or the stage's own name, goes back to showing the stage.
+    const labels = { ...current };
+    if (!name || name === section) delete labels[section];
+    else labels[section] = name;
+    setIsSavingRuleLabel(true);
+    setRuleRenameError(null);
+    try {
+      const response = await fetch('/api/commission-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          template: {
+            id: template.id,
+            client_id: template.client_id || 'DEMO',
+            template_name: template.template_name,
+            description: template.description || null,
+            eligibility_formula: template.eligibility_formula || null,
+            is_default: Boolean(template.is_default),
+            is_active: template.is_active !== false,
+            archived: Boolean(template.archived),
+            created_by: template.created_by,
+            rule_section_labels: labels,
+          },
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || 'The section name could not be saved.');
+      setTemplate({ ...template, rule_section_labels: labels });
+      setRenamingRuleSection(null);
+    } catch (err) {
+      setRuleRenameError(err instanceof Error ? err.message : 'The section name could not be saved.');
+    } finally {
+      setIsSavingRuleLabel(false);
     }
   };
 
@@ -1338,15 +1422,71 @@ export default function CommissionTemplateDetailPage() {
                             if (sourceId) void dropParameter(sourceId, { sectionName: group.name });
                           }}
                         >
-                          <td colSpan={8} className={`px-4 py-2 ${dropTarget && 'sectionName' in dropTarget && dropTarget.sectionName === group.name ? (isUnsectioned ? 'bg-amber-500/20' : 'bg-brand-500/15') : 'bg-slate-50 dark:bg-slate-900/60'}`}>
-                            <div className="flex items-center gap-2">
-                              <span className={`w-2 h-2 rounded-full ${isUnsectioned ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                              <span className={`text-[11px] font-bold ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                                Section: {group.name}
-                              </span>
-                              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold ml-auto">
-                                {group.items.length} {group.items.length === 1 ? 'Parameter' : 'Parameters'}
-                              </span>
+                          <td colSpan={8} className={`px-4 py-2 ${dropTarget && 'sectionName' in dropTarget && dropTarget.sectionName === group.name ? (isUnsectioned ? 'bg-amber-500/20' : 'bg-brand-500/15') : 'bg-white dark:bg-slate-800'}`}>
+                            {/* The section as a pill, like the Transaction Overview, with Rename beside it. */}
+                            <div className={`flex items-center gap-2 rounded-full py-1 pl-3 pr-1.5 ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}>
+                              {renamingSection === group.name ? (
+                                <form
+                                  className="flex min-w-0 flex-1 items-center gap-2"
+                                  onSubmit={(event) => {
+                                    event.preventDefault();
+                                    void renameSection(group.name, sectionDraft);
+                                  }}
+                                >
+                                  <input
+                                    id={`rename-section-${group.name}`}
+                                    autoFocus
+                                    value={sectionDraft}
+                                    onChange={(event) => {
+                                      setSectionDraft(event.target.value);
+                                      setSectionRenameError(null);
+                                    }}
+                                    onKeyDown={(event) => {
+                                      if (event.key === 'Escape') {
+                                        setRenamingSection(null);
+                                        setSectionRenameError(null);
+                                      }
+                                    }}
+                                    aria-label={`New name for ${group.name}`}
+                                    placeholder={isUnsectioned ? 'Section name' : group.name}
+                                    className="min-w-0 max-w-xs flex-1 rounded-md border border-brand-500/40 bg-white px-2 py-0.5 text-xs font-bold text-slate-900 outline-none focus:border-brand-500 dark:bg-slate-900 dark:text-white"
+                                  />
+                                  <button type="submit" className="rounded-full bg-brand-600 px-3 py-0.5 text-[11px] font-bold text-white hover:bg-brand-500 cursor-pointer">Rename</button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setRenamingSection(null); setSectionRenameError(null); }}
+                                    className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white cursor-pointer"
+                                  >
+                                    Cancel
+                                  </button>
+                                  {sectionRenameError && <span className="truncate text-[11px] font-semibold text-rose-600 dark:text-rose-400">{sectionRenameError}</span>}
+                                </form>
+                              ) : (
+                                <>
+                                  <span className={`text-xs font-bold ${isUnsectioned ? 'text-amber-700 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}>
+                                    {group.name}
+                                  </span>
+                                  {!parameterSearch.trim() && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setRenamingSection(group.name);
+                                        setSectionDraft(isUnsectioned ? '' : group.name);
+                                        setSectionRenameError(null);
+                                      }}
+                                      disabled={isReordering}
+                                      aria-label={`Rename section ${group.name}`}
+                                      title={isUnsectioned ? 'Name this section' : 'Rename section'}
+                                      className="inline-flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition hover:bg-white/70 hover:text-brand-700 disabled:opacity-40 cursor-pointer dark:hover:bg-slate-800 dark:hover:text-brand-400"
+                                    >
+                                      <EditPencil className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
+                                  <span className="ml-auto pr-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                    {group.items.length} {group.items.length === 1 ? 'parameter' : 'parameters'}
+                                  </span>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1539,15 +1679,76 @@ export default function CommissionTemplateDetailPage() {
                             if (sourceId) void dropLogic(sourceId, { sectionName: group.name });
                           }}
                         >
-                          <td colSpan={11} className={`px-4 py-2 ${logicDropTarget && 'sectionName' in logicDropTarget && logicDropTarget.sectionName === group.name ? (isUnsectioned ? 'bg-amber-500/20' : 'bg-brand-500/15') : 'bg-slate-50 dark:bg-slate-900/60'}`}>
-                            <div className="flex items-center gap-2">
-                              <span className={`w-2 h-2 rounded-full ${isUnsectioned ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                              <span className={`text-[11px] font-bold ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                                Section: {group.name}
-                              </span>
-                              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold ml-auto">
-                                {group.items.length} {group.items.length === 1 ? 'Rule' : 'Rules'}
-                              </span>
+                          <td colSpan={11} className={`px-4 py-2 ${logicDropTarget && 'sectionName' in logicDropTarget && logicDropTarget.sectionName === group.name ? (isUnsectioned ? 'bg-amber-500/20' : 'bg-brand-500/15') : 'bg-white dark:bg-slate-800'}`}>
+                            <div className={`flex items-center gap-2 rounded-full py-1 pl-3 pr-1.5 ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}>
+                              {renamingRuleSection === group.name ? (
+                                <form
+                                  className="flex min-w-0 flex-1 items-center gap-2"
+                                  onSubmit={(event) => {
+                                    event.preventDefault();
+                                    void renameRuleSection(group.name, ruleSectionDraft);
+                                  }}
+                                >
+                                  <input
+                                    id={`rename-rule-section-${group.name}`}
+                                    autoFocus
+                                    value={ruleSectionDraft}
+                                    onChange={(event) => {
+                                      setRuleSectionDraft(event.target.value);
+                                      setRuleRenameError(null);
+                                    }}
+                                    onKeyDown={(event) => {
+                                      if (event.key === 'Escape') {
+                                        setRenamingRuleSection(null);
+                                        setRuleRenameError(null);
+                                      }
+                                    }}
+                                    aria-label={`New name for ${ruleSectionLabel(group.name)}`}
+                                    placeholder={group.name}
+                                    className="min-w-0 max-w-xs flex-1 rounded-md border border-brand-500/40 bg-white px-2 py-0.5 text-xs font-bold text-slate-900 outline-none focus:border-brand-500 dark:bg-slate-900 dark:text-white"
+                                  />
+                                  <button type="submit" disabled={isSavingRuleLabel} className="rounded-full bg-brand-600 px-3 py-0.5 text-[11px] font-bold text-white hover:bg-brand-500 disabled:opacity-50 cursor-pointer">{isSavingRuleLabel ? 'Saving…' : 'Rename'}</button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setRenamingRuleSection(null); setRuleRenameError(null); }}
+                                    className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white cursor-pointer"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <span className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                                    {ruleRenameError
+                                      ? <span className="font-semibold text-rose-600 dark:text-rose-400">{ruleRenameError}</span>
+                                      : 'Only the name changes. The rules keep their waterfall stage. Leave it empty to show the stage name.'}
+                                  </span>
+                                </form>
+                              ) : (
+                                <>
+                                  <span className={`text-xs font-bold ${isUnsectioned ? 'text-amber-700 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}>
+                                    {ruleSectionLabel(group.name)}
+                                  </span>
+                                  {ruleSectionLabel(group.name) !== group.name && (
+                                    <span className="text-[11px] text-slate-500 dark:text-slate-400" title="The waterfall stage these rules run in">{group.name}</span>
+                                  )}
+                                  {!logicSearch.trim() && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setRenamingRuleSection(group.name);
+                                        setRuleSectionDraft(ruleSectionLabel(group.name));
+                                        setRuleRenameError(null);
+                                      }}
+                                      aria-label={`Rename section ${ruleSectionLabel(group.name)}`}
+                                      title="Rename section"
+                                      className="inline-flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition hover:bg-white/70 hover:text-brand-700 cursor-pointer dark:hover:bg-slate-800 dark:hover:text-brand-400"
+                                    >
+                                      <EditPencil className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
+                                  <span className="ml-auto pr-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                    {group.items.length} {group.items.length === 1 ? 'rule' : 'rules'}
+                                  </span>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>

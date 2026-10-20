@@ -72,6 +72,17 @@ export async function POST(request: Request) {
       rowPayload.id = existingId;
     }
 
+    // Display names for rule sections: section name to label, both short text. Only sent when the page changes them.
+    if (template.rule_section_labels && typeof template.rule_section_labels === 'object' && !Array.isArray(template.rule_section_labels)) {
+      const labels: Record<string, string> = {};
+      for (const [section, label] of Object.entries(template.rule_section_labels as Record<string, unknown>)) {
+        const cleanSection = String(section).trim().slice(0, 80);
+        const cleanLabel = String(label ?? '').trim().slice(0, 80);
+        if (cleanSection && cleanLabel && cleanLabel !== cleanSection) labels[cleanSection] = cleanLabel;
+      }
+      rowPayload.rule_section_labels = labels;
+    }
+
     // 4. Insert or Upsert
     let query;
     if (isUpdate) {

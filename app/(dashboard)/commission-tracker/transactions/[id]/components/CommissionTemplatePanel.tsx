@@ -258,8 +258,20 @@ function LabeledParameter({
   );
 }
 
-/** Parameter types whose values need room: agent names and free text. */
+/** Parameter types whose values can be long: agent names and free text. */
 const WIDE_PARAMETER_TYPES = new Set<string>(['TEXT', 'AGENT_PICKER']);
+/** About what fits in one narrow column of the template popup. */
+const NARROW_FIELD_CHARS = 14;
+
+/** True when an agent or text parameter shows more than a narrow column fits, so it takes two. */
+function parameterNeedsRoom(parameter: { data_type?: string | null }, value: string, agents: { id: string; name: string }[]): boolean {
+  const type = canonicalParameterType(parameter.data_type);
+  if (!WIDE_PARAMETER_TYPES.has(type)) return false;
+  const shown = type === 'AGENT_PICKER'
+    ? (agents.find((agent) => agent.id === value || agent.name === value)?.name ?? value)
+    : value;
+  return shown.trim().length > NARROW_FIELD_CHARS;
+}
 
 function canonicalParameterType(value?: string | null): ParameterControlType {
   if (value === 'AGENT') return 'AGENT_PICKER';
@@ -1660,8 +1672,8 @@ export function CommissionTemplatePanel({
                       {!isCollapsed && (
                         <div className="mt-1.5 grid gap-x-3 gap-y-1.5 px-1 [grid-template-columns:repeat(auto-fill,minmax(7.5rem,1fr))] @min-[720px]/params:mt-0 @min-[720px]/params:px-0">
                           {group.rows.map(({ parameter, raw }) => (
-                            // Numbers, money, percents, yes/no, dates, and dropdowns take one narrow column; agents and text take two.
-                            <div key={parameter.id} className={WIDE_PARAMETER_TYPES.has(canonicalParameterType(parameter.data_type)) ? 'col-span-2' : 'min-w-0'}>
+                            // Every field starts in one narrow column. An agent or text field widens to two only when what it shows doesn't fit.
+                            <div key={parameter.id} className={parameterNeedsRoom(parameter, values[parameter.id] ?? '', uniqueAgents) ? 'col-span-2' : 'min-w-0'}>
                             <ParameterControl
                               parameter={parameter}
                               value={values[parameter.id] ?? ''}
