@@ -212,7 +212,7 @@ function LabeledParameter({
     ? 'text-rose-600 dark:text-rose-400'
     : locked
     ? 'text-slate-400 dark:text-slate-500'
-    : 'text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
+    : 'text-slate-500 dark:text-slate-400 group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400';
   const shellBorder = invalid
     ? 'border-b-rose-400 dark:border-b-rose-500 focus-within:border-b-rose-600 focus-within:shadow-[0_1px_0_rgb(225_29_72/0.45),0_6px_12px_-6px_rgb(225_29_72/0.8)]'
     : locked
@@ -222,7 +222,7 @@ function LabeledParameter({
   return (
     <div key={flashToken || undefined} className={`group/field relative underline-field rounded-t-md pl-2.5 pr-2.5 pt-1 pb-0.5 border-b transition-colors ${locked ? 'is-locked' : ''} ${changed ? 'is-changed' : ''} ${flashToken ? 'is-recalculated' : ''} ${shellBorder}`}>
       <div className="flex min-w-0 items-center gap-1">
-        <label htmlFor={id} className={`min-w-0 truncate text-[10px] leading-3 font-medium ${labelTone}`}>
+        <label htmlFor={id} title={typeof label === 'string' ? label : undefined} className={`min-w-0 line-clamp-2 break-words text-[10px] leading-3 font-medium ${labelTone}`}>
           {label}
         </label>
         {onReset && (
@@ -257,6 +257,9 @@ function LabeledParameter({
     </div>
   );
 }
+
+/** Parameter types whose values need room: agent names and free text. */
+const WIDE_PARAMETER_TYPES = new Set<string>(['TEXT', 'AGENT_PICKER']);
 
 function canonicalParameterType(value?: string | null): ParameterControlType {
   if (value === 'AGENT') return 'AGENT_PICKER';
@@ -1594,7 +1597,7 @@ export function CommissionTemplatePanel({
                 <button
                   type="button"
                   onClick={() => setActiveGroup('')}
-                  className={`px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${activeGroup === '' ? 'bg-emerald-500 text-slate-950' : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300'}`}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${activeGroup === '' ? 'bg-brand-600 text-white' : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300'}`}
                 >
                   All
                 </button>
@@ -1606,7 +1609,7 @@ export function CommissionTemplatePanel({
                       setActiveGroup(group.name);
                       setCollapsedSections((current) => ({ ...current, [group.name]: false }));
                     }}
-                    className={`px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${activeGroup === group.name ? 'bg-emerald-500 text-slate-950' : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300'}`}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer ${activeGroup === group.name ? 'bg-brand-600 text-white' : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300'}`}
                   >
                     {group.name}
                   </button>
@@ -1632,35 +1635,34 @@ export function CommissionTemplatePanel({
               ) : rows.length === 0 ? (
                 <p className="text-xs text-slate-500">This template has no parameters.</p>
               ) : (
-                <div className={visibleGroups.length > 1 ? '@min-[1280px]/params:columns-5 @min-[1280px]/params:gap-x-4' : ''}>
+                <div className="space-y-2.5 py-1">
                   {visibleGroups.map((group) => {
                     const isUnsectioned = group.name === 'No Section';
                     const isCollapsed = collapsedSections[group.name] === true;
                     return (
-                    <div key={group.name} className={`mb-3 break-inside-avoid rounded-lg border bg-white dark:bg-slate-800 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-slate-200 dark:border-slate-700'}`}>
-                      <div className={`px-3 py-2 flex items-center gap-2 ${isCollapsed ? '' : 'border-b border-slate-200 dark:border-slate-700'}`}>
+                    <div key={group.name} className="min-w-0 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:items-start @min-[720px]/params:gap-3">
+                      {/* Each section is one row: its pill on the left, like the Transaction Overview, and its fields to the right. */}
+                      <div className={`flex items-center gap-2 rounded-full px-3 py-1 @min-[720px]/params:mt-3 ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}>
                         <button
                           type="button"
                           onClick={() => toggleSection(group.name)}
                           title={isCollapsed ? 'Expand Section' : 'Collapse Section'}
                           className="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
                         >
-                          <span className={`w-3 shrink-0 text-center text-sm font-bold leading-none ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                          <span className={`w-3 shrink-0 text-center text-sm font-bold leading-none ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}>
                             {isCollapsed ? '+' : '−'}
                           </span>
-                          <span className={`text-[11px] font-bold ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                          <span className={`text-xs font-bold ${isUnsectioned ? 'text-amber-700 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}>
                             {group.name}
                           </span>
                         </button>
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold">
-                          {group.rows.length} {group.rows.length === 1 ? 'Parameter' : 'Parameters'}
-                        </span>
                       </div>
                       {!isCollapsed && (
-                        <div className="space-y-2 px-3 py-2">
+                        <div className="mt-1.5 grid gap-x-3 gap-y-1.5 px-1 [grid-template-columns:repeat(auto-fill,minmax(7.5rem,1fr))] @min-[720px]/params:mt-0 @min-[720px]/params:px-0">
                           {group.rows.map(({ parameter, raw }) => (
+                            // Numbers, money, percents, yes/no, dates, and dropdowns take one narrow column; agents and text take two.
+                            <div key={parameter.id} className={WIDE_PARAMETER_TYPES.has(canonicalParameterType(parameter.data_type)) ? 'col-span-2' : 'min-w-0'}>
                             <ParameterControl
-                              key={parameter.id}
                               parameter={parameter}
                               value={values[parameter.id] ?? ''}
                               agents={uniqueAgents}
@@ -1671,6 +1673,7 @@ export function CommissionTemplatePanel({
                                 ? undefined
                                 : () => publishParameterValue(parameter.id, raw)}
                             />
+                            </div>
                           ))}
                         </div>
                       )}
@@ -1727,33 +1730,38 @@ export function CommissionTemplatePanel({
                       ) : !ledger || !lookups ? (
                         <p className="text-xs text-slate-500">Calculating...</p>
                       ) : (
-                        <div className={logicGroups.length > 1 ? '@min-[1280px]/params:columns-5 @min-[1280px]/params:gap-x-4' : ''}>
+                        <div className="space-y-2.5 py-1">
                           {logicGroups.map((group) => {
                             const isUnsectioned = group.name === 'No Section';
                             const isCollapsed = collapsedLogicSections[group.name] === true;
                             return (
-                              <div key={group.name} className={`mb-3 break-inside-avoid rounded-lg border bg-white dark:bg-slate-800 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-slate-200 dark:border-slate-700'}`}>
-                                <div className={`px-3 py-2 flex items-center gap-2 ${isCollapsed ? '' : 'border-b border-slate-200 dark:border-slate-700'}`}>
+                              <div key={group.name} className="min-w-0 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:items-start @min-[720px]/params:gap-3">
+                                {/* Each section is one row: its pill on the left, like the Transaction Overview, and its fields to the right. */}
+                      <div className={`flex items-center gap-2 rounded-full px-3 py-1 @min-[720px]/params:mt-3 ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}>
                                   <button
                                     type="button"
                                     onClick={() => toggleLogicSection(group.name)}
                                     title={isCollapsed ? 'Expand Section' : 'Collapse Section'}
                                     className="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
                                   >
-                                    <span className={`w-3 shrink-0 text-center text-sm font-bold leading-none ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                    <span className={`w-3 shrink-0 text-center text-sm font-bold leading-none ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}>
                                       {isCollapsed ? '+' : '−'}
                                     </span>
-                                    <span className={`text-[11px] font-bold ${isUnsectioned ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                    <span className={`text-xs font-bold ${isUnsectioned ? 'text-amber-700 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}>
                                       {group.name}
                                     </span>
                                   </button>
-                                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold">
-                                    {group.rows.length} {group.rows.length === 1 ? 'Result' : 'Results'}
-                                  </span>
                                 </div>
                                 {!isCollapsed && (
-                                  <div className="space-y-2 px-3 py-2">
-                                    {group.rows.map((row) => <CalculationField key={row.id} row={row} />)}
+                                  <div className="mt-1.5 grid gap-x-3 gap-y-1.5 px-1 [grid-template-columns:repeat(auto-fill,minmax(7.5rem,1fr))] @min-[720px]/params:mt-0 @min-[720px]/params:px-0">
+                                    {group.rows.map((row) => {
+                                      const field = calculationField(row);
+                                      return (
+                                        <div key={row.id} className={field.kind === 'text' && field.value ? 'col-span-2' : 'min-w-0'}>
+                                          <CalculationField row={row} />
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                                 )}
                               </div>
