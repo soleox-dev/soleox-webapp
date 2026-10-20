@@ -389,7 +389,6 @@ export default function TransactionsListPage() {
   const [paymentDriftCheckedIds, setPaymentDriftCheckedIds] = useState<Set<string>>(new Set());
   const [paymentDriftReady, setPaymentDriftReady] = useState(false);
   const [rowDisplayLimit, setRowDisplayLimit] = useState(100);
-  const sentinelRef = useRef<HTMLTableRowElement>(null);
   const viewedDealsRef = useRef<Record<string, any>[]>([]);
   
   // Sorting
@@ -1419,18 +1418,23 @@ export default function TransactionsListPage() {
     setRowDisplayLimit(100);
   }, [searchQuery, colFilters, ledgerView, statusSelection, boltTone, tmsFilter, sortField, sortOrder, activeScorecardId]);
 
-  useEffect(() => {
-    if (rowDisplayLimit >= processedDeals.length) return;
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
+  // A callback ref, so the observer follows the sentinel row when the table remounts it.
+  // It is rebuilt when the limit changes so a sentinel that stays in view loads the next page too.
+  const sentinelObserver = useRef<IntersectionObserver | null>(null);
+  const sentinelRef = useCallback((sentinel: HTMLTableRowElement | null) => {
+    sentinelObserver.current?.disconnect();
+    sentinelObserver.current = null;
+    if (!sentinel || rowDisplayLimit >= processedDeals.length) return;
     const observer = new IntersectionObserver((entries) => {
       if (entries[0]?.isIntersecting) {
         setRowDisplayLimit((prev) => Math.min(prev + 100, processedDeals.length));
       }
     }, { rootMargin: '300px' });
     observer.observe(sentinel);
-    return () => observer.disconnect();
+    sentinelObserver.current = observer;
   }, [rowDisplayLimit, processedDeals.length]);
+
+  useEffect(() => () => sentinelObserver.current?.disconnect(), []);
 
   const visibleIds = useMemo(
     () => processedDeals.map((deal) => String(deal.id || '')).filter(Boolean),
