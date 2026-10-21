@@ -12,3 +12,16 @@ export function isWidePagePath(pathname: string): boolean {
     || pathname.startsWith('/agent-reports')
     || pathname.startsWith('/office-reports');
 }
+
+/**
+ * Phones get no cards: the screen is too narrow to spend on a card's border and padding inside the page gutter.
+ * `phoneTitle` turns a page's title card into a plain heading on the page background.
+ */
+export const phoneTitle = 'max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent max-sm:p-0 max-sm:shadow-none dark:max-sm:bg-transparent';
+
+/**
+ * `phoneSheet` turns a content panel (a table, a list, a settings group) into a sheet that runs edge to edge
+ * across the screen, keeping its own padding and a rule above and below. Floating things (menus, dialogs),
+ * the report filters, and small summary tiles keep their cards.
+ */
+export const phoneSheet = 'max-sm:-mx-4 max-sm:rounded-none max-sm:border-x-0 max-sm:shadow-none';

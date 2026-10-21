@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { normalizeAgentName } from '@/lib/id';
 import { formatPercent, isHiddenRecordId } from '@/lib/fields';
-import { widePageFrame } from '@/lib/page-frame';
+import { phoneSheet, phoneTitle, widePageFrame } from '@/lib/page-frame';
 import { formatPercentRate, formatTablePercent } from '@/lib/percent';
 import { BooleanMark, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { underlineControl, underlineShell } from '@/components/ui/underline-field';
@@ -2267,7 +2267,7 @@ export default function TransactionsListPage() {
   return (
     <main className={`${widePageFrame} min-h-screen bg-slate-100 pt-6 pb-3 text-slate-900 transition-colors duration-200 space-y-6 dark:bg-slate-900 dark:text-slate-100 md:pt-8 md:pb-4`}>
       {/* Top Banner */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs flex flex-wrap justify-between items-start sm:items-center gap-4 transition-colors">
+      <div className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs flex flex-wrap justify-between items-start sm:items-center gap-4 transition-colors ${phoneTitle}`}>
         <div>
           <div className="flex items-center gap-2 text-xs font-bold text-brand-600 dark:text-brand-400 mb-1">
             <span>Commission Tracker</span>
@@ -2314,8 +2314,9 @@ export default function TransactionsListPage() {
 
       {scorecardRows.length > 0 && (
       // One panel split by hairlines. The inner grid sits 1px outside the panel so the outer edges of the cell borders are clipped.
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
-      <div className={`-m-px grid grid-cols-1 md:grid-cols-2 ${SCORECARD_STRIP_COLUMNS[Math.min(scorecardRows.length, 4)]}`}>
+      <div className={`overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800 ${phoneSheet}`}>
+      {/* Two tiles per row on a phone, so the four statuses take a quarter of the screen instead of all of it. */}
+      <div className={`-m-px grid grid-cols-2 ${SCORECARD_STRIP_COLUMNS[Math.min(scorecardRows.length, 4)]}`}>
         {scorecardRows.map(({ card, rows }) => {
           const styles = SCORECARD_COLOR_STYLES[card.color] || SCORECARD_COLOR_STYLES.blue;
           const selected = activeScorecardId === card.id;
@@ -2325,20 +2326,20 @@ export default function TransactionsListPage() {
               type="button"
               aria-pressed={selected}
               onClick={() => selectScorecard(card, rows.length)}
-              className={`relative min-w-0 border-l border-t border-slate-200 px-5 py-4 text-left transition-colors cursor-pointer dark:border-slate-700 ${styles.hover} ${selected ? 'bg-slate-50 dark:bg-slate-900/40' : ''}`}
+              className={`relative min-w-0 border-l border-t border-slate-200 px-3 py-3 sm:px-5 sm:py-4 text-left transition-colors cursor-pointer dark:border-slate-700 ${styles.hover} ${selected ? 'bg-slate-50 dark:bg-slate-900/40' : ''}`}
             >
               {selected && <span aria-hidden className={`absolute inset-x-0 bottom-0 h-0.5 ${styles.swatch}`} />}
-              <p className={`mb-3 flex items-center gap-2 text-[11px] font-semibold ${styles.title}`}>
+              <p className={`mb-2 sm:mb-3 flex items-center gap-2 text-[11px] font-semibold ${styles.title}`}>
                 <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${styles.swatch}`} />
                 {card.name}
               </p>
-              <div className={card.metrics.length > 1 ? 'grid grid-cols-[35fr_65fr] gap-4' : ''}>
+              <div className={card.metrics.length > 1 ? 'grid grid-cols-[35fr_65fr] gap-2 sm:gap-4' : ''}>
                 {card.metrics.map((metric, index) => {
                   const value = scorecardMetricValue(rows, metric);
                   const fieldType = metric.fieldKey ? fieldTypes[metric.fieldKey] : undefined;
                   const currency = metric.kind !== 'count' && fieldType === 'CURRENCY' && value !== null;
                   const alignRight = card.metrics.length > 1 && index === 1;
-                  const numberClass = `text-3xl font-bold leading-none tracking-tight ${metric.kind === 'count' ? 'text-slate-900 dark:text-white' : styles.value}`;
+                  const numberClass = `text-lg sm:text-3xl font-bold leading-none tracking-tight ${metric.kind === 'count' ? 'text-slate-900 dark:text-white' : styles.value}`;
                   return (
                     <div key={`${card.id}-${index}`} className={`min-w-0 ${alignRight ? 'text-right' : ''}`}>
                       {currency ? (
@@ -2359,7 +2360,7 @@ export default function TransactionsListPage() {
       )}
 
       {/* Ledger Table Container */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden p-3 sm:p-5 space-y-4 transition-colors">
+      <div className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden p-3 sm:p-5 space-y-4 transition-colors ${phoneSheet}`}>
         {restoreError && (
           <p className="text-xs text-rose-600 dark:text-rose-400">{restoreError}</p>
         )}
