@@ -1127,7 +1127,7 @@ export default function Dashboard() {
     && commissionTotal > 0.009 && roundCurrency(commissionTotal - totalPayments) > 0.009;
   const saveBlocked = agentSplitsExceedCommission || paymentsShortOfCommission;
   const saveBlockedReason = [
-    agentSplitsExceedCommission ? 'Agent splits are more than the remaining commission.' : '',
+    agentSplitsExceedCommission ? 'Agent splits are more than the remaining balance.' : '',
     paymentsShortOfCommission ? 'The entire commission has to be allocated among agents and entities.' : '',
   ].filter(Boolean).join(' ');
 
@@ -1140,7 +1140,7 @@ export default function Dashboard() {
 
   const handleSave = (afterSaveSuccess?: () => void, options?: { decided?: boolean; omitPayments?: boolean }) => {
     if (agentSplitsExceedCommission) {
-      showToast('Agent splits are more than the remaining commission, so this transaction cannot be saved.', 'error');
+      showToast('Agent splits are more than the remaining balance, so this transaction cannot be saved.', 'error');
       return;
     }
     if (paymentsShortOfCommission) {

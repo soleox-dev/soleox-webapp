@@ -366,7 +366,7 @@ export function CommissionWaterfallTable({
         </div>
         <div className="flex items-center gap-3">
           <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-4'}`}>
-            Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
+            Remaining Balance: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
           </span>
         </div>
       </div>
@@ -377,7 +377,7 @@ export function CommissionWaterfallTable({
       />
       {(dealResult.agentSplitItems || []).some((item: { overAllocated?: boolean }) => item.overAllocated) && (
         <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
-          Agent splits can&apos;t exceed 100% of the remaining commission. Lower the highlighted split before applying.
+          Agent splits can&apos;t exceed 100% of the remaining balance. Lower the highlighted split before applying.
         </p>
       )}
 

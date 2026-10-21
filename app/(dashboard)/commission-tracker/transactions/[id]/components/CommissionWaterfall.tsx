@@ -579,7 +579,7 @@ export function CommissionWaterfall({
                   type="button"
                   onClick={onApplyEdit}
                   disabled={agentSplitsExceedPool}
-                  title={agentSplitsExceedPool ? "Agent splits can't exceed 100% of the remaining commission." : undefined}
+                  title={agentSplitsExceedPool ? "Agent splits can't exceed 100% of the remaining balance." : undefined}
                   className={`text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg font-bold transition ${agentSplitsExceedPool ? 'opacity-40 cursor-not-allowed' : 'hover:bg-brand-500 cursor-pointer'}`}
                 >
                   Apply Changes
@@ -603,7 +603,7 @@ export function CommissionWaterfall({
                 <span className={WATERFALL_HEADING}>Off-the-Top &amp; Pre-Split Deductions</span>
                 <span className="text-xs italic text-slate-400">None</span>
               </div>
-              <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg">
+              <div className={`ml-auto flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg ${agentLayout === 'cards' ? 'mr-2 sm:mr-3' : ''}`}>
                 <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
                   Total Commission:
                 </span>
@@ -635,7 +635,7 @@ export function CommissionWaterfall({
                   </button>
                 )}
               </div>
-              <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg">
+              <div className={`ml-auto flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg ${agentLayout === 'cards' ? 'mr-2 sm:mr-3' : ''}`}>
                 <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
                   Total Commission:
                 </span>
@@ -801,7 +801,7 @@ export function CommissionWaterfall({
                 )}
               </div>
               <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-4'}`}>
-                Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterOffTop)}</strong>
+                Remaining Balance: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterOffTop)}</strong>
               </span>
             </div>
 
@@ -998,9 +998,10 @@ export function CommissionWaterfall({
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-3">
-              <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-[15px]'}`}>
-                Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
+            {/* Its amount ends where the agent cards' amounts end (card border, padding, and the amount inset). */}
+            <div className="ml-auto flex items-center gap-3">
+              <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-[25px]'}`}>
+                Remaining Balance: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
               </span>
             </div>
           </div>
@@ -1011,7 +1012,7 @@ export function CommissionWaterfall({
           />
           {(dealResult.agentSplitItems || []).some((item: { overAllocated?: boolean }) => item.overAllocated) && (
             <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
-              Agent splits can&apos;t exceed 100% of the remaining commission. Lower the highlighted split before applying.
+              Agent splits can&apos;t exceed 100% of the remaining balance. Lower the highlighted split before applying.
             </p>
           )}
 
