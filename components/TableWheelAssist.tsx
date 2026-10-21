@@ -22,8 +22,8 @@ function tableScroller(target: EventTarget | null): HTMLElement | null {
 
 /**
  * A wheel turn over a table whose box runs past the bottom of the screen scrolls the page first, until the
- * whole table box is in view (or to the very bottom of the page, when nothing but the card's edge follows the
- * table); only then does the table scroll. Upward, a table whose top is hidden under the
+ * whole table box is in view; then the table scrolls. Once the table is at its last row, and nothing but its
+ * card's edge follows it, the page finishes scrolling to its very bottom. Upward, a table whose top is hidden under the
  * top bar brings the page down first. So nobody has to move the pointer off a table to reach its last rows.
  * Desktop pointers only; touch scrolling is left as it is.
  */
@@ -39,13 +39,18 @@ export function TableWheelAssist() {
       const pageBottom = root.scrollHeight - window.innerHeight;
       const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaMode === 2 ? event.deltaY * window.innerHeight : event.deltaY;
       if (delta > 0) {
-        // When nothing follows the table but its card's padding and the page margin, keep going to the very
-        // bottom of the page, so the end of the card shows too.
-        const belowTable = root.scrollHeight - (window.scrollY + box.bottom);
-        const hiddenBelow = belowTable <= NOTHING_BELOW_PX
-          ? pageBottom - window.scrollY
-          : box.bottom - window.innerHeight;
-        if (hiddenBelow <= 1 || window.scrollY >= pageBottom - 1) return;
+        if (window.scrollY >= pageBottom - 1) return;
+        // First the page, until the table's bottom edge is on screen.
+        let hiddenBelow = box.bottom - window.innerHeight;
+        if (hiddenBelow <= 1) {
+          // Then the table. Once it has reached its last row, and nothing follows it but its card's padding
+          // and the page margin, the page finishes scrolling to its very bottom so the end of the card shows.
+          const tableAtEnd = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
+          const belowTable = root.scrollHeight - (window.scrollY + box.bottom);
+          if (!tableAtEnd || belowTable > NOTHING_BELOW_PX) return;
+          hiddenBelow = pageBottom - window.scrollY;
+        }
+        if (hiddenBelow <= 1) return;
         event.preventDefault();
         window.scrollBy({ top: Math.min(delta, hiddenBelow) });
       } else {
