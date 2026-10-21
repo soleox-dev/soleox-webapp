@@ -5,6 +5,9 @@ import React, { useEffect, useState } from 'react';
 import { Copy, Gauge, Plus, User } from 'lucide-react';
 import { useRegisterSave, useRequestLeave } from '@/components/save-leave-guard';
 import { TrashIcon } from '@/components/ui/trash-icon';
+import { EditPencil } from '@/components/ui/edit-pencil';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
+import type { CapKeyRenameCounts } from '@/app/api/agent-allocations/rename-key/route';
 import { UnderlineField, underlineControl } from '@/components/ui/underline-field';
 import { copyKey, generatePrefixedId } from '@/lib/id';
 import { normalizeTeamCapKey, teamCapKeyFormatError, teamCapKeyFromName } from '@/lib/agent-allocations';
@@ -299,6 +302,54 @@ export default function CapsPage() {
 
   const takenKeys = () => new Set(namedKeys().map((cap) => normalizeTeamCapKey(cap.key)));
 
+  // Renames a saved cap's key and every formula that uses it (migration 060), after showing what changes.
+  // The cap's key is updated in place and in the saved baseline, so the rename is not an unsaved edit.
+  const { confirm: confirmAction, dialog: confirmDialog } = useConfirmDialog();
+  const renameCapKey = async (capId: string, newKey: string): Promise<{ renamed: boolean; error?: string }> => {
+    const call = async (apply: boolean): Promise<CapKeyRenameCounts> => {
+      const response = await fetch('/api/agent-allocations/rename-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-client-id': activeClientId },
+        body: JSON.stringify({ capId, newKey, apply }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.success === false) throw new Error(data.error || 'The cap key could not be renamed.');
+      return data.counts as CapKeyRenameCounts;
+    };
+    try {
+      const counts = await call(false);
+      const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+      const parts = [
+        counts.rules ? plural(counts.rules, 'template rule', 'template rules') : '',
+        counts.parameters ? plural(counts.parameters, 'template parameter', 'template parameters') : '',
+        counts.templates ? plural(counts.templates, 'template eligibility formula', 'template eligibility formulas') : '',
+        counts.caps ? plural(counts.caps, 'cap qualifying formula', 'cap qualifying formulas') : '',
+        counts.salesVolume ? 'the sales volume formula' : '',
+        counts.fieldFormulas ? plural(counts.fieldFormulas, 'field formula', 'field formulas') : '',
+      ].filter(Boolean);
+      const confirmed = await confirmAction({
+        title: 'Rename Cap Key?',
+        message: parts.length
+          ? `${counts.oldKey} becomes ${newKey}, and formulas that use it are updated: ${parts.join(', ')}. To go back later, rename it again.`
+          : `${counts.oldKey} becomes ${newKey}. No formula uses this key yet.`,
+        confirmLabel: 'Rename Key',
+        tone: 'primary',
+      });
+      if (!confirmed) return { renamed: false };
+      await call(true);
+      const rekey = <T extends CapBase>(caps: T[]) => caps.map((cap) => (cap.id === capId ? { ...cap, key: newKey } : cap));
+      const rekeyBaseline = (baseline: string) => (baseline ? JSON.stringify(rekey(JSON.parse(baseline) as CapBase[])) : baseline);
+      setTeamCaps((current) => rekey(current));
+      setAgentCaps((current) => rekey(current));
+      setTeamBaseline((current) => rekeyBaseline(current));
+      setAgentBaseline((current) => rekeyBaseline(current));
+      setMessage(`Key renamed to ${newKey}.`);
+      return { renamed: true };
+    } catch (err) {
+      return { renamed: false, error: err instanceof Error ? err.message : 'The cap key could not be renamed.' };
+    }
+  };
+
   const tabClass = (active: boolean) => `px-4 py-2 rounded-md text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer ${
     active
       ? 'bg-brand-500/10 dark:bg-brand-950/80 text-brand-700 dark:text-brand-400 border border-brand-500/30'
@@ -307,6 +358,7 @@ export default function CapsPage() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className={SETTINGS_CARD}>
       <SettingsHeader
         title="Caps"
@@ -355,6 +407,7 @@ export default function CapsPage() {
           onAdd={() => setTeamCaps((current) => [...current, newTeamCap(takenKeys())])}
           onChange={(id, patch) => setTeamCaps((current) => current.map((cap) => (cap.id === id ? { ...cap, ...patch } : cap)))}
           onRemove={(id) => setTeamCaps((current) => current.filter((cap) => cap.id !== id))}
+          onRenameKey={renameCapKey}
           onDuplicate={(id) => setTeamCaps((current) => {
             const source = current.find((cap) => cap.id === id);
             return source ? insertAfter(current, id, copyOfCap(source, takenKeys(), 'CTC')) : current;
@@ -370,6 +423,7 @@ export default function CapsPage() {
           onAdd={() => setAgentCaps((current) => [...current, newAgentCap(takenKeys())])}
           onChange={(id, patch) => setAgentCaps((current) => current.map((cap) => (cap.id === id ? { ...cap, ...patch } : cap)))}
           onRemove={(id) => setAgentCaps((current) => current.filter((cap) => cap.id !== id))}
+          onRenameKey={renameCapKey}
           onDuplicate={(id) => setAgentCaps((current) => {
             const source = current.find((cap) => cap.id === id);
             return source ? insertAfter(current, id, copyOfCap(source, takenKeys(), 'CAC', 'agent_cap')) : current;
@@ -455,6 +509,7 @@ function NameKeyFields({
   emptyKey,
   onName,
   onKey,
+  onRename,
 }: {
   name: string;
   capKey: string;
@@ -465,7 +520,20 @@ function NameKeyFields({
   emptyKey: string;
   onName: (name: string, key: string | null) => void;
   onKey: (key: string) => void;
+  /** For a saved (locked) key: renames it everywhere. Resolves to an error message, or null when renamed or cancelled. */
+  onRename?: (key: string) => Promise<{ renamed: boolean; error?: string }>;
 }) {
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const submitRename = async () => {
+    setBusy(true);
+    const result = await onRename!(draft);
+    setBusy(false);
+    if (result.error) setRenameError(result.error);
+    else if (result.renamed) setRenaming(false);
+  };
   return (
     <>
       <UnderlineField label="Name">
@@ -482,6 +550,40 @@ function NameKeyFields({
           }}
         />
       </UnderlineField>
+      {renaming ? (
+        <form
+          className="space-y-1"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submitRename();
+          }}
+        >
+          <UnderlineField label={`Rename Key ${capKey}`}>
+            <input
+              autoFocus
+              className={`${underlineControl} font-mono !text-sky-700 dark:!text-sky-300`}
+              value={draft}
+              aria-invalid={Boolean(renameError)}
+              onChange={(event) => {
+                setDraft(event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''));
+                setRenameError(null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') setRenaming(false);
+              }}
+            />
+          </UnderlineField>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="submit" disabled={busy} className="rounded-full bg-brand-600 px-3 py-0.5 text-2xs font-bold text-white hover:bg-brand-500 disabled:opacity-50 cursor-pointer">
+              {busy ? 'Checking…' : 'Rename'}
+            </button>
+            <button type="button" onClick={() => setRenaming(false)} className="rounded-full px-2 py-0.5 text-2xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white cursor-pointer">
+              Cancel
+            </button>
+            {renameError && <span className="text-2xs font-semibold text-rose-600 dark:text-rose-400">{renameError}</span>}
+          </div>
+        </form>
+      ) : (
       <div>
         <UnderlineField label="Key" className={keyError ? '!border-b-rose-500 focus-within:!border-b-rose-500 focus-within:!shadow-none' : ''}>
           <input
@@ -499,9 +601,27 @@ function NameKeyFields({
         {keyError ? (
           <p className="mt-1 text-2xs font-medium text-rose-600 dark:text-rose-400">{keyError}</p>
         ) : (
-          <p className="mt-1 text-2xs text-slate-500 dark:text-slate-400">{hint}</p>
+          <p className="mt-1 flex items-center gap-1.5 text-2xs text-slate-500 dark:text-slate-400">
+            <span>{hint}</span>
+            {keyLocked && onRename && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDraft(capKey);
+                  setRenameError(null);
+                  setRenaming(true);
+                }}
+                className="inline-flex items-center gap-1 rounded px-1 font-semibold text-brand-700 hover:bg-brand-500/10 dark:text-brand-400 cursor-pointer"
+                title="Rename Key"
+              >
+                <EditPencil className="h-3.5 w-3.5" />
+                Rename Key
+              </button>
+            )}
+          </p>
         )}
       </div>
+      )}
     </>
   );
 }
@@ -517,6 +637,7 @@ function TeamCapList({
   onChange,
   onRemove,
   onDuplicate,
+  onRenameKey,
 }: {
   caps: TeamCapForm[];
   named: NamedKey[];
@@ -528,6 +649,7 @@ function TeamCapList({
   onChange: (id: string, patch: Partial<TeamCapForm>) => void;
   onRemove: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onRenameKey: (id: string, key: string) => Promise<{ renamed: boolean; error?: string }>;
 }) {
   return (
     <div className="space-y-6">
@@ -558,6 +680,7 @@ function TeamCapList({
                 emptyKey="team_cap"
                 onName={(name, key) => onChange(cap.id, key == null ? { name } : { name, key })}
                 onKey={(key) => onChange(cap.id, { key, keyCustom: true })}
+                onRename={cap.keyLocked ? (key) => onRenameKey(cap.id, key) : undefined}
               />
               <AllocationFieldMenu
                 label="Allocated To"
@@ -614,6 +737,7 @@ function AgentCapList({
   onChange,
   onRemove,
   onDuplicate,
+  onRenameKey,
 }: {
   caps: AgentCapForm[];
   named: NamedKey[];
@@ -624,6 +748,7 @@ function AgentCapList({
   onChange: (id: string, patch: Partial<AgentCapForm>) => void;
   onRemove: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onRenameKey: (id: string, key: string) => Promise<{ renamed: boolean; error?: string }>;
 }) {
   return (
     <div className="space-y-6">
@@ -649,10 +774,11 @@ function AgentCapList({
                 keyLocked={cap.keyLocked}
                 keyCustom={cap.keyCustom}
                 keyError={keyError}
-                hint={cap.keyLocked ? 'The key stays as it was saved.' : 'You can change the key until the cap is saved.'}
+                hint={cap.keyLocked ? 'Formulas use this key.' : 'You can change the key until the cap is saved.'}
                 emptyKey="agent_cap"
                 onName={(name, key) => onChange(cap.id, key == null ? { name } : { name, key })}
                 onKey={(key) => onChange(cap.id, { key, keyCustom: true })}
+                onRename={cap.keyLocked ? (key) => onRenameKey(cap.id, key) : undefined}
               />
               <AllocationFieldMenu
                 label="Post-Split Entity"
