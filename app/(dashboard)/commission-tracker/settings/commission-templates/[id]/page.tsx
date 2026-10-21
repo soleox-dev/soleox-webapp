@@ -14,6 +14,7 @@ import { normalizeFormula, validateFormula } from '../formula-validator';
 import { interpretValidationRule } from '@/lib/parameter-validation';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { Copy, Rows3 } from 'lucide-react';
+import { copyKey } from '@/lib/id';
 import { useRegisterSave } from '@/components/save-leave-guard';
 import { underlineControl } from '@/components/ui/underline-field';
 
@@ -906,24 +907,16 @@ export default function CommissionTemplateDetailPage() {
     }
   };
 
-  // With asCopy, opens a new parameter filled in from this one: its name gets " Copy" and its key is made from
-  // that name, unused in this template, so the copy can be saved as is.
+  // With asCopy, opens a new parameter filled in from this one: its name gets " Copy" and its key is the
+  // original's with the first free number appended (credit_total_1), so the copy can be saved as is.
   const openEditParameter = (parameter: TemplateParameter, asCopy = false) => {
     setFormError(null);
     setShowParameterFields(false);
     setEditingParameterId(asCopy ? null : parameter.id);
     if (!asCopy) setRecentParameterId(parameter.id);
-    const copyName = `${parameter.parameter_name} Copy`;
-    const copyKey = () => {
-      const taken = new Set(parameters.map((item) => item.parameter_key.toLowerCase()));
-      const base = parameterKeyFromName(copyName);
-      let key = base;
-      for (let suffix = 2; taken.has(key); suffix += 1) key = `${base}_${suffix}`;
-      return key;
-    };
     setParameterForm({
-      parameter_name: asCopy ? copyName : parameter.parameter_name,
-      parameter_key: asCopy ? copyKey() : parameter.parameter_key,
+      parameter_name: asCopy ? `${parameter.parameter_name} Copy` : parameter.parameter_name,
+      parameter_key: asCopy ? copyKey(parameter.parameter_key, parameters.map((item) => item.parameter_key)) : parameter.parameter_key,
       data_type: canonicalParameterType(parameter.data_type),
       is_required: Boolean(parameter.is_required),
       is_user_editable: parameter.is_user_editable !== false,
@@ -937,7 +930,8 @@ export default function CommissionTemplateDetailPage() {
     setRenamingOption(null);
   };
 
-  // With asCopy, opens a new rule filled in from this one, named "<name> Copy" with an unused key.
+  // With asCopy, opens a new rule filled in from this one, named "<name> Copy", its key the original's with the
+  // first free number appended.
   const openEditLogic = (step: LogicStep, asCopy = false) => {
     setFormError(null);
     setEditingLogicId(asCopy ? null : step.id);
@@ -961,7 +955,9 @@ export default function CommissionTemplateDetailPage() {
     const ruleName = asCopy ? `${step.rule_name} Copy` : step.rule_name;
     setLogicForm({
       rule_name: ruleName,
-      rule_key: asCopy ? freeRuleKey(ruleName) : step.rule_key?.trim() || freeRuleKey(step.rule_name),
+      rule_key: asCopy
+        ? copyKey(step.rule_key?.trim() || freeRuleKey(step.rule_name), takenKeys)
+        : step.rule_key?.trim() || freeRuleKey(step.rule_name),
       section: canonicalLogicSection(step.section || ''),
       apply_condition: step.apply_condition || '',
       agent_key: step.agent_key?.trim() || legacyAgentKey,

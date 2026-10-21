@@ -50,3 +50,17 @@ export function parseAgentName(rawName: string | null | undefined): { firstName:
     fullName: trimmed,
   };
 }
+
+/**
+ * The key for a copy of `key`: the same key with the first free number appended, so a copy of custom_stock is
+ * custom_stock_1, then custom_stock_2. A key that already ends in a number keeps counting from it: a copy of
+ * custom_stock_1 is custom_stock_2, not custom_stock_1_1. `taken` holds the keys already in use.
+ */
+export function copyKey(key: string, taken: Iterable<string>): string {
+  const used = new Set([...taken].map((item) => item.toLowerCase()));
+  const match = key.match(/^(.*)_(\d+)$/);
+  const base = match ? match[1] : key;
+  let next = match ? Number(match[2]) + 1 : 1;
+  while (used.has(`${base}_${next}`.toLowerCase())) next += 1;
+  return `${base}_${next}`;
+}

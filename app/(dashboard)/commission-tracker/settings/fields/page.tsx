@@ -10,6 +10,7 @@ import { OptionMenu } from '@/components/ui/option-menu';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { Copy, GripVertical, List, User } from 'lucide-react';
+import { copyKey } from '@/lib/id';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { ToastBanner } from '@/components/ui/ToastBanner';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -373,8 +374,6 @@ export default function FieldCustomizationsPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingField, setEditingField] = useState<FieldConfig | null>(null);
-  // The key of the field a duplicate was made from, shown in the new key's placeholder as a naming reference.
-  const [duplicateSourceKey, setDuplicateSourceKey] = useState<string | null>(null);
   const [selectionMode, setSelectionMode] = useState<'EXISTING' | 'CUSTOM'>('EXISTING');
   const [selectedCatalogKey, setSelectedCatalogKey] = useState<string>('');
   const [newDropdownOption, setNewDropdownOption] = useState<string>('');
@@ -629,11 +628,11 @@ export default function FieldCustomizationsPage() {
   };
 
   // Opens Add Field filled in from an existing field, as a new custom field: same type, section, options,
-  // validation, formula, and visibility rules. The label gets " Copy" and the key is left blank, so it is made
-  // from whatever label is typed. A copy of a built-in field is a custom field too: its key is a fixed column.
+  // validation, formula, and visibility rules. The label gets " Copy" and the key is the original's with the
+  // first free number appended (custom_stock_1). A copy of a built-in field is a custom field, so its key
+  // gets the custom_ prefix: a built-in key is a fixed column.
   const handleOpenDuplicate = (field: FieldConfig) => {
     setEditingField(null);
-    setDuplicateSourceKey(field.field_key);
     setSelectionMode('CUSTOM');
     setSelectedCatalogKey('');
     const formula = field.calculation_formula || '';
@@ -643,7 +642,10 @@ export default function FieldCustomizationsPage() {
     void _keyTerms;
     setFormData({
       ...rest,
-      field_key: '',
+      field_key: copyKey(
+        field.field_key.startsWith('custom_') ? field.field_key : `custom_${field.field_key}`,
+        [...txFields, ...agentFields].map((item) => item.field_key),
+      ),
       field_label: `${formatFieldLabel(field.field_key, field.field_label)} Copy`,
       storage_type: 'CUSTOM_JSON',
       is_system: false,
@@ -669,7 +671,6 @@ export default function FieldCustomizationsPage() {
 
   const handleOpenAdd = () => {
     setEditingField(null);
-    setDuplicateSourceKey(null);
     const hasAvailable = availableCatalogOptions.length > 0;
     setSelectionMode(hasAvailable ? 'EXISTING' : 'CUSTOM');
     setRuleGroup({ operator: 'OR', conditions: [] });
@@ -756,7 +757,6 @@ export default function FieldCustomizationsPage() {
 
   const handleOpenEdit = (field: FieldConfig) => {
     setEditingField(field);
-    setDuplicateSourceKey(null);
     setSelectionMode(field.storage_type === 'CUSTOM_JSON' ? 'CUSTOM' : 'EXISTING');
 
     const cleanFormula = field.calculation_formula || '';
@@ -1743,8 +1743,7 @@ export default function FieldCustomizationsPage() {
                     disabled={formData.storage_type === 'CORE_COLUMN'}
                     value={formData.field_key || ''}
                     onChange={(e) => setFormData({ ...formData, field_key: e.target.value })}
-                    placeholder={duplicateSourceKey ? `Copied from ${duplicateSourceKey}` : 'Auto-generated'}
-                    title={duplicateSourceKey ? `Copied from ${duplicateSourceKey}` : undefined}
+                    placeholder="Auto-generated"
                     className={`${underlineControl} font-mono`}
                   />
                 </label>

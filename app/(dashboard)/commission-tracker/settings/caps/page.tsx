@@ -6,7 +6,7 @@ import { Copy, Gauge, Plus, User } from 'lucide-react';
 import { useRegisterSave, useRequestLeave } from '@/components/save-leave-guard';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { UnderlineField, underlineControl } from '@/components/ui/underline-field';
-import { generatePrefixedId } from '@/lib/id';
+import { copyKey, generatePrefixedId } from '@/lib/id';
 import { normalizeTeamCapKey, teamCapKeyFormatError, teamCapKeyFromName } from '@/lib/agent-allocations';
 import { FormulaEditor, type FormulaName } from '../commission-templates/FormulaEditor';
 import { ALLOCATION_CLIENT_ID, AllocationFieldMenu, allocationFormulaHint, fieldOptions, useAllocationSchema, type AllocationAgent } from '../allocation-fields';
@@ -67,7 +67,8 @@ function newTeamCap(taken: Set<string>): TeamCapForm {
   };
 }
 
-// A copy of a cap, placed right after it: "<name> Copy", an unused key, and disabled until reviewed, so two
+// A copy of a cap, placed right after it: "<name> Copy", its key the original's with the first free number
+// appended, and disabled until reviewed, so two
 // identical caps never both apply by accident.
 function copyOfCap<T extends TeamCapForm | AgentCapForm>(cap: T, taken: Set<string>, idPrefix: string, keyFallback?: string): T {
   const name = `${cap.name.trim() || (keyFallback === 'agent_cap' ? 'Agent Cap' : 'Team Cap')} Copy`;
@@ -75,9 +76,9 @@ function copyOfCap<T extends TeamCapForm | AgentCapForm>(cap: T, taken: Set<stri
     ...cap,
     id: generatePrefixedId(idPrefix),
     name,
-    key: uniqueKey(teamCapKeyFromName(name, keyFallback), taken),
+    key: copyKey(cap.key.trim() || teamCapKeyFromName(name, keyFallback), taken),
     keyLocked: false,
-    keyCustom: false,
+    keyCustom: true,
     enabled: false,
   };
 }
