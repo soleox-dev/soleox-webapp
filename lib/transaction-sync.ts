@@ -725,9 +725,12 @@ export function planTransactionSync(input: {
       const current = readMappedField(currentDeal, item.field.fieldKey, item.field.storageType);
       const protection = protectionFor(input.protections, existing?.id, item.field.fieldKey);
       if (policy === 'lock_on_edit' && protection?.protection === 'locked') continue;
-      if (policy === 'keep_until_tms' && protection?.protection === 'keep_until_tms') {
+      if (policy === 'keep_until_tms') {
+        // A blank or zero from the TMS never replaces a value already here, whether or not a user typed it.
         if (isBlankOrZero(item.value, item.field.fieldType) && !isBlankOrZero(current, item.field.fieldType)) continue;
-        if (!isBlankOrZero(item.value, item.field.fieldType)) clearProtections.push(item.field.fieldKey);
+        if (protection?.protection === 'keep_until_tms' && !isBlankOrZero(item.value, item.field.fieldType)) {
+          clearProtections.push(item.field.fieldKey);
+        }
       }
       if (syncValuesEqual(current, item.value, item.field.fieldType)) continue;
       writes.push({
