@@ -387,7 +387,7 @@ export function CommissionWaterfallTable({
           {isEditing && plusButton('Add new agent split', onOpenAddAgentModal, 'emerald')}
         </p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overscroll-x-none">
           <table className="w-full border-separate border-spacing-0 text-xs">
             <tbody>
               <tr>

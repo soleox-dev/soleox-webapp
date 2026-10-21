@@ -2404,7 +2404,7 @@ export default function TransactionsListPage() {
             event.preventDefault();
             event.stopPropagation();
           }}
-          className={`overflow-x-auto overflow-y-auto border border-slate-200 dark:border-slate-700/80 rounded-lg scrollbar-thin ${compactRows ? 'max-h-[calc(100dvh-11rem)]' : 'max-h-[640px]'}`}
+          className={`overflow-x-auto overflow-y-auto overscroll-none border border-slate-200 dark:border-slate-700/80 rounded-lg scrollbar-thin ${compactRows ? 'max-h-[calc(100dvh-11rem)]' : 'max-h-[640px]'}`}
         >
           <table className="w-full text-left text-xs min-w-[1200px] border-separate border-spacing-0">
             

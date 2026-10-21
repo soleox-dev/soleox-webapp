@@ -265,8 +265,8 @@ html.dark .report-pill-rose {
 .report-table {
   overflow-x: auto;
   overflow-y: clip;
-  /* Stop at the table's edges: no rubber-band bounce sideways (iOS, macOS trackpads). */
-  overscroll-behavior-x: none;
+  /* Stop at the table's edges: no rubber-band bounce either way (iOS, macOS trackpads). Nothing in a table refreshes on pull. */
+  overscroll-behavior: none;
 }
 
 .report-table.report-table-fit {
@@ -770,4 +770,12 @@ html.modal-open body {
 
 .app-modal {
   overscroll-behavior: none;
+}
+
+/* With a mouse or trackpad, the page stops at its ends instead of bouncing: pulling past the top refreshes nothing
+   there. Touch screens keep the bounce, where pulling down still reloads the page. */
+@media (hover: hover) and (pointer: fine) {
+  html {
+    overscroll-behavior-y: none;
+  }
 }
