@@ -55,6 +55,8 @@ export async function getTransactions(
   clientId: string,
   client?: SupabaseClient,
   scope: 'active' | 'deleted' = 'active',
+  /** Only these transactions, active or deleted, with `archived` and `permanently_deleted` as stored. */
+  ids?: string[],
 ): Promise<Transaction[]> {
   const sb = client || (await getAuthenticatedSupabase());
 
@@ -64,9 +66,9 @@ export async function getTransactions(
         .from('transactions')
         .select('*', withCount ? { count: 'exact' } : undefined)
         .eq('client_id', clientId);
-      q = scope === 'deleted'
-        ? q.eq('archived', true).eq('permanently_deleted', false)
-        : q.or('archived.is.null,archived.eq.false');
+      if (ids) q = q.in('id', ids);
+      else if (scope === 'deleted') q = q.eq('archived', true).eq('permanently_deleted', false);
+      else q = q.or('archived.is.null,archived.eq.false');
       return q
         .order('created_at', { ascending: false })
         .order('id', { ascending: true })

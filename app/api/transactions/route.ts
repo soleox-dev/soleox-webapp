@@ -7,12 +7,19 @@ import { authOptions } from '@/lib/auth';
 import { ZodError } from 'zod';
 
 // GET: Fetch active transactions for a tenant
+// `ids=TXN_A,TXN_B` returns only those transactions (up to 200), active or deleted.
 export async function GET(request: Request) {
-  const view = new URL(request.url).searchParams.get('view');
+  const params = new URL(request.url).searchParams;
+  const view = params.get('view');
+  const idsParam = params.get('ids');
+  const ids = idsParam === null
+    ? undefined
+    : [...new Set(idsParam.split(',').map((id) => id.trim()).filter((id) => /^TXN_[A-Za-z0-9]+$/.test(id)))].slice(0, 200);
 
   try {
     const { clientId, supabase } = await requireSessionClient();
-    const transactions = await getTransactions(clientId, supabase, view === 'deleted' ? 'deleted' : 'active');
+    if (ids && ids.length === 0) return NextResponse.json({ success: true, transactions: [] });
+    const transactions = await getTransactions(clientId, supabase, view === 'deleted' ? 'deleted' : 'active', ids);
     return NextResponse.json({ success: true, transactions });
   } catch (error: any) {
     return apiError(error, 'The request could not be completed.', 'success');
