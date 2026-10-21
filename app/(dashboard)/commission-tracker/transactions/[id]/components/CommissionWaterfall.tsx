@@ -1439,11 +1439,12 @@ export function CommissionWaterfall({
                     </div>
 
                     {/* Level 1 Subtotal */}
-                    <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-800 pt-2 text-xs">
-                      <span className="font-semibold text-slate-600 dark:text-slate-400">
+                    {/* In the Level 1 pill's colors; the band reaches into the padding so its amount keeps the rows' right edge. */}
+                    <div className="-mx-3 flex justify-between items-center rounded-lg bg-yellow-400/25 px-3 py-2 text-xs text-yellow-900 dark:bg-yellow-400/15 dark:text-yellow-200">
+                      <span className="font-semibold">
                         Net After Level 1 Post-Splits
                       </span>
-                      <span className="font-bold text-slate-900 dark:text-white">
+                      <span className="font-bold">
                         {formatCurrency(netAfterL1)}
                       </span>
                     </div>
@@ -1645,11 +1646,12 @@ export function CommissionWaterfall({
                     </div>
 
                     {/* Level 2 Subtotal */}
-                    <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-800 pt-2 text-xs">
-                      <span className="font-semibold text-slate-600 dark:text-slate-400">
+                    {/* In the Level 2 pill's colors. */}
+                    <div className="-mx-3 flex justify-between items-center rounded-lg bg-slate-300/50 px-3 py-2 text-xs text-slate-700 dark:bg-slate-400/20 dark:text-slate-200">
+                      <span className="font-semibold">
                         Net Payout to {agentName}
                       </span>
-                      <span className="font-bold text-slate-900 dark:text-white">
+                      <span className="font-bold">
                         {formatCurrency(finalAgentPayout)}
                       </span>
                     </div>
