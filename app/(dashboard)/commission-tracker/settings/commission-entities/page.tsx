@@ -3,6 +3,7 @@
 import { phoneSheetFlush } from '@/lib/page-frame';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { Copy } from 'lucide-react';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { isHiddenRecordId } from '@/lib/fields';
@@ -214,6 +215,20 @@ export default function CommissionEntitiesPage() {
     setFormData({
       entity_type: 'BROKERAGE',
       is_active: true,
+    });
+    setIsModalOpen(true);
+  };
+
+  // Opens Add Entity filled in from an existing one, named "<name> Copy". It saves as a new entity.
+  const handleOpenDuplicate = (entity: CommissionEntity) => {
+    setEditingEntity(null);
+    setFormData({
+      entity_name: `${entity.entity_name} Copy`,
+      entity_type: entity.entity_type,
+      contact_name: entity.contact_name,
+      contact_email: entity.contact_email,
+      tax_id: entity.tax_id,
+      is_active: entity.is_active,
     });
     setIsModalOpen(true);
   };
@@ -538,6 +553,17 @@ export default function CommissionEntitiesPage() {
                             aria-label={`Edit ${ent.entity_name}`}
                           >
                             <EditPencil className="h-[18px] w-[18px]" />
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={isActionLoading}
+                            onClick={() => handleOpenDuplicate(ent)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer disabled:opacity-50"
+                            title="Duplicate"
+                            aria-label={`Duplicate ${ent.entity_name}`}
+                          >
+                            <Copy className="h-[17px] w-[17px]" strokeWidth={1.75} />
                           </button>
 
                           <button

@@ -2,7 +2,7 @@
 
 import { phoneSheet } from '@/lib/page-frame';
 import React, { useEffect, useState } from 'react';
-import { Gauge, Plus, User } from 'lucide-react';
+import { Copy, Gauge, Plus, User } from 'lucide-react';
 import { useRegisterSave, useRequestLeave } from '@/components/save-leave-guard';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { UnderlineField, underlineControl } from '@/components/ui/underline-field';
@@ -65,6 +65,26 @@ function newTeamCap(taken: Set<string>): TeamCapForm {
     resetDateFieldKey: '',
     recipientAgentId: '',
   };
+}
+
+// A copy of a cap, placed right after it: "<name> Copy", an unused key, and disabled until reviewed, so two
+// identical caps never both apply by accident.
+function copyOfCap<T extends TeamCapForm | AgentCapForm>(cap: T, taken: Set<string>, idPrefix: string, keyFallback?: string): T {
+  const name = `${cap.name.trim() || (keyFallback === 'agent_cap' ? 'Agent Cap' : 'Team Cap')} Copy`;
+  return {
+    ...cap,
+    id: generatePrefixedId(idPrefix),
+    name,
+    key: uniqueKey(teamCapKeyFromName(name, keyFallback), taken),
+    keyLocked: false,
+    keyCustom: false,
+    enabled: false,
+  };
+}
+
+function insertAfter<T extends { id: string }>(list: T[], id: string, item: T): T[] {
+  const index = list.findIndex((entry) => entry.id === id);
+  return index < 0 ? [...list, item] : [...list.slice(0, index + 1), item, ...list.slice(index + 1)];
 }
 
 function newAgentCap(taken: Set<string>): AgentCapForm {
@@ -334,6 +354,10 @@ export default function CapsPage() {
           onAdd={() => setTeamCaps((current) => [...current, newTeamCap(takenKeys())])}
           onChange={(id, patch) => setTeamCaps((current) => current.map((cap) => (cap.id === id ? { ...cap, ...patch } : cap)))}
           onRemove={(id) => setTeamCaps((current) => current.filter((cap) => cap.id !== id))}
+          onDuplicate={(id) => setTeamCaps((current) => {
+            const source = current.find((cap) => cap.id === id);
+            return source ? insertAfter(current, id, copyOfCap(source, takenKeys(), 'CTC')) : current;
+          })}
         />
       ) : (
         <AgentCapList
@@ -345,6 +369,10 @@ export default function CapsPage() {
           onAdd={() => setAgentCaps((current) => [...current, newAgentCap(takenKeys())])}
           onChange={(id, patch) => setAgentCaps((current) => current.map((cap) => (cap.id === id ? { ...cap, ...patch } : cap)))}
           onRemove={(id) => setAgentCaps((current) => current.filter((cap) => cap.id !== id))}
+          onDuplicate={(id) => setAgentCaps((current) => {
+            const source = current.find((cap) => cap.id === id);
+            return source ? insertAfter(current, id, copyOfCap(source, takenKeys(), 'CAC', 'agent_cap')) : current;
+          })}
         />
       )}
     </div>
@@ -378,12 +406,14 @@ function EnabledRow({
   fallback,
   onEnabled,
   onRemove,
+  onDuplicate,
 }: {
   name: string;
   enabled: boolean;
   fallback: string;
   onEnabled: (enabled: boolean) => void;
   onRemove: () => void;
+  onDuplicate: () => void;
 }) {
   const label = name.trim() || fallback;
   return (
@@ -394,8 +424,17 @@ function EnabledRow({
       </label>
       <button
         type="button"
+        onClick={onDuplicate}
+        className="ml-auto shrink-0 cursor-pointer rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-brand-700 dark:hover:bg-slate-700 dark:hover:text-brand-400"
+        title={`Duplicate ${label}`}
+        aria-label={`Duplicate ${label}`}
+      >
+        <Copy className="h-[17px] w-[17px]" strokeWidth={1.75} />
+      </button>
+      <button
+        type="button"
         onClick={onRemove}
-        className="ml-auto shrink-0 cursor-pointer rounded p-1 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600"
+        className="shrink-0 cursor-pointer rounded p-1 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600"
         title={`Remove ${label}`}
         aria-label={`Remove ${label}`}
       >
@@ -476,6 +515,7 @@ function TeamCapList({
   onAdd,
   onChange,
   onRemove,
+  onDuplicate,
 }: {
   caps: TeamCapForm[];
   named: NamedKey[];
@@ -486,6 +526,7 @@ function TeamCapList({
   onAdd: () => void;
   onChange: (id: string, patch: Partial<TeamCapForm>) => void;
   onRemove: (id: string) => void;
+  onDuplicate: (id: string) => void;
 }) {
   return (
     <div className="space-y-6">
@@ -503,6 +544,7 @@ function TeamCapList({
               fallback="Team Cap"
               onEnabled={(enabled) => onChange(cap.id, { enabled })}
               onRemove={() => onRemove(cap.id)}
+              onDuplicate={() => onDuplicate(cap.id)}
             />
             <div className="grid gap-3 md:grid-cols-2">
               <NameKeyFields
@@ -570,6 +612,7 @@ function AgentCapList({
   onAdd,
   onChange,
   onRemove,
+  onDuplicate,
 }: {
   caps: AgentCapForm[];
   named: NamedKey[];
@@ -579,6 +622,7 @@ function AgentCapList({
   onAdd: () => void;
   onChange: (id: string, patch: Partial<AgentCapForm>) => void;
   onRemove: (id: string) => void;
+  onDuplicate: (id: string) => void;
 }) {
   return (
     <div className="space-y-6">
@@ -595,6 +639,7 @@ function AgentCapList({
               fallback="Agent Cap"
               onEnabled={(enabled) => onChange(cap.id, { enabled })}
               onRemove={() => onRemove(cap.id)}
+              onDuplicate={() => onDuplicate(cap.id)}
             />
             <div className="grid gap-3 md:grid-cols-2">
               <NameKeyFields

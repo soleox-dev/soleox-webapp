@@ -13,7 +13,7 @@ import { DragHandle, moveItem, useDragReorder } from '@/components/ui/reorder-co
 import { normalizeFormula, validateFormula } from '../formula-validator';
 import { interpretValidationRule } from '@/lib/parameter-validation';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
-import { Rows3 } from 'lucide-react';
+import { Copy, Rows3 } from 'lucide-react';
 import { useRegisterSave } from '@/components/save-leave-guard';
 import { underlineControl } from '@/components/ui/underline-field';
 
@@ -906,14 +906,24 @@ export default function CommissionTemplateDetailPage() {
     }
   };
 
-  const openEditParameter = (parameter: TemplateParameter) => {
+  // With asCopy, opens a new parameter filled in from this one: its name gets " Copy" and its key is made from
+  // that name, unused in this template, so the copy can be saved as is.
+  const openEditParameter = (parameter: TemplateParameter, asCopy = false) => {
     setFormError(null);
     setShowParameterFields(false);
-    setEditingParameterId(parameter.id);
-    setRecentParameterId(parameter.id);
+    setEditingParameterId(asCopy ? null : parameter.id);
+    if (!asCopy) setRecentParameterId(parameter.id);
+    const copyName = `${parameter.parameter_name} Copy`;
+    const copyKey = () => {
+      const taken = new Set(parameters.map((item) => item.parameter_key.toLowerCase()));
+      const base = parameterKeyFromName(copyName);
+      let key = base;
+      for (let suffix = 2; taken.has(key); suffix += 1) key = `${base}_${suffix}`;
+      return key;
+    };
     setParameterForm({
-      parameter_name: parameter.parameter_name,
-      parameter_key: parameter.parameter_key,
+      parameter_name: asCopy ? copyName : parameter.parameter_name,
+      parameter_key: asCopy ? copyKey() : parameter.parameter_key,
       data_type: canonicalParameterType(parameter.data_type),
       is_required: Boolean(parameter.is_required),
       is_user_editable: parameter.is_user_editable !== false,
@@ -927,16 +937,17 @@ export default function CommissionTemplateDetailPage() {
     setRenamingOption(null);
   };
 
-  const openEditLogic = (step: LogicStep) => {
+  // With asCopy, opens a new rule filled in from this one, named "<name> Copy" with an unused key.
+  const openEditLogic = (step: LogicStep, asCopy = false) => {
     setFormError(null);
-    setEditingLogicId(step.id);
-    setRecentLogicId(step.id);
+    setEditingLogicId(asCopy ? null : step.id);
+    if (!asCopy) setRecentLogicId(step.id);
     const storedFormula = step.payee_formula?.trim() || '';
     const legacyAgentKey = !step.agent_key?.trim() && /^[A-Za-z_][A-Za-z0-9_]*$/.test(storedFormula) ? storedFormula : '';
     const entityFormula = storedFormula && storedFormula !== legacyAgentKey ? storedFormula : '';
     const takenKeys = new Set(
       [...formulaNames.map((item) => item.name), ...logicContextNames.map((item) => item.name), 'total_commission',
-        ...logicSteps.filter((item) => item.id !== step.id && item.rule_key?.trim()).map((item) => item.rule_key!.trim())]
+        ...logicSteps.filter((item) => (asCopy || item.id !== step.id) && item.rule_key?.trim()).map((item) => item.rule_key!.trim())]
         .map((name) => name.toLowerCase()),
     );
     const freeRuleKey = (name: string) => {
@@ -947,9 +958,10 @@ export default function CommissionTemplateDetailPage() {
       while (takenKeys.has(`${base}_${suffix}`)) suffix += 1;
       return `${base}_${suffix}`;
     };
+    const ruleName = asCopy ? `${step.rule_name} Copy` : step.rule_name;
     setLogicForm({
-      rule_name: step.rule_name,
-      rule_key: step.rule_key?.trim() || freeRuleKey(step.rule_name),
+      rule_name: ruleName,
+      rule_key: asCopy ? freeRuleKey(ruleName) : step.rule_key?.trim() || freeRuleKey(step.rule_name),
       section: canonicalLogicSection(step.section || ''),
       apply_condition: step.apply_condition || '',
       agent_key: step.agent_key?.trim() || legacyAgentKey,
@@ -1517,6 +1529,9 @@ export default function CommissionTemplateDetailPage() {
                             <button type="button" onClick={() => openEditParameter(parameter)} className={`${rowActionClass} text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700`} title="Edit" aria-label="Edit">
                               <EditPencil className="h-[18px] w-[18px]" />
                             </button>
+                            <button type="button" onClick={() => openEditParameter(parameter, true)} className={`${rowActionClass} text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700`} title="Duplicate" aria-label="Duplicate">
+                              <Copy className="h-[17px] w-[17px]" strokeWidth={1.75} />
+                            </button>
                             <button type="button" onClick={() => setConfirmDelete({ kind: 'parameter', id: parameter.id, label: parameter.parameter_name })} className={`${rowActionClass} text-lg leading-none text-rose-500 hover:text-rose-600 hover:bg-rose-500/10`} title="Delete" aria-label="Delete"><TrashIcon /></button>
                           </div>
                         </td>
@@ -1790,6 +1805,9 @@ export default function CommissionTemplateDetailPage() {
                             </span>
                             <button type="button" onClick={() => openEditLogic(step)} className={`${rowActionClass} text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700`} title="Edit" aria-label="Edit">
                               <EditPencil className="h-[18px] w-[18px]" />
+                            </button>
+                            <button type="button" onClick={() => openEditLogic(step, true)} className={`${rowActionClass} text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700`} title="Duplicate" aria-label="Duplicate">
+                              <Copy className="h-[17px] w-[17px]" strokeWidth={1.75} />
                             </button>
                             <button type="button" onClick={() => setConfirmDelete({ kind: 'logic', id: step.id, label: step.rule_name })} className={`${rowActionClass} text-lg leading-none text-rose-500 hover:text-rose-600 hover:bg-rose-500/10`} title="Delete" aria-label="Delete"><TrashIcon /></button>
                           </div>
