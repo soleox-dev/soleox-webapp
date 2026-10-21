@@ -280,7 +280,9 @@ export function LogicStepForm({
                   const rule_name = event.target.value;
                   const previousAuto = ruleKeyFromName(draft.rule_name);
                   const nextAuto = ruleKeyFromName(rule_name);
-                  const rule_key = !draft.rule_key || draft.rule_key === previousAuto ? nextAuto : draft.rule_key;
+                  // A new rule's key follows its name. A saved rule keeps its key; renaming it is a separate step
+                  // that also updates the formulas using it.
+                  const rule_key = !editing && (!draft.rule_key || draft.rule_key === previousAuto) ? nextAuto : draft.rule_key;
                   onChange({ ...draft, rule_name, rule_key });
                 }}
                 className={underlineControl}

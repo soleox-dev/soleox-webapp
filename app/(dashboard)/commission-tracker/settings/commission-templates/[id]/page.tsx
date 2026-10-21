@@ -16,6 +16,8 @@ import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { Copy, Rows3 } from 'lucide-react';
 import { copyKey } from '@/lib/id';
 import { useRegisterSave } from '@/components/save-leave-guard';
+import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
+import type { RuleKeyRenameCounts } from '@/app/api/commission-template-logic/rename-key/route';
 import { underlineControl } from '@/components/ui/underline-field';
 
 type ParameterType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
@@ -261,6 +263,7 @@ export default function CommissionTemplateDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const templateId = params.id;
+  const { confirm: confirmAction, dialog: confirmDialog } = useConfirmDialog();
 
   const [template, setTemplate] = useState<CommissionTemplate | null>(null);
   const [parameters, setParameters] = useState<TemplateParameter[]>([]);
@@ -838,6 +841,52 @@ export default function CommissionTemplateDetailPage() {
     setFormError(null);
     try {
       const existing = logicSteps.find((step) => step.id === editingLogicId);
+      // A saved rule whose key changed: rename it first, which also rewrites every formula in this template
+      // that reads it (migration 062). The form's own formulas get the same rewrite before they are saved.
+      let form = logicForm;
+      const previousKey = existing?.rule_key?.trim().toLowerCase() || '';
+      if (existing && previousKey && previousKey !== ruleKey) {
+        const callRename = async (apply: boolean): Promise<RuleKeyRenameCounts> => {
+          const renameResponse = await fetch('/api/commission-template-logic/rename-key', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ruleId: existing.id, newKey: ruleKey, apply }),
+          });
+          const renameData = await renameResponse.json().catch(() => ({}));
+          if (!renameResponse.ok || renameData.success === false) throw new Error(renameData.error || 'The rule key could not be renamed.');
+          return renameData.counts as RuleKeyRenameCounts;
+        };
+        const counts = await callRename(false);
+        const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+        const parts = [
+          counts.rules ? plural(counts.rules, 'other rule', 'other rules') : '',
+          counts.parameters ? plural(counts.parameters, 'parameter', 'parameters') : '',
+          counts.templates ? 'the eligibility formula' : '',
+        ].filter(Boolean);
+        const confirmed = await confirmAction({
+          title: 'Rename Rule Key?',
+          message: parts.length
+            ? `${counts.oldKey} becomes ${ruleKey}, and this template's formulas that use it are updated: ${parts.join(', ')}. To go back later, rename it again.`
+            : `${counts.oldKey} becomes ${ruleKey}. No other formula in this template uses this key.`,
+          confirmLabel: 'Rename Key',
+          tone: 'primary',
+        });
+        if (!confirmed) return;
+        await callRename(true);
+        const pattern = new RegExp(`(?<![.\\w])${previousKey}(?!\\w)`, 'gi');
+        const renameKey = (text: string) => text.replace(pattern, ruleKey);
+        // The key is renamed now, even if saving the rest of the form fails below.
+        setLogicSteps((current) => current.map((step) => (step.id === existing.id ? { ...step, rule_key: ruleKey } : step)));
+        form = {
+          ...form,
+          apply_condition: renameKey(form.apply_condition),
+          agent_key: form.agent_key.trim().toLowerCase() === previousKey ? ruleKey : form.agent_key,
+          payee_formula: renameKey(form.payee_formula),
+          custom_baseline: renameKey(form.custom_baseline),
+          calculation_formula: renameKey(form.calculation_formula),
+          show_when_formula: renameKey(form.show_when_formula),
+        };
+      }
       const response = await fetch('/api/commission-template-logic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -847,25 +896,25 @@ export default function CommissionTemplateDetailPage() {
             template_id: templateId,
             client_id: 'DEMO',
             step_number: existing?.step_number ?? logicSteps.length + 1,
-            rule_name: logicForm.rule_name.trim(),
+            rule_name: form.rule_name.trim(),
             rule_key: ruleKey,
             section: section || null,
-            apply_condition: postsSplit ? normalizeFormula(logicForm.apply_condition).text.trim() || null : null,
-            agent_key: postsSplit && logicSectionShowsAgent(section) ? logicForm.agent_key.trim() || null : null,
-            payee_entity_id: postsSplit && logicSectionShowsEntity(section) && logicForm.entity_mode === 'fixed' ? logicForm.payee_entity_id || null : null,
-            payee_formula: postsSplit && logicSectionShowsEntity(section) && logicForm.entity_mode === 'formula'
-              ? normalizeFormula(logicForm.payee_formula).text.trim() || null
+            apply_condition: postsSplit ? normalizeFormula(form.apply_condition).text.trim() || null : null,
+            agent_key: postsSplit && logicSectionShowsAgent(section) ? form.agent_key.trim() || null : null,
+            payee_entity_id: postsSplit && logicSectionShowsEntity(section) && form.entity_mode === 'fixed' ? form.payee_entity_id || null : null,
+            payee_formula: postsSplit && logicSectionShowsEntity(section) && form.entity_mode === 'formula'
+              ? normalizeFormula(form.payee_formula).text.trim() || null
               : null,
-            custom_baseline: normalizeFormula(logicForm.custom_baseline).text.trim() || null,
-            calculation_formula: normalizeFormula(logicForm.calculation_formula).text.trim() || null,
-            split_type: postsSplit ? (logicForm.split_type === 'PERCENT' ? 'PERCENT' : 'AMOUNT') : null,
-            result_type: postsSplit ? null : canonicalResultType(logicForm.result_type),
-            show_in_popup: !postsSplit && logicForm.show_in_popup,
-            popup_section: !postsSplit && logicForm.show_in_popup ? logicForm.popup_section.trim() || null : null,
-            show_when_formula: !postsSplit && logicForm.show_in_popup && logicForm.show_only_when
-              ? normalizeFormula(logicForm.show_when_formula).text.trim() || null
+            custom_baseline: normalizeFormula(form.custom_baseline).text.trim() || null,
+            calculation_formula: normalizeFormula(form.calculation_formula).text.trim() || null,
+            split_type: postsSplit ? (form.split_type === 'PERCENT' ? 'PERCENT' : 'AMOUNT') : null,
+            result_type: postsSplit ? null : canonicalResultType(form.result_type),
+            show_in_popup: !postsSplit && form.show_in_popup,
+            popup_section: !postsSplit && form.show_in_popup ? form.popup_section.trim() || null : null,
+            show_when_formula: !postsSplit && form.show_in_popup && form.show_only_when
+              ? normalizeFormula(form.show_when_formula).text.trim() || null
               : null,
-            divider_below: !postsSplit && logicForm.show_in_popup && logicForm.divider_below,
+            divider_below: !postsSplit && form.show_in_popup && form.divider_below,
           },
         }),
       });
@@ -2170,6 +2219,7 @@ export default function CommissionTemplateDetailPage() {
           canSave={logicDirty}
         />
       )}
+      {confirmDialog}
 
       {editTemplateOpen && template && createPortal(
         <div className="app-modal fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => { if (!isSaving) setEditTemplateOpen(false); }}>
