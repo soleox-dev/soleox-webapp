@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, X } from 'lucide-react';
 import { widePageFrame } from '@/lib/page-frame';
 import { DESKTOP_QUERY, useFitsScreen, useIsDesktop, useIsTouch } from '@/lib/use-media-query';
+import { swallowNextClick } from '@/lib/swallow-click';
 import { FieldChevron, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { LoadingDataPage, type LoadingProgressInfo } from './loading-data-page';
 import {
@@ -1700,15 +1701,65 @@ function FilterBar(props: {
   capShowPaid?: boolean;
   onCapShowPaid?: (value: boolean) => void;
 }) {
-  // The filters card collapses to one line to give the report more room. The choice is remembered per browser.
+  // The filters card collapses to one line to give the report more room. On wider screens the choice is
+  // remembered per browser; on a phone it always starts collapsed and folds up again after a filter changes.
   const [collapsed, setCollapsed] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [collapseWhenIdle, setCollapseWhenIdle] = useState(false);
   useEffect(() => {
+    if (!window.matchMedia(DESKTOP_QUERY).matches) {
+      setCollapsed(true);
+      return;
+    }
     try {
       setCollapsed(window.localStorage.getItem(FILTERS_COLLAPSED_KEY) === '1');
     } catch {
       // Storage can be unavailable; the card stays open.
     }
   }, []);
+
+  // After a change on a phone, fold the card once no filter menu is open, so several values can be ticked first.
+  useEffect(() => {
+    if (!collapseWhenIdle) return;
+    const check = () => {
+      const card = cardRef.current;
+      if (card && card.querySelector('[aria-expanded="true"]:not([aria-label="Hide filters"])')) return;
+      setCollapseWhenIdle(false);
+      setCollapsed(true);
+    };
+    const later = () => window.setTimeout(check, 0);
+    const first = window.setTimeout(check, 0);
+    document.addEventListener('mousedown', later);
+    document.addEventListener('touchend', later);
+    document.addEventListener('keydown', later);
+    return () => {
+      window.clearTimeout(first);
+      document.removeEventListener('mousedown', later);
+      document.removeEventListener('touchend', later);
+      document.removeEventListener('keydown', later);
+    };
+  }, [collapseWhenIdle]);
+  const afterChange = <T,>(handler: ((value: T) => void) | undefined) => handler && ((value: T) => {
+    handler(value);
+    if (!window.matchMedia(DESKTOP_QUERY).matches) setCollapseWhenIdle(true);
+  });
+  const on = {
+    onPreset: afterChange(props.onPreset),
+    onRange: afterChange(props.onRange),
+    onGroups: afterChange(props.onGroups),
+    onStatus: afterChange(props.onStatus),
+    onSide: afterChange(props.onSide),
+    onAgent: afterChange(props.onAgent),
+    onSource: afterChange(props.onSource),
+    onMetric: afterChange(props.onMetric),
+    onBoardMetric: afterChange(props.onBoardMetric),
+    onPayees: afterChange(props.onPayees),
+    onEarnings: afterChange(props.onEarnings),
+    onExcludeTeamLeads: afterChange(props.onExcludeTeamLeads),
+    onCumulative: afterChange(props.onCumulative),
+    onCapYearOffset: afterChange(props.onCapYearOffset),
+    onCapShowPaid: afterChange(props.onCapShowPaid),
+  };
   const setCollapsedSaved = (next: boolean) => {
     setCollapsed(next);
     try {
@@ -1739,7 +1790,7 @@ function FilterBar(props: {
   }
   return (
     // Below md the card is a fixed two-column grid, so a filter whose text grows truncates instead of reflowing.
-    <div className="relative z-30 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 pr-10 max-md:grid max-md:grid-cols-2 max-md:gap-x-3">
+    <div ref={cardRef} className="relative z-30 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 pr-10 max-md:grid max-md:grid-cols-2 max-md:gap-x-3">
       <button
         type="button"
         onClick={() => setCollapsedSaved(true)}
@@ -1752,7 +1803,7 @@ function FilterBar(props: {
       </button>
       {props.hideDate ? (
         <>
-          {props.onCapYearOffset ? (
+          {on.onCapYearOffset ? (
             <ChoiceFilter
               label="Cap year"
               note="Current uses today. Previous uses the same day one year ago. Every selected cap applies that day to its own reset date."
@@ -1761,60 +1812,60 @@ function FilterBar(props: {
                 { value: '0', label: 'Current cap year' },
                 { value: '1', label: 'Previous cap year' },
               ]}
-              onChange={(next) => props.onCapYearOffset?.(next === '1' ? 1 : 0)}
+              onChange={(next) => on.onCapYearOffset?.(next === '1' ? 1 : 0)}
             />
           ) : null}
         </>
       ) : (
-        <DateRangeFilter preset={props.preset} range={props.range} onPreset={props.onPreset} onRange={props.onRange} label={props.dateRangeLabel} />
+        <DateRangeFilter preset={props.preset} range={props.range} onPreset={on.onPreset} onRange={on.onRange} label={props.dateRangeLabel} />
       )}
       {props.preset === 'custom' && !props.hideDate ? (
         <>
-          <CustomDateField label="From" value={props.range.start} onChange={(start) => props.onRange({ ...props.range, start })} />
-          <CustomDateField label="To" value={props.range.end} onChange={(end) => props.onRange({ ...props.range, end })} />
+          <CustomDateField label="From" value={props.range.start} onChange={(start) => on.onRange({ ...props.range, start })} />
+          <CustomDateField label="To" value={props.range.end} onChange={(end) => on.onRange({ ...props.range, end })} />
         </>
       ) : null}
-      <MultiFilter label="Group" note="Limits every metric to transactions whose primary agent belongs to the selected groups. All includes every agent." options={props.groupChoices} picked={props.groupPicked} fallback={null} onChange={props.onGroups} />
-      {props.earningsChoices && props.onEarnings ? (
-        <MultiFilter label="Earnings type" note="Net commission income is each agent’s payment amount. Checking an entity adds the post-split dollars that agent allocated to it." options={props.earningsChoices} picked={props.earningsPicked ?? null} fallback={[NET_EARNING]} onChange={props.onEarnings} />
+      <MultiFilter label="Group" note="Limits every metric to transactions whose primary agent belongs to the selected groups. All includes every agent." options={props.groupChoices} picked={props.groupPicked} fallback={null} onChange={on.onGroups} />
+      {props.earningsChoices && on.onEarnings ? (
+        <MultiFilter label="Earnings type" note="Net commission income is each agent’s payment amount. Checking an entity adds the post-split dollars that agent allocated to it." options={props.earningsChoices} picked={props.earningsPicked ?? null} fallback={[NET_EARNING]} onChange={on.onEarnings} />
       ) : null}
       {props.dateOnly ? null : (
         <>
-      <MultiFilter label="Status" options={props.statusChoices} picked={props.statusPicked} fallback={props.statusFallback} onChange={props.onStatus} fold />
-      <MultiFilter label="Side" options={props.sideChoices} picked={props.sidePicked} fallback={null} onChange={props.onSide} fold />
-      <MultiFilter label="Primary agent" options={props.agentChoices} picked={props.agentPicked} fallback={null} onChange={props.onAgent} />
-      <MultiFilter label="Lead source" options={props.sourceChoices} picked={props.sourcePicked} fallback={null} onChange={props.onSource} />
-      {props.payeeChoices && props.onPayees ? (
-        <MultiFilter label={props.boardMetric === 'payment:entity' ? 'Entity' : 'Agent'} options={props.payeeChoices} picked={props.payeePicked ?? null} fallback={null} onChange={props.onPayees} />
+      <MultiFilter label="Status" options={props.statusChoices} picked={props.statusPicked} fallback={props.statusFallback} onChange={on.onStatus} fold />
+      <MultiFilter label="Side" options={props.sideChoices} picked={props.sidePicked} fallback={null} onChange={on.onSide} fold />
+      <MultiFilter label="Primary agent" options={props.agentChoices} picked={props.agentPicked} fallback={null} onChange={on.onAgent} />
+      <MultiFilter label="Lead source" options={props.sourceChoices} picked={props.sourcePicked} fallback={null} onChange={on.onSource} />
+      {props.payeeChoices && on.onPayees ? (
+        <MultiFilter label={props.boardMetric === 'payment:entity' ? 'Entity' : 'Agent'} options={props.payeeChoices} picked={props.payeePicked ?? null} fallback={null} onChange={on.onPayees} />
       ) : null}
-      {props.excludeTeamLeads !== undefined && props.onExcludeTeamLeads ? (
+      {props.excludeTeamLeads !== undefined && on.onExcludeTeamLeads ? (
         <label className="mb-1 flex h-5 cursor-pointer items-center gap-2 self-end text-xs font-medium normal-case tracking-normal max-md:col-span-2 max-md:mb-0 max-md:text-sm max-md:whitespace-nowrap text-slate-700 dark:text-slate-200">
           <input
             type="checkbox"
             checked={Boolean(props.excludeTeamLeads)}
-            onChange={(event) => props.onExcludeTeamLeads?.(event.target.checked)}
+            onChange={(event) => on.onExcludeTeamLeads?.(event.target.checked)}
             className="h-4 w-4 cursor-pointer accent-emerald-600"
           />
           {props.teamLeadIds?.size === 1 ? 'Exclude team lead' : 'Exclude team leads'}
         </label>
       ) : null}
-      {props.cumulative !== undefined && props.onCumulative ? (
+      {props.cumulative !== undefined && on.onCumulative ? (
         <label className="mb-1 flex h-5 cursor-pointer items-center gap-2 self-end text-xs font-medium normal-case tracking-normal max-md:col-span-2 max-md:mb-0 max-md:text-sm max-md:whitespace-nowrap text-slate-700 dark:text-slate-200">
           <input
             type="checkbox"
             checked={props.cumulative}
-            onChange={(event) => props.onCumulative?.(event.target.checked)}
+            onChange={(event) => on.onCumulative?.(event.target.checked)}
             className="h-4 w-4 cursor-pointer accent-emerald-600"
           />
           Cumulative
         </label>
       ) : null}
-      {props.capShowPaid !== undefined && props.onCapShowPaid ? (
+      {props.capShowPaid !== undefined && on.onCapShowPaid ? (
         <label title="Lists every transaction in the agent’s cap year where the agent was paid. Rows that add nothing to this cap are grey." className="mb-1 flex h-5 cursor-pointer items-center gap-2 self-end text-xs font-medium normal-case tracking-normal max-md:col-span-2 max-md:mb-0 max-md:text-sm max-md:whitespace-nowrap text-slate-700 dark:text-slate-200">
           <input
             type="checkbox"
             checked={props.capShowPaid}
-            onChange={(event) => props.onCapShowPaid?.(event.target.checked)}
+            onChange={(event) => on.onCapShowPaid?.(event.target.checked)}
             className="h-4 w-4 cursor-pointer accent-emerald-600"
           />
           Show all paid transactions
@@ -1826,8 +1877,8 @@ function FilterBar(props: {
         value={props.boardMetrics ? props.boardMetric : props.metric}
         options={(props.boardMetrics ?? METRICS.map((item) => ({ id: item.id, label: item.label }))).map((item) => ({ value: item.id, label: item.label }))}
         onChange={(next) => {
-          if (props.boardMetrics && props.onBoardMetric) props.onBoardMetric(next);
-          else props.onMetric(next as MetricId);
+          if (props.boardMetrics && on.onBoardMetric) on.onBoardMetric(next);
+          else on.onMetric(next as MetricId);
         }}
       />
       )}
@@ -1947,7 +1998,9 @@ function TitleMetric({ value, options, onChange }: { value: string; options: Boa
   useEffect(() => {
     if (!open) return;
     const onPointer = (event: MouseEvent) => {
-      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+      if (ref.current?.contains(event.target as Node)) return;
+      swallowNextClick();
+      setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false);
@@ -2034,7 +2087,9 @@ function TitleCaps({ options, picked, onChange }: {
   useEffect(() => {
     if (!open) return;
     const onPointer = (event: MouseEvent) => {
-      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+      if (ref.current?.contains(event.target as Node)) return;
+      swallowNextClick();
+      setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false);
@@ -2255,7 +2310,9 @@ function ChoiceFilter({ label, note, value, options, onChange }: {
   useEffect(() => {
     if (!open) return;
     const onPointer = (event: MouseEvent) => {
-      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+      if (ref.current?.contains(event.target as Node)) return;
+      swallowNextClick();
+      setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false);
@@ -2339,7 +2396,9 @@ function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date range
   useEffect(() => {
     if (!open) return;
     const onPointer = (event: MouseEvent) => {
-      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+      if (ref.current?.contains(event.target as Node)) return;
+      swallowNextClick();
+      setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false);
@@ -2471,7 +2530,9 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
   useEffect(() => {
     if (!open) return;
     const onPointer = (event: MouseEvent) => {
-      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+      if (ref.current?.contains(event.target as Node)) return;
+      swallowNextClick();
+      setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false);
@@ -2705,6 +2766,7 @@ function ProductionGrainTitle({ grain, enabled, onChange }: { grain: ProductionG
     const onPointer = (event: MouseEvent) => {
       const target = event.target as Node;
       if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      swallowNextClick();
       setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
@@ -5336,6 +5398,7 @@ function ScoreNote({ label, text, onOpenChange, className = 'absolute right-1.5 
     if (!open && !pinned) return;
     const onPointer = (event: MouseEvent) => {
       if (!ref.current?.contains(event.target as Node)) {
+        swallowNextClick();
         setPinned(false);
         setOpen(false);
       }

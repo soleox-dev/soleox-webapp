@@ -18,6 +18,7 @@ import { cachedSchema, cachedSubmissions, cachedTemplates, rememberSchema, remem
 import { BooleanField, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
 import { parameterValidationMessage } from '@/lib/parameter-validation';
+import { swallowNextClick } from '@/lib/swallow-click';
 
 interface TemplateOption {
   id: string;
@@ -1551,6 +1552,7 @@ export function CommissionTemplatePanel({
     const closeMenu = (event: MouseEvent) => {
       const target = event.target as Node;
       if (templateFieldRef.current?.contains(target) || templateMenuRef.current?.contains(target)) return;
+      swallowNextClick();
       setTemplateMenuOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {

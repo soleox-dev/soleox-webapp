@@ -4,6 +4,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { createPortal } from 'react-dom';
 import { validateFormula, readExcelString, normalizeFormula } from './formula-validator';
 import { explainFormula } from './formula-explainer';
+import { swallowNextClick } from '@/lib/swallow-click';
 
 const FORMULA_FUNCTION_GROUPS: { title: string; items: { name: string; signature: string; summary: string }[] }[] = [
   {
@@ -88,6 +89,7 @@ function FormulaFunctionsButton({ onInsert }: { onInsert: (text: string) => void
     const close = (event: MouseEvent) => {
       const target = event.target as Node;
       if (buttonRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      swallowNextClick();
       setOpen(false);
     };
     document.addEventListener('mousedown', close);

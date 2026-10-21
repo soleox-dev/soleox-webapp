@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeft, Search } from 'lucide-react';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { SectionLinks, type TransactionSectionId, type TransactionSectionLink } from './SectionLinks';
+import { swallowNextClick } from '@/lib/swallow-click';
 
 interface HeaderCardProps {
   isNewTransaction: boolean;
@@ -85,6 +86,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
     const onPointer = (event: MouseEvent) => {
       const target = event.target as Node;
       if (searchRef.current?.contains(target) || searchButtonRef.current?.contains(target)) return;
+      swallowNextClick();
       setSearchOpen(false);
     };
     document.addEventListener('mousedown', onPointer);

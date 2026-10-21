@@ -23,6 +23,7 @@ import { formatAgentCapLine, type AgentCapCell } from '@/lib/agent-cap-progress'
 import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
 import { useAccess } from '@/components/access-provider';
 import { usePhonePortrait } from '@/lib/use-media-query';
+import { swallowNextClick } from '@/lib/swallow-click';
 
 interface CommissionWaterfallProps {
   /** Inputs are still loading; amounts would be provisional, so a placeholder replaces them. */
@@ -1728,7 +1729,9 @@ function WaterfallMoreMenu({ onReset }: { onReset: () => void }) {
   useEffect(() => {
     if (!open) return;
     const closeOnOutside = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
+      if (menuRef.current?.contains(event.target as Node)) return;
+      swallowNextClick();
+      setOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false);

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { swallowNextClick } from '@/lib/swallow-click';
 
 export type MenuOption = {
   value: string;
@@ -88,6 +89,7 @@ export function OptionMenu({
       const target = event.target as Node;
       const field = inputRef.current?.closest('label');
       if (inputRef.current?.contains(target) || field?.contains(target) || menuRef.current?.contains(target)) return;
+      swallowNextClick();
       setOpen(false);
       setNarrowing(false);
     };

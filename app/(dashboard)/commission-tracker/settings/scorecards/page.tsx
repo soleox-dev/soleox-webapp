@@ -19,6 +19,7 @@ import {
   type ScorecardMetricKind,
   type TransactionScorecard,
 } from '@/lib/transaction-scorecards';
+import { swallowNextClick } from '@/lib/swallow-click';
 
 interface SchemaField {
   field_key: string;
@@ -70,6 +71,7 @@ export default function ScorecardsSettingsPage() {
     const close = (event: MouseEvent) => {
       const target = event.target;
       if (target instanceof Element && target.closest('[data-color-picker]')) return;
+      swallowNextClick();
       setColorPickerId(null);
     };
     document.addEventListener('mousedown', close);

@@ -49,6 +49,7 @@ import {
   scorecardMetricValue,
   type TransactionScorecard,
 } from '@/lib/transaction-scorecards';
+import { swallowNextClick } from '@/lib/swallow-click';
 
 interface SchemaField {
   id?: string;
@@ -1667,6 +1668,7 @@ export default function TransactionsListPage() {
     const close = (event: MouseEvent) => {
       const target = event.target as Node;
       if (boltMenuButtonRef.current?.contains(target) || boltMenuPanelRef.current?.contains(target)) return;
+      swallowNextClick();
       setBoltMenuOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -1703,6 +1705,7 @@ export default function TransactionsListPage() {
     const close = (event: MouseEvent) => {
       const target = event.target as Node;
       if (tmsMenuButtonRef.current?.contains(target) || tmsMenuPanelRef.current?.contains(target)) return;
+      swallowNextClick();
       setTmsMenuOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -1739,6 +1742,7 @@ export default function TransactionsListPage() {
     const close = (event: MouseEvent) => {
       const target = event.target as Node;
       if (statusMenuButtonRef.current?.contains(target) || statusMenuPanelRef.current?.contains(target)) return;
+      swallowNextClick();
       setStatusMenuOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {

@@ -37,6 +37,7 @@ import { generatePrefixedId } from '@/lib/id';
 import { transactionDealLabel, transactionSearchLabel } from '@/lib/transaction-label';
 import { useAccess } from '@/components/access-provider';
 import { useTemplateQualification } from './hooks/useTemplateQualification';
+import { swallowNextClick } from '@/lib/swallow-click';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -247,8 +248,10 @@ export default function Dashboard() {
   }, [routeId, isNewTransaction, dealNotFound, selectedDealId]);
 
   useEffect(() => {
+    if (!isDropdownOpen) return;
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        swallowNextClick();
         setIsDropdownOpen(false);
         if (selectedDeal) {
           setSearchQuery(transactionSearchLabel(selectedDeal));
@@ -257,7 +260,7 @@ export default function Dashboard() {
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [selectedDeal]);
+  }, [selectedDeal, isDropdownOpen]);
 
   // Dynamic search filtering & relevance ranking for transactions combobox
   const filteredDeals = useMemo(() => {

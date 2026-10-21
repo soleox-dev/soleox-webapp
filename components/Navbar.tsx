@@ -16,6 +16,7 @@ import { OWNER_REPORTS, OWNER_REPORT_GROUPS } from '@/lib/owner-reports';
 import { BarChart3, Briefcase, Building2, ChevronDown, ChevronLeft, ChevronRight, House, LayoutGrid, List, Menu, Monitor, Moon, PieChart, Receipt, Search, Settings, Sun, Target, UserPlus, Users, X, type LucideIcon } from 'lucide-react';
 import type { ThemePreference } from '@/app/providers';
 import { CommandPalette } from '@/components/CommandPalette';
+import { swallowNextClick } from '@/lib/swallow-click';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -80,16 +81,18 @@ export default function Navbar() {
     return 'CB'; // Default fallback
   };
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside; that click does nothing else.
   useEffect(() => {
+    if (!isUserMenuOpen) return;
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        swallowNextClick();
         setIsUserMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [isUserMenuOpen]);
 
   useEffect(() => {
     if (!isOwnerReports) return;
@@ -211,7 +214,9 @@ export default function Navbar() {
   useEffect(() => {
     if (!moduleMenuOpen) return;
     const closeOnOutside = (event: MouseEvent) => {
-      if (!moduleMenuRef.current?.contains(event.target as Node)) setModuleMenuOpen(false);
+      if (moduleMenuRef.current?.contains(event.target as Node)) return;
+      swallowNextClick();
+      setModuleMenuOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setModuleMenuOpen(false);

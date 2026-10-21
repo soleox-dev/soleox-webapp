@@ -3,6 +3,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowDown, ArrowUp, ChevronsUpDown, Search, X } from 'lucide-react';
+import { swallowNextClick } from '@/lib/swallow-click';
 
 /** The value a column filter uses for an empty cell. */
 export const BLANK_FILTER_VALUE = '__blank__';
@@ -212,6 +213,7 @@ function ColumnFilterMenu({ anchor, label, picked, loadOptions, onChange, onClos
     const onPointer = (event: MouseEvent) => {
       const target = event.target as Node;
       if (menuRef.current?.contains(target) || anchor.current?.contains(target)) return;
+      swallowNextClick();
       onClose();
     };
     const onKey = (event: KeyboardEvent) => {

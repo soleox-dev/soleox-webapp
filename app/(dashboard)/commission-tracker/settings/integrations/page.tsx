@@ -8,6 +8,7 @@ import { OptionMenu } from '@/components/ui/option-menu';
 import { useRegisterSave } from '@/components/save-leave-guard';
 import { FieldChevron, UnderlineField, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { duplicateTmsIdReason, isDuplicateTmsIdReason, syncFinishedSummary } from '@/lib/sync-finished-summary';
+import { swallowNextClick } from '@/lib/swallow-click';
 
 interface FieldOption {
   fieldKey: string;
@@ -150,6 +151,7 @@ function PolicySelect({
     const onPointer = (event: MouseEvent) => {
       const target = event.target as Node;
       if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      swallowNextClick();
       setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
