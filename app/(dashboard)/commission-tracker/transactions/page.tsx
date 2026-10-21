@@ -2748,9 +2748,9 @@ export default function TransactionsListPage() {
                         </td>
                       )}
                       {canWriteTracker && (
-                      <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 text-center`}>
+                      <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 align-middle text-center`}>
                         {tmsLink ? (
-                          <span title={tmsLink.label} aria-label={tmsLink.label} className="inline-flex items-center justify-center">
+                          <span title={tmsLink.label} aria-label={tmsLink.label} className="flex items-center justify-center">
                             {tmsLink.disconnected ? (
                               <Unlink className={`${markClass} text-rose-500`} strokeWidth={1.75} aria-hidden />
                             ) : (
@@ -2761,10 +2761,10 @@ export default function TransactionsListPage() {
                       </td>
                       )}
                       {canWriteTracker && (
-                      <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 text-center`}>
+                      <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 align-middle text-center`}>
                         {bolt ? (
                           !rowNavigates ? (
-                            <span title={bolt.label} aria-label={bolt.label} className="inline-flex rounded p-0.5">
+                            <span title={bolt.label} aria-label={bolt.label} className="inline-flex rounded p-0.5 align-middle">
                               <BoltStatusIcon tone={bolt.tone} className={markClass} />
                             </span>
                           ) : (
@@ -2772,7 +2772,7 @@ export default function TransactionsListPage() {
                             href={`/commission-tracker/transactions/${dealId}#commission`}
                             title={bolt.label}
                             aria-label={bolt.label}
-                            className="inline-flex rounded p-0.5 hover:bg-slate-200 dark:hover:bg-slate-700"
+                            className="inline-flex rounded p-0.5 align-middle hover:bg-slate-200 dark:hover:bg-slate-700"
                             onClick={(event) => {
                               if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
                               // Client navigation appends this hash onto a URL that already has it.
@@ -2786,7 +2786,7 @@ export default function TransactionsListPage() {
                           )
                         ) : templateBoltChecking(deal) ? (
                           <span
-                            className="inline-flex rounded p-0.5"
+                            className="inline-flex rounded p-0.5 align-middle"
                             title="Checking template status"
                             role="status"
                             aria-label="Checking template status"
