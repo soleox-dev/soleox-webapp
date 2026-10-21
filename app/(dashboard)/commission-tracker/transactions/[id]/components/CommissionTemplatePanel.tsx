@@ -1699,7 +1699,8 @@ export function CommissionTemplatePanel({
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-[1800px] rounded-xl p-5 shadow-2xl flex flex-col max-h-[calc(100vh-2rem)]">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">{selectedTemplate?.template_name || 'Commission Template'}</h3>
             {loadError && <p className="text-xs text-rose-600 dark:text-rose-400 mt-3">{loadError}</p>}
-            <div className="@container/params mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl bg-slate-100 p-4 dark:bg-slate-900">
+            {/* The cards sit straight on the popup, lined up with its title; the small gutter keeps their rings from being clipped. */}
+            <div className="@container/params -mx-1 mt-3 min-h-0 flex-1 overflow-y-auto px-1 py-px">
               <div className="space-y-6">
               {qualifyingCaps.length > 0 && (
                 // Yellow, like a parameter changed by hand, when a box doesn't match its cap's qualifying formula;

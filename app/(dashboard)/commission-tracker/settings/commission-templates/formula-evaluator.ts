@@ -268,12 +268,15 @@ function compare(left: FormulaValue, op: string, right: FormulaValue): FormulaVa
   const a = asNumber(left);
   const b = asNumber(right);
   if (a === null || b === null) return { type: 'error' };
-  const result = op === '=' ? a === b
-    : op === '<>' ? a !== b
-    : op === '<' ? a < b
-    : op === '<=' ? a <= b
-    : op === '>' ? a > b
-    : a >= b;
+  // Like a spreadsheet, numbers that differ only by binary rounding are equal: 70% + 10% + 3% + 7% + 10%
+  // adds up to 0.9999999999999999, which must still equal 100%.
+  const same = Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
+  const result = op === '=' ? same
+    : op === '<>' ? !same
+    : op === '<' ? !same && a < b
+    : op === '<=' ? same || a < b
+    : op === '>' ? !same && a > b
+    : same || a > b;
   return { type: 'boolean', value: result };
 }
 
