@@ -3,7 +3,7 @@
 import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
-import { ArrowLeft, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, X } from 'lucide-react';
+import { ArrowLeft, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, RotateCcw, X } from 'lucide-react';
 import { widePageFrame } from '@/lib/page-frame';
 import { DESKTOP_QUERY, useFitsScreen, useIsDesktop, useIsTouch } from '@/lib/use-media-query';
 import { swallowNextClick } from '@/lib/swallow-click';
@@ -1080,6 +1080,23 @@ export default function OwnerReportsPage() {
               onCapOpen={setCapOpen}
               capShowPaid={capShowPaid}
               onCapShowPaid={setCapShowPaid}
+              filtersDirty={preset !== 'ytd' || statusPicked != null || sidePicked != null || agentPicked != null || sourcePicked != null || groupPicked != null || agentPayeePicked != null || entityPayeePicked != null || earningsPicked != null || excludeTeamLeads || capPicked != null || capYearOffset !== 0 || capShowPaid}
+              onResetFilters={() => {
+                setPreset('ytd');
+                setRange(rangeForPreset('ytd'));
+                setStatusPicked(null);
+                setSidePicked(null);
+                setAgentPicked(null);
+                setSourcePicked(null);
+                setGroupPicked(null);
+                setAgentPayeePicked(null);
+                setEntityPayeePicked(null);
+                setEarningsPicked(null);
+                setExcludeTeamLeads(false);
+                setCapPicked(null);
+                setCapYearOffset(0);
+                setCapShowPaid(false);
+              }}
               capEmpty={teamCaps.length === 0
                 ? 'No caps are set up yet.'
                 : capPicked?.length === 0
@@ -1429,6 +1446,10 @@ function ReportView(props: {
   onCapOpen: (value: { capId: string; agentId: string } | null) => void;
   capShowPaid: boolean;
   onCapShowPaid: (value: boolean) => void;
+  /** Some filter differs from its default. */
+  filtersDirty: boolean;
+  /** Puts every filter of the report back to its default. */
+  onResetFilters: () => void;
   capEmpty: string;
 }) {
   const { reportId, closed, pending, taken, closedPrior, pendingPrior, names, range, priorRange, metric, netCommission, priorNetCommission, allDeals, deals, payments, teamLeadIds } = props;
@@ -1585,6 +1606,11 @@ function ReportView(props: {
           payeeChoices={(props.reportId === 'net-commission-income' || (props.reportId === 'lead-source-leaderboard' && (props.boardMetric === 'payment:agent' || props.boardMetric === 'payment:entity'))) ? props.payeeChoices : undefined}
           cumulative={props.reportId === 'team-performance' ? cumulative : undefined}
           onCumulative={setCumulative}
+          canReset={props.filtersDirty || cumulative}
+          onReset={() => {
+            props.onResetFilters();
+            setCumulative(false);
+          }}
           excludeTeamLeads={(props.reportId === 'team-performance' || props.reportId === 'net-commission-income' || (props.reportId === 'lead-source-leaderboard' && props.boardMetric !== 'payment:entity')) ? props.excludeTeamLeads : undefined}
           dateRangeLabel={props.reportId === 'lead-source-leaderboard' || props.reportId === 'team-performance'
             ? `${props.dateBases.find((field) => field.id === props.boardDate)?.label || 'Closing Date'} Range`
@@ -1709,6 +1735,8 @@ function FilterBar(props: {
   onCapYearOffset?: (value: number) => void;
   capShowPaid?: boolean;
   onCapShowPaid?: (value: boolean) => void;
+  canReset?: boolean;
+  onReset?: () => void;
 }) {
   // The filters card collapses to one line to give the report more room. On wider screens the choice is
   // remembered per browser; on a phone it always starts collapsed and folds up again on the first tap
@@ -1761,7 +1789,20 @@ function FilterBar(props: {
     onCumulative: afterChange(props.onCumulative),
     onCapYearOffset: afterChange(props.onCapYearOffset),
     onCapShowPaid: afterChange(props.onCapShowPaid),
+    onReset: afterChange<void>(props.onReset ? () => props.onReset?.() : undefined),
   };
+  const resetButton = on.onReset ? (
+    <button
+      type="button"
+      onClick={() => on.onReset?.()}
+      disabled={!props.canReset}
+      title="Put every filter on this report back to its default"
+      className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-brand-700 transition hover:bg-brand-50 disabled:cursor-default disabled:text-slate-400 disabled:hover:bg-transparent dark:text-brand-300 dark:hover:bg-brand-950 dark:disabled:text-slate-500"
+    >
+      <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+      Reset filters
+    </button>
+  ) : null;
   const setCollapsedSaved = (next: boolean) => {
     setCollapsed(next);
     try {
@@ -1886,6 +1927,8 @@ function FilterBar(props: {
       )}
         </>
       )}
+      {/* Last in the card: on a phone it takes its own row. */}
+      {resetButton ? <div className="flex items-end max-md:col-span-2 max-md:justify-end md:ml-auto">{resetButton}</div> : null}
     </div>
   );
 }
