@@ -11,7 +11,7 @@ import { AgentAllocationNotes, TeamCapAmount, adjustedSplitView, teamCapGroups, 
 import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
 
 /** A waterfall stage's heading: larger than the rows, with a short money-green bar in front. */
-export const WATERFALL_HEADING = "inline-flex items-center gap-2 text-sm font-semibold text-slate-900 before:h-4 before:w-1 before:shrink-0 before:rounded-full before:bg-brand-500 before:content-[''] dark:text-white dark:before:bg-brand-400";
+export const WATERFALL_HEADING = "inline-flex items-center gap-2.5 text-base font-bold text-slate-900 before:h-5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-brand-500 before:content-[''] dark:text-white dark:before:bg-brand-400";
 
 type SplitType = 'PERCENT' | 'AMOUNT';
 
