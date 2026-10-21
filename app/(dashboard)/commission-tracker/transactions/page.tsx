@@ -2404,7 +2404,7 @@ export default function TransactionsListPage() {
             event.preventDefault();
             event.stopPropagation();
           }}
-          className={`overflow-x-auto overflow-y-auto overscroll-none border border-slate-200 dark:border-slate-700/80 rounded-lg scrollbar-thin ${compactRows ? 'max-h-[calc(100dvh-11rem)]' : 'max-h-[640px]'}`}
+          className={`overflow-x-auto overflow-y-auto overscroll-none border border-slate-200 dark:border-slate-700 rounded-lg scrollbar-thin ${compactRows ? 'max-h-[calc(100dvh-11rem)]' : 'max-h-[640px]'}`}
         >
           <table className="w-full text-left text-xs min-w-[1200px] border-separate border-spacing-0">
             
@@ -2412,15 +2412,15 @@ export default function TransactionsListPage() {
             <thead className="sticky top-0 z-20 select-none bg-slate-100 dark:bg-slate-900">
               
               {/* Section Group Header Row */}
-              <tr className="bg-slate-200 dark:bg-slate-950 text-[11px] font-bold text-brand-600 dark:text-brand-400">
-                {bulkMode && <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />}
-                {canWriteTracker && <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />}
-                {canWriteTracker && <th className="w-8 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />}
+              <tr className="bg-slate-200 dark:bg-slate-700 text-[11px] font-bold text-brand-600 dark:text-brand-400">
+                {bulkMode && <th className="w-8 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600" />}
+                {canWriteTracker && <th className="w-8 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600" />}
+                {canWriteTracker && <th className="w-8 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600" />}
                 {sectionHeaderGroups.map((group, idx) => (
                   <th
                     key={`${group.name}_${idx}`}
                     colSpan={group.span}
-                    className="py-1.5 px-4 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800 border-r border-slate-300/60 dark:border-slate-800/80"
+                    className="py-1.5 px-4 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600 border-r border-slate-300/60 dark:border-slate-800/80"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
@@ -2428,7 +2428,7 @@ export default function TransactionsListPage() {
                     </div>
                   </th>
                 ))}
-                {canWriteTracker && <th className="py-1.5 px-4 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />}
+                {canWriteTracker && <th className="py-1.5 px-4 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600" />}
               </tr>
 
               {/* Field Label Header Row */}

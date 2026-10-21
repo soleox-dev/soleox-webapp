@@ -952,7 +952,7 @@ export default function AgentsPage() {
   // theme so they follow the palette: slate-900 at 30% over slate-800, and slate-700 at 50% over slate-800.
   const pinCell = `sticky ${pinLeft} z-10 bg-white group-even:bg-slate-50 group-hover:bg-slate-100 dark:bg-slate-800 dark:group-even:bg-[color-mix(in_srgb,var(--color-slate-900)_30%,var(--color-slate-800))] dark:group-hover:bg-[color-mix(in_srgb,var(--color-slate-700)_50%,var(--color-slate-800))] ${pinEdge}`;
   const pinCheckHead = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-slate-100 dark:bg-slate-900';
-  const pinCheckSection = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-slate-200 dark:bg-slate-950';
+  const pinCheckSection = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-slate-200 dark:bg-slate-700';
   const pinCheckCell = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-white group-even:bg-slate-50 group-hover:bg-slate-100 dark:bg-slate-800 dark:group-even:bg-[color-mix(in_srgb,var(--color-slate-900)_30%,var(--color-slate-800))] dark:group-hover:bg-[color-mix(in_srgb,var(--color-slate-700)_50%,var(--color-slate-800))]';
 
   return (
@@ -1143,18 +1143,18 @@ export default function AgentsPage() {
             event.preventDefault();
             event.stopPropagation();
           }}
-          className={`overflow-x-auto overflow-y-auto overscroll-none border border-slate-200 dark:border-slate-700/80 rounded-lg scrollbar-thin ${compactRows ? 'max-h-[calc(100dvh-11rem)]' : 'max-h-[640px]'}`}
+          className={`overflow-x-auto overflow-y-auto overscroll-none border border-slate-200 dark:border-slate-700 rounded-lg scrollbar-thin ${compactRows ? 'max-h-[calc(100dvh-11rem)]' : 'max-h-[640px]'}`}
         >
           <table className="w-full text-left text-xs border-separate border-spacing-0">
             <thead className="sticky top-0 z-20 select-none bg-slate-100 dark:bg-slate-900">
-              <tr className="bg-slate-200 dark:bg-slate-950 text-[11px] font-bold text-brand-600 dark:text-brand-400">
-                {bulkMode && <th className={`${pinCheckSection} border-b border-slate-300 dark:border-slate-800`} />}
+              <tr className="bg-slate-200 dark:bg-slate-700 text-[11px] font-bold text-brand-600 dark:text-brand-400">
+                {bulkMode && <th className={`${pinCheckSection} border-b border-slate-300 dark:border-slate-600`} />}
                 {sectionHeaderGroups.map((group, index) => {
                   const span = index === 0 ? group.span - 1 : group.span;
                   return (
                     <React.Fragment key={`${group.name}_${index}`}>
                       {index === 0 && (
-                        <th className={`${pinHead} bg-slate-200 p-0 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800 border-r border-slate-300/60 dark:border-slate-800/80`}>
+                        <th className={`${pinHead} bg-slate-200 p-0 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600 border-r border-slate-300/60 dark:border-slate-600/80`}>
                           <div className="absolute inset-0 flex items-center gap-1.5 px-4">
                             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" />
                             <span className="truncate">{group.name}</span>
@@ -1164,7 +1164,7 @@ export default function AgentsPage() {
                       {span > 0 && (
                         <th
                           colSpan={span}
-                          className="py-1.5 px-4 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800 border-r border-slate-300/60 dark:border-slate-800/80"
+                          className="py-1.5 px-4 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600 border-r border-slate-300/60 dark:border-slate-600/80"
                         >
                           {index === 0 ? null : (
                             <div className="flex items-center gap-1.5">
@@ -1177,7 +1177,7 @@ export default function AgentsPage() {
                     </React.Fragment>
                   );
                 })}
-                {canWriteTracker && <th className="py-1.5 px-4 bg-slate-200 dark:bg-slate-950 border-b border-slate-300 dark:border-slate-800" />}
+                {canWriteTracker && <th className="py-1.5 px-4 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600" />}
               </tr>
               <tr className="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 font-semibold">
                 {bulkMode && (

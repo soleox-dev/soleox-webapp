@@ -1391,7 +1391,7 @@ export default function CommissionTemplateDetailPage() {
             ) : (
               <div ref={parameterScrollRef} className="max-h-[calc(100vh-7rem)] overflow-auto">
                 <table className={`w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700 ${compactRows ? '[&_th]:!px-3 [&_th]:!py-1.5 [&_td]:!px-3 [&_td]:!py-1 [&_tbody_td]:!align-middle' : ''}`}>
-                  <thead className="text-[11px] text-slate-500 [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-50 dark:[&>tr>th]:bg-slate-900 [&>tr>th:last-child]:z-30">
+                  <thead className="text-[11px] [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-200 dark:[&>tr>th]:bg-slate-700 text-slate-600 dark:text-slate-300 [&>tr>th:last-child]:z-30">
                     <tr>
                       <th className="px-4 py-3">#</th>
                       <th className="px-4 py-3">Parameter</th>
@@ -1645,7 +1645,7 @@ export default function CommissionTemplateDetailPage() {
             ) : (
               <div ref={logicScrollRef} className="max-h-[calc(100vh-7rem)] overflow-auto">
                 <table className={`w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700 ${compactRows ? '[&_th]:!px-3 [&_th]:!py-1.5 [&_td]:!px-3 [&_td]:!py-1 [&_tbody_td]:!align-middle' : ''}`}>
-                  <thead className="text-[11px] text-slate-500 [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-50 dark:[&>tr>th]:bg-slate-900 [&>tr>th:last-child]:z-30">
+                  <thead className="text-[11px] [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-200 dark:[&>tr>th]:bg-slate-700 text-slate-600 dark:text-slate-300 [&>tr>th:last-child]:z-30">
                     <tr>
                       <th className="px-4 py-3">#</th>
                       <th className="px-4 py-3">Rule</th>

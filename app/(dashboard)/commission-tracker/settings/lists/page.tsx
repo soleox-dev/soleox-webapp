@@ -94,7 +94,7 @@ export default function ListsSettingsPage() {
 
         <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-lg">
           <table className="w-full text-left text-xs divide-y divide-slate-200 dark:divide-slate-700">
-            <thead className="bg-slate-50 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 font-bold">
+            <thead className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold">
               <tr>
                 <th className="p-3.5">List Name & Purpose</th>
                 <th className="p-3.5">Schema Code</th>
