@@ -119,7 +119,7 @@ function AgentCapStrips({
       {groups.map((group) => {
         const capId = group.lines.find((line) => line.team_cap_id)?.team_cap_id || '';
         return (
-          <div key={group.id} className="flex items-center justify-between gap-3 rounded-md bg-amber-50 px-2.5 py-1.5 dark:bg-amber-950/40">
+          <div key={group.id} className="flex items-start justify-between gap-3 rounded-md bg-amber-50 px-2.5 py-1.5 dark:bg-amber-950/40">
             <span className="flex min-w-0 items-center gap-1.5">
               {isEditing && onRemoveTeamCap && capId && (
                 <button
@@ -533,7 +533,7 @@ export function CommissionWaterfall({
         </div>
 
         {/* On a phone the buttons take their own row under the title. */}
-        <div className="flex flex-wrap items-center justify-end gap-3 max-sm:w-full">
+        <div className="flex flex-wrap items-center justify-end gap-3 max-sm:w-full max-sm:justify-start">
           {canWrite && (
           <CommissionTemplatePanel
             key={transactionId || 'new'}
@@ -1215,8 +1215,8 @@ export function CommissionWaterfall({
                 >
                   {/* Agent Sub-Card Header */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-700 pb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-900 dark:text-white">
+                    <div className="flex w-full flex-wrap items-center gap-2">
+                      <span className="whitespace-nowrap text-sm font-bold text-slate-900 dark:text-white">
                         👤 {agentName}
                       </span>
                       {agentObj?.isTeamLead && (
@@ -1224,7 +1224,7 @@ export function CommissionWaterfall({
                           Lead
                         </span>
                       )}
-                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                      <span className="ml-auto whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
                         (Agent Split: <strong className={agentGrossSplit < -0.004 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-200'}>{formatCurrency(agentGrossSplit)}</strong>)
                       </span>
                     </div>

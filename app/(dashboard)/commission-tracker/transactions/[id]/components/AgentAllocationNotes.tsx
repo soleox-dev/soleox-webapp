@@ -149,6 +149,8 @@ function matchCapBarWidths(bar: HTMLElement) {
   if (bars.length === 0) return;
   for (const item of bars) item.style.width = 'max-content';
   const max = Math.max(...bars.map((item) => item.getBoundingClientRect().width));
+  // Measured while hidden (the waterfall is still calculating): keep each bar's own width rather than 0.
+  if (max < 1) return;
   const px = `${Math.ceil(max)}px`;
   for (const item of bars) item.style.width = px;
 }
@@ -161,7 +163,17 @@ export function AgentCapNote({ label, detail, share }: { label: string; detail: 
   const text = over ? 'dark:text-rose-200' : 'dark:text-emerald-200';
   useLayoutEffect(() => {
     const bar = barRef.current;
-    if (bar) matchCapBarWidths(bar);
+    if (!bar) return;
+    matchCapBarWidths(bar);
+    // A bar first laid out while hidden matches the others once it shows.
+    let shown = bar.getBoundingClientRect().width > 0;
+    const observer = new ResizeObserver(() => {
+      const visible = bar.getBoundingClientRect().width > 0;
+      if (visible && !shown) matchCapBarWidths(bar);
+      shown = visible;
+    });
+    observer.observe(bar);
+    return () => observer.disconnect();
   }, [label]);
   return (
     <HoverNote label={detail}>
