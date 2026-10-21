@@ -1063,6 +1063,7 @@ export function CommissionWaterfall({
                             </span>
                           )}
                         </div>
+                        <div className={isEditing ? undefined : 'pr-2.5'}>
                         <SplitPair
                           isEditing={false}
                           locked={isEditing}
@@ -1074,6 +1075,7 @@ export function CommissionWaterfall({
                           onAmountChange={() => {}}
                           preventMinus={preventMinus}
                         />
+                        </div>
                       </div>
                       <AgentCapStrips agentId={agent.id} allocations={allocations} isEditing={isEditing} onTeamCapAmountChange={onTeamCapAmountChange} onRemoveTeamCap={onRemoveTeamCap} />
                     </div>
