@@ -1654,6 +1654,15 @@ type CapMenuChoice = FilterChoice & { group: 'team' | 'agent' };
 
 const FILTERS_COLLAPSED_KEY = 'soleox-report-filters-collapsed';
 
+/**
+ * A tap outside an open dropdown only closes it, except on another control in the filters card:
+ * there it also opens that filter or ticks that checkbox.
+ */
+function swallowOutsideFilters(target: EventTarget | null) {
+  if (target instanceof Element && target.closest('[data-report-filters]')) return;
+  swallowNextClick();
+}
+
 function FilterBar(props: {
   preset: RangePreset;
   range: DateRange;
@@ -1702,7 +1711,8 @@ function FilterBar(props: {
   onCapShowPaid?: (value: boolean) => void;
 }) {
   // The filters card collapses to one line to give the report more room. On wider screens the choice is
-  // remembered per browser; on a phone it always starts collapsed and folds up again after a filter changes.
+  // remembered per browser; on a phone it always starts collapsed and folds up again on the first tap
+  // outside it after a filter changes.
   const [collapsed, setCollapsed] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const [collapseWhenIdle, setCollapseWhenIdle] = useState(false);
@@ -1718,26 +1728,18 @@ function FilterBar(props: {
     }
   }, []);
 
-  // After a change on a phone, fold the card once no filter menu is open, so several values can be ticked first.
+  // After a change on a phone, the card folds on the next tap outside it. That tap only folds the card, so
+  // nothing under the finger moves into its place. Taps on other filters inside the card keep working.
   useEffect(() => {
     if (!collapseWhenIdle) return;
-    const check = () => {
-      const card = cardRef.current;
-      if (card && card.querySelector('[aria-expanded="true"]:not([aria-label="Hide filters"])')) return;
+    const onPress = (event: Event) => {
+      if (event.target instanceof Node && cardRef.current?.contains(event.target)) return;
+      swallowNextClick();
       setCollapseWhenIdle(false);
       setCollapsed(true);
     };
-    const later = () => window.setTimeout(check, 0);
-    const first = window.setTimeout(check, 0);
-    document.addEventListener('mousedown', later);
-    document.addEventListener('touchend', later);
-    document.addEventListener('keydown', later);
-    return () => {
-      window.clearTimeout(first);
-      document.removeEventListener('mousedown', later);
-      document.removeEventListener('touchend', later);
-      document.removeEventListener('keydown', later);
-    };
+    document.addEventListener('pointerdown', onPress, true);
+    return () => document.removeEventListener('pointerdown', onPress, true);
   }, [collapseWhenIdle]);
   const afterChange = <T,>(handler: ((value: T) => void) | undefined) => handler && ((value: T) => {
     handler(value);
@@ -1790,7 +1792,7 @@ function FilterBar(props: {
   }
   return (
     // Below md the card is a fixed two-column grid, so a filter whose text grows truncates instead of reflowing.
-    <div ref={cardRef} className="relative z-30 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 pr-10 max-md:grid max-md:grid-cols-2 max-md:gap-x-3">
+    <div ref={cardRef} data-report-filters className="relative z-30 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 pr-10 max-md:grid max-md:grid-cols-2 max-md:gap-x-3">
       <button
         type="button"
         onClick={() => setCollapsedSaved(true)}
@@ -1999,7 +2001,7 @@ function TitleMetric({ value, options, onChange }: { value: string; options: Boa
     if (!open) return;
     const onPointer = (event: MouseEvent) => {
       if (ref.current?.contains(event.target as Node)) return;
-      swallowNextClick();
+      swallowOutsideFilters(event.target);
       setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
@@ -2088,7 +2090,7 @@ function TitleCaps({ options, picked, onChange }: {
     if (!open) return;
     const onPointer = (event: MouseEvent) => {
       if (ref.current?.contains(event.target as Node)) return;
-      swallowNextClick();
+      swallowOutsideFilters(event.target);
       setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
@@ -2311,7 +2313,7 @@ function ChoiceFilter({ label, note, value, options, onChange }: {
     if (!open) return;
     const onPointer = (event: MouseEvent) => {
       if (ref.current?.contains(event.target as Node)) return;
-      swallowNextClick();
+      swallowOutsideFilters(event.target);
       setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
@@ -2397,7 +2399,7 @@ function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date range
     if (!open) return;
     const onPointer = (event: MouseEvent) => {
       if (ref.current?.contains(event.target as Node)) return;
-      swallowNextClick();
+      swallowOutsideFilters(event.target);
       setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
@@ -2531,7 +2533,7 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
     if (!open) return;
     const onPointer = (event: MouseEvent) => {
       if (ref.current?.contains(event.target as Node)) return;
-      swallowNextClick();
+      swallowOutsideFilters(event.target);
       setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
@@ -2766,7 +2768,7 @@ function ProductionGrainTitle({ grain, enabled, onChange }: { grain: ProductionG
     const onPointer = (event: MouseEvent) => {
       const target = event.target as Node;
       if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
-      swallowNextClick();
+      swallowOutsideFilters(event.target);
       setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
@@ -5398,7 +5400,7 @@ function ScoreNote({ label, text, onOpenChange, className = 'absolute right-1.5 
     if (!open && !pinned) return;
     const onPointer = (event: MouseEvent) => {
       if (!ref.current?.contains(event.target as Node)) {
-        swallowNextClick();
+        swallowOutsideFilters(event.target);
         setPinned(false);
         setOpen(false);
       }
