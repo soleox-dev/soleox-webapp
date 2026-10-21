@@ -1228,7 +1228,8 @@ export default function AgentsPage() {
                     key={ag.id}
                     data-bulk-id={bulkMode ? String(ag.id || '') : undefined}
                     onPointerDown={(event) => {
-                      if (!bulkMode || event.button !== 0) return;
+                      // Drag-to-select is for the mouse; on touch a drag scrolls and only a tap ticks a row.
+                      if (!bulkMode || event.button !== 0 || event.pointerType !== 'mouse') return;
                       const target = event.target as HTMLElement | null;
                       if (target?.closest('a, button')) return;
                       if (!target?.closest('input')) event.preventDefault();
