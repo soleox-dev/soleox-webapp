@@ -3,6 +3,7 @@
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth';
+import { SearchHeightHold } from '@/components/SearchHeightHold';
 
 export default async function DashboardLayout({
   children,
@@ -16,5 +17,10 @@ export default async function DashboardLayout({
     redirect('/api/auth/signin'); // or your custom /login page
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <SearchHeightHold />
+      {children}
+    </>
+  );
 }
