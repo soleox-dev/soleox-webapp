@@ -2068,11 +2068,6 @@ export default function Dashboard() {
             pendingTemplateSubmission={pendingTemplateSubmission}
             onResetWaterfall={handleResetWaterfall}
             resetClearsPayments={templateQualifies === false}
-            flow={{
-              total: Number(dealResult.totalCommission) || 0,
-              agents: agentDisbursements.map((agent) => ({ name: agent.name, amount: agent.amount })),
-              entities: entityDisbursements.map(([name, amount]) => ({ name, amount })),
-            }}
             submissionRevision={templateSubmissionRevision}
           />
 

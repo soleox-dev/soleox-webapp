@@ -14,7 +14,6 @@ import { CancelEditPrompt } from './CancelEditPrompt';
 import { useEditOnDoublePress } from './useEditOnDoublePress';
 import { useSectionEditKeys } from './useSectionEditKeys';
 import { CommissionTemplatePanel, type TemplateSubmissionDraft } from './CommissionTemplatePanel';
-import { CommissionFlowBar, type FlowPayee } from './CommissionFlowBar';
 import { CalculatingCommission } from './CalculatingCommission';
 import type { AppliedTemplateRules } from './applyTemplateLogic';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
@@ -91,7 +90,6 @@ interface CommissionWaterfallProps {
   pendingTemplateSubmission?: TemplateSubmissionDraft | null;
   onResetWaterfall?: () => void;
   /** Payouts for the where-the-commission-goes bar. Display only. */
-  flow?: { total: number; agents: FlowPayee[]; entities: FlowPayee[] };
   /** True when the deal qualifies for no template, so a reset leaves no agent splits and no payments. */
   resetClearsPayments?: boolean;
   submissionRevision?: number;
@@ -210,7 +208,6 @@ export function CommissionWaterfall({
   onStoredSubmission,
   pendingTemplateSubmission = null,
   onResetWaterfall,
-  flow,
   resetClearsPayments = false,
   submissionRevision = 0,
   allocations = [],
@@ -618,7 +615,6 @@ export function CommissionWaterfall({
 
       {calculating && <CalculatingCommission rows={4} />}
       <div className="p-3 sm:p-6 space-y-4" hidden={calculating} {...editOnDoublePress}>
-        {flow && !calculating && <CommissionFlowBar total={flow.total} agents={flow.agents} entities={flow.entities} />}
         {/* With both empty and not editing, steps 1 and 2 share one row. Editing splits them again for their + buttons. */}
         {bothDeductionsEmpty ? (
           <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm px-4 py-2">
