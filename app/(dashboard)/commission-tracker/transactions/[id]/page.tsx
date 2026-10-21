@@ -39,6 +39,12 @@ import { useAccess } from '@/components/access-provider';
 import { useTemplateQualification } from './hooks/useTemplateQualification';
 import { swallowNextClick } from '@/lib/swallow-click';
 
+type SavedPaymentRow = {
+  agent_id?: string | null;
+  payee_entity_id?: string | null;
+  amount_paid?: number | string | null;
+};
+
 export default function Dashboard() {
   const router = useRouter();
   const { access, loading: accessLoading } = useAccess();
@@ -878,7 +884,7 @@ export default function Dashboard() {
   });
 
   // The saved split after team caps, shown until the replay (which needs the whole commission ledger) is ready.
-  const showingSavedWaterfall = !isNewTransaction && !isEditingWaterfall && !overviewForm.isEditingOverview
+  const showingSavedWaterfall = !isNewTransaction && !isEditingWaterfall && !overviewForm.isEditingOverview && !hasUnsavedLocalChanges
     && Boolean(selectedDeal?.id) && commissionItemsDealId === selectedDeal?.id;
   const storedAgentSplits = useMemo(() => {
     if (!showingSavedWaterfall) return null;
@@ -1446,7 +1452,7 @@ export default function Dashboard() {
     });
   };
 
-  const agentDisbursements = Object.entries(dealResult.netPayouts)
+  const computedAgentDisbursements = Object.entries(dealResult.netPayouts)
     .filter(([name]) => agents.some((agent) => agent.name === name && !idleAgentIds.has(agent.id)))
     .map(([name, amount]) => {
       const agent = agents.find((item) => item.name === name);
@@ -1460,7 +1466,70 @@ export default function Dashboard() {
         isTeamLead: Boolean(agent?.isTeamLead),
       };
     });
-  const entityDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => !agents.some((a) => a.name === e)) as [string, number][];
+  const computedEntityDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => !agents.some((a) => a.name === e)) as [string, number][];
+
+  // The deal's saved payments, the same rows the reports read. They show whenever the waterfall is not being
+  // edited; while it is, the section follows the edit. A deal with no saved payments shows the calculation.
+  const paymentsDealId = selectedDeal?.id ? String(selectedDeal.id) : '';
+  const [savedPayments, setSavedPayments] = useState<{ dealId: string; rows: SavedPaymentRow[] } | null>(null);
+  useEffect(() => {
+    if (!paymentsDealId || isNewTransaction) return;
+    let cancelled = false;
+    void fetch(`/api/payments?transaction_id=${encodeURIComponent(paymentsDealId)}`, { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((data) => {
+        if (!cancelled && data?.success !== false && Array.isArray(data?.payments)) setSavedPayments({ dealId: paymentsDealId, rows: data.payments });
+      })
+      .catch(() => {
+        // The calculated payments stay on screen.
+      });
+    return () => {
+      cancelled = true;
+    };
+    // A save reloads the deal's commission lines, and its payments with them.
+  }, [paymentsDealId, isNewTransaction, commissionItems]);
+  const savedPaymentRows = savedPayments?.dealId === paymentsDealId ? savedPayments.rows : null;
+  const useSavedPayments = showingSavedWaterfall && Boolean(savedPaymentRows?.length);
+  const paymentsLoading = showingSavedWaterfall && savedPaymentRows === null;
+
+  let agentDisbursements = computedAgentDisbursements;
+  let entityDisbursements = computedEntityDisbursements;
+  if (useSavedPayments && savedPaymentRows) {
+    const agentTotals = new Map<string, number>();
+    const entityTotals = new Map<string, number>();
+    savedPaymentRows.forEach((row) => {
+      const amount = Number(row.amount_paid) || 0;
+      if (row.agent_id && !row.payee_entity_id) {
+        const agent = agents.find((item) => item.id === row.agent_id) || knownAgents.find((item) => item.id === row.agent_id);
+        const name = agent?.name || String(row.agent_id);
+        agentTotals.set(name, roundCurrency((agentTotals.get(name) || 0) + amount));
+      } else if (row.payee_entity_id) {
+        const name = knownEntities.find((entity) => entity.id === row.payee_entity_id)?.name || String(row.payee_entity_id);
+        entityTotals.set(name, roundCurrency((entityTotals.get(name) || 0) + amount));
+      }
+    });
+    // Same order as the waterfall: agents as listed on the deal, entities in the order they are paid there.
+    const agentOrder = (name: string) => {
+      const index = agents.findIndex((agent) => agent.name === name);
+      return index < 0 ? agents.length : index;
+    };
+    agentDisbursements = [...agentTotals.entries()]
+      .sort(([left], [right]) => agentOrder(left) - agentOrder(right))
+      .map(([name, amount]) => {
+        const agent = agents.find((item) => item.name === name);
+        return {
+          name,
+          amount,
+          isPrimary: agent ? (primaryAgentId ? isPrimaryAgent(agent, primaryAgentId) : agents[0]?.id === agent.id) : false,
+          isTeamLead: Boolean(agent?.isTeamLead),
+        };
+      });
+    const entityOrder = (name: string) => {
+      const index = computedEntityDisbursements.findIndex(([entity]) => entity === name);
+      return index < 0 ? computedEntityDisbursements.length : index;
+    };
+    entityDisbursements = [...entityTotals.entries()].sort(([left], [right]) => entityOrder(left) - entityOrder(right));
+  }
 
   // Filter available agents for picker modal so already added agents are excluded
   const availableAgentsToPick = useMemo(() => {
@@ -2090,7 +2159,7 @@ export default function Dashboard() {
             agentSplitExcess={agentSplitExcess}
             remainingCommission={Number(dealResult.commissionAfterPreSplit) || 0}
             requiresFullAllocation={templateQualifies === true}
-            calculating={showCommissionCalculating}
+            calculating={useSavedPayments ? false : (showCommissionCalculating || paymentsLoading)}
           />
         </div>
       </div>
