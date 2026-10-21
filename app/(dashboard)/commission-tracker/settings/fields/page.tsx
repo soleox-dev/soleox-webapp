@@ -13,6 +13,7 @@ import { GripVertical, List, User } from 'lucide-react';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { ToastBanner } from '@/components/ui/ToastBanner';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
+import type { FieldKeyRenameCounts } from '@/app/api/schema/rename-key/route';
 import { DB_TRANSACTION_COLUMNS, DB_AGENT_COLUMNS } from '@/lib/fields';
 import { useRegisterSave } from '@/components/save-leave-guard';
 import { underlineControl } from '@/components/ui/underline-field';
@@ -980,9 +981,18 @@ export default function FieldCustomizationsPage() {
     try {
       setIsSavingField(true);
 
-      const formattedKey =
+      let formattedKey =
         formData.field_key ||
         `custom_${formData.field_label.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+
+      // A custom field whose key changed is renamed everywhere first (values, formulas, caps, views), after
+      // showing what that touches. The save below then updates the renamed field in place.
+      if (editingField && editingField.storage_type === 'CUSTOM_JSON' && formattedKey.trim() !== editingField.field_key) {
+        const cleaned = formattedKey.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+        formattedKey = cleaned.startsWith('custom_') ? cleaned : `custom_${cleaned}`;
+        const renamed = await renameFieldKey(editingField.field_key, formattedKey);
+        if (!renamed) return false;
+      }
 
       const isAudit = READ_ONLY_AUDIT_KEYS.has(formattedKey);
       const isSystemMandatory = MANDATORY_SYSTEM_KEYS.has(formattedKey);
@@ -1064,6 +1074,50 @@ export default function FieldCustomizationsPage() {
     } finally {
       setIsSavingField(false);
     }
+  };
+
+  // Renames a custom field's key with everything that uses it (migration 058). Shows the counts first and
+  // returns false if the person cancels.
+  const renameFieldKey = async (oldKey: string, newKey: string): Promise<boolean> => {
+    const call = async (apply: boolean): Promise<FieldKeyRenameCounts> => {
+      const res = await fetch('/api/schema/rename-key', {
+        method: 'POST',
+        headers: await getAuthHeaders(true),
+        body: JSON.stringify({ targetTable: activeTab, oldKey, newKey, apply }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'The field key could not be renamed.');
+      return data.counts as FieldKeyRenameCounts;
+    };
+    const counts = await call(false);
+    const plural = (n: number, one: string, many: string) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+    const record = activeTab === 'agents' ? ['agent value', 'agent values'] : ['transaction value', 'transaction values'];
+    const parts = [
+      counts.values ? plural(counts.values, record[0], record[1]) : '',
+      counts.fieldFormulas ? plural(counts.fieldFormulas, 'field formula or visibility rule', 'field formulas and visibility rules') : '',
+      counts.templates ? plural(counts.templates, 'template eligibility formula', 'template eligibility formulas') : '',
+      counts.parameters ? plural(counts.parameters, 'template parameter', 'template parameters') : '',
+      counts.rules ? plural(counts.rules, 'template rule', 'template rules') : '',
+      counts.caps ? plural(counts.caps, 'cap', 'caps') : '',
+      counts.salesVolume ? 'the sales volume setting' : '',
+      counts.mappings ? plural(counts.mappings, 'TMS field mapping', 'TMS field mappings') : '',
+      counts.protections ? plural(counts.protections, 'locked transaction field', 'locked transaction fields') : '',
+      counts.settings ? 'saved views and scorecards' : '',
+    ].filter(Boolean);
+    const confirmed = await confirmAction({
+      title: 'Rename Field Key?',
+      message: parts.length
+        ? `${oldKey} becomes ${newKey}, and everything that uses it moves with it: ${parts.join(', ')}. To go back later, rename it again.`
+        : `${oldKey} becomes ${newKey}. Nothing else uses this key yet.`,
+      confirmLabel: 'Rename Key',
+      tone: 'primary',
+    });
+    if (!confirmed) return false;
+    await call(true);
+    const rekey = (list: FieldConfig[]) => list.map((field) => (field.field_key === oldKey ? { ...field, field_key: newKey } : field));
+    if (activeTab === 'transactions') setTxFields(rekey);
+    else setAgentFields(rekey);
+    return true;
   };
 
   const fieldWasOpen = useRef(false);
