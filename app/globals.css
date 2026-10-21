@@ -52,50 +52,42 @@ body {
 }
 
 .report-turquoise {
-  background-color: color-mix(in srgb, #0d9488 12%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #0d9488 28%, transparent);
+  background-color: color-mix(in srgb, #0d9488 16%, transparent);
   color: #115e59;
 }
 
 html.dark .report-turquoise {
-  background-color: color-mix(in srgb, #0d9488 16%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #0d9488 32%, transparent);
+  background-color: color-mix(in srgb, #0d9488 20%, transparent);
   color: #99f6e4;
 }
 
 .report-blue {
-  background-color: color-mix(in srgb, #2563eb 12%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #2563eb 28%, transparent);
+  background-color: color-mix(in srgb, #2563eb 16%, transparent);
   color: #1e40af;
 }
 
 html.dark .report-blue {
-  background-color: color-mix(in srgb, #2563eb 16%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #2563eb 32%, transparent);
+  background-color: color-mix(in srgb, #2563eb 20%, transparent);
   color: #bfdbfe;
 }
 
 .report-purple {
-  background-color: color-mix(in srgb, #9333ea 12%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #9333ea 28%, transparent);
+  background-color: color-mix(in srgb, #9333ea 16%, transparent);
   color: #6b21a8;
 }
 
 html.dark .report-purple {
-  background-color: color-mix(in srgb, #9333ea 16%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #9333ea 32%, transparent);
+  background-color: color-mix(in srgb, #9333ea 20%, transparent);
   color: #e9d5ff;
 }
 
 .report-pill-emerald {
-  background-color: color-mix(in srgb, #059669 12%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #059669 28%, transparent);
+  background-color: color-mix(in srgb, #059669 16%, transparent);
   color: #065f46;
 }
 
 html.dark .report-pill-emerald {
-  background-color: color-mix(in srgb, #059669 16%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #059669 32%, transparent);
+  background-color: color-mix(in srgb, #059669 20%, transparent);
   color: #a7f3d0;
 }
 
@@ -211,50 +203,42 @@ html.dark .report-pill-emerald {
 }
 
 .report-pill-listing {
-  background-color: color-mix(in srgb, #0284c7 12%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #0284c7 28%, transparent);
+  background-color: color-mix(in srgb, #0284c7 16%, transparent);
   color: #075985;
 }
 
 html.dark .report-pill-listing {
-  background-color: color-mix(in srgb, #0284c7 16%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #0284c7 32%, transparent);
+  background-color: color-mix(in srgb, #0284c7 20%, transparent);
   color: #bae6fd;
 }
 
 .report-pill-buyer {
-  background-color: color-mix(in srgb, #d97706 12%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #d97706 28%, transparent);
+  background-color: color-mix(in srgb, #d97706 16%, transparent);
   color: #92400e;
 }
 
 html.dark .report-pill-buyer {
-  background-color: color-mix(in srgb, #d97706 16%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #d97706 32%, transparent);
+  background-color: color-mix(in srgb, #d97706 20%, transparent);
   color: #fde68a;
 }
 
 .report-pill-slate {
-  background-color: color-mix(in srgb, #64748b 12%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #64748b 28%, transparent);
+  background-color: color-mix(in srgb, #64748b 16%, transparent);
   color: #334155;
 }
 
 html.dark .report-pill-slate {
-  background-color: color-mix(in srgb, #64748b 16%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #64748b 32%, transparent);
+  background-color: color-mix(in srgb, #64748b 20%, transparent);
   color: #e2e8f0;
 }
 
 .report-pill-rose {
-  background-color: color-mix(in srgb, #e11d48 12%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #e11d48 28%, transparent);
+  background-color: color-mix(in srgb, #e11d48 16%, transparent);
   color: #9f1239;
 }
 
 html.dark .report-pill-rose {
-  background-color: color-mix(in srgb, #e11d48 16%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #e11d48 32%, transparent);
+  background-color: color-mix(in srgb, #e11d48 20%, transparent);
   color: #fecdd3;
 }
 
