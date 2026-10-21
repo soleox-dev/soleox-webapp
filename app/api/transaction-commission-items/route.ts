@@ -71,6 +71,7 @@ export async function GET(request: Request) {
       const excludeId = searchParams.get('exclude_transaction_id') || '';
       if (agentIds.length === 0 || entityIds.length === 0) return NextResponse.json({ success: true, history: [] });
       const startedAt = Date.now();
+      let historyFallbackReason = '';
       // One query when migration 057 is applied; otherwise the paged read below.
       if (!postSplitHistoryMissing) {
         const { data: joined, error: joinedError } = await supabase.rpc('post_split_history', {
@@ -86,6 +87,9 @@ export async function GET(request: Request) {
           );
         }
         if (joinedError?.code === 'PGRST202') postSplitHistoryMissing = true;
+        historyFallbackReason = joinedError?.code || (joinedError ? 'error' : 'not-array');
+      } else {
+        historyFallbackReason = 'missing';
       }
       const items = await fetchAllPages((offset, limit, withCount) => {
         let itemsQuery = supabase
@@ -134,7 +138,7 @@ export async function GET(request: Request) {
             closingDate: dates.get(transactionId) || null,
           }];
         }),
-      }, { headers: { 'Server-Timing': `items;dur=${itemsMs}, dates;dur=${datesMs}` } });
+      }, { headers: { 'Server-Timing': `items;dur=${itemsMs}, dates;dur=${datesMs}, fallback;desc="${historyFallbackReason}"` } });
     }
 
     let query = supabase
