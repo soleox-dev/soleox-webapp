@@ -35,6 +35,12 @@ interface UseTransactionWaterfallProps {
     ledger?: FormulaLedgerRow[];
     lookups?: FormulaLookups;
   } | null;
+  /**
+   * Each agent's saved split after team caps (the deal's stored AGENT_SPLIT lines), shown while the
+   * template replay that recomputes them still waits for the commission ledger. Pass only for the
+   * saved, unedited waterfall.
+   */
+  storedAgentSplits?: { agentId: string; amount: number }[] | null;
 }
 
 export function computeTransactionWaterfall({
@@ -52,6 +58,7 @@ export function computeTransactionWaterfall({
   clientType,
   allocation = null,
   templateReplay = null,
+  storedAgentSplits = null,
 }: UseTransactionWaterfallProps) {
     const grossComm = roundCurrency(salesPrice * gciPerc);
 
@@ -194,6 +201,9 @@ export function computeTransactionWaterfall({
     // Only when a team cap actually moved money does the submitted template's replay change what shows.
     const capMovedMoney = Boolean(allocation) && Object.values(teamCapCredits(allocation as DealAllocationContext, allocationLines, agents))
       .some((cap) => Math.abs(cap.total) > 0.009);
+    if (capMovedMoney && !templateReplay && storedAgentSplits) {
+      applyStoredAgentSplits(splitCalculated.filter(Boolean), storedAgentSplits, netToSplit);
+    }
 
     const postSplitCalculated: any[] = [];
     const postSplit2Calculated: any[] = [];
@@ -323,6 +333,7 @@ export function useTransactionWaterfall(props: UseTransactionWaterfallProps) {
     props.clientType,
     props.allocation,
     props.templateReplay,
+    props.storedAgentSplits,
   ]);
 }
 
@@ -444,6 +455,22 @@ function applyFormulaAgentSplits(splits: WaterfallSplit[], replayed: AppliedAgen
     const name = String(item.agentName || '').trim().toLowerCase();
     const normalized = normalizeAgentName(name).trim().toLowerCase();
     const nextAmount = dollars.get(name) ?? dollars.get(normalized);
+    if (nextAmount == null || Math.abs(nextAmount - Number(item.amount || 0)) <= 0.009) return;
+    item.grossAmount = item.amount;
+    item.displayPercent = netToSplit > 0 ? roundPercentRate(nextAmount / netToSplit) : 0;
+    item.capAdjusted = true;
+    item.amount = nextAmount;
+  });
+}
+
+// The saved split after team caps, the same shape the replay gives, until the replay is ready.
+function applyStoredAgentSplits(splits: WaterfallSplit[], stored: { agentId: string; amount: number }[], netToSplit: number) {
+  const dollars = new Map<string, number>();
+  stored.forEach((line) => {
+    if (line.agentId) dollars.set(line.agentId, roundCurrency((dollars.get(line.agentId) || 0) + line.amount));
+  });
+  splits.forEach((item) => {
+    const nextAmount = item.agentId ? dollars.get(item.agentId) : undefined;
     if (nextAmount == null || Math.abs(nextAmount - Number(item.amount || 0)) <= 0.009) return;
     item.grossAmount = item.amount;
     item.displayPercent = netToSplit > 0 ? roundPercentRate(nextAmount / netToSplit) : 0;

@@ -877,6 +877,16 @@ export default function Dashboard() {
     reset: templateReplayReset,
   });
 
+  // The saved split after team caps, shown until the replay (which needs the whole commission ledger) is ready.
+  const showingSavedWaterfall = !isNewTransaction && !isEditingWaterfall && !overviewForm.isEditingOverview
+    && Boolean(selectedDeal?.id) && commissionItemsDealId === selectedDeal?.id;
+  const storedAgentSplits = useMemo(() => {
+    if (!showingSavedWaterfall) return null;
+    return (Array.isArray(commissionItems) ? commissionItems : [])
+      .filter((item) => item?.section === 'AGENT_SPLIT' && item.agent_id && item.final_amount != null)
+      .map((item) => ({ agentId: String(item.agent_id), amount: Number(item.final_amount) || 0 }));
+  }, [showingSavedWaterfall, commissionItems]);
+
   const dealResult = useTransactionWaterfall({
     salesPrice: overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.sales_price) || salesPrice) : salesPrice,
     gciPerc: overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.gci_perc) || gciPerc) : gciPerc,
@@ -892,6 +902,7 @@ export default function Dashboard() {
     clientType,
     allocation: allocationForWaterfall,
     templateReplay,
+    storedAgentSplits,
   });
   // Agents with a $0 split and no post-split to pay, such as a team cap recipient the cap does not pay on this deal.
   // They stay in the list while the waterfall is being edited, so a split can still be given to them.
@@ -901,11 +912,11 @@ export default function Dashboard() {
   // True until the deal, its submitted template, and its caps and allocations have loaded. The
   // waterfall computed before then is not final, so allocation auto-save waits for it.
   const commissionSettling = !isNewTransaction && (!selectedDeal || templateReplaySettling || !allocationSettled);
-  // What the screen waits for is less: the replay of the submitted template (which needs the whole
-  // commission ledger) only changes the amounts shown when a team cap moved money on this deal.
-  // Otherwise the stored waterfall shows as soon as the deal and its caps and allocations load, and
-  // the replay only updates the template button.
-  const displaySettling = !isNewTransaction && (!selectedDeal || !allocationSettled || (templateReplaySettling && Boolean(dealResult.capMovedMoney)));
+  // What the screen waits for is less: the saved waterfall, including each agent's split after team caps,
+  // shows as soon as the deal and its caps and allocations load. The replay of the submitted template
+  // (which needs the whole commission ledger) replaces it when ready and updates the template button.
+  const displaySettling = !isNewTransaction && (!selectedDeal || !allocationSettled
+    || (templateReplaySettling && Boolean(dealResult.capMovedMoney) && !storedAgentSplits?.length));
   const showCommissionCalculating = displaySettling && !isEditingWaterfall && !overviewForm.isEditingOverview;
 
   type AllocationSaveRow = {
