@@ -605,7 +605,7 @@ export function CommissionWaterfall({
               </div>
               <div className={`ml-auto flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg ${agentLayout === 'cards' ? 'mr-2 sm:mr-3' : ''}`}>
                 <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                  Total Commission:
+                  Total Commission
                 </span>
                 <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
                   {formatCurrency(baselineTotalCommission)}
@@ -637,7 +637,7 @@ export function CommissionWaterfall({
               </div>
               <div className={`ml-auto flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg ${agentLayout === 'cards' ? 'mr-2 sm:mr-3' : ''}`}>
                 <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                  Total Commission:
+                  Total Commission
                 </span>
                 <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
                   {formatCurrency(baselineTotalCommission)}
@@ -801,7 +801,7 @@ export function CommissionWaterfall({
                 )}
               </div>
               <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-4'}`}>
-                Remaining Balance: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterOffTop)}</strong>
+                Remaining Balance <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterOffTop)}</strong>
               </span>
             </div>
 
@@ -1001,7 +1001,7 @@ export function CommissionWaterfall({
             {/* Its amount ends where the agent cards' amounts end (card border, padding, and the amount inset). */}
             <div className="ml-auto flex items-center gap-3">
               <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-[25px]'}`}>
-                Remaining Balance: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
+                Remaining Balance <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
               </span>
             </div>
           </div>
@@ -1231,7 +1231,7 @@ export function CommissionWaterfall({
                         </span>
                       )}
                       <span className="ml-auto whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
-                        Agent Split: <strong className={agentGrossSplit < -0.004 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-200'}>{formatCurrency(agentGrossSplit)}</strong>
+                        Agent Split <strong className={agentGrossSplit < -0.004 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-200'}>{formatCurrency(agentGrossSplit)}</strong>
                       </span>
                     </div>
                   </div>

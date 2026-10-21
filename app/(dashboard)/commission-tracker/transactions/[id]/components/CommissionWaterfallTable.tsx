@@ -366,7 +366,7 @@ export function CommissionWaterfallTable({
         </div>
         <div className="flex items-center gap-3">
           <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-4'}`}>
-            Remaining Balance: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
+            Remaining Balance <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
           </span>
         </div>
       </div>
