@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { FormulaEditor, FormulaExplain, FormulaHint, FormulaPreview, type FormulaName } from '../FormulaEditor';
+import { BulkRuleRename } from './BulkRuleRename';
 import { LogicStepForm, LOGIC_SECTIONS, canonicalLogicSection, canonicalResultType, logicSectionShowsAgent, logicSectionShowsEntity, logicContextNames, ledgerFormulaNames, resultTypeLabel, ruleKeyFromName, describeKeyConflict, type LogicStepDraft } from './LogicStepForm';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { TrashIcon } from '@/components/ui/trash-icon';
@@ -325,6 +326,12 @@ export default function CommissionTemplateDetailPage() {
   const [compactRows, setCompactRows] = useState(false);
   // Rules list: one list in the order the engine runs them, or grouped by waterfall section.
   const [ruleView, setRuleView] = useState<'run' | 'section'>('run');
+  // Select mode on the rules list: checkboxes for renaming several rules at once.
+  const [selectingRules, setSelectingRules] = useState(false);
+  const [selectedRuleIds, setSelectedRuleIds] = useState<Set<string>>(() => new Set());
+  const [bulkRenameOpen, setBulkRenameOpen] = useState(false);
+  const [bulkRenameSaving, setBulkRenameSaving] = useState(false);
+  const [bulkRenameError, setBulkRenameError] = useState<string | null>(null);
   const [parameterSearch, setParameterSearch] = useState('');
   const [logicSearch, setLogicSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -734,6 +741,7 @@ export default function CommissionTemplateDetailPage() {
           show_in_popup: Boolean(step.show_in_popup),
           popup_section: step.popup_section || null,
           show_when_formula: step.show_when_formula || null,
+          divider_below: Boolean(step.divider_below),
         },
       }),
     });
@@ -816,6 +824,35 @@ export default function CommissionTemplateDetailPage() {
     ordered.splice(insertAt, 0, nextMoved);
     setLogicDropTarget(null);
     await commitLogicOrder(ordered.map((step, itemIndex) => ({ ...step, step_number: itemIndex + 1 })));
+  };
+
+  const toggleRuleSelected = (id: string) => setSelectedRuleIds((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  });
+
+  // Only names are sent; keys, formulas and order stay. The selection stays too, for another change after this one.
+  const applyBulkRename = async (names: { id: string; rule_name: string }[]) => {
+    setBulkRenameSaving(true);
+    setBulkRenameError(null);
+    try {
+      const response = await fetch('/api/commission-template-logic', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template_id: templateId, names }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || 'The rules could not be renamed.');
+      const byId = new Map(names.map((row) => [row.id, row.rule_name]));
+      setLogicSteps((current) => current.map((step) => (byId.has(step.id) ? { ...step, rule_name: byId.get(step.id)! } : step)));
+      setBulkRenameOpen(false);
+    } catch (err) {
+      setBulkRenameError(err instanceof Error ? err.message : 'The rules could not be renamed.');
+    } finally {
+      setBulkRenameSaving(false);
+    }
   };
 
   // In run order a rule keeps its section and moves to the dropped place in the order the engine runs rules.
@@ -1483,7 +1520,7 @@ export default function CommissionTemplateDetailPage() {
                 </button>
               </div>
             ) : (
-              <div ref={parameterScrollRef} className="max-h-[calc(100vh-7rem)] overflow-auto">
+              <div ref={parameterScrollRef} className="max-h-[calc(100dvh-11rem)] overflow-auto overscroll-none">
                 <table className={`pin-col-2 w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700 ${compactRows ? '[&_th]:!px-3 [&_th]:!py-1.5 [&_td]:!px-3 [&_td]:!py-1 [&_tbody_td]:!align-middle' : ''}`}>
                   <thead className="text-2xs [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-200 dark:[&>tr>th]:bg-slate-700 text-slate-600 dark:text-slate-300 [&>tr>th:last-child]:z-30">
                     <tr>
@@ -1697,6 +1734,32 @@ export default function CommissionTemplateDetailPage() {
                     </button>
                   ))}
                 </div>
+                <button
+                  type="button"
+                  aria-pressed={selectingRules}
+                  onClick={() => {
+                    setSelectingRules((current) => !current);
+                    setSelectedRuleIds(new Set());
+                  }}
+                  className={`whitespace-nowrap rounded-lg border px-2.5 py-1 text-xs font-bold transition cursor-pointer ${selectingRules
+                    ? 'border-brand-500/50 bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                    : 'border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700'}`}
+                >
+                  {selectingRules ? 'Done' : 'Select'}
+                </button>
+                {selectingRules && (
+                  <button
+                    type="button"
+                    disabled={selectedRuleIds.size === 0}
+                    onClick={() => {
+                      setBulkRenameError(null);
+                      setBulkRenameOpen(true);
+                    }}
+                    className="whitespace-nowrap rounded-lg bg-brand-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-brand-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Rename Selected{selectedRuleIds.size > 0 ? ` (${selectedRuleIds.size})` : ''}
+                  </button>
+                )}
                 <div className={`relative w-full sm:w-64 ${underlineShell}`}>
                   <input
                     type="text"
@@ -1749,11 +1812,35 @@ export default function CommissionTemplateDetailPage() {
                 </button>
               </div>
             ) : (
-              <div ref={logicScrollRef} className="max-h-[calc(100vh-7rem)] overflow-auto">
+              <div ref={logicScrollRef} className="max-h-[calc(100dvh-11rem)] overflow-auto overscroll-none">
                 <table className={`pin-col-2 w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700 ${compactRows ? '[&_th]:!px-3 [&_th]:!py-1.5 [&_td]:!px-3 [&_td]:!py-1 [&_tbody_td]:!align-middle' : ''}`}>
                   <thead className="text-2xs [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-200 dark:[&>tr>th]:bg-slate-700 text-slate-600 dark:text-slate-300 [&>tr>th:last-child]:z-30">
                     <tr>
-                      <th className="px-4 py-3">#</th>
+                      <th className="px-4 py-3">
+                        {selectingRules ? (
+                          <span className="flex items-center gap-2">
+                            {/* Selects or clears every rule the search shows. */}
+                            <input
+                              type="checkbox"
+                              aria-label="Select all shown rules"
+                              checked={filteredLogicSteps.length > 0 && filteredLogicSteps.every((step) => selectedRuleIds.has(step.id))}
+                              onChange={(event) => {
+                                const checked = event.target.checked;
+                                setSelectedRuleIds((current) => {
+                                  const next = new Set(current);
+                                  for (const step of filteredLogicSteps) {
+                                    if (checked) next.add(step.id);
+                                    else next.delete(step.id);
+                                  }
+                                  return next;
+                                });
+                              }}
+                              className="block h-3.5 w-3.5 accent-brand-600 cursor-pointer"
+                            />
+                            #
+                          </span>
+                        ) : '#'}
+                      </th>
                       <th className="px-4 py-3">Rule</th>
                       <th className="px-4 py-3">Condition</th>
                       <th className="px-4 py-3">Section</th>
@@ -1883,7 +1970,20 @@ export default function CommissionTemplateDetailPage() {
                           if (sourceId) void (ruleView === 'run' ? dropLogicInRunOrder : dropLogic)(sourceId, { stepId: step.id, placement });
                         }}
                       >
-                        <td className="px-4 py-3 text-slate-500">{step.step_number}</td>
+                        <td className="px-4 py-3 text-slate-500">
+                          {selectingRules ? (
+                            <label className="flex cursor-pointer items-center gap-2">
+                              <input
+                                type="checkbox"
+                                aria-label={`Select ${step.rule_name}`}
+                                checked={selectedRuleIds.has(step.id)}
+                                onChange={() => toggleRuleSelected(step.id)}
+                                className="block h-3.5 w-3.5 accent-brand-600 cursor-pointer"
+                              />
+                              {step.step_number}
+                            </label>
+                          ) : step.step_number}
+                        </td>
                         <td className="px-4 py-3">
                           <div className="font-bold text-slate-900 dark:text-white">{step.rule_name}</div>
                           {!compactRows && step.rule_key?.trim() && <div className="mt-0.5 font-mono text-2xs text-sky-700 dark:text-sky-300">{step.rule_key}</div>}
@@ -2322,6 +2422,15 @@ export default function CommissionTemplateDetailPage() {
         />
       )}
       {confirmDialog}
+      {bulkRenameOpen && (
+        <BulkRuleRename
+          rules={[...logicSteps].sort((a, b) => a.step_number - b.step_number).filter((step) => selectedRuleIds.has(step.id))}
+          saving={bulkRenameSaving}
+          error={bulkRenameError}
+          onApply={(names) => void applyBulkRename(names)}
+          onClose={() => setBulkRenameOpen(false)}
+        />
+      )}
 
       {editTemplateOpen && template && createPortal(
         <div className="app-modal fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => { if (!isSaving) setEditTemplateOpen(false); }}>

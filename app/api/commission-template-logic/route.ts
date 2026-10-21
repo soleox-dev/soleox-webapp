@@ -143,6 +143,51 @@ export async function POST(request: Request) {
   }
 }
 
+// PATCH: Rename several rules at once (Settings > Templates > Rules > Rename Selected). Only names change;
+// keys, formulas and order stay as they are.
+export async function PATCH(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const body = await request.json().catch(() => ({}));
+    const templateId = String(body.template_id || '').trim();
+    const names: { id: string; rule_name: string }[] = (Array.isArray(body.names) ? body.names : [])
+      .map((row: { id?: unknown; rule_name?: unknown }) => ({ id: String(row?.id || '').trim(), rule_name: String(row?.rule_name || '').trim() }))
+      .filter((row: { id: string }) => row.id);
+    if (!templateId || names.length === 0) {
+      return NextResponse.json({ error: 'Choose the rules to rename.' }, { status: 400 });
+    }
+    if (names.some((row) => !row.rule_name)) {
+      return NextResponse.json({ error: 'A rule name cannot be empty.' }, { status: 400 });
+    }
+
+    const { clientId, supabase } = await requireSessionClient();
+    const updatedAt = new Date().toISOString();
+    const results = await Promise.all(names.map((row) => supabase
+      .from('commission_template_rules')
+      .update({ rule_name: row.rule_name, updated_at: updatedAt, updated_by: session.user!.email })
+      .eq('id', row.id)
+      .eq('template_id', templateId)
+      .eq('client_id', clientId)));
+    const failed = results.find((result) => result.error);
+    if (failed?.error) throw failed.error;
+
+    await recordAudit(supabase, {
+      clientId,
+      actorEmail: session.user.email,
+      action: 'update',
+      entity: 'template',
+      entityId: templateId,
+      summary: `Renamed ${names.length} template ${names.length === 1 ? 'rule' : 'rules'}`,
+    });
+    return NextResponse.json({ success: true, renamed: names.length });
+  } catch (error: any) {
+    return apiError(error, 'The rules could not be renamed.');
+  }
+}
+
 // DELETE: Archive template logic step
 export async function DELETE(request: Request) {
   try {
