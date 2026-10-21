@@ -45,6 +45,25 @@ const themeInitializerScript = `
         document.documentElement.style.backgroundColor = '#f1f5f9';
       }
     } catch (e) {}
+    // Desktop view on a phone (see lib/view-mode.ts): lay the page out 1280px wide before the first paint.
+    try {
+      var phone = window.matchMedia('(hover: none) and (pointer: coarse)').matches
+        && Math.min(screen.width, screen.height) < 768;
+      if (phone && localStorage.getItem('soleox-view-mode') === 'desktop') {
+        var applyDesktop = function() {
+          var metas = document.querySelectorAll('meta[name="viewport"]');
+          if (metas.length === 0) {
+            var meta = document.createElement('meta');
+            meta.setAttribute('name', 'viewport');
+            document.head.appendChild(meta);
+            metas = [meta];
+          }
+          for (var i = 0; i < metas.length; i++) metas[i].setAttribute('content', 'width=1280');
+        };
+        applyDesktop();
+        document.addEventListener('DOMContentLoaded', applyDesktop);
+      }
+    } catch (e) {}
   })();
 `;
 
