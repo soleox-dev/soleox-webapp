@@ -1130,6 +1130,8 @@ export function CommissionWaterfall({
 
                       </div>
 
+                      {/* Read-only, the amount lines up with the team cap amounts inside their strips below. */}
+                      <div className={isEditing ? undefined : 'pr-2.5'}>
                       <SplitPair
                         isEditing={isEditing}
                         matchColumns
@@ -1147,6 +1149,7 @@ export function CommissionWaterfall({
                         }}
                         preventMinus={preventMinus}
                       />
+                      </div>
                     </div>
                     <AgentCapStrips agentId={agent.id} allocations={allocations} isEditing={isEditing} onTeamCapAmountChange={onTeamCapAmountChange} onRemoveTeamCap={onRemoveTeamCap} />
                     <AgentAllocationNotes agentId={agent.id} allocations={allocations} />

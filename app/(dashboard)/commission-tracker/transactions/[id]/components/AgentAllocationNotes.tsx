@@ -79,7 +79,7 @@ export function TeamCapAmount({
   onAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
 }) {
   if (!line) {
-    return <span className="inline-flex w-[6.5rem] justify-end pr-2 text-xs font-semibold text-amber-800/40 dark:text-amber-200/30">—</span>;
+    return <span className={`inline-flex w-[6.5rem] justify-end text-xs font-semibold text-amber-800/40 dark:text-amber-200/30 ${isEditing ? 'pr-2' : ''}`}>—</span>;
   }
   const amount = Number(line.amount) || 0;
   const calculated = line.calculated_amount == null ? null : Number(line.calculated_amount);
@@ -89,8 +89,9 @@ export function TeamCapAmount({
   const exceeded = Boolean(standing?.exceeded);
   const amountTone = exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-amber-800 dark:text-amber-100';
   const editedTone = exceeded ? 'text-rose-600/80 dark:text-rose-300/80' : 'text-amber-700/80 dark:text-amber-300/80';
+  // In edit mode the bar lines up with the input's text, which sits inside its padding.
   const standingNote = standing ? (
-    <span className="pr-2">
+    <span className={canEdit ? 'pr-2' : undefined}>
       <AgentCapNote label={standing.label} detail={standing.detail} share={standing.share} />
     </span>
   ) : null;

@@ -48,7 +48,8 @@ function ColumnSubtotal({
 
   return (
     <div
-      className={`mt-auto flex items-center justify-between gap-3 border-t pt-3 ${
+      // Inset like the cards above (their padding plus border), so the subtotal lines up with their amounts.
+      className={`mt-auto flex items-center justify-between gap-3 border-t px-[calc(0.75rem+1px)] pt-3 sm:px-[calc(1rem+1px)] ${
         isAgent ? 'border-emerald-500/30' : 'border-slate-200 dark:border-slate-700'
       }`}
     >
