@@ -3,6 +3,8 @@ const WRITE_WINDOW_MS = 60_000;
 const SYNC_GAP_MS = 15_000;
 const SYNC_HOUR_LIMIT = 30;
 const SYNC_HOUR_MS = 60 * 60 * 1000;
+const SYNC_UNDO_GAP_MS = 30_000;
+const SYNC_UNDO_PATH = '/api/integrations/google-sheets/sync/undo';
 
 type Allowance = { ok: true } | { ok: false; retryAfterSeconds: number };
 
@@ -37,13 +39,20 @@ function sweep(now: number) {
 }
 
 function isSync(pathname: string): boolean {
+  if (pathname === SYNC_UNDO_PATH) return false;
   return pathname === '/api/integrations/google-sheets/sync' || pathname.startsWith('/api/integrations/google-sheets/sync/');
 }
 
-/** Sync is limited per brokerage. Other writes are limited per person on that brokerage. */
+/**
+ * Sync is limited per brokerage. Undo has its own limit, so it works right after a sync, but only once every 30 seconds.
+ * Other writes are limited per person on that brokerage.
+ */
 export function limitApiWrite(input: { email: string; clientId: string; pathname: string; now?: number }): Allowance {
   const now = input.now ?? Date.now();
   sweep(now);
+  if (input.pathname === SYNC_UNDO_PATH) {
+    return allow(`sync-undo-gap:${input.clientId}`, 1, SYNC_UNDO_GAP_MS, now);
+  }
   if (isSync(input.pathname)) {
     const gapKey = `sync-gap:${input.clientId}`;
     const hourKey = `sync-hour:${input.clientId}`;
