@@ -42,7 +42,7 @@ export function SectionLinks({
           >
             <SectionIcon name={section.id} className="h-3.5 w-3.5" />
             <span>{section.label}</span>
-            <span className={`text-[10px] font-bold tabular-nums ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
+            <span className={`text-2xs font-bold tabular-nums ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
               {section.count}
             </span>
           </button>

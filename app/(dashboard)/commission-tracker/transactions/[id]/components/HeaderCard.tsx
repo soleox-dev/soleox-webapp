@@ -166,7 +166,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
         >
           <Search className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
           <span className={compact ? 'sr-only' : 'hidden sm:inline'}>Switch Deal</span>
-          <kbd className="hidden rounded border border-slate-200 px-1 font-mono text-[10px] text-slate-400 sm:inline dark:border-slate-600">/</kbd>
+          <kbd className="hidden rounded border border-slate-200 px-1 font-mono text-2xs text-slate-400 sm:inline dark:border-slate-600">/</kbd>
         </button>
       )}
       {!isNewTransaction && onDelete && (
@@ -248,7 +248,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
                     Transactions
                   </button>
                 )}
-                <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl dark:text-white">{title}</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{title}</h1>
                 {hasDeal ? (
                   <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
                     {deal?.status && <StatusChip status={deal.status} />}

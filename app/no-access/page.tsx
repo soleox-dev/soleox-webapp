@@ -5,7 +5,7 @@ import { signOut } from 'next-auth/react';
 export default function NoAccessPage() {
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-lg flex-col justify-center px-4 py-16 md:px-6">
-      <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Soleox</p>
+      <p className="text-2xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Soleox</p>
       <h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">No Access</h1>
       <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
         This account cannot open that part of Soleox. Ask an administrator for the permission, or sign in with a different account.

@@ -86,7 +86,7 @@ const PARAMETER_TYPES: { value: ParameterType; label: string }[] = [
 const underlineShell =
   'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600';
 const underlineLabel =
-  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400';
+  'block truncate text-2xs leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400';
 const fieldColumn = 'w-full max-w-[39rem]';
 const sideLabel = 'pt-1 text-xs font-bold leading-4 text-slate-900 dark:text-white';
 
@@ -1228,18 +1228,18 @@ export default function CommissionTemplateDetailPage() {
     <div className="space-y-6">
       <div className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-5 shadow-xs ${phoneSheet}`}>
         <div className="grid min-h-[4.75rem] grid-cols-[minmax(0,1fr)_auto] grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-3 max-sm:min-h-0 max-sm:grid-cols-1 max-sm:grid-rows-none max-sm:gap-y-1">
-          <Link href="/commission-tracker/settings/commission-templates" className="col-start-1 row-start-1 self-start text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline">
+          <Link href="/commission-tracker/settings/commission-templates" className="col-start-1 row-start-1 self-start text-2xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline">
             ← All Templates
           </Link>
           {isLoading ? (
             <p className="col-start-1 row-start-2 text-xs text-slate-500">Loading template...</p>
           ) : template ? (
-            <h2 className="col-start-1 row-start-2 text-sm font-bold leading-5 text-slate-900 dark:text-white">
+            <h2 className="col-start-1 row-start-2 text-lg font-bold leading-6 text-slate-900 dark:text-white">
               {template.template_name}
             </h2>
           ) : null}
           {template?.description && (
-            <p className="col-start-1 row-start-3 self-end text-[11px] leading-4 text-slate-500 dark:text-slate-400">{template.description}</p>
+            <p className="col-start-1 row-start-3 self-end text-2xs leading-4 text-slate-500 dark:text-slate-400">{template.description}</p>
           )}
           {template && (
             <div className="col-start-2 row-start-1 row-span-3 self-center flex items-center gap-1 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-4 max-sm:mt-2">
@@ -1269,7 +1269,7 @@ export default function CommissionTemplateDetailPage() {
               <button
                 type="button"
                 onClick={() => setConfirmDelete({ kind: 'template', label: template.template_name })}
-                className={`${rowActionClass} text-[18px] leading-none text-rose-500 hover:text-rose-600 hover:bg-rose-500/10`}
+                className={`${rowActionClass} text-lg leading-none text-rose-500 hover:text-rose-600 hover:bg-rose-500/10`}
                 title="Delete Template"
                 aria-label="Delete Template"
               >
@@ -1295,13 +1295,13 @@ export default function CommissionTemplateDetailPage() {
                   {parametersCollapsed ? '+' : '−'}
                 </span>
                 <span>
-                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
                     Parameters
-                    <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 normal-case ml-1.5">
+                    <span className="text-2xs font-normal text-slate-500 dark:text-slate-400 normal-case ml-1.5">
                       ({parameterSearch.trim() ? `${filteredParameters.length} of ${parameters.length}` : parameters.length})
                     </span>
                   </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  <p className="text-2xs text-slate-500 dark:text-slate-400 mt-1">
                     Values the user fills in when this template is applied to a transaction.
                   </p>
                 </span>
@@ -1362,7 +1362,7 @@ export default function CommissionTemplateDetailPage() {
             ) : (
               <div ref={parameterScrollRef} className="max-h-[calc(100vh-7rem)] overflow-auto">
                 <table className={`w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700 ${compactRows ? '[&_th]:!px-3 [&_th]:!py-1.5 [&_td]:!px-3 [&_td]:!py-1 [&_tbody_td]:!align-middle' : ''}`}>
-                  <thead className="text-[11px] [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-200 dark:[&>tr>th]:bg-slate-700 text-slate-600 dark:text-slate-300 [&>tr>th:last-child]:z-30">
+                  <thead className="text-2xs [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-200 dark:[&>tr>th]:bg-slate-700 text-slate-600 dark:text-slate-300 [&>tr>th:last-child]:z-30">
                     <tr>
                       <th className="px-4 py-3">#</th>
                       <th className="px-4 py-3">Parameter</th>
@@ -1422,15 +1422,15 @@ export default function CommissionTemplateDetailPage() {
                                     placeholder={isUnsectioned ? 'Section name' : group.name}
                                     className="min-w-0 max-w-xs flex-1 rounded-md border border-brand-500/40 bg-white px-2 py-0.5 text-xs font-bold text-slate-900 outline-none focus:border-brand-500 dark:bg-slate-900 dark:text-white"
                                   />
-                                  <button type="submit" className="rounded-full bg-brand-600 px-3 py-0.5 text-[11px] font-bold text-white hover:bg-brand-500 cursor-pointer">Rename</button>
+                                  <button type="submit" className="rounded-full bg-brand-600 px-3 py-0.5 text-2xs font-bold text-white hover:bg-brand-500 cursor-pointer">Rename</button>
                                   <button
                                     type="button"
                                     onClick={() => { setRenamingSection(null); setSectionRenameError(null); }}
-                                    className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white cursor-pointer"
+                                    className="rounded-full px-2 py-0.5 text-2xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white cursor-pointer"
                                   >
                                     Cancel
                                   </button>
-                                  {sectionRenameError && <span className="truncate text-[11px] font-semibold text-rose-600 dark:text-rose-400">{sectionRenameError}</span>}
+                                  {sectionRenameError && <span className="truncate text-2xs font-semibold text-rose-600 dark:text-rose-400">{sectionRenameError}</span>}
                                 </form>
                               ) : (
                                 <>
@@ -1453,7 +1453,7 @@ export default function CommissionTemplateDetailPage() {
                                       <EditPencil className="h-3.5 w-3.5" />
                                     </button>
                                   )}
-                                  <span className="ml-auto pr-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                  <span className="ml-auto pr-1.5 text-2xs font-medium text-slate-500 dark:text-slate-400">
                                     {group.items.length} {group.items.length === 1 ? 'parameter' : 'parameters'}
                                   </span>
                                 </>
@@ -1486,9 +1486,9 @@ export default function CommissionTemplateDetailPage() {
                         <td className="px-4 py-3">
                           <p className="font-bold text-slate-900 dark:text-white">{parameter.parameter_name}</p>
                           {!compactRows && parameter.is_user_editable === false && (
-                            <p className="text-[11px] font-bold text-slate-400 mt-1">Read-only on the transaction</p>
+                            <p className="text-2xs font-bold text-slate-400 mt-1">Read-only on the transaction</p>
                           )}
-                          {!compactRows && parameter.notes && <p className="text-[11px] text-slate-500 mt-1">{parameter.notes}</p>}
+                          {!compactRows && parameter.notes && <p className="text-2xs text-slate-500 mt-1">{parameter.notes}</p>}
                         </td>
                         <td className="px-4 py-3 font-mono text-sky-700 dark:text-sky-300 whitespace-nowrap">{parameter.parameter_key}</td>
                         <td className="px-4 py-3 whitespace-nowrap">{typeLabel(parameter.data_type)}</td>
@@ -1517,7 +1517,7 @@ export default function CommissionTemplateDetailPage() {
                             <button type="button" onClick={() => openEditParameter(parameter)} className={`${rowActionClass} text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700`} title="Edit" aria-label="Edit">
                               <EditPencil className="h-[18px] w-[18px]" />
                             </button>
-                            <button type="button" onClick={() => setConfirmDelete({ kind: 'parameter', id: parameter.id, label: parameter.parameter_name })} className={`${rowActionClass} text-[18px] leading-none text-rose-500 hover:text-rose-600 hover:bg-rose-500/10`} title="Delete" aria-label="Delete"><TrashIcon /></button>
+                            <button type="button" onClick={() => setConfirmDelete({ kind: 'parameter', id: parameter.id, label: parameter.parameter_name })} className={`${rowActionClass} text-lg leading-none text-rose-500 hover:text-rose-600 hover:bg-rose-500/10`} title="Delete" aria-label="Delete"><TrashIcon /></button>
                           </div>
                         </td>
                       </tr>
@@ -1543,13 +1543,13 @@ export default function CommissionTemplateDetailPage() {
                   {logicCollapsed ? '+' : '−'}
                 </span>
                 <span>
-                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
                     Rules
-                    <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 normal-case ml-1.5">
+                    <span className="text-2xs font-normal text-slate-500 dark:text-slate-400 normal-case ml-1.5">
                       ({logicSearch.trim() ? `${filteredLogicSteps.length} of ${logicSteps.length}` : logicSteps.length})
                     </span>
                   </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  <p className="text-2xs text-slate-500 dark:text-slate-400 mt-1">
                     Each rule decides when it applies, who gets paid, and how the amount is calculated.
                   </p>
                 </span>
@@ -1609,7 +1609,7 @@ export default function CommissionTemplateDetailPage() {
             ) : (
               <div ref={logicScrollRef} className="max-h-[calc(100vh-7rem)] overflow-auto">
                 <table className={`w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700 ${compactRows ? '[&_th]:!px-3 [&_th]:!py-1.5 [&_td]:!px-3 [&_td]:!py-1 [&_tbody_td]:!align-middle' : ''}`}>
-                  <thead className="text-[11px] [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-200 dark:[&>tr>th]:bg-slate-700 text-slate-600 dark:text-slate-300 [&>tr>th:last-child]:z-30">
+                  <thead className="text-2xs [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-200 dark:[&>tr>th]:bg-slate-700 text-slate-600 dark:text-slate-300 [&>tr>th:last-child]:z-30">
                     <tr>
                       <th className="px-4 py-3">#</th>
                       <th className="px-4 py-3">Rule</th>
@@ -1671,15 +1671,15 @@ export default function CommissionTemplateDetailPage() {
                                     placeholder={group.name}
                                     className="min-w-0 max-w-xs flex-1 rounded-md border border-brand-500/40 bg-white px-2 py-0.5 text-xs font-bold text-slate-900 outline-none focus:border-brand-500 dark:bg-slate-900 dark:text-white"
                                   />
-                                  <button type="submit" disabled={isSavingRuleLabel} className="rounded-full bg-brand-600 px-3 py-0.5 text-[11px] font-bold text-white hover:bg-brand-500 disabled:opacity-50 cursor-pointer">{isSavingRuleLabel ? 'Saving…' : 'Rename'}</button>
+                                  <button type="submit" disabled={isSavingRuleLabel} className="rounded-full bg-brand-600 px-3 py-0.5 text-2xs font-bold text-white hover:bg-brand-500 disabled:opacity-50 cursor-pointer">{isSavingRuleLabel ? 'Saving…' : 'Rename'}</button>
                                   <button
                                     type="button"
                                     onClick={() => { setRenamingRuleSection(null); setRuleRenameError(null); }}
-                                    className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white cursor-pointer"
+                                    className="rounded-full px-2 py-0.5 text-2xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white cursor-pointer"
                                   >
                                     Cancel
                                   </button>
-                                  <span className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                                  <span className="truncate text-2xs text-slate-500 dark:text-slate-400">
                                     {ruleRenameError
                                       ? <span className="font-semibold text-rose-600 dark:text-rose-400">{ruleRenameError}</span>
                                       : 'Only the name changes. The rules keep their waterfall stage. Leave it empty to show the stage name.'}
@@ -1691,7 +1691,7 @@ export default function CommissionTemplateDetailPage() {
                                     {ruleSectionLabel(group.name)}
                                   </span>
                                   {ruleSectionLabel(group.name) !== group.name && (
-                                    <span className="text-[11px] text-slate-500 dark:text-slate-400" title="The waterfall stage these rules run in">{group.name}</span>
+                                    <span className="text-2xs text-slate-500 dark:text-slate-400" title="The waterfall stage these rules run in">{group.name}</span>
                                   )}
                                   {!logicSearch.trim() && (
                                     <button
@@ -1708,7 +1708,7 @@ export default function CommissionTemplateDetailPage() {
                                       <EditPencil className="h-3.5 w-3.5" />
                                     </button>
                                   )}
-                                  <span className="ml-auto pr-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                  <span className="ml-auto pr-1.5 text-2xs font-medium text-slate-500 dark:text-slate-400">
                                     {group.items.length} {group.items.length === 1 ? 'rule' : 'rules'}
                                   </span>
                                 </>
@@ -1740,8 +1740,8 @@ export default function CommissionTemplateDetailPage() {
                         <td className="px-4 py-3 text-slate-500">{step.step_number}</td>
                         <td className="px-4 py-3">
                           <div className="font-bold text-slate-900 dark:text-white">{step.rule_name}</div>
-                          {!compactRows && step.rule_key?.trim() && <div className="mt-0.5 font-mono text-[11px] text-sky-700 dark:text-sky-300">{step.rule_key}</div>}
-                          {!compactRows && step.show_in_popup && <div className="mt-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">Shown When Applying{step.popup_section?.trim() ? ` · ${step.popup_section.trim()}` : ''}</div>}
+                          {!compactRows && step.rule_key?.trim() && <div className="mt-0.5 font-mono text-2xs text-sky-700 dark:text-sky-300">{step.rule_key}</div>}
+                          {!compactRows && step.show_in_popup && <div className="mt-1 text-2xs font-bold text-emerald-600 dark:text-emerald-400">Shown When Applying{step.popup_section?.trim() ? ` · ${step.popup_section.trim()}` : ''}</div>}
                         </td>
                         <td className={`px-4 py-3 ${compactRows ? '' : 'min-w-[12rem]'} text-slate-600 dark:text-slate-300`}>
                           {canonicalLogicSection(step.section || '') === 'Calculation' ? '—' : step.apply_condition?.trim() ? (
@@ -1791,7 +1791,7 @@ export default function CommissionTemplateDetailPage() {
                             <button type="button" onClick={() => openEditLogic(step)} className={`${rowActionClass} text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700`} title="Edit" aria-label="Edit">
                               <EditPencil className="h-[18px] w-[18px]" />
                             </button>
-                            <button type="button" onClick={() => setConfirmDelete({ kind: 'logic', id: step.id, label: step.rule_name })} className={`${rowActionClass} text-[18px] leading-none text-rose-500 hover:text-rose-600 hover:bg-rose-500/10`} title="Delete" aria-label="Delete"><TrashIcon /></button>
+                            <button type="button" onClick={() => setConfirmDelete({ kind: 'logic', id: step.id, label: step.rule_name })} className={`${rowActionClass} text-lg leading-none text-rose-500 hover:text-rose-600 hover:bg-rose-500/10`} title="Delete" aria-label="Delete"><TrashIcon /></button>
                           </div>
                         </td>
                       </tr>
@@ -1817,7 +1817,7 @@ export default function CommissionTemplateDetailPage() {
                   type="button"
                   aria-pressed={showParameterFields}
                   onClick={() => setShowParameterFields((open) => !open)}
-                  className={`shrink-0 px-2.5 py-1 text-[11px] font-bold rounded-lg border cursor-pointer ${
+                  className={`shrink-0 px-2.5 py-1 text-2xs font-bold rounded-lg border cursor-pointer ${
                     showParameterFields
                       ? 'border-brand-500 bg-brand-500/15 text-brand-700 dark:text-brand-300'
                       : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700'
@@ -1875,9 +1875,9 @@ export default function CommissionTemplateDetailPage() {
               label="Key"
               htmlFor="parameter-key"
               note={parameterKeyConflict ? (
-                <p className="text-[11px] font-medium text-rose-600 dark:text-rose-400">{parameterKeyConflict}</p>
+                <p className="text-2xs font-medium text-rose-600 dark:text-rose-400">{parameterKeyConflict}</p>
               ) : editingParameterId ? null : (
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">Formulas use this key. You can change it until the parameter is saved.</p>
+                <p className="text-2xs text-slate-500 dark:text-slate-400">Formulas use this key. You can change it until the parameter is saved.</p>
               )}
             >
               <div className={`${underlineShell} ${parameterKeyConflict ? '!border-b-rose-500 focus-within:!border-b-rose-500 focus-within:!shadow-none' : ''}`}>
@@ -1919,7 +1919,7 @@ export default function CommissionTemplateDetailPage() {
                         ...parameterForm,
                         dropdown_options: [...parameterForm.dropdown_options].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
                       })}
-                      className="px-2 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded font-bold text-[10px] border border-slate-300 dark:border-slate-600 transition cursor-pointer"
+                      className="px-2 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded font-bold text-2xs border border-slate-300 dark:border-slate-600 transition cursor-pointer"
                     >
                       Sort A to Z
                     </button>
@@ -2094,7 +2094,7 @@ export default function CommissionTemplateDetailPage() {
                 event.preventDefault();
                 event.stopPropagation();
               }}
-              className="fixed z-[90] max-h-60 overflow-y-auto rounded-lg border border-black/10 bg-white/95 py-1 text-[13px] text-slate-900 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-[#3a3a3c]/95 dark:text-white"
+              className="fixed z-[90] max-h-60 overflow-y-auto rounded-lg border border-black/10 bg-white/95 py-1 text-sm text-slate-900 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-[#3a3a3c]/95 dark:text-white"
               style={{ top: sectionMenuBox.top, left: sectionMenuBox.left, width: sectionMenuBox.width }}
             >
               {sectionOptions.map((section) => {
@@ -2222,7 +2222,7 @@ export default function CommissionTemplateDetailPage() {
             aria-modal="true"
             aria-labelledby="confirm-delete-title"
           >
-            <h3 id="confirm-delete-title" className="text-base font-bold text-slate-900 dark:text-white">
+            <h3 id="confirm-delete-title" className="text-lg font-bold text-slate-900 dark:text-white">
               {confirmDelete.kind === 'template'
                 ? `Delete template "${confirmDelete.label}"?`
                 : confirmDelete.kind === 'parameter'

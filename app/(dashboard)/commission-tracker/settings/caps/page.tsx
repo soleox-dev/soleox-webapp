@@ -315,7 +315,7 @@ export default function CapsPage() {
       </div>
       </div>
 
-      <p className="max-w-2xl text-[11px] text-slate-500 dark:text-slate-400">
+      <p className="max-w-2xl text-2xs text-slate-500 dark:text-slate-400">
         {tab === 'team'
           ? 'A client can use several team caps. A deal uses every enabled cap whose formula is true, and the agent cannot pay more than their share. The agent split is that share before the cut paid to the selected agent. A blank qualifying formula applies to every deal. The selected agent has to be on the agent splits to receive the payment.'
           : 'An agent cap follows a post-split the commission template already calculates. It does not change the split. The report uses the name, the cap amount field, and the reset date. Hide Over-Allocations keeps the report and the waterfall at the cap amount when that fee continues past it.'}
@@ -457,9 +457,9 @@ function NameKeyFields({
           />
         </UnderlineField>
         {keyError ? (
-          <p className="mt-1 text-[11px] font-medium text-rose-600 dark:text-rose-400">{keyError}</p>
+          <p className="mt-1 text-2xs font-medium text-rose-600 dark:text-rose-400">{keyError}</p>
         ) : (
-          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{hint}</p>
+          <p className="mt-1 text-2xs text-slate-500 dark:text-slate-400">{hint}</p>
         )}
       </div>
     </>
@@ -553,7 +553,7 @@ function TeamCapList({
               fitContent
               hint={allocationFormulaHint}
             />
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">This field is the percent of the agent’s share paid to the selected agent. An 80/20 agent is 20%. An agent with no cap amount pays that percent in full and is not tracked. The reset date is that agent’s cap anniversary.</p>
+            <p className="text-2xs text-slate-500 dark:text-slate-400">This field is the percent of the agent’s share paid to the selected agent. An 80/20 agent is 20%. An agent with no cap amount pays that percent in full and is not tracked. The reset date is that agent’s cap anniversary.</p>
           </section>
         );
       })}
@@ -639,10 +639,10 @@ function AgentCapList({
               />
               <span>
                 <span className="font-semibold">Hide Over-Allocations</span>
-                <span className="mt-0.5 block text-[11px] font-normal text-slate-500 dark:text-slate-400">Reports and the waterfall stay at the cap amount. A fee that continues after the cap, such as the smaller Flat Cap Fee, is not shown as going past it.</span>
+                <span className="mt-0.5 block text-2xs font-normal text-slate-500 dark:text-slate-400">Reports and the waterfall stay at the cap amount. A fee that continues after the cap, such as the smaller Flat Cap Fee, is not shown as going past it.</span>
               </span>
             </label>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">The cap amount and reset date come from that agent’s fields. The post-split entity is the fee this cap tracks.</p>
+            <p className="text-2xs text-slate-500 dark:text-slate-400">The cap amount and reset date come from that agent’s fields. The post-split entity is the fee this cap tracks.</p>
           </section>
         );
       })}

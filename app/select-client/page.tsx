@@ -21,7 +21,7 @@ export default function SelectClientPage() {
 
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-lg flex-col justify-center px-4 py-16 md:px-6">
-      <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Soleox</p>
+      <p className="text-2xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Soleox</p>
       <h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">Choose a Client</h1>
       <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
         This account can work in more than one client. Choose one to continue. You can switch later without signing out.
@@ -38,7 +38,7 @@ export default function SelectClientPage() {
             className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/40 cursor-pointer"
           >
             <span>{client.name}</span>
-            <span className="text-[11px] font-medium text-slate-400">{pending === client.id ? 'Opening…' : client.id}</span>
+            <span className="text-2xs font-medium text-slate-400">{pending === client.id ? 'Opening…' : client.id}</span>
           </button>
         ))}
       </div>

@@ -194,11 +194,11 @@ export default function CommissionRulesSettingsPage() {
                 <tr key={rule.id} className="hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition">
                   <td className="p-3.5">
                     <div className="font-bold text-slate-900 dark:text-white">{rule.name}</div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400">{rule.description}</div>
+                    <div className="text-2xs text-slate-500 dark:text-slate-400">{rule.description}</div>
                   </td>
                   <td className="p-3.5">
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      className={`px-2 py-0.5 rounded text-2xs font-bold ${
                         rule.category === 'Off-The-Top'
                           ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30'
                           : 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30'
@@ -219,7 +219,7 @@ export default function CommissionRulesSettingsPage() {
                   <td className="p-3.5 text-right">
                     <button
                       onClick={() => toggleRuleStatus(rule.id)}
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition ${
+                      className={`px-2.5 py-1 rounded-full text-2xs font-bold border transition ${
                         rule.status === 'Active'
                           ? 'bg-brand-500/10 text-brand-600 dark:text-brand-400 border-brand-500/30'
                           : 'bg-slate-200 dark:bg-slate-700 text-slate-500 border-slate-300 dark:border-slate-600'

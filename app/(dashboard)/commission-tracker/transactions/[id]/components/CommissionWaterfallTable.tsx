@@ -225,7 +225,7 @@ export function CommissionWaterfallTable({
     accent: 'emerald' | 'violet',
   ) => {
     const available = knownEntities.filter((item) => !taken.includes(item.name));
-    const fieldClass = 'bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-1 text-[11px] text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)]';
+    const fieldClass = 'bg-transparent border-b border-slate-300 dark:border-slate-600 px-1.5 py-1 text-2xs text-slate-900 dark:text-white focus:outline-none focus:ring-0 focus:border-b-brand-500 focus:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)]';
     return (
       <div className="flex items-center gap-1.5">
         {knownEntities.length > 0 ? (
@@ -237,8 +237,8 @@ export function CommissionWaterfallTable({
         ) : (
           <input type="text" value={entity} placeholder="Entity" onChange={(event) => setEntity(event.target.value)} className={`${fieldClass} w-28`} />
         )}
-        <button type="button" onClick={onConfirm} className={`text-[10px] font-bold cursor-pointer ${accent === 'violet' ? 'text-violet-700 dark:text-violet-300' : 'text-emerald-700 dark:text-emerald-400'}`}>Add</button>
-        <button type="button" onClick={onCancel} className="text-[10px] text-slate-500 cursor-pointer">Cancel</button>
+        <button type="button" onClick={onConfirm} className={`text-2xs font-bold cursor-pointer ${accent === 'violet' ? 'text-violet-700 dark:text-violet-300' : 'text-emerald-700 dark:text-emerald-400'}`}>Add</button>
+        <button type="button" onClick={onCancel} className="text-2xs text-slate-500 cursor-pointer">Cancel</button>
       </div>
     );
   };
@@ -376,7 +376,7 @@ export function CommissionWaterfallTable({
         excess={Number(dealResult.agentSplitExcess) || 0}
       />
       {(dealResult.agentSplitItems || []).some((item: { overAllocated?: boolean }) => item.overAllocated) && (
-        <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+        <p className="text-2xs font-semibold text-rose-600 dark:text-rose-400">
           Agent splits can&apos;t exceed 100% of the remaining balance. Lower the highlighted split before applying.
         </p>
       )}
@@ -404,10 +404,10 @@ export function CommissionWaterfallTable({
                     <div className="ml-auto flex w-max max-w-full flex-col items-end gap-1 pr-2">
                       <div className="flex h-5 items-center justify-end gap-1">
                         {agentIsPrimary && (
-                          <span className="text-[10.5px] bg-brand-500/20 text-brand-800 dark:text-brand-300 border border-brand-500/30 px-1.5 py-0.5 rounded-full font-bold">Primary</span>
+                          <span className="text-2xs bg-brand-500/20 text-brand-800 dark:text-brand-300 border border-brand-500/30 px-1.5 py-0.5 rounded-full font-bold">Primary</span>
                         )}
                         {agent.isTeamLead && (
-                          <span className="text-[10.5px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-bold">Lead</span>
+                          <span className="text-2xs bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-bold">Lead</span>
                         )}
                       </div>
                       <div className="flex h-5 items-center justify-end gap-1">

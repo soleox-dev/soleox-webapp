@@ -34,7 +34,7 @@ export function AllocateCommissionModal({
         aria-labelledby="allocate-commission-title"
       >
         <div>
-          <h3 id="allocate-commission-title" className="text-base font-bold text-slate-900 dark:text-white">
+          <h3 id="allocate-commission-title" className="text-lg font-bold text-slate-900 dark:text-white">
             Allocate the Commission to the Primary Agent?
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">

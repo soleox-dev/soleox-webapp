@@ -119,7 +119,7 @@ export function BulkUpdateDialog({
         aria-labelledby="bulk-update-title"
       >
         <div>
-          <h3 id="bulk-update-title" className="text-base font-bold text-slate-900 dark:text-white">
+          <h3 id="bulk-update-title" className="text-lg font-bold text-slate-900 dark:text-white">
             {isTmsId ? `Clear TMS ID on ${selectedCount} ${titleNoun}` : `Update ${selectedCount} ${titleNoun}`}
           </h3>
           <p className={`mt-1 text-sm ${isTmsId ? 'text-amber-700 dark:text-amber-300' : 'text-slate-600 dark:text-slate-300'}`}>{summary}</p>

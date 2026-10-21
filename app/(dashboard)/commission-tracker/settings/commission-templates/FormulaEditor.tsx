@@ -106,7 +106,7 @@ function FormulaFunctionsButton({ onInsert }: { onInsert: (text: string) => void
           place();
           setOpen((current) => !current);
         }}
-        className="px-2 py-0.5 text-[10px] font-bold rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700 cursor-pointer"
+        className="px-2 py-0.5 text-2xs font-bold rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700 cursor-pointer"
       >
         Functions
       </button>
@@ -123,13 +123,13 @@ function FormulaFunctionsButton({ onInsert }: { onInsert: (text: string) => void
           className="fixed z-[200] flex w-[380px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800"
         >
           <div className="border-b border-slate-200 px-3 py-2 dark:border-slate-700">
-            <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200">Functions</p>
-            <p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">Click a function to insert it. Comparisons use =, &lt;&gt;, &lt;, &lt;=, &gt;, and &gt;=.</p>
+            <p className="text-2xs font-bold text-slate-700 dark:text-slate-200">Functions</p>
+            <p className="mt-0.5 text-2xs text-slate-500 dark:text-slate-400">Click a function to insert it. Comparisons use =, &lt;&gt;, &lt;, &lt;=, &gt;, and &gt;=.</p>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             {FORMULA_FUNCTION_GROUPS.map((group) => (
               <section key={group.title}>
-                <p className="sticky top-0 border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-bold text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">{group.title}</p>
+                <p className="sticky top-0 border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-2xs font-bold text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">{group.title}</p>
                 <ul>
                   {group.items.map((item) => (
                     <li key={item.name} className="border-b border-slate-100 last:border-b-0 dark:border-slate-700">
@@ -141,8 +141,8 @@ function FormulaFunctionsButton({ onInsert }: { onInsert: (text: string) => void
                         }}
                         className="w-full px-3 py-2 text-left cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/60"
                       >
-                        <span className="block font-mono text-[11px] font-semibold text-violet-700 dark:text-violet-300">{item.signature}</span>
-                        <span className="mt-0.5 block text-[11px] leading-4 text-slate-600 dark:text-slate-300">{item.summary}</span>
+                        <span className="block font-mono text-2xs font-semibold text-violet-700 dark:text-violet-300">{item.signature}</span>
+                        <span className="mt-0.5 block text-2xs leading-4 text-slate-600 dark:text-slate-300">{item.summary}</span>
                       </button>
                     </li>
                   ))}
@@ -263,7 +263,7 @@ export function FormulaHighlight({
   }
   const tokens = tokenize(value, known);
   return (
-    <span className="font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-words">
+    <span className="font-mono text-2xs leading-relaxed whitespace-pre-wrap break-words">
       {tokens.map((token, index) => (
         <span key={`${index}-${token.text}`} className={TOKEN_CLASS[token.kind]}>
           {token.text}
@@ -301,7 +301,7 @@ export function FormulaPreview({
         <button
           type="button"
           onClick={() => setExpanded((open) => !open)}
-          className="mt-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 cursor-pointer"
+          className="mt-1 text-2xs font-bold text-emerald-700 dark:text-emerald-400 cursor-pointer"
         >
           {expanded ? 'Collapse' : 'Expand'}
         </button>
@@ -412,7 +412,7 @@ export function FormulaHint({ text }: { text: string }) {
         onMouseLeave={() => setOpen(false)}
         onFocus={show}
         onBlur={() => setOpen(false)}
-        className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-slate-300 font-serif text-[9px] italic font-semibold leading-none text-slate-500 hover:border-brand-500 hover:text-brand-700 dark:border-slate-600 dark:text-slate-400 dark:hover:text-brand-300 cursor-pointer"
+        className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-slate-300 font-serif text-2xs italic font-semibold leading-none text-slate-500 hover:border-brand-500 hover:text-brand-700 dark:border-slate-600 dark:text-slate-400 dark:hover:text-brand-300 cursor-pointer"
       >
         i
       </button>
@@ -421,7 +421,7 @@ export function FormulaHint({ text }: { text: string }) {
           role="tooltip"
           data-app-layer=""
           style={{ top: position.top, left: position.left }}
-          className="fixed z-[200] w-max max-w-72 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] leading-relaxed text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+          className="fixed z-[200] w-max max-w-72 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-2xs leading-relaxed text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
         >
           {text}
         </span>,
@@ -632,14 +632,14 @@ export function FormulaEditor({
   const fieldsCard = fieldGroups.length > 0 && (!fieldsAside || fieldsOpen) ? (
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
           <div className="border-b border-slate-200 px-3 py-2 dark:border-slate-700">
-            <p className="whitespace-nowrap text-[11px] font-bold text-slate-700 dark:text-slate-200">Fields and Parameters</p>
+            <p className="whitespace-nowrap text-2xs font-bold text-slate-700 dark:text-slate-200">Fields and Parameters</p>
             <div className="mt-1.5 flex flex-nowrap gap-1">
               {fieldGroups.map((group) => (
                 <button
                   key={group.id}
                   type="button"
                   onClick={() => setActiveGroup(group.id)}
-                  className={`px-2 py-1 rounded text-[10px] font-bold cursor-pointer ${
+                  className={`px-2 py-1 rounded text-2xs font-bold cursor-pointer ${
                     selectedGroup?.id === group.id
                       ? 'bg-brand-500/15 text-brand-700 dark:text-brand-300'
                       : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
@@ -652,7 +652,7 @@ export function FormulaEditor({
           </div>
           <div className="p-2">
             <label className="group/field underline-field mb-2 block rounded-t-md border-b border-b-slate-300 px-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600">
-              <span className="block truncate text-[10px] leading-3 font-medium text-slate-500 group-focus-within/field:text-brand-600 dark:text-slate-400 dark:group-focus-within/field:text-brand-400">Search</span>
+              <span className="block truncate text-2xs leading-3 font-medium text-slate-500 group-focus-within/field:text-brand-600 dark:text-slate-400 dark:group-focus-within/field:text-brand-400">Search</span>
               <input
                 value={fieldQuery}
                 onChange={(event) => setFieldQuery(event.target.value)}
@@ -662,7 +662,7 @@ export function FormulaEditor({
             </label>
             <ul className="max-h-40 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700">
               {visibleFields.length === 0 ? (
-                <li className="px-2 py-2 text-[11px] text-slate-400">Nothing matches.</li>
+                <li className="px-2 py-2 text-2xs text-slate-400">Nothing matches.</li>
               ) : visibleFields.map((field) => (
                 <li key={field.name}>
                   <button
@@ -675,7 +675,7 @@ export function FormulaEditor({
                     className="flex w-full min-w-0 items-center justify-between gap-3 px-2 py-1.5 text-left cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/60"
                   >
                     <span className="min-w-0 truncate text-xs text-slate-800 dark:text-slate-100">{field.label}</span>
-                    <span className="shrink-0 font-mono text-[11px] text-sky-700 dark:text-sky-300">{field.name}</span>
+                    <span className="shrink-0 font-mono text-2xs text-sky-700 dark:text-sky-300">{field.name}</span>
                   </button>
                 </li>
               ))}
@@ -689,7 +689,7 @@ export function FormulaEditor({
       <div ref={formulaShellRef} className="group/field underline-field rounded-t-md border-b border-b-slate-300 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600">
       <div className="flex items-center justify-between gap-2 px-2.5 pt-1">
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="truncate text-[10px] leading-3 font-medium text-slate-500 group-focus-within/field:text-brand-600 dark:text-slate-400 dark:group-focus-within/field:text-brand-400">{label}</span>
+          <span className="truncate text-2xs leading-3 font-medium text-slate-500 group-focus-within/field:text-brand-600 dark:text-slate-400 dark:group-focus-within/field:text-brand-400">{label}</span>
           {hint && <FormulaHint text={hint} />}
           <FormulaExplain value={value} names={names} />
         </div>
@@ -705,7 +705,7 @@ export function FormulaEditor({
               type="button"
               aria-expanded={fieldsOpen}
               onClick={() => setFieldsPanel(!fieldsOpen)}
-              className="px-2 py-0.5 text-[10px] font-bold rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700 cursor-pointer"
+              className="px-2 py-0.5 text-2xs font-bold rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700 cursor-pointer"
             >
               {fieldsOpen ? 'Hide Fields' : 'Fields'}
             </button>
@@ -721,7 +721,7 @@ export function FormulaEditor({
               setBoxHeight(needed);
               setExpanded(true);
             }}
-            className="px-2 py-0.5 text-[10px] font-bold rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700 cursor-pointer"
+            className="px-2 py-0.5 text-2xs font-bold rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700 cursor-pointer"
           >
             {expanded ? 'Collapse' : 'Expand'}
           </button>
@@ -831,7 +831,7 @@ export function FormulaEditor({
                 }`}
               >
                 <span className="font-mono font-medium">{suggestion.label}</span>
-                <span className="flex items-center gap-2 text-[11px] text-slate-400">
+                <span className="flex items-center gap-2 text-2xs text-slate-400">
                   <span>{suggestion.detail}</span>
                   {index === suggestionIndex && <span className="font-bold text-emerald-700 dark:text-emerald-400">Tab</span>}
                 </span>
@@ -843,14 +843,14 @@ export function FormulaEditor({
       )}
 
       {value.trim() ? (
-        <p className={`text-[11px] ${formulaIssue ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+        <p className={`text-2xs ${formulaIssue ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
           {formulaIssue || 'Formula is valid.'}
         </p>
       ) : emptyNote ? (
-        <p className="text-[11px] text-slate-500 dark:text-slate-400">{emptyNote}</p>
+        <p className="text-2xs text-slate-500 dark:text-slate-400">{emptyNote}</p>
       ) : null}
 
-      <p className="text-[10px] text-slate-500 dark:text-slate-400 flex flex-wrap gap-x-3 gap-y-1">
+      <p className="text-2xs text-slate-500 dark:text-slate-400 flex flex-wrap gap-x-3 gap-y-1">
         <span><span className={TOKEN_CLASS.function}>IF</span> function</span>
         <span><span className={TOKEN_CLASS.variable}>lead_source</span> field or parameter</span>
         <span><span className={TOKEN_CLASS.string}>"Yes"</span> text</span>

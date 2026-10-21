@@ -74,7 +74,7 @@ interface AgentRecord {
 const underlineShell =
   'group/field relative underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600';
 const underlineLabel =
-  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
+  'block truncate text-2xs leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-emerald-600 dark:group-focus-within/field:text-emerald-400';
 
 function agentGroupValue(agent: AgentRecord): string {
   const direct = agent.group_id ?? agent.group;
@@ -1136,7 +1136,7 @@ export default function AgentsPage() {
         >
           <table className="w-full text-left text-xs border-separate border-spacing-0">
             <thead className="sticky top-0 z-20 select-none bg-slate-100 dark:bg-slate-900">
-              <tr className="bg-slate-200 dark:bg-slate-700 text-[11px] font-bold text-brand-600 dark:text-brand-400">
+              <tr className="bg-slate-200 dark:bg-slate-700 text-2xs font-bold text-brand-600 dark:text-brand-400">
                 {bulkMode && <th className={`${pinCheckSection} border-b border-slate-300 dark:border-slate-600`} />}
                 {sectionHeaderGroups.map((group, index) => {
                   const span = index === 0 ? group.span - 1 : group.span;
@@ -1274,7 +1274,7 @@ export default function AgentsPage() {
                       // Column: ID Column
                       if (cfg.field_key === 'id' || cfg.field_key === 'agent_id') {
                         return (
-                          <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap font-mono text-[12px]`}>
+                          <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap font-mono text-xs`}>
                             {canWriteTracker ? (
                             <button
                               onClick={() => handleOpenEdit(ag)}
@@ -1327,12 +1327,12 @@ export default function AgentsPage() {
                               type="button"
                               onClick={() => toggleStatus(ag)}
                               disabled={!canToggle}
-                              className={`${badgeSize} rounded-full text-[11px] font-semibold border transition ${canToggle ? 'cursor-pointer' : 'cursor-default'} ${badgeStyle}`}
+                              className={`${badgeSize} rounded-full text-2xs font-semibold border transition ${canToggle ? 'cursor-pointer' : 'cursor-default'} ${badgeStyle}`}
                             >
                               {st || '—'}
                             </button>
                             ) : (
-                            <span className={`${badgeSize} rounded-full text-[11px] font-semibold border ${badgeStyle}`}>
+                            <span className={`${badgeSize} rounded-full text-2xs font-semibold border ${badgeStyle}`}>
                               {st || '—'}
                             </span>
                             )}
@@ -1356,7 +1356,7 @@ export default function AgentsPage() {
                         return (
                           <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap`}>
                             <span
-                              className={`${badgeSize} rounded-full text-[11px] font-semibold border ${badgeStyle}`}
+                              className={`${badgeSize} rounded-full text-2xs font-semibold border ${badgeStyle}`}
                             >
                               {groupStr}
                             </span>
@@ -1481,7 +1481,7 @@ export default function AgentsPage() {
 
                 return (
                   <div key={secName} className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-700/60 first:border-t-0 first:pt-0">
-                    <h4 className="text-[11px] font-bold text-brand-600 dark:text-brand-400">
+                    <h4 className="text-2xs font-bold text-brand-600 dark:text-brand-400">
                       {secName}
                     </h4>
 
@@ -1497,7 +1497,7 @@ export default function AgentsPage() {
                           const idValue = String(val || editingAgent?.id || '');
                           return (
                             <div key={cfg.field_key} className="group/field relative underline-field is-locked rounded-t-md border-b border-b-slate-200 pl-2.5 pr-14 pt-1 pb-0.5 dark:border-b-slate-700">
-                              <label className="block truncate text-[10px] leading-3 font-medium text-slate-400 dark:text-slate-500">
+                              <label className="block truncate text-2xs leading-3 font-medium text-slate-400 dark:text-slate-500">
                                 {cfg.field_label} (System Key)
                               </label>
                               <div className="flex h-5 items-center">
@@ -1509,7 +1509,7 @@ export default function AgentsPage() {
                                   className={`${underlineControl} cursor-default text-slate-400 dark:text-slate-500`}
                                 />
                               </div>
-                              <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded bg-slate-200 px-1 py-0.5 font-mono text-[9px] text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                              <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded bg-slate-200 px-1 py-0.5 font-mono text-2xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                                 LOCKED
                               </span>
                             </div>

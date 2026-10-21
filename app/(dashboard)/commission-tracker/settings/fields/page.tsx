@@ -76,7 +76,7 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   BOOLEAN: 'Checkbox',
 };
 /** A quiet chip for facts about a field: its type, options, and limits. */
-const META_CHIP = 'whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-700/60 dark:text-slate-300';
+const META_CHIP = 'whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-2xs font-medium text-slate-600 dark:bg-slate-700/60 dark:text-slate-300';
 
 interface ExistingCatalogField {
   field_key: string;
@@ -134,7 +134,7 @@ const MANDATORY_SYSTEM_KEYS = new Set([
 const underlineShell =
   'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600';
 const underlineLabel =
-  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400';
+  'block truncate text-2xs leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400';
 
 function FieldChevron() {
   return (
@@ -1124,7 +1124,7 @@ export default function FieldCustomizationsPage() {
     const count = ruleGroup.conditions.length;
     const joiner = count > 1 ? (ruleGroup.operator === 'AND' ? ', all must match' : ', any can match') : '';
     return (
-      <span className="rounded-full bg-brand-500/10 px-2 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-400">
+      <span className="rounded-full bg-brand-500/10 px-2 py-0.5 text-2xs font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-400">
         Shown when {count} {count === 1 ? 'condition matches' : `conditions${joiner}`}
       </span>
     );
@@ -1203,14 +1203,14 @@ export default function FieldCustomizationsPage() {
       <div className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden transition-colors ${phoneSheetFlush}`}>
         <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex flex-wrap justify-between items-center gap-2">
           <div>
-            <h2 className="text-xs font-bold text-slate-900 dark:text-white">
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">
               {activeTab === 'transactions' ? 'Transaction' : 'Agent'} Fields
             </h2>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">
               Sections and their order set the order of {activeTab === 'transactions' ? 'the Transactions table and the Transaction Detail' : 'the Agents table and the agent form'}.
             </p>
           </div>
-          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+          <span className="text-2xs font-semibold text-slate-500 dark:text-slate-400">
             {currentFields.length} {currentFields.length === 1 ? 'field' : 'fields'}
           </span>
         </div>
@@ -1257,7 +1257,7 @@ export default function FieldCustomizationsPage() {
                     <GripVertical className="h-3.5 w-3.5" strokeWidth={2} />
                   </span>
                   <span className="min-w-0 truncate text-xs font-bold text-brand-700 dark:text-brand-400">{secName}</span>
-                  <span className="ml-auto shrink-0 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  <span className="ml-auto shrink-0 text-2xs font-medium text-slate-500 dark:text-slate-400">
                     {fields.length} {fields.length === 1 ? 'field' : 'fields'}
                   </span>
                 </div>
@@ -1308,16 +1308,16 @@ export default function FieldCustomizationsPage() {
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                               <span className="font-semibold text-slate-900 dark:text-white">{f.field_label}</span>
-                              <span className="font-mono text-[10.5px] text-slate-400 dark:text-slate-500">{f.field_key}</span>
+                              <span className="font-mono text-2xs text-slate-400 dark:text-slate-500">{f.field_key}</span>
                             </div>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                               <span className={META_CHIP}>{FIELD_TYPE_LABELS[f.field_type] || f.field_type}</span>
                               {isSystemMandatory && <span className={META_CHIP}>System</span>}
                               {f.storage_type === 'CUSTOM_JSON' && (
-                                <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300">Custom</span>
+                                <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-2xs font-semibold text-violet-700 dark:text-violet-300">Custom</span>
                               )}
                               {hasFormula && (
-                                <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300">Formula</span>
+                                <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-2xs font-semibold text-violet-700 dark:text-violet-300">Formula</span>
                               )}
                               {renderRuleSummary(f.visibility_rules)}
                               {renderValidationBadge(f)}
@@ -1328,7 +1328,7 @@ export default function FieldCustomizationsPage() {
                         {/* Inline Controls & Action Buttons */}
                         {/* On a phone the toggles and actions take their own line under the field's name. */}
                         <div className="ml-auto flex shrink-0 items-center gap-3 max-sm:w-full max-sm:border-t max-sm:border-slate-100 max-sm:pt-2 max-sm:dark:border-slate-700/60">
-                          <div className="flex items-center gap-4 border-r max-sm:mr-auto max-sm:border-r-0 border-slate-200 pr-3 text-[11px] dark:border-slate-700">
+                          <div className="flex items-center gap-4 border-r max-sm:mr-auto max-sm:border-r-0 border-slate-200 pr-3 text-2xs dark:border-slate-700">
                             <label
                               className={`flex items-center gap-1.5 ${
                                 isAudit ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
@@ -1564,7 +1564,7 @@ export default function FieldCustomizationsPage() {
               {/* VISUAL CONDITIONAL VISIBILITY RULE BUILDER */}
               <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-700">
                 <div className="flex justify-between items-center">
-                  <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 block">
+                  <span className="text-2xs font-bold text-blue-600 dark:text-blue-400 block">
                     👁️ Custom Visibility Logic Builder
                   </span>
 
@@ -1573,7 +1573,7 @@ export default function FieldCustomizationsPage() {
                       <button
                         type="button"
                         onClick={() => setRuleGroup({ ...ruleGroup, operator: 'OR' })}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer ${
+                        className={`px-2 py-0.5 rounded text-2xs font-bold cursor-pointer ${
                           ruleGroup.operator === 'OR'
                             ? 'bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-500/30'
                             : 'text-slate-500'
@@ -1584,7 +1584,7 @@ export default function FieldCustomizationsPage() {
                       <button
                         type="button"
                         onClick={() => setRuleGroup({ ...ruleGroup, operator: 'AND' })}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer ${
+                        className={`px-2 py-0.5 rounded text-2xs font-bold cursor-pointer ${
                           ruleGroup.operator === 'AND'
                             ? 'bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-500/30'
                             : 'text-slate-500'
@@ -1608,7 +1608,7 @@ export default function FieldCustomizationsPage() {
                       return (
                         <div key={cond.id} className="space-y-2">
                           {idx > 0 && (
-                            <div className="text-center font-bold text-[11px] text-blue-500">
+                            <div className="text-center font-bold text-2xs text-blue-500">
                               — {ruleGroup.operator} —
                             </div>
                           )}
@@ -1664,7 +1664,7 @@ export default function FieldCustomizationsPage() {
                               <div className="pt-1 border-t border-slate-100 dark:border-slate-700">
                                 {cond.operator === 'IN' && targetFieldConfig?.dropdown_options ? (
                                   <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-slate-400 block">Select Target Values:</label>
+                                    <label className="text-2xs font-bold text-slate-400 block">Select Target Values:</label>
                                     <div className="flex flex-wrap gap-1.5">
                                       {targetFieldConfig.dropdown_options.map((opt) => {
                                         const selectedValues = Array.isArray(cond.value) ? cond.value : [];
@@ -1680,7 +1680,7 @@ export default function FieldCustomizationsPage() {
                                                 : [...selectedValues, opt];
                                               handleUpdateCondition(cond.id, { value: next });
                                             }}
-                                            className={`px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer ${
+                                            className={`px-2 py-0.5 rounded text-2xs font-bold border transition cursor-pointer ${
                                               isSelected
                                                 ? 'bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-500/40'
                                                 : 'bg-slate-100 dark:bg-slate-900 border-slate-300 dark:border-slate-700'
@@ -1724,7 +1724,7 @@ export default function FieldCustomizationsPage() {
 
               {/* Data Validation Enforcements Section */}
               <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-                <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 block">
+                <span className="text-2xs font-bold text-rose-600 dark:text-rose-400 block">
                   🚨 Data Validation Enforcements
                 </span>
 
@@ -1804,7 +1804,7 @@ export default function FieldCustomizationsPage() {
                           className={`${underlineControl} font-mono`}
                         />
                       </label>
-                      <p className="text-[10px] text-slate-400">
+                      <p className="text-2xs text-slate-400">
                         Enforces input formatting on forms. Non-matching values will highlight red with validation errors.
                       </p>
                     </div>
@@ -1822,7 +1822,7 @@ export default function FieldCustomizationsPage() {
                         <button
                           type="button"
                           onClick={handleSortAlphabetically}
-                          className="px-2 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded font-bold text-[10px] border border-slate-300 dark:border-slate-600 transition cursor-pointer"
+                          className="px-2 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded font-bold text-2xs border border-slate-300 dark:border-slate-600 transition cursor-pointer"
                         >
                           Sort A to Z
                         </button>
@@ -1912,7 +1912,7 @@ export default function FieldCustomizationsPage() {
                       }}
                       className="rounded text-purple-500 focus:ring-purple-500 cursor-pointer"
                     />
-                    <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400">
+                    <span className="text-2xs font-bold text-purple-600 dark:text-purple-400">
                       🧮 Enable Calculation Formula
                     </span>
                   </label>
@@ -1931,7 +1931,7 @@ export default function FieldCustomizationsPage() {
                         className={`${underlineControl} font-mono`}
                       />
                       </label>
-                      <p className="text-[10px] text-slate-400 mt-1">
+                      <p className="text-2xs text-slate-400 mt-1">
                         Use database field keys with math operators (`+`, `-`, `*`, `/`) or JS ternaries (`cond ? valA : valB`).
                       </p>
                     </div>
@@ -2032,7 +2032,7 @@ export default function FieldCustomizationsPage() {
             {/* Inputs & Values */}
             <div className="space-y-4">
               <div>
-                <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
+                <label className="text-2xs font-bold text-slate-500 dark:text-slate-400 block mb-1">
                   Current Value
                 </label>
                 <div className="px-3 py-2 bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -2041,7 +2041,7 @@ export default function FieldCustomizationsPage() {
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                <label className="text-2xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
                   New Value *
                 </label>
                 <div className={underlineShell}>
@@ -2180,7 +2180,7 @@ export default function FieldCustomizationsPage() {
               <div className="text-xs font-bold text-slate-700 dark:text-slate-300">
                 {renameResultModal.updatedCount === 1 ? 'Record has' : 'Records have'} been updated with the new value
               </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-700/60">
+              <div className="text-2xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-700/60">
                 Field: <span className="font-semibold text-slate-700 dark:text-slate-300">{renameResultModal.fieldLabel}</span>{' '}
                 (<code className="font-mono text-emerald-600 dark:text-emerald-400">{renameResultModal.fieldKey}</code>)
                 <div className="mt-1">

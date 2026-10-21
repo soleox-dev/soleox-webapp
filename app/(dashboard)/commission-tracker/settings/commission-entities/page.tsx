@@ -40,7 +40,7 @@ const ENTITY_TYPES = ['REFERRAL', 'FRANCHISE', 'BROKERAGE', 'CLIENT', 'TEAM', 'V
 const underlineShell =
   'group/field relative underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600';
 const underlineLabel =
-  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400';
+  'block truncate text-2xs leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400';
 
 function FieldChevron() {
   return (
@@ -488,7 +488,7 @@ export default function CommissionEntitiesPage() {
                       </td>
 
                       <td className="p-3.5 whitespace-nowrap">
-                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
+                        <span className="px-2 py-0.5 rounded text-2xs font-bold bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
                           {ent.entity_type || 'BROKERAGE'}
                         </span>
                       </td>
@@ -510,7 +510,7 @@ export default function CommissionEntitiesPage() {
                         <button
                           disabled={isActionLoading}
                           onClick={() => toggleStatus(ent)}
-                          className={`px-2 py-0.5 rounded text-[11px] font-bold border transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1 mx-auto ${
+                          className={`px-2 py-0.5 rounded text-2xs font-bold border transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1 mx-auto ${
                             ent.is_active
                               ? 'bg-brand-500/10 text-brand-700 dark:text-brand-400 border-brand-500/30'
                               : 'bg-slate-200 dark:bg-slate-900 text-slate-400 border-slate-300 dark:border-slate-700'
@@ -518,7 +518,7 @@ export default function CommissionEntitiesPage() {
                         >
                           {isActionLoading ? (
                             <>
-                              <span className="animate-spin text-[10px]">⏳</span>
+                              <span className="animate-spin text-2xs">⏳</span>
                               <span>Updating...</span>
                             </>
                           ) : (
@@ -715,7 +715,7 @@ export default function CommissionEntitiesPage() {
         <div className="app-modal fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-md rounded-xl p-5 shadow-2xl space-y-4">
             <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">{dialog.title}</h3>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">{dialog.title}</h3>
               <p className="text-xs text-slate-600 dark:text-slate-300 mt-1.5 leading-relaxed">{dialog.message}</p>
             </div>
 

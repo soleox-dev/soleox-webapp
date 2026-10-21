@@ -152,6 +152,16 @@ When resolving custom attributes or fields in formulas (e.g., `XLOOKUP(agent_1, 
 - Data pages (Transactions list, Agents list, Owner/Agent/Office Reports) use `widePageFrame` instead (`w-full px-4 md:px-6`, full screen width). `isWidePagePath` lists them so the top navigation matches; add a page there when it switches frames.
 - Do not introduce nested max-widths or extra horizontal padding inside pages wrapped by `pageFrame` or `widePageFrame`.
 
+### Typography
+One type scale, by role. Use these sizes and nothing else; no arbitrary `text-[Npx]`.
+- Page title, one per page: `text-2xl` (24px), bold. Transactions, Settings, the deal's address on Transaction Detail, a report's title.
+- Section title: `text-lg` (18px). Transaction Overview, Commission Waterfall, Payments Breakdown, a Settings page's header, dialog titles.
+- Subheading: `text-base` (16px). Waterfall and payment headings, a panel's title inside a page, report chart titles.
+- Body: `text-sm` (14px). Paragraphs, descriptions, form values, menus, the navigation bar.
+- Label: `text-xs` (12px). Table cells and headers, field labels, buttons, amounts in rows.
+- Caption: `text-2xs` (11px, defined in `app/globals.css`). Chips, pills, badges, hints, cap bars, counts.
+- Figures: large numbers in scorecards and report tiles use `text-xl` in compact tiles and `text-3xl` in wide ones.
+
 ### Form Controls
 - **Inputs & Fields**: Use `underlineShell`, `underlineLabel`, `underlineControl`, and `UnderlineField` from `@/components/ui/underline-field`. Faint bottom underline that turns the brand sky on focus.
 - **Single-Select Dropdowns**: Use `OptionMenu` or `ClearableSelect` from `@/components/ui/option-menu`.

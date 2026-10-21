@@ -35,7 +35,7 @@ export function TransferPrimaryAgentModal({
             🔄
           </div>
           <div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">
               Transfer Primary Agent Splits & Deductions?
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
@@ -49,7 +49,7 @@ export function TransferPrimaryAgentModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
             {/* Former Primary */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-3 space-y-1">
-              <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 block">
+              <span className="text-2xs font-bold text-slate-400 dark:text-slate-500 block">
                 Former Primary Agent
               </span>
               <span className="text-sm font-bold text-slate-700 dark:text-slate-300 block truncate">
@@ -59,7 +59,7 @@ export function TransferPrimaryAgentModal({
 
             {/* New Primary */}
             <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 space-y-1">
-              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 block">
+              <span className="text-2xs font-bold text-emerald-600 dark:text-emerald-400 block">
                 New Primary Agent
               </span>
               <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300 block truncate">

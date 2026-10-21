@@ -96,7 +96,7 @@ export function ColumnHeader({
         >
           <span className="truncate">{label}</span>
           {filtered ? (
-            <span className={`inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none text-white ${none ? 'bg-amber-500' : 'bg-brand-600'}`}>
+            <span className={`inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-2xs font-bold leading-none text-white ${none ? 'bg-amber-500' : 'bg-brand-600'}`}>
               {none ? 0 : picked.length}
             </span>
           ) : null}
@@ -344,7 +344,7 @@ function OptionRow({ label, count, checked, onToggle, onOnly }: {
           }}
           className="absolute inset-0 hidden cursor-pointer items-center justify-end group-hover/option:flex"
         >
-          <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-bold leading-none tracking-wide text-brand-800 ring-1 ring-brand-200 hover:bg-brand-200 dark:bg-brand-900 dark:text-brand-100 dark:ring-brand-700 dark:hover:bg-brand-800">ONLY</span>
+          <span className="rounded-full bg-brand-100 px-2 py-0.5 text-2xs font-bold leading-none tracking-wide text-brand-800 ring-1 ring-brand-200 hover:bg-brand-200 dark:bg-brand-900 dark:text-brand-100 dark:ring-brand-700 dark:hover:bg-brand-800">ONLY</span>
         </button>
       </span>
     </div>

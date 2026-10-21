@@ -27,7 +27,7 @@ export function RevertPrimaryAgentModal({
             ↩️
           </div>
           <div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">
               Revert Primary Agent?
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
@@ -41,7 +41,7 @@ export function RevertPrimaryAgentModal({
           <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
             Would you like to revert the Primary Agent back to <strong className="text-slate-900 dark:text-white font-semibold">{formerAgentName}</strong> in case you changed it by accident?
           </p>
-          <ul className="text-slate-500 dark:text-slate-400 space-y-1 text-[11px] list-disc list-inside pt-1">
+          <ul className="text-slate-500 dark:text-slate-400 space-y-1 text-2xs list-disc list-inside pt-1">
             <li>
               <strong>Yes</strong>: Reverts Primary Agent back to <span className="text-slate-700 dark:text-slate-300">{formerAgentName}</span> and keeps you in Edit Mode.
             </li>

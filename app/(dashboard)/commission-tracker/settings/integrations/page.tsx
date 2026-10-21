@@ -608,7 +608,7 @@ export default function TransactionIntegrationsPage() {
 
           {lastRun && (
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Last Sync</h3>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">Last Sync</h3>
               <p className="text-sm text-slate-600 dark:text-slate-400">
                 {formatWhen(lastRun.finished_at || lastRun.started_at)} · {lastRun.status}. {lastRun.created_count} added, {lastRun.updated_count} updated, {lastRun.connected_count ?? 0} connected to TMS, {lastRun.disconnected_count ?? 0} disconnected from TMS, {lastRun.skipped_count} outside the default view, {lastRun.unchanged_count} already up to date, {lastRun.error_count} errors.
               </p>
@@ -629,7 +629,7 @@ export default function TransactionIntegrationsPage() {
           )}
 
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Fields Held from the TMS</h3>
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white">Fields Held from the TMS</h3>
             {protections.length === 0 ? (
               <p className="text-xs italic text-slate-400">No user edits are holding a column back from the next sync.</p>
             ) : (

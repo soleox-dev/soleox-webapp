@@ -613,7 +613,7 @@ export function CommissionWaterfall({
                 <span className="text-xs italic text-slate-400">None</span>
               </div>
               <div className={`ml-auto flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg ${agentLayout === 'cards' && !isEditing ? 'sm:mr-3' : ''}`}>
-                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                <span className="text-2xs font-bold text-slate-600 dark:text-slate-400">
                   Total Commission
                 </span>
                 <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
@@ -645,7 +645,7 @@ export function CommissionWaterfall({
                 )}
               </div>
               <div className={`ml-auto flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg ${agentLayout === 'cards' && !isEditing ? 'sm:mr-3' : ''}`}>
-                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                <span className="text-2xs font-bold text-slate-600 dark:text-slate-400">
                   Total Commission
                 </span>
                 <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
@@ -1021,7 +1021,7 @@ export function CommissionWaterfall({
             excess={Number(dealResult.agentSplitExcess) || 0}
           />
           {(dealResult.agentSplitItems || []).some((item: { overAllocated?: boolean }) => item.overAllocated) && (
-            <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+            <p className="text-2xs font-semibold text-rose-600 dark:text-rose-400">
               Agent splits can&apos;t exceed 100% of the remaining balance. Lower the highlighted split before applying.
             </p>
           )}
@@ -1050,7 +1050,7 @@ export function CommissionWaterfall({
                             <span aria-hidden>👤</span>
                             <span>{agent.name}</span>
                           </span>
-                          <span className="text-[11px] bg-brand-500/20 text-brand-800 dark:text-brand-300 border border-brand-500/30 px-2 py-0.5 rounded-full font-bold">
+                          <span className="text-2xs bg-brand-500/20 text-brand-800 dark:text-brand-300 border border-brand-500/30 px-2 py-0.5 rounded-full font-bold">
                             Primary
                           </span>
                           <HoverNote label="Primary Agent (tied to Transaction Overview • receives remaining balance after secondary agent splits)">
@@ -1071,7 +1071,7 @@ export function CommissionWaterfall({
                             </span>
                           </HoverNote>
                           {agent.isTeamLead && (
-                            <span className="text-[11px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-semibold">
+                            <span className="text-2xs bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-semibold">
                               Lead
                             </span>
                           )}
@@ -1138,7 +1138,7 @@ export function CommissionWaterfall({
                         )}
 
                         {agent.isTeamLead && (
-                          <span className="text-[11px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-semibold">
+                          <span className="text-2xs bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-semibold">
                             Lead
                           </span>
                         )}
@@ -1241,7 +1241,7 @@ export function CommissionWaterfall({
                         {agentName}
                       </span>
                       {agentObj?.isTeamLead && (
-                        <span className="shrink-0 text-[11px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-semibold">
+                        <span className="shrink-0 text-2xs bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-semibold">
                           Lead
                         </span>
                       )}
@@ -1487,7 +1487,7 @@ export function CommissionWaterfall({
                           <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
                             New Level 2 Post-Split for {agentName}
                           </span>
-                          <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                          <span className="text-2xs text-slate-500 dark:text-slate-400">
                             Baseline: {formatCurrency(netAfterL1)}
                           </span>
                         </div>
@@ -1686,7 +1686,7 @@ export function CommissionWaterfall({
             aria-labelledby="reset-waterfall-title"
           >
             <div>
-              <h3 id="reset-waterfall-title" className="text-base font-bold text-slate-900 dark:text-white">
+              <h3 id="reset-waterfall-title" className="text-lg font-bold text-slate-900 dark:text-white">
                 Reset the Waterfall?
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">

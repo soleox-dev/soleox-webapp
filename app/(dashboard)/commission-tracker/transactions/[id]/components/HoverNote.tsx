@@ -71,7 +71,7 @@ export function HoverNote({ label, children }: { label: string; children: ReactN
           ref={tipRef}
           role="tooltip"
           style={{ top: box.top, left: box.left }}
-          className={`pointer-events-none fixed z-50 w-max max-w-72 whitespace-pre-line rounded-md border border-slate-200 bg-white px-2.5 py-2 text-left text-[11px] leading-relaxed text-slate-600 shadow-lg dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 ${box.ready ? 'visible' : 'invisible'}`}
+          className={`pointer-events-none fixed z-50 w-max max-w-72 whitespace-pre-line rounded-md border border-slate-200 bg-white px-2.5 py-2 text-left text-2xs leading-relaxed text-slate-600 shadow-lg dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 ${box.ready ? 'visible' : 'invisible'}`}
         >
           {label}
         </span>,

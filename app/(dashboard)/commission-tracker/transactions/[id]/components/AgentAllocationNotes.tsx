@@ -100,7 +100,7 @@ export function TeamCapAmount({
       <span className="inline-flex flex-col items-end">
         {/* "edited" goes before the amount, so the amount keeps the split amounts' right edge above it. */}
         <span className="inline-flex items-baseline justify-end gap-1">
-          {edited ? <span className={`text-[10.5px] font-bold ${editedTone}`}>Edited</span> : null}
+          {edited ? <span className={`text-2xs font-bold ${editedTone}`}>Edited</span> : null}
           <span className={`text-xs font-semibold ${amountTone}`}>{money.format(amount)}</span>
         </span>
         {standingNote}
@@ -115,7 +115,7 @@ export function TeamCapAmount({
           type="button"
           onClick={() => onAmountChange?.(line.agent_id, line.team_cap_id || '', null)}
           title={`Use the calculated ${money.format(calculated)}`}
-          className={`text-[10.5px] font-bold cursor-pointer ${editedTone} ${exceeded ? 'hover:text-rose-700 dark:hover:text-rose-200' : 'hover:text-amber-900 dark:hover:text-amber-100'}`}
+          className={`text-2xs font-bold cursor-pointer ${editedTone} ${exceeded ? 'hover:text-rose-700 dark:hover:text-rose-200' : 'hover:text-amber-900 dark:hover:text-amber-100'}`}
         >
           Calculated
         </button>
@@ -180,7 +180,7 @@ export function AgentCapNote({ label, detail, share }: { label: string; detail: 
     <HoverNote label={detail}>
       <span ref={barRef} data-cap-bar tabIndex={0} className="relative mt-0.5 inline-flex h-4 shrink-0 cursor-help items-center justify-end overflow-hidden rounded-sm bg-slate-200 outline-none dark:bg-slate-800">
         <span aria-hidden className={`absolute inset-y-0 left-0 z-0 ${fill}`} style={{ width: `${width}%` }} />
-        <span className={`relative z-10 px-1 text-right text-[10px] font-bold leading-none tabular-nums text-slate-950 ${text}`}>{label}</span>
+        <span className={`relative z-10 px-1 text-right text-2xs font-bold leading-none tabular-nums text-slate-950 ${text}`}>{label}</span>
       </span>
     </HoverNote>
   );
@@ -190,7 +190,7 @@ export function AgentAllocationNotes({ agentId, allocations }: { agentId: string
   const lines = allocations.filter((line) => line.agent_id === agentId && line.kind !== 'team_cap');
   if (lines.length === 0) return null;
   return (
-    <div className="mt-1 space-y-0.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+    <div className="mt-1 space-y-0.5 text-2xs font-semibold text-slate-500 dark:text-slate-400">
       {lines.map((line) => (
         <p key={line.id}>
           {line.kind === 'sales_volume' ? 'Agent Allocation' : `${line.cap_name || (line.tracked === false ? 'Team Lead' : 'Team Cap')}${line.tracked === false && line.cap_name ? ' · Team Lead' : ''}`} {money.format(Number(line.amount) || 0)}

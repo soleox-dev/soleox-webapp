@@ -2244,7 +2244,7 @@ export default function TransactionsListPage() {
 
       return (
         <span
-          className={`inline-flex items-center rounded border text-[11px] font-semibold ${compactRows ? 'h-4 px-1.5 leading-none' : 'px-2 py-0.5'} ${badgeStyle}`}
+          className={`inline-flex items-center rounded border text-2xs font-semibold ${compactRows ? 'h-4 px-1.5 leading-none' : 'px-2 py-0.5'} ${badgeStyle}`}
         >
           {st}
         </span>
@@ -2329,7 +2329,7 @@ export default function TransactionsListPage() {
               className={`relative min-w-0 border-l border-t border-slate-200 px-3 py-3 sm:px-5 sm:py-4 text-left transition-colors cursor-pointer dark:border-slate-700 ${styles.hover} ${selected ? 'bg-slate-50 dark:bg-slate-900/40' : ''}`}
             >
               {selected && <span aria-hidden className={`absolute inset-x-0 bottom-0 h-0.5 ${styles.swatch}`} />}
-              <p className={`mb-2 sm:mb-3 flex items-center gap-2 text-[11px] font-semibold ${styles.title}`}>
+              <p className={`mb-2 sm:mb-3 flex items-center gap-2 text-2xs font-semibold ${styles.title}`}>
                 <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${styles.swatch}`} />
                 {card.name}
               </p>
@@ -2347,7 +2347,7 @@ export default function TransactionsListPage() {
                       ) : (
                         <p className={numberClass}>{formatScorecardMetric(value, metric.kind, fieldType)}</p>
                       )}
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">{metric.name}</p>
+                      <p className="text-2xs text-slate-500 dark:text-slate-400 mt-1.5">{metric.name}</p>
                     </div>
                   );
                 })}
@@ -2643,7 +2643,7 @@ export default function TransactionsListPage() {
             <thead className="sticky top-0 z-20 select-none bg-slate-100 dark:bg-slate-900">
               
               {/* Section Group Header Row */}
-              <tr className="bg-slate-200 dark:bg-slate-700 text-[11px] font-bold text-brand-600 dark:text-brand-400">
+              <tr className="bg-slate-200 dark:bg-slate-700 text-2xs font-bold text-brand-600 dark:text-brand-400">
                 {bulkMode && <th className={`${pinCheckbox} w-10 min-w-10 max-w-10 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600`} />}
                 {canWriteTracker && <th className={`${pinTms} w-8 min-w-8 max-w-8 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600`} />}
                 {canWriteTracker && <th className={`${pinBolt} w-8 min-w-8 max-w-8 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600`} />}
@@ -2786,7 +2786,7 @@ export default function TransactionsListPage() {
                               className="inline-flex cursor-pointer items-center rounded font-semibold hover:bg-slate-200 dark:hover:bg-slate-800"
                             >
                               {statusLookup ? (
-                                <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-semibold ${statusPill}`}>
+                                <span className={`inline-flex items-center rounded border px-2 py-0.5 text-2xs font-semibold ${statusPill}`}>
                                   {statusLookup.optionLabel}
                                   {selectedStatusLookups.length > 1 ? (
                                     <span className="ml-1 font-medium opacity-80">+{selectedStatusLookups.length - 1}</span>
@@ -2993,11 +2993,11 @@ export default function TransactionsListPage() {
                         >
                           {field.field_key === 'id' ? (
                             !rowNavigates ? (
-                              <span className="font-mono text-[12px] text-slate-700 dark:text-slate-300">{String(deal[field.field_key] || dealId)}</span>
+                              <span className="font-mono text-xs text-slate-700 dark:text-slate-300">{String(deal[field.field_key] || dealId)}</span>
                             ) : (
                             <Link
                               href={`/commission-tracker/transactions/${dealId}`}
-                              className="font-mono text-[12px] text-brand-700 dark:text-brand-400 hover:underline"
+                              className="font-mono text-xs text-brand-700 dark:text-brand-400 hover:underline"
                             >
                               {String(deal[field.field_key] || dealId)}
                             </Link>
@@ -3193,7 +3193,7 @@ export default function TransactionsListPage() {
                 }`}
               >
                 <MenuCheckbox checked={selected} />
-                <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-semibold ${pill}`}>
+                <span className={`inline-flex items-center rounded border px-2 py-0.5 text-2xs font-semibold ${pill}`}>
                   {lookup.optionLabel}
                 </span>
                 <span className={`ml-auto tabular-nums ${selected ? 'text-slate-700 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>

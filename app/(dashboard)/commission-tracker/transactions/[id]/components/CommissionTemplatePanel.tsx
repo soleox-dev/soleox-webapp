@@ -257,7 +257,7 @@ function LabeledParameter({
   return (
     <div key={flashToken || undefined} className={`group/field relative underline-field rounded-t-md pl-2.5 pr-2.5 pt-1 pb-0.5 border-b transition-colors ${locked ? 'is-locked' : ''} ${changed ? 'is-changed' : ''} ${flashToken ? 'is-recalculated' : ''} ${shellBorder}`}>
       <div className="flex min-w-0 items-center gap-1">
-        <label htmlFor={id} title={typeof label === 'string' ? label : undefined} className={`min-w-0 line-clamp-2 break-words text-[10px] leading-3 font-medium ${labelTone}`}>
+        <label htmlFor={id} title={typeof label === 'string' ? label : undefined} className={`min-w-0 line-clamp-2 break-words text-2xs leading-3 font-medium ${labelTone}`}>
           {label}
         </label>
         {onReset && (
@@ -288,7 +288,7 @@ function LabeledParameter({
           <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
-      {message && <p className="mt-0.5 text-[10px] leading-3 font-medium text-rose-600 dark:text-rose-400">{message}</p>}
+      {message && <p className="mt-0.5 text-2xs leading-3 font-medium text-rose-600 dark:text-rose-400">{message}</p>}
     </div>
   );
 }
@@ -533,7 +533,7 @@ function ParameterControl({
           disabled={locked}
           onChange={(checked) => onChange(checked ? 'TRUE' : 'FALSE')}
         />
-        {message && <p className="mt-0.5 text-[10px] leading-3 font-medium text-rose-600 dark:text-rose-400">{message}</p>}
+        {message && <p className="mt-0.5 text-2xs leading-3 font-medium text-rose-600 dark:text-rose-400">{message}</p>}
       </div>
     );
   }
@@ -1657,7 +1657,7 @@ export function CommissionTemplatePanel({
           onClick={() => setTemplateMenuOpen((open) => !open)}
           className="group underline-field relative block w-full rounded-t-md pl-2.5 pr-8 pt-1 pb-0.5 border-b border-b-slate-300 dark:border-b-slate-600 text-left transition-colors cursor-pointer focus:outline-none focus-visible:border-b-brand-500 focus-visible:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <span className="block text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-visible:text-brand-600 dark:group-focus-visible:text-brand-400">
+          <span className="block text-2xs leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-visible:text-brand-600 dark:group-focus-visible:text-brand-400">
             Template
           </span>
           <span className="block h-5 truncate text-xs leading-4 font-medium text-slate-900 dark:text-white">
@@ -1689,7 +1689,7 @@ export function CommissionTemplatePanel({
           document.body,
         )}
       </div>
-      {loadError && !popupOpen && <p className="text-[11px] text-rose-600 dark:text-rose-400">{loadError}</p>}
+      {loadError && !popupOpen && <p className="text-2xs text-rose-600 dark:text-rose-400">{loadError}</p>}
 
       {popupOpen && createPortal(
         <div
@@ -1726,7 +1726,7 @@ export function CommissionTemplatePanel({
                           }}
                         />
                         {(capFormulaFields.get(cap.id)?.length ?? 0) > 0 && (
-                          <p className="text-[11px] leading-5 text-slate-500 dark:text-slate-400">
+                          <p className="text-2xs leading-5 text-slate-500 dark:text-slate-400">
                             {capFormulaFields.get(cap.id)!.map((field, index) => (
                               <React.Fragment key={field.key}>
                                 {index > 0 && <span aria-hidden className="px-1.5 text-slate-300 dark:text-slate-600">—</span>}
@@ -1805,7 +1805,7 @@ export function CommissionTemplatePanel({
                         </div>
                       )}
                       {!isCollapsed && (inlineCalculations.get(group.name)?.length ?? 0) > 0 && (
-                        <p className="mt-1.5 px-1 text-[11px] leading-5 text-slate-500 @min-[720px]/params:col-start-2 @min-[720px]/params:mt-0 @min-[720px]/params:px-0 dark:text-slate-400">
+                        <p className="mt-1.5 px-1 text-2xs leading-5 text-slate-500 @min-[720px]/params:col-start-2 @min-[720px]/params:mt-0 @min-[720px]/params:px-0 dark:text-slate-400">
                           {inlineCalculations.get(group.name)!.map((row, index) => {
                             const { text, error } = calculationText(row);
                             return (
@@ -1835,7 +1835,7 @@ export function CommissionTemplatePanel({
                   >
                     <span className="w-3 shrink-0 text-center text-sm font-bold leading-none text-emerald-600 dark:text-emerald-400">{logicOpen ? '−' : '+'}</span>
                     <span className="text-sm font-bold text-brand-600 dark:text-brand-400">Calculations</span>
-                    <span className="text-[10px] font-semibold tracking-wide text-slate-400 dark:text-slate-500">(Read Only)</span>
+                    <span className="text-2xs font-semibold tracking-wide text-slate-400 dark:text-slate-500">(Read Only)</span>
                   </button>
                   {logicOpen && (
                     <div className="border-t border-slate-200 px-3 py-2 dark:border-slate-700">

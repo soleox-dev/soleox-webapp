@@ -186,13 +186,13 @@ export function TransactionOverview({
                         const empty = text === '—';
                         return (
                           <div key={field.id} className="min-w-0 border-l border-t border-slate-200 px-3 py-2 dark:border-slate-700">
-                            <dt className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                            <dt className="truncate text-2xs text-slate-500 dark:text-slate-400">
                               {field.label}
                               {field.is_required && <span className="text-rose-500" title="Required field">*</span>}
                             </dt>
                             <dd
                               title={unmatched ? validateFieldValue(field, stored ?? text).message : undefined}
-                              className={`mt-0.5 truncate text-[15px] font-semibold ${
+                              className={`mt-0.5 truncate text-base font-semibold ${
                                 unmatched
                                   ? 'text-amber-600 dark:text-amber-400'
                                   : empty
@@ -283,7 +283,7 @@ export function TransactionOverview({
                             onChange={(checked) => handleOverviewInputChange(field.key, checked)}
                           />
                           {assistiveMessage && (
-                            <p className={`mt-0.5 text-[10px] leading-3 font-medium ${showError ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                            <p className={`mt-0.5 text-2xs leading-3 font-medium ${showError ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
                               {assistiveMessage}
                             </p>
                           )}
@@ -295,7 +295,7 @@ export function TransactionOverview({
                       <div key={field.id} className="min-w-0">
                         <div className={`group relative underline-field rounded-t-md pl-2.5 ${isSystemLocked && isEditing ? 'pr-14' : 'pr-2.5'} pt-1 pb-0.5 border-b transition-colors ${shellBorder} ${isInputDisabled && isEditing ? 'opacity-70' : ''}`}>
                           <div className="flex items-center gap-1.5">
-                            <span className={`text-[10px] leading-3 font-medium truncate ${labelTone} ${!showError && !showWarning ? 'group-focus-within:text-brand-600 dark:group-focus-within:text-brand-400' : ''}`}>
+                            <span className={`text-2xs leading-3 font-medium truncate ${labelTone} ${!showError && !showWarning ? 'group-focus-within:text-brand-600 dark:group-focus-within:text-brand-400' : ''}`}>
                               {field.label}
                               {field.is_required && <span className="text-rose-500" title="Required field">*</span>}
                             </span>
@@ -385,7 +385,7 @@ export function TransactionOverview({
                             )}
                           </div>
                           {isSystemLocked && isEditing && (
-                            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1 py-0.5 rounded font-mono">
+                            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-2xs bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1 py-0.5 rounded font-mono">
                               LOCKED
                             </span>
                           )}
@@ -418,7 +418,7 @@ export function TransactionOverview({
                           )}
                         </div>
                         {assistiveMessage && (
-                          <p className={`mt-1 text-[11px] font-medium ${showWarning && !showError ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                          <p className={`mt-1 text-2xs font-medium ${showWarning && !showError ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
                             {assistiveMessage}
                           </p>
                         )}

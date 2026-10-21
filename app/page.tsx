@@ -118,7 +118,7 @@ export default function Home() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-brand-600 dark:text-brand-400">Soleox REBI</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
             {greeting}{firstName ? `, ${firstName}` : ''}
           </h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -139,7 +139,7 @@ export default function Home() {
           >
             <Search className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
             <span className="flex-1 text-left">Find a deal, agent, or page</span>
-            <kbd className="rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-semibold text-slate-400 dark:border-slate-600">⌘K</kbd>
+            <kbd className="rounded border border-slate-200 px-1.5 py-0.5 text-2xs font-semibold text-slate-400 dark:border-slate-600">⌘K</kbd>
           </button>
         )}
       </header>

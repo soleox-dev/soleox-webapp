@@ -122,12 +122,12 @@ function PaymentShareCard({
           {name}
         </span>
         {isPrimary && (
-          <span className="shrink-0 rounded-full border border-brand-500/30 bg-brand-500/20 px-1.5 py-0.5 text-[10.5px] font-bold text-brand-800 dark:text-brand-300">
+          <span className="shrink-0 rounded-full border border-brand-500/30 bg-brand-500/20 px-1.5 py-0.5 text-2xs font-bold text-brand-800 dark:text-brand-300">
             Primary
           </span>
         )}
         {isTeamLead && (
-          <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/20 px-1.5 py-0.5 text-[10.5px] font-bold text-amber-800 dark:text-amber-300">
+          <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/20 px-1.5 py-0.5 text-2xs font-bold text-amber-800 dark:text-amber-300">
             Lead
           </span>
         )}
@@ -252,7 +252,7 @@ export function FinalDisbursements({
         <div className={`px-6 pb-4 ${SECTION_BODY_PHONE}`}>
           <p
             role="alert"
-            className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2.5 text-[13px] font-semibold leading-relaxed text-rose-700 dark:border-rose-500/40 dark:bg-rose-950/40 dark:text-rose-300"
+            className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2.5 text-sm font-semibold leading-relaxed text-rose-700 dark:border-rose-500/40 dark:bg-rose-950/40 dark:text-rose-300"
           >
             Total payments are {formatCurrency(totalPayments)}, which leaves {formatCurrency(unallocatedCommission)} of the {formatCurrency(totalCommission)} commission unallocated. This transaction cannot be saved until the entire commission is allocated among agents and entities.
           </p>

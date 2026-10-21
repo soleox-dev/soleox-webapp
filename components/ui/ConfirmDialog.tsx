@@ -65,7 +65,7 @@ export function ConfirmDialog({
         aria-labelledby="confirm-dialog-title"
       >
         <div>
-          <h3 id="confirm-dialog-title" className="text-base font-bold text-slate-900 dark:text-white">
+          <h3 id="confirm-dialog-title" className="text-lg font-bold text-slate-900 dark:text-white">
             {title}
           </h3>
           <p className="text-xs text-slate-600 dark:text-slate-300 mt-1.5 leading-relaxed">{message}</p>

@@ -14,7 +14,7 @@ export function AgentSplitExcessNotice({
   return (
     <p
       role="alert"
-      className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2.5 text-[13px] font-semibold leading-relaxed text-rose-700 dark:border-rose-500/40 dark:bg-rose-950/40 dark:text-rose-300"
+      className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2.5 text-sm font-semibold leading-relaxed text-rose-700 dark:border-rose-500/40 dark:bg-rose-950/40 dark:text-rose-300"
     >
       Agent splits total {money.format(total)}, which exceeds the {money.format(remaining)} remaining balance by {money.format(excess)}. This transaction cannot be saved until the agent splits are within the remaining balance.
     </p>

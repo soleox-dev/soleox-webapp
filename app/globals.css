@@ -22,6 +22,10 @@
   --color-slate-800: #1b2230;
   --color-slate-900: #121823;
   --color-slate-950: #0e131c;
+
+  /* The smallest step of the type scale (CLAUDE.md, Typography): chips, pills, badges, hints, counts. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
 }
 
 /* Dark mode: brand blue text at the same brightness and punch as emerald-400 next to it,

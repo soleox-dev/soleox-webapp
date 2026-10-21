@@ -1268,7 +1268,7 @@ function OwnerReportNav({ reportId, onSelect }: { reportId: string | null; onSel
           >
             <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
               <button type="button" onClick={() => choose(null)} className="min-w-0 cursor-pointer text-left">
-                <p className="text-[11px] font-bold text-brand-600 dark:text-brand-400">Soleox</p>
+                <p className="text-2xs font-bold text-brand-600 dark:text-brand-400">Soleox</p>
                 <h2 id={titleId} className="text-base font-extrabold tracking-tight text-slate-900 dark:text-white">Owner Reports</h2>
               </button>
               <button
@@ -1284,7 +1284,7 @@ function OwnerReportNav({ reportId, onSelect }: { reportId: string | null; onSel
             <nav aria-label="Owner Reports" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
               {GROUPS.map((group) => (
                 <div key={group} className="mb-3">
-                  <p className="px-2 pb-1 text-[11px] font-semibold text-slate-400 dark:text-slate-500">{group}</p>
+                  <p className="px-2 pb-1 text-2xs font-semibold text-slate-400 dark:text-slate-500">{group}</p>
                   {OWNER_REPORTS.filter((item) => item.group === group).map((item) => {
                     const number = String(OWNER_REPORTS.findIndex((entry) => entry.id === item.id) + 1).padStart(2, '0');
                     const active = item.id === reportId;
@@ -1306,7 +1306,7 @@ function OwnerReportNav({ reportId, onSelect }: { reportId: string | null; onSel
                         <span className="w-6 shrink-0 text-xs tabular-nums text-slate-400 dark:text-slate-500">{number}</span>
                         <span className="min-w-0 flex-1 truncate">{item.name}</span>
                         {!item.ready ? (
-                          <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">Soon</span>
+                          <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-2xs font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">Soon</span>
                         ) : null}
                       </button>
                     );
@@ -1326,7 +1326,7 @@ function ReportMenu({ reportId, onSelect }: { reportId: string | null; onSelect:
   return (
     <>
       <button type="button" onClick={() => onSelect(null)} className="w-full cursor-pointer text-left px-2 py-2">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Soleox</p>
+        <p className="text-2xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Soleox</p>
         <h1 className="text-base font-extrabold tracking-tight">Owner Reports</h1>
       </button>
       {GROUPS.map((group) => (
@@ -1467,7 +1467,7 @@ function SortHead({ column, label, sort, onSort, align = 'left', title, width, c
           className={`flex cursor-pointer items-center gap-1 bg-transparent p-0 font-[inherit] text-[length:inherit] text-inherit [appearance:none] [letter-spacing:inherit] [outline:none] [text-transform:inherit] focus-visible:underline ${note ? '' : 'w-full'} ${align === 'right' ? 'justify-end' : 'justify-start'}`}
         >
           <span className={width ? `inline-block whitespace-pre-line ${widthClass}` : undefined}>{label}</span>
-          {active ? <span aria-hidden="true" className="shrink-0 text-[0.7rem] leading-none">{sort.direction === 'asc' ? '↑' : '↓'}</span> : null}
+          {active ? <span aria-hidden="true" className="shrink-0 text-2xs leading-none">{sort.direction === 'asc' ? '↑' : '↓'}</span> : null}
         </button>
         {note ? <ScoreNote label={label} text={note} className="relative inline-flex shrink-0" align={align === 'right' ? 'right' : 'left'} /> : null}
       </span>
@@ -1660,7 +1660,7 @@ function ReportView(props: {
             <OwnerReportNav reportId={props.reportId} onSelect={props.onSelectReport} />
           </div>
           <div className="min-w-0 px-2 text-center">
-            <h2 className="text-balance text-3xl font-extrabold leading-tight tracking-tight max-md:text-xl">
+            <h2 className="text-balance text-2xl font-extrabold leading-tight tracking-tight">
               {props.reportId === 'lead-source-leaderboard' ? (
                 <>
                   <TitleMetric
@@ -2761,7 +2761,7 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
                     onChange([option.value]);
                   }}
                 >
-                  <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-bold leading-none tracking-wide text-brand-800 ring-1 ring-brand-200 hover:bg-brand-200 dark:bg-brand-900 dark:text-brand-100 dark:ring-brand-700 dark:hover:bg-brand-800">ONLY</span>
+                  <span className="rounded-full bg-brand-100 px-2 py-0.5 text-2xs font-bold leading-none tracking-wide text-brand-800 ring-1 ring-brand-200 hover:bg-brand-200 dark:bg-brand-900 dark:text-brand-100 dark:ring-brand-700 dark:hover:bg-brand-800">ONLY</span>
                 </button>
               </span>
             </div>
@@ -3683,10 +3683,10 @@ function TrendScore({ tone, label, amount, compactAmount, toneClass, dollar, com
       data-score-card
       className={`w-full min-w-0 cursor-pointer appearance-none rounded-xl border px-1.5 py-2 text-center md:px-3 shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? `ring-2 ring-inset ${metricEdge(label, tone)} ${selectedFill}` : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
     >
-      <p className={`text-[11px] font-medium md:text-sm ${toneClass || 'text-slate-500 dark:text-white'}`}>{label}</p>
+      <p className={`text-2xs font-medium md:text-sm ${toneClass || 'text-slate-500 dark:text-white'}`}>{label}</p>
       <FitText full={amount} compact={isDesktop ? undefined : compactAmount} className={`mt-0.5 whitespace-nowrap text-base font-extrabold tabular-nums md:whitespace-normal md:text-xl ${toneClass}`} />
       {dollar && percent ? (
-          <div className={`mt-1 flex flex-col items-center justify-center text-[11px] font-semibold tabular-nums md:flex-row md:items-baseline md:gap-8 md:text-xs ${changeClass(current, prior)}`}>
+          <div className={`mt-1 flex flex-col items-center justify-center text-2xs font-semibold tabular-nums md:flex-row md:items-baseline md:gap-8 md:text-xs ${changeClass(current, prior)}`}>
           <span>{percent}</span>
           <span>{isDesktop ? dollar : compactDollar ?? dollar}</span>
         </div>
@@ -3864,7 +3864,7 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
           </div>
         ) : null}
       </div>
-      <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1 text-[11px] text-slate-500">
+      <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1 text-2xs text-slate-500">
         <span className="inline-flex items-baseline gap-1.5">
           <span className={`h-0.5 w-4 self-center rounded-full bg-current ${currentClass}`} />
           Current period. Average:
@@ -3987,7 +3987,7 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
           </div>
         ) : null}
       </div>
-      <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1 text-[11px] text-slate-500">
+      <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1 text-2xs text-slate-500">
         <span className="inline-flex items-baseline gap-1.5">
           <span className={`h-3 w-1.5 self-center rounded-t-[2px] bg-current ${currentClass}`} />
           Current period. Average:
@@ -4027,7 +4027,7 @@ function LineChart({ title, metric, current, previous }: { title: string; metric
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
       <div className="flex items-center justify-between gap-3 mb-2">
-        <h3 className="text-sm font-bold">{title}</h3>
+        <h3 className="text-base font-bold">{title}</h3>
       </div>
       <div className="relative">
         <svg
@@ -4075,7 +4075,7 @@ function LineChart({ title, metric, current, previous }: { title: string; metric
           </div>
         ) : null}
       </div>
-      <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1 text-[11px] text-slate-500">
+      <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1 text-2xs text-slate-500">
         <span className="inline-flex items-baseline gap-1.5"><span className="h-0.5 w-4 self-center rounded-full bg-emerald-400 dark:bg-emerald-600" /> Current Period. Average:<span className="text-sm font-bold tabular-nums text-emerald-400 dark:text-emerald-600">{formatMetric(average, metric)}</span></span>
         {previous.length > 0 ? <span className="inline-flex items-baseline gap-1.5"><span className="h-0.5 w-4 self-center rounded-full bg-[#d9dde2] dark:bg-slate-400" /> Previous Year. Average:<span className="text-sm font-bold tabular-nums text-[#d9dde2] dark:text-slate-400">{formatMetric(priorAverage, metric)}</span></span> : null}
       </div>
@@ -4524,10 +4524,10 @@ function BoardScore({ tone, label, amount, compactAmount, dollar, compactDollar,
       data-score-card
       className={`flex h-full w-full min-w-0 flex-col justify-start cursor-pointer appearance-none rounded-xl border px-1.5 py-2 text-center md:px-3 shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? `ring-inset ${selectedClass}` : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
     >
-        <p className={`text-[11px] font-medium md:text-sm ${toneClass || 'text-slate-500 dark:text-white'}`}>{label}</p>
+        <p className={`text-2xs font-medium md:text-sm ${toneClass || 'text-slate-500 dark:text-white'}`}>{label}</p>
         <FitText full={amount} compact={isDesktop ? undefined : compactAmount} className={`mt-0.5 whitespace-nowrap text-base font-extrabold tabular-nums md:whitespace-normal md:text-xl ${toneClass}`} />
         {dollar && percent ? (
-          <div className={`mt-1 flex flex-col items-center justify-center text-[11px] font-semibold tabular-nums md:flex-row md:items-baseline md:gap-8 md:text-xs ${deltaClass}`}>
+          <div className={`mt-1 flex flex-col items-center justify-center text-2xs font-semibold tabular-nums md:flex-row md:items-baseline md:gap-8 md:text-xs ${deltaClass}`}>
             <span>{percent}</span>
             <span>{isDesktop ? dollar : compactDollar ?? dollar}</span>
           </div>
@@ -4802,7 +4802,7 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
           </div>
         ) : null}
       </div>
-      <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1 text-[11px] text-slate-500">
+      <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1 text-2xs text-slate-500">
         <span className="inline-flex items-baseline gap-1.5">
           <span className={`h-0.5 w-4 self-center rounded-full bg-current ${lineClass}`} />
           Current period. Average:
@@ -5588,7 +5588,7 @@ function ScoreNote({ label, text, onOpenChange, className = 'absolute right-1.5 
         <Info className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
       {open ? (
-        <p role="tooltip" className={`absolute top-full z-30 mt-1 w-56 rounded-lg border border-slate-200 bg-white p-2.5 text-left text-[11px] font-medium normal-case leading-snug tracking-normal text-slate-600 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 ${align === 'left' ? 'left-0' : 'right-0'}`}>
+        <p role="tooltip" className={`absolute top-full z-30 mt-1 w-56 rounded-lg border border-slate-200 bg-white p-2.5 text-left text-2xs font-medium normal-case leading-snug tracking-normal text-slate-600 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 ${align === 'left' ? 'left-0' : 'right-0'}`}>
           {text}
         </p>
       ) : null}
@@ -5699,7 +5699,7 @@ function Score({ label, amount, changeAmount, value, change, tone = 'plain', pul
   return (
     <div key={pulse} data-score-card className={`relative flex h-full min-w-0 w-full flex-col justify-center rounded-xl border px-1.5 py-3 text-center md:px-3 ${noteOpen ? 'z-30' : ''} ${shell} ${pulse > 0 ? 'scorecard-pulse' : ''}`}>
       {note ? <ScoreNote label={label} text={note} onOpenChange={setNoteOpen} /> : null}
-      <p className="px-3 text-[11px] font-medium text-slate-500 md:px-4 md:text-sm dark:text-slate-400">{label}</p>
+      <p className="px-3 text-2xs font-medium text-slate-500 md:px-4 md:text-sm dark:text-slate-400">{label}</p>
       <FitText full={full} compact={compact} className={`mt-1 text-base font-extrabold tabular-nums whitespace-nowrap md:text-xl ${amountClass}`} />
       {changeFull ? <FitText full={changeFull} compact={changeCompact} className={changeClass} /> : null}
     </div>
@@ -5764,7 +5764,7 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 function Figure({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
   return (
     <div className={`rounded-lg px-3 py-2 ${emphasis ? 'bg-emerald-500/10' : 'bg-slate-100 dark:bg-slate-800'}`}>
-      <p className="text-[11px] text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="text-2xs text-slate-500 dark:text-slate-400">{label}</p>
       <p className="font-bold tabular-nums">{value}</p>
     </div>
   );
@@ -6206,7 +6206,7 @@ function ProductionDrilldownTable({
                   <tr key={item.deal.id + '-' + index} className={rowClass}>
                     <td className="px-2 py-1.5 text-right tabular-nums text-slate-500">{item.rank}</td>
                     <td className="px-3 py-1.5 whitespace-nowrap">
-                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusBadge}`}>
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-2xs font-semibold ${statusBadge}`}>
                         {item.deal.status || '—'}
                       </span>
                     </td>

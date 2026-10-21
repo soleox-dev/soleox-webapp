@@ -37,7 +37,7 @@ export function CancelEditPrompt({ open, sectionLabel, onKeepEditing, onDiscard 
         className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-5"
       >
         <div>
-          <h3 id="cancel-edit-title" className="text-base font-bold text-slate-900 dark:text-white">
+          <h3 id="cancel-edit-title" className="text-lg font-bold text-slate-900 dark:text-white">
             Cancel Edits?
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">

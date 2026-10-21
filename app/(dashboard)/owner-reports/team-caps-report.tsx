@@ -45,7 +45,7 @@ function SortHead({ column, label, sort, onSort, align = 'left', title }: {
         className={`flex w-full cursor-pointer items-center gap-1 bg-transparent p-0 font-[inherit] text-[length:inherit] text-inherit [appearance:none] focus-visible:underline ${align === 'right' ? 'justify-end' : 'justify-start'}`}
       >
         <span>{label}</span>
-        {active ? <span aria-hidden="true" className="shrink-0 text-[0.7rem] leading-none">{sort.direction === 'asc' ? '↑' : '↓'}</span> : null}
+        {active ? <span aria-hidden="true" className="shrink-0 text-2xs leading-none">{sort.direction === 'asc' ? '↑' : '↓'}</span> : null}
       </button>
     </th>
   );
@@ -105,7 +105,7 @@ function GoalMeter({ total, goal, percent }: { total: number; goal: number | nul
     <div className="ml-auto w-[9.5rem]">
       <div className="flex items-baseline justify-between gap-2 tabular-nums">
         <span className="font-medium text-slate-800 dark:text-slate-100">{capMoney(goal)}</span>
-        <span className={`text-[11px] font-semibold ${capHeatText[heat]}`}>{(percent * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%</span>
+        <span className={`text-2xs font-semibold ${capHeatText[heat]}`}>{(percent * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%</span>
       </div>
       <div className="mt-1 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700" title={`${capMoney(total)} of ${capMoney(goal)}`}>
         <div className={`h-1.5 rounded-full ${capHeatBar[heat]}`} style={{ width: `${width}%` }} />
@@ -258,7 +258,7 @@ function CapSection({ cap, rows, openAgentId, onOpen, showPaid }: {
                 >
                   <td className="px-3 py-2 text-right tabular-nums text-slate-400">{line.rank}</td>
                   <td className="px-3 py-2">
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${line.pending ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'}`}>{line.status || '—'}</span>
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-2xs font-semibold ${line.pending ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'}`}>{line.status || '—'}</span>
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">{line.primaryAgent}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{line.side || '—'}</td>

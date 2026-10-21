@@ -317,7 +317,7 @@ export default function TransactionViewsPage() {
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Sort Order</h3>
+                    <h3 className="text-base font-semibold text-slate-900 dark:text-white">Sort Order</h3>
                     <button
                       type="button"
                       onClick={() => updateView(view.id, {

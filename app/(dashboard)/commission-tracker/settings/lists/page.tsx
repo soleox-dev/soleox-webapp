@@ -108,10 +108,10 @@ export default function ListsSettingsPage() {
                 <tr key={list.id} className="hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition">
                   <td className="p-3.5">
                     <div className="font-bold text-slate-900 dark:text-white">{list.name}</div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400">{list.description}</div>
+                    <div className="text-2xs text-slate-500 dark:text-slate-400">{list.description}</div>
                   </td>
                   <td className="p-3.5">
-                    <code className="bg-slate-100 dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded text-[11px] font-mono border border-slate-200 dark:border-slate-700">
+                    <code className="bg-slate-100 dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded text-2xs font-mono border border-slate-200 dark:border-slate-700">
                       {list.code}
                     </code>
                   </td>

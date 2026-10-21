@@ -208,14 +208,14 @@ export function CommandPalette({
             aria-label="Search"
             className="h-12 min-w-0 flex-1 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none dark:text-white"
           />
-          <kbd className="shrink-0 rounded border border-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 dark:border-slate-700">Esc</kbd>
+          <kbd className="shrink-0 rounded border border-slate-200 px-1.5 py-0.5 text-2xs font-semibold text-slate-400 dark:border-slate-700">Esc</kbd>
         </div>
         <div ref={listRef} className="max-h-[60vh] overflow-y-auto p-2">
           {searching && <p className="px-3 py-6 text-center text-xs text-slate-400">Loading transactions…</p>}
           {!searching && results.length === 0 && <p className="px-3 py-6 text-center text-xs text-slate-400">No matches.</p>}
           {groups.map((group) => (
             <div key={group} className="pb-1">
-              <p className="px-3 pb-1 pt-2 text-[11px] font-bold text-slate-400">{group}</p>
+              <p className="px-3 pb-1 pt-2 text-2xs font-bold text-slate-400">{group}</p>
               {results.map((result, index) => {
                 if (result.group !== group) return null;
                 const Icon = result.icon;
@@ -227,7 +227,7 @@ export function CommandPalette({
                     data-index={index}
                     onMouseMove={() => setActiveIndex(index)}
                     onClick={() => choose(result)}
-                    className={`flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left text-[13px] ${active ? 'bg-brand-500/10 text-brand-800 dark:bg-brand-500/15 dark:text-brand-300' : 'text-slate-700 dark:text-slate-200'}`}
+                    className={`flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left text-sm ${active ? 'bg-brand-500/10 text-brand-800 dark:bg-brand-500/15 dark:text-brand-300' : 'text-slate-700 dark:text-slate-200'}`}
                   >
                     <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`} strokeWidth={1.75} aria-hidden />
                     <span className="min-w-0 flex-1 truncate font-medium">{result.title}</span>

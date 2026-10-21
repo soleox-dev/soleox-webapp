@@ -256,7 +256,7 @@ export default function Navbar() {
       ? 'bg-brand-500/10 font-bold text-brand-700 dark:bg-brand-950/80 dark:text-brand-400'
       : 'text-slate-700 dark:text-slate-200'
   }`;
-  const sheetHeadingClass = 'px-3 pb-1 pt-3 text-[11px] font-bold text-slate-400';
+  const sheetHeadingClass = 'px-3 pb-1 pt-3 text-2xs font-bold text-slate-400';
 
   // Desktop bar: a module switcher, then the current module's pages as links. Same permission checks
   // as the phone sheet. Modules that are not built yet show in the switcher as Soon.
@@ -307,7 +307,7 @@ export default function Navbar() {
               suffix={(
                 <>
                   <span aria-hidden className="mx-3 h-[18px] w-px self-center bg-slate-300 dark:bg-slate-700" />
-                  <span className="text-[15px] font-medium tracking-[0.02em] text-slate-500 dark:text-slate-400">REBI</span>
+                  <span className="text-base font-medium tracking-[0.02em] text-slate-500 dark:text-slate-400">REBI</span>
                 </>
               )}
             />
@@ -322,7 +322,7 @@ export default function Navbar() {
                 onClick={() => setModuleMenuOpen((open) => !open)}
                 aria-haspopup="menu"
                 aria-expanded={moduleMenuOpen}
-                className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-[13px] font-semibold transition cursor-pointer ${moduleMenuOpen ? 'bg-slate-200 text-slate-900 dark:bg-slate-800 dark:text-white' : 'bg-slate-100 text-slate-800 hover:bg-slate-200 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-800'}`}
+                className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-semibold transition cursor-pointer ${moduleMenuOpen ? 'bg-slate-200 text-slate-900 dark:bg-slate-800 dark:text-white' : 'bg-slate-100 text-slate-800 hover:bg-slate-200 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-800'}`}
               >
                 <CurrentModuleIcon className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" strokeWidth={1.75} aria-hidden />
                 {currentModule?.label ?? 'Modules'}
@@ -334,10 +334,10 @@ export default function Navbar() {
                     const Icon = item.icon;
                     if (item.soon || !item.href) {
                       return (
-                        <div key={item.id} role="menuitem" aria-disabled="true" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-slate-400 dark:text-slate-500">
+                        <div key={item.id} role="menuitem" aria-disabled="true" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-400 dark:text-slate-500">
                           <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
                           {item.label}
-                          <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-400 dark:bg-slate-800 dark:text-slate-500">Soon</span>
+                          <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-2xs font-semibold text-slate-400 dark:bg-slate-800 dark:text-slate-500">Soon</span>
                         </div>
                       );
                     }
@@ -347,7 +347,7 @@ export default function Navbar() {
                         href={item.href}
                         role="menuitem"
                         onClick={() => setModuleMenuOpen(false)}
-                        className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${item.active ? 'bg-brand-500/10 text-brand-700 dark:bg-brand-950/80 dark:text-brand-400' : 'text-slate-800 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}
+                        className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold transition ${item.active ? 'bg-brand-500/10 text-brand-700 dark:bg-brand-950/80 dark:text-brand-400' : 'text-slate-800 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}
                       >
                         <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
                         {item.label}
@@ -359,7 +359,7 @@ export default function Navbar() {
                     href="/"
                     role="menuitem"
                     onClick={() => setModuleMenuOpen(false)}
-                    className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${isMainMenu ? 'bg-brand-500/10 text-brand-700 dark:bg-brand-950/80 dark:text-brand-400' : 'text-slate-800 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}
+                    className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold transition ${isMainMenu ? 'bg-brand-500/10 text-brand-700 dark:bg-brand-950/80 dark:text-brand-400' : 'text-slate-800 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}
                   >
                     <LayoutGrid className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
                     All Modules
@@ -375,7 +375,7 @@ export default function Navbar() {
                   key={page.href}
                   href={page.href}
                   aria-current={page.active ? 'page' : undefined}
-                  className={`flex items-center gap-1.5 border-b-2 pt-0.5 text-[13px] font-semibold transition ${page.active ? 'border-brand-500 text-brand-700 dark:text-brand-400' : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
+                  className={`flex items-center gap-1.5 border-b-2 pt-0.5 text-sm font-semibold transition ${page.active ? 'border-brand-500 text-brand-700 dark:text-brand-400' : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
                 >
                   <page.icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
                   {page.label}
@@ -395,7 +395,7 @@ export default function Navbar() {
           >
             <Search className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
             <span className="truncate">{showTransactions ? 'Search transactions, agents…' : 'Search…'}</span>
-            <kbd className="ml-auto shrink-0 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">{searchShortcut}</kbd>
+            <kbd className="ml-auto shrink-0 rounded bg-slate-200 px-1.5 py-0.5 text-2xs font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">{searchShortcut}</kbd>
           </button>
           <button
             type="button"
@@ -436,16 +436,16 @@ export default function Navbar() {
                   <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
                     {session?.user?.name || 'Authenticated User'}
                   </p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                  <p className="text-2xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
                     {session?.user?.email || 'user@soleox.com'}
                   </p>
                   {access?.clientName && (
-                    <p className="text-[11px] text-brand-700 dark:text-brand-400 truncate mt-1">{access.clientName}</p>
+                    <p className="text-2xs text-brand-700 dark:text-brand-400 truncate mt-1">{access.clientName}</p>
                   )}
                 </div>
                 {access && access.clients.length > 1 && (
                   <div className="py-1 border-b border-slate-100 dark:border-slate-800">
-                    <p className="px-4 pt-1.5 pb-1 text-[11px] font-bold text-slate-400">Client</p>
+                    <p className="px-4 pt-1.5 pb-1 text-2xs font-bold text-slate-400">Client</p>
                     {access.clients.map((client) => (
                       <button
                         key={client.id}
@@ -467,7 +467,7 @@ export default function Navbar() {
                 )}
 
                 <div className="py-1 border-b border-slate-100 dark:border-slate-800">
-                  <p className="px-4 pt-1.5 pb-1 text-[11px] font-bold text-slate-400">Theme</p>
+                  <p className="px-4 pt-1.5 pb-1 text-2xs font-bold text-slate-400">Theme</p>
                   {themeOptions.map((option) => {
                     const Icon = option.icon;
                     const selected = theme === option.id;
@@ -495,7 +495,7 @@ export default function Navbar() {
 
                 {viewMode.available && (
                   <div className="py-1 border-b border-slate-100 dark:border-slate-800">
-                    <p className="px-4 pt-1.5 pb-1 text-[11px] font-bold text-slate-400">View</p>
+                    <p className="px-4 pt-1.5 pb-1 text-2xs font-bold text-slate-400">View</p>
                     {viewOptions.map((option) => {
                       const Icon = option.icon;
                       const selected = viewMode.mode === option.id;

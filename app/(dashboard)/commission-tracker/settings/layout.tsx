@@ -120,7 +120,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                   >
                     <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                     {/* The page name shows as soon as the pointer or focus lands on the icon. */}
-                    <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 dark:bg-slate-950">
+                    <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-2xs font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 dark:bg-slate-950">
                       {item.label}
                     </span>
                   </Link>
@@ -156,7 +156,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           {/* Full list on wide screens while open. */}
           <nav className={`hidden bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2 shadow-xs transition-colors ${collapsed ? '' : 'lg:block'}`}>
             <div className="flex items-center justify-between px-3 pb-1 pt-1.5">
-              <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500">Settings</span>
+              <span className="text-2xs font-bold text-slate-400 dark:text-slate-500">Settings</span>
               <button
                 type="button"
                 onClick={() => setAndRemember(true)}
@@ -172,7 +172,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                 if (entry.kind === 'section') {
                   return (
                     <div key={entry.label} className="pt-2">
-                      <div className="px-3 pb-1 text-[11px] font-bold text-slate-400 dark:text-slate-500">{entry.label}</div>
+                      <div className="px-3 pb-1 text-2xs font-bold text-slate-400 dark:text-slate-500">{entry.label}</div>
                       <div className="space-y-0.5">
                         {entry.items.map((item) => {
                           const Icon = item.icon;

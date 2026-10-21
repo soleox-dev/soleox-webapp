@@ -81,7 +81,7 @@ export function AgentPickerModal({
         <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
           <div className="flex items-center gap-2">
             <span className="text-xl">👤</span>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">Add Agent to Deal</h3>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Add Agent to Deal</h3>
           </div>
           <button
             type="button"
@@ -132,15 +132,15 @@ export function AgentPickerModal({
                     <div className="flex items-center gap-2">
                       <span>{agentObj.name}</span>
                       {agentObj.isTeamLead && (
-                        <span className="text-[10px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-semibold">
+                        <span className="text-2xs bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-semibold">
                           Lead
                         </span>
                       )}
                     </div>
                     {isSelected ? (
-                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">✓ Selected</span>
+                      <span className="text-2xs text-emerald-600 dark:text-emerald-400 font-bold">✓ Selected</span>
                     ) : (
-                      <span className="text-[10px] text-slate-400 hover:text-emerald-500 font-medium">+ Choose</span>
+                      <span className="text-2xs text-slate-400 hover:text-emerald-500 font-medium">+ Choose</span>
                     )}
                   </button>
                 );
@@ -196,7 +196,7 @@ export function AgentPickerModal({
                 {splitType === 'PERCENT' ? 'Split Percentage (%)' : 'Split Dollar Amount ($)'}
               </span>
               {commissionAfterOffTop > 0 && numericVal > 0 && (
-                <span className={`text-[11px] font-semibold ${
+                <span className={`text-2xs font-semibold ${
                   splitType === 'PERCENT' ? 'text-blue-600 dark:text-blue-400' : 'text-emerald-600 dark:text-emerald-400'
                 }`}>
                   {splitType === 'PERCENT'
@@ -240,7 +240,7 @@ export function AgentPickerModal({
           <span className="text-sm leading-none mt-0.5">💡</span>
           <div className="space-y-0.5">
             <span className="font-semibold block">Deducted from Primary Agent</span>
-            <span className="text-[11px] text-slate-600 dark:text-slate-400 block">
+            <span className="text-2xs text-slate-600 dark:text-slate-400 block">
               This split will be deducted directly from <strong>{primaryAgentName}</strong>&apos;s primary split.
             </span>
           </div>

@@ -117,7 +117,7 @@ export default function MainMenu() {
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Platform Product Modules (5)
           </h2>
-          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
+          <span className="text-2xs text-emerald-600 dark:text-emerald-400 font-semibold">
             2 Active / 3 Scheduled
           </span>
         </div>
@@ -144,7 +144,7 @@ export default function MainMenu() {
                   >
                     {mod.icon}
                   </div>
-                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${mod.statusColor}`}>
+                  <span className={`px-2.5 py-1 rounded-full text-2xs font-bold uppercase tracking-wider border ${mod.statusColor}`}>
                     {mod.status}
                   </span>
                 </div>

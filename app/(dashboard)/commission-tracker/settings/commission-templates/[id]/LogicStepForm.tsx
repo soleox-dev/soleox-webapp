@@ -110,7 +110,7 @@ export function describeKeyConflict(key: string, names: { name: string; label?: 
 const underlineShell =
   'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600';
 const underlineLabel =
-  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400';
+  'block truncate text-2xs leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400';
 const fieldColumn = 'w-full max-w-[39rem]';
 const sideLabel = 'pt-1 text-xs font-bold leading-4 text-slate-900 dark:text-white';
 const formulaToggleClass = (on: boolean) =>
@@ -257,7 +257,7 @@ export function LogicStepForm({
               type="button"
               aria-pressed={showFieldCards}
               onClick={() => setShowFieldCards((open) => !open)}
-              className={`shrink-0 px-2.5 py-1 text-[11px] font-bold rounded-lg border cursor-pointer ${
+              className={`shrink-0 px-2.5 py-1 text-2xs font-bold rounded-lg border cursor-pointer ${
                 showFieldCards
                   ? 'border-brand-500 bg-brand-500/15 text-brand-700 dark:text-brand-300'
                   : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700'
@@ -290,9 +290,9 @@ export function LogicStepForm({
             label="Key"
             htmlFor="rule-key"
             note={ruleKeyConflict ? (
-              <p className="text-[11px] font-medium text-rose-600 dark:text-rose-400">{ruleKeyConflict}</p>
+              <p className="text-2xs font-medium text-rose-600 dark:text-rose-400">{ruleKeyConflict}</p>
             ) : (
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">Other rules read this key to use the result this rule calculates.</p>
+              <p className="text-2xs text-slate-500 dark:text-slate-400">Other rules read this key to use the result this rule calculates.</p>
             )}
           >
             <div className={`${underlineShell} ${ruleKeyConflict ? '!border-b-rose-500 focus-within:!border-b-rose-500 focus-within:!shadow-none' : ''}`}>
@@ -309,7 +309,7 @@ export function LogicStepForm({
           <LabeledRow
             label="Section"
             htmlFor="rule-section"
-            note={<p className="text-[11px] text-slate-500 dark:text-slate-400">Choose Calculation when this rule only stores a value for another rule. It does not post a commission split.</p>}
+            note={<p className="text-2xs text-slate-500 dark:text-slate-400">Choose Calculation when this rule only stores a value for another rule. It does not post a commission split.</p>}
           >
             <div className={underlineShell}>
               <ClearableSelect
@@ -327,7 +327,7 @@ export function LogicStepForm({
             <LabeledRow
               label="Agent"
               htmlFor="rule-agent"
-              note={<p className="text-[11px] text-slate-500 dark:text-slate-400">The value of this key is the agent. Choose a transaction field, a template parameter, or another rule.</p>}
+              note={<p className="text-2xs text-slate-500 dark:text-slate-400">The value of this key is the agent. Choose a transaction field, a template parameter, or another rule.</p>}
             >
               <div className={underlineShell}>
                 <ClearableSelect
@@ -534,7 +534,7 @@ export function LogicStepForm({
             <LabeledRow
               label="Result Type"
               htmlFor="rule-result-type"
-              note={<p className="text-[11px] text-slate-500 dark:text-slate-400">Currency shows money. Number shows a count. Percent shows a rate, so 0.05 displays as 5%.</p>}
+              note={<p className="text-2xs text-slate-500 dark:text-slate-400">Currency shows money. Number shows a count. Percent shows a rate, so 0.05 displays as 5%.</p>}
             >
               <div className={underlineShell}>
                 <ClearableSelect
@@ -568,7 +568,7 @@ export function LogicStepForm({
                     />
                     <span>Show Resulting Waterfall Split with Percent</span>
                   </label>
-                  <p className="mt-1 pl-[1.375rem] text-[11px] font-medium text-slate-500 dark:text-slate-400">The formula below always calculates a dollar amount. Checking this shows that amount as a percent of the section pool.</p>
+                  <p className="mt-1 pl-[1.375rem] text-2xs font-medium text-slate-500 dark:text-slate-400">The formula below always calculates a dollar amount. Checking this shows that amount as a percent of the section pool.</p>
                 </div>
               )}
               <FormulaEditor

@@ -136,7 +136,7 @@ export function LoadingDataPage({ progress, error, onRetry }: LoadingDataPagePro
 
         {/* Title and Description */}
         <div className="mb-8">
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl dark:text-white">
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
             Loading{' '}
             <span className="bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent dark:from-emerald-400 dark:to-teal-300">
               Owner Reports
@@ -270,7 +270,7 @@ export function LoadingDataPage({ progress, error, onRetry }: LoadingDataPagePro
                     {card.label}
                   </div>
                   <div
-                    className={`mt-0.5 text-[11px] truncate ${
+                    className={`mt-0.5 text-2xs truncate ${
                       card.done
                         ? 'font-medium text-emerald-700 dark:text-emerald-300'
                         : 'text-slate-500 dark:text-slate-400'

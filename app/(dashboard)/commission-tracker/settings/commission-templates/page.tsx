@@ -18,7 +18,7 @@ interface CommissionTemplate {
 const underlineShell =
   'group/field relative block w-full underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600';
 const underlineLabel =
-  'block truncate text-[10px] leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400';
+  'block truncate text-2xs leading-3 font-medium text-slate-500 dark:text-slate-400 group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400';
 
 export default function CommissionTemplatesPage() {
   const router = useRouter();
@@ -124,7 +124,7 @@ export default function CommissionTemplatesPage() {
                   <div>
                     <p className="text-sm font-bold text-slate-900 dark:text-white">{template.template_name}</p>
                     {template.description && (
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{template.description}</p>
+                      <p className="text-2xs text-slate-500 dark:text-slate-400 mt-1">{template.description}</p>
                     )}
                   </div>
                   <span className="text-slate-400 text-xs">➔</span>

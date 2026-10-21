@@ -216,7 +216,7 @@ function SyncErrorGroups({
           <p className="text-sm text-slate-700 dark:text-slate-200">{group.label}</p>
           <table className="mt-2 w-full text-left text-sm">
             <thead>
-              <tr className="text-[11px] text-slate-500">
+              <tr className="text-2xs text-slate-500">
                 <th className="py-2 pr-4 font-semibold">Property Address</th>
                 <th className="py-2 pr-4 font-semibold">Side</th>
                 <th className="px-4 py-2 text-center font-semibold">Sheet Row</th>
@@ -305,7 +305,7 @@ export function SyncErrorsDialog({
       >
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-slate-700">
           <div>
-            <h3 id="sync-errors-title" className="text-base font-bold text-slate-900 dark:text-white">
+            <h3 id="sync-errors-title" className="text-lg font-bold text-slate-900 dark:text-white">
               {failed.length} Sync Error{failed.length === 1 ? '' : 's'}
             </h3>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">These sheet rows were not written to Soleox.</p>
@@ -410,7 +410,7 @@ export function SyncResultDialog({
       >
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-3 dark:border-slate-700">
           <div>
-            <h3 id="sync-result-title" className="text-base font-bold text-slate-900 dark:text-white">Sync with TMS</h3>
+            <h3 id="sync-result-title" className="text-lg font-bold text-slate-900 dark:text-white">Sync with TMS</h3>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{summary}</p>
             {note && <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{note}</p>}
             {undone && (
@@ -505,7 +505,7 @@ export function SyncResultDialog({
               <h4 className="text-xs font-bold text-sky-600 dark:text-sky-400">Updated from TMS</h4>
               <table className="mt-2 w-full border-collapse text-left text-xs">
                 <thead className="sticky -top-3 z-10 bg-white dark:bg-slate-800">
-                  <tr className="text-[11px] text-slate-500">
+                  <tr className="text-2xs text-slate-500">
                     <th className="w-[40%] py-1.5 pr-3 font-semibold">Transaction</th>
                     <th className="py-1.5 pr-3 font-semibold">Field</th>
                     <th className="py-1.5 pr-3 font-semibold">Before</th>
