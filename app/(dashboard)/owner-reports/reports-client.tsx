@@ -693,7 +693,6 @@ export default function OwnerReportsPage() {
   const keptScroll = useRef<number | null>(null);
   const swipeRef = useRef<HTMLElement>(null);
   const arrivalRef = useRef<SwipeDirection | null>(null);
-  const wheelCooldownRef = useRef(0);
   const hintRef = useRef<HTMLDivElement>(null);
   const selectReport = (id: string | null) => {
     const href = id ? `/owner-reports/${id}` : '/owner-reports';
@@ -759,91 +758,61 @@ export default function OwnerReportsPage() {
     return () => window.removeEventListener('keydown', onKey, true);
   }, [pathname, reportId, router]);
 
-  // A horizontal swipe pages between reports in menu order on every device: a finger on touch screens,
-  // a two-finger sideways swipe on a trackpad. Left goes to the next report, right to the previous one.
-  // The report follows the gesture with a hint naming the destination, slides out when it pages, and the
-  // new report slides in. Swipes on something that scrolls sideways (wide tables), in a form field, near
-  // a touch screen's edges (iOS back gesture), or while a menu or dropdown is open are left alone.
+  // Paging between reports in menu order. On a touch screen, a double tap near the right edge goes to the
+  // next report and near the left edge to the previous one; the edge arrow names where it goes. With a
+  // mouse, a floating button shows on an edge while the pointer is near it (EdgeReportButton below).
+  // Taps in a form field or while a menu, dropdown or dialog is open are left alone.
+  const pageToRef = useRef<(dir: SwipeDirection) => void>(() => {});
   useEffect(() => {
     const el = swipeRef.current;
     const index = OWNER_REPORTS.findIndex((item) => item.id === reportId);
-    if (!reportId || !el || index < 0) return;
+    if (!reportId || !el || index < 0) {
+      pageToRef.current = () => {};
+      return;
+    }
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const TOUCH_COMMIT = 90;
-    const WHEEL_COMMIT = 140;
+    const EDGE = 56;
     const neighbor = (dir: SwipeDirection) => OWNER_REPORTS[index + (dir === 'next' ? 1 : -1)] ?? null;
     const blocked = (target: EventTarget | null) => {
-      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"], [role="listbox"], [data-owner-menu], .app-modal')) return true;
-      if (document.querySelector('[role="listbox"], [data-owner-menu], .app-modal')) return true;
-      let node = target instanceof Element ? target : null;
-      while (node && node !== document.body) {
-        const style = getComputedStyle(node);
-        if (/(auto|scroll)/.test(style.overflowX) && node.scrollWidth > node.clientWidth + 1) return true;
-        node = node.parentElement;
-      }
-      return false;
+      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"], [role="listbox"], [role="dialog"], .app-modal')) return true;
+      return Boolean(document.querySelector('[role="listbox"], [role="dialog"][aria-modal="true"], .app-modal'));
     };
     const timers: number[] = [];
     const later = (fn: () => void, ms: number) => {
       timers.push(window.setTimeout(fn, ms));
     };
-    // The page itself stays still while swiping. A round arrow slides in from the edge the next report
-    // comes from and grows with the swipe; once releasing will page it turns emerald and names the report.
-    // It is driven straight through the DOM so a swipe never re-renders the report.
+    // The round edge arrow, driven straight through the DOM: it slides in on the side the report comes
+    // from, turns emerald and names the report, then slides away.
     const hint = hintRef.current;
     const circle = hint?.querySelector<HTMLElement>('[data-hint-circle]') ?? null;
     const label = hint?.querySelector<HTMLElement>('[data-hint-label]') ?? null;
-    let frame = 0;
-    const paintHint = (dir: SwipeDirection | null, progress: number, name = '') => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        if (!hint || !circle || !label) return;
-        if (!dir) {
-          hint.style.transition = 'transform 180ms ease-out, opacity 180ms ease-out';
-          hint.style.opacity = '0';
-          hint.style.transform = `translate(${hint.dataset.dir === 'next' ? 56 : -56}px, -50%)`;
-          return;
-        }
-        const ready = progress >= 1;
-        hint.dataset.dir = dir;
-        hint.style.transition = 'none';
-        hint.style.left = dir === 'prev' ? '0' : '';
-        hint.style.right = dir === 'next' ? '0' : '';
-        hint.style.flexDirection = dir === 'next' ? 'row-reverse' : 'row';
-        hint.style.opacity = String(Math.min(1, progress * 2));
-        const travel = -56 + Math.min(1, progress) * 68;
-        hint.style.transform = `translate(${dir === 'next' ? -travel : travel}px, -50%)`;
-        circle.style.transform = `scale(${0.75 + Math.min(1, progress) * 0.25})`;
-        circle.dataset.ready = ready ? 'true' : 'false';
-        circle.querySelectorAll<SVGElement>('[data-arrow]').forEach((arrow) => {
-          arrow.style.display = arrow.dataset.arrow === dir ? '' : 'none';
-        });
-        label.textContent = name;
-        label.style.opacity = ready ? '1' : '0';
-        label.style.transform = ready ? 'translateX(0)' : `translateX(${dir === 'next' ? 8 : -8}px)`;
-      });
-    };
-    const show = (dx: number, commitAt: number) => {
-      const dir: SwipeDirection = dx < 0 ? 'next' : 'prev';
-      const target = neighbor(dir);
-      if (!target || Math.abs(dx) < 8) {
-        paintHint(null, 0);
+    const paintHint = (dir: SwipeDirection | null, name = '') => {
+      if (!hint || !circle || !label) return;
+      if (!dir) {
+        hint.style.transition = 'transform 180ms ease-out, opacity 180ms ease-out';
+        hint.style.opacity = '0';
+        hint.style.transform = `translate(${hint.dataset.dir === 'next' ? 56 : -56}px, -50%)`;
         return;
       }
-      const choice = reportChoice(target.id);
-      paintHint(dir, Math.abs(dx) / commitAt, `${choice.number} ${choice.name}`);
-    };
-    const settle = () => {
-      paintHint(null, 0);
+      hint.dataset.dir = dir;
+      hint.style.transition = 'transform 160ms ease-out, opacity 160ms ease-out';
+      hint.style.left = dir === 'prev' ? '0' : '';
+      hint.style.right = dir === 'next' ? '0' : '';
+      hint.style.flexDirection = dir === 'next' ? 'row-reverse' : 'row';
+      hint.style.opacity = '1';
+      hint.style.transform = `translate(${dir === 'next' ? -12 : 12}px, -50%)`;
+      circle.dataset.ready = 'true';
+      circle.querySelectorAll<SVGElement>('[data-arrow]').forEach((arrow) => {
+        arrow.style.display = arrow.dataset.arrow === dir ? '' : 'none';
+      });
+      label.textContent = name;
+      label.style.opacity = '1';
+      label.style.transform = 'translateX(0)';
     };
     const commit = (dir: SwipeDirection) => {
       const target = neighbor(dir);
-      if (!target) {
-        settle();
-        return;
-      }
+      if (!target) return;
       arrivalRef.current = dir;
-      later(() => paintHint(null, 0), 120);
       if (reduce) {
         selectReport(target.id);
         return;
@@ -856,96 +825,61 @@ export default function OwnerReportsPage() {
         el.getAnimations().forEach((animation) => animation.cancel());
       }, 2000);
     };
+    pageToRef.current = commit;
 
-    let touchStart: { x: number; y: number; time: number } | null = null;
-    let touchMode: 'pending' | 'horizontal' = 'pending';
+    // Two taps on the same edge within 350 ms, close together, page that way.
+    let lastTap: { dir: SwipeDirection; x: number; y: number; time: number } | null = null;
+    let moved = false;
+    let start: { x: number; y: number } | null = null;
     const onTouchStart = (event: TouchEvent) => {
-      touchStart = null;
-      if (event.touches.length !== 1) return;
-      const point = event.touches[0];
-      if (point.clientX < 24 || point.clientX > window.innerWidth - 24) return;
-      if (blocked(event.target)) return;
-      touchStart = { x: point.clientX, y: point.clientY, time: event.timeStamp };
-      touchMode = 'pending';
+      moved = false;
+      start = event.touches.length === 1 ? { x: event.touches[0].clientX, y: event.touches[0].clientY } : null;
     };
     const onTouchMove = (event: TouchEvent) => {
-      if (!touchStart || event.touches.length !== 1) return;
       const point = event.touches[0];
-      const dx = point.clientX - touchStart.x;
-      const dy = point.clientY - touchStart.y;
-      if (touchMode === 'pending') {
-        if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.5) touchMode = 'horizontal';
-        else if (Math.abs(dy) > 10) {
-          touchStart = null;
-          return;
-        } else return;
-      }
-      show(dx, TOUCH_COMMIT);
+      if (start && point && Math.hypot(point.clientX - start.x, point.clientY - start.y) > 10) moved = true;
     };
     const onTouchEnd = (event: TouchEvent) => {
-      const from = touchStart;
-      touchStart = null;
-      if (!from || touchMode !== 'horizontal') return;
       const point = event.changedTouches[0];
-      const dx = point ? point.clientX - from.x : 0;
-      const fast = Math.abs(dx) > 40 && Math.abs(dx) / Math.max(1, event.timeStamp - from.time) > 0.4;
-      if (Math.abs(dx) >= TOUCH_COMMIT || fast) commit(dx < 0 ? 'next' : 'prev');
-      else settle();
-    };
-    const onTouchCancel = () => {
-      if (touchStart && touchMode === 'horizontal') settle();
-      touchStart = null;
-    };
-
-    let wheelTotal = 0;
-    let wheelIdle = 0;
-    const onWheel = (event: WheelEvent) => {
-      // Shift + wheel is a mouse scrolling sideways, not a swipe; ctrl + wheel is pinch zoom.
-      if (event.ctrlKey || event.shiftKey || Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
-      if (blocked(event.target)) return;
-      // Keeps the browser's own back/forward swipe from firing on top of ours.
-      event.preventDefault();
-      const now = performance.now();
-      if (now < wheelCooldownRef.current) {
-        wheelCooldownRef.current = now + 350;
+      if (!point || moved || event.touches.length > 0 || blocked(event.target)) {
+        lastTap = null;
         return;
       }
-      const delta = event.deltaMode === 1 ? event.deltaX * 16 : event.deltaX;
-      wheelTotal -= delta;
-      show(wheelTotal, WHEEL_COMMIT);
-      window.clearTimeout(wheelIdle);
-      if (Math.abs(wheelTotal) >= WHEEL_COMMIT) {
-        const dir: SwipeDirection = wheelTotal < 0 ? 'next' : 'prev';
-        wheelTotal = 0;
-        // Trackpad momentum keeps sending wheel events; ignore them until the gesture is over.
-        wheelCooldownRef.current = now + 350;
+      const dir: SwipeDirection | null = point.clientX >= window.innerWidth - EDGE ? 'next' : point.clientX <= EDGE ? 'prev' : null;
+      if (!dir || !neighbor(dir)) {
+        lastTap = null;
+        return;
+      }
+      const now = event.timeStamp;
+      if (lastTap && lastTap.dir === dir && now - lastTap.time < 350 && Math.hypot(point.clientX - lastTap.x, point.clientY - lastTap.y) < 40) {
+        lastTap = null;
+        // The second tap only pages; it does not also tap what is under it.
+        event.preventDefault();
+        swallowNextClick();
+        const target = neighbor(dir);
+        if (target) {
+          const choice = reportChoice(target.id);
+          paintHint(dir, `${choice.number} ${choice.name}`);
+          later(() => paintHint(null), 450);
+        }
         commit(dir);
         return;
       }
-      wheelIdle = window.setTimeout(() => {
-        wheelTotal = 0;
-        settle();
-      }, 180);
+      lastTap = { dir, x: point.clientX, y: point.clientY, time: now };
     };
 
     document.addEventListener('touchstart', onTouchStart, { passive: true });
     document.addEventListener('touchmove', onTouchMove, { passive: true });
-    document.addEventListener('touchend', onTouchEnd, { passive: true });
-    document.addEventListener('touchcancel', onTouchCancel, { passive: true });
-    window.addEventListener('wheel', onWheel, { passive: false });
+    document.addEventListener('touchend', onTouchEnd, { passive: false });
     return () => {
       document.removeEventListener('touchstart', onTouchStart);
       document.removeEventListener('touchmove', onTouchMove);
       document.removeEventListener('touchend', onTouchEnd);
-      document.removeEventListener('touchcancel', onTouchCancel);
-      window.removeEventListener('wheel', onWheel);
-      window.clearTimeout(wheelIdle);
-      cancelAnimationFrame(frame);
       timers.forEach((timer) => window.clearTimeout(timer));
     };
   }, [pathname, reportId, router]);
 
-  // The report that a swipe or arrow key paged to slides in from the side it came from.
+  // The report that a double tap or an edge button paged to slides in from the side it came from.
   useLayoutEffect(() => {
     const dir = arrivalRef.current;
     const el = swipeRef.current;
@@ -993,8 +927,9 @@ export default function OwnerReportsPage() {
   }, [reportId]);
 
   return (
-    <main onClick={!report && !loading ? launch : undefined} className={`[overflow-anchor:none] text-slate-900 dark:text-slate-100 ${reportCanvas} ${!report && !loading ? 'cursor-pointer' : ''} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'min-h-screen screenfit:min-h-0 screenfit:h-dvh screenfit:overflow-hidden' : 'min-h-screen'}`}>
+    <main onClick={!report && !loading ? launch : undefined} className={`[overflow-anchor:none] [touch-action:manipulation] text-slate-900 dark:text-slate-100 ${reportCanvas} ${!report && !loading ? 'cursor-pointer' : ''} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'min-h-screen screenfit:min-h-0 screenfit:h-dvh screenfit:overflow-hidden' : 'min-h-screen'}`}>
       <SwipeHint ref={hintRef} />
+      {reportId ? <EdgeReportButtons reportId={reportId} onPage={(dir) => pageToRef.current(dir)} /> : null}
       <div className={`${widePageFrame} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'pb-3 screenfit:flex screenfit:h-full screenfit:min-h-0 screenfit:flex-col screenfit:overflow-hidden' : 'pb-4'}`}>
         <section ref={swipeRef} className={`min-w-0 ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'screenfit:flex screenfit:min-h-0 screenfit:flex-1 screenfit:flex-col' : `space-y-4 ${reveal ? 'report-arrive' : ''}`}`}>
           {loading ? (
@@ -1114,7 +1049,7 @@ export default function OwnerReportsPage() {
 
 type SwipeDirection = 'next' | 'prev';
 
-/** Edge arrow shown while swiping between reports. The swipe effect positions and fills it directly. */
+/** Edge arrow shown when a double tap pages between reports. The paging effect positions and fills it directly. */
 function SwipeHint({ ref }: { ref: React.Ref<HTMLDivElement> }) {
   return (
     <div
@@ -1136,6 +1071,69 @@ function SwipeHint({ ref }: { ref: React.Ref<HTMLDivElement> }) {
         style={{ opacity: 0 }}
       />
     </div>
+  );
+}
+
+/**
+ * Desktop paging: while the mouse is near the left or right edge, a round button shows on that edge.
+ * Hovering it names the report it goes to; clicking goes there. Only where there is a report that way.
+ */
+function EdgeReportButtons({ reportId, onPage }: { reportId: string; onPage: (dir: SwipeDirection) => void }) {
+  const [edge, setEdge] = useState<SwipeDirection | null>(null);
+  const index = OWNER_REPORTS.findIndex((item) => item.id === reportId);
+  const neighbors = {
+    prev: index > 0 ? OWNER_REPORTS[index - 1] : null,
+    next: index >= 0 && index < OWNER_REPORTS.length - 1 ? OWNER_REPORTS[index + 1] : null,
+  };
+  useEffect(() => {
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+    const ZONE = 64;
+    const onMove = (event: MouseEvent) => {
+      const next: SwipeDirection | null = event.clientX <= ZONE ? 'prev' : event.clientX >= window.innerWidth - ZONE ? 'next' : null;
+      setEdge((current) => (current === next ? current : next));
+    };
+    const onLeave = () => setEdge(null);
+    window.addEventListener('mousemove', onMove, { passive: true });
+    document.documentElement.addEventListener('mouseleave', onLeave);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      document.documentElement.removeEventListener('mouseleave', onLeave);
+    };
+  }, []);
+  return (
+    <>
+      {(['prev', 'next'] as const).map((dir) => {
+        const target = neighbors[dir];
+        if (!target) return null;
+        const choice = reportChoice(target.id);
+        const visible = edge === dir;
+        return (
+          <button
+            key={dir}
+            type="button"
+            tabIndex={visible ? 0 : -1}
+            aria-hidden={!visible}
+            aria-label={`${dir === 'next' ? 'Next' : 'Previous'} Report: ${choice.name}`}
+            onClick={() => {
+              setEdge(null);
+              onPage(dir);
+            }}
+            className={`group fixed top-1/2 z-[55] flex -translate-y-1/2 cursor-pointer items-center gap-2 transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none ${
+              dir === 'prev' ? 'left-3 flex-row' : 'right-3 flex-row-reverse'
+            } ${visible ? 'opacity-100' : `pointer-events-none opacity-0 ${dir === 'prev' ? '-translate-x-4' : 'translate-x-4'}`}`}
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-lg transition-colors group-hover:border-emerald-500 group-hover:bg-emerald-500 group-hover:text-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+              {dir === 'prev'
+                ? <ChevronLeft className="h-5 w-5" strokeWidth={2.5} aria-hidden />
+                : <ChevronRight className="h-5 w-5" strokeWidth={2.5} aria-hidden />}
+            </span>
+            <span className="max-w-[40vw] truncate rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
+              {choice.number} {choice.name}
+            </span>
+          </button>
+        );
+      })}
+    </>
   );
 }
 
