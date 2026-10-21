@@ -190,11 +190,13 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
       <div
         ref={stripRef}
         id="transaction-detail-header"
-        className={`sticky top-[var(--app-nav-offset,4rem)] z-40 !mb-[calc(0.75rem+var(--header-reserved,0px))] -mx-4 bg-slate-100 px-4 pt-3 md:-mx-6 md:px-6 transition-[top,padding] duration-200 ease-out motion-reduce:transition-none dark:bg-slate-900 ${compact ? 'pb-2' : 'pb-3'}`}
+        className={`sticky top-[var(--app-nav-offset,4rem)] z-40 !mb-[calc(0.75rem+var(--header-reserved,0px))] -mx-4 bg-slate-100 px-4 pt-3 max-sm:pt-0 md:-mx-6 md:px-6 transition-[top,padding] duration-200 ease-out motion-reduce:transition-none dark:bg-slate-900 ${compact ? 'pb-2' : 'pb-3'}`}
         data-scrolled={compact ? '1' : undefined}
       >
         <div
-          className={`relative border border-slate-200 bg-white transition-[border-radius,padding,box-shadow] duration-200 ease-out motion-reduce:transition-none dark:border-slate-700 dark:bg-slate-800 ${
+          // On a phone the header runs the full width of the screen, right under the navigation bar, like the
+          // section bands below it, instead of a card inside the page gutter.
+          className={`relative border border-slate-200 bg-white transition-[border-radius,padding,box-shadow] duration-200 ease-out motion-reduce:transition-none dark:border-slate-700 dark:bg-slate-800 max-sm:-mx-4 max-sm:rounded-none max-sm:border-x-0 max-sm:border-t-0 max-sm:px-4 max-sm:shadow-none ${
             compact ? 'rounded-[22px] py-1.5 pl-3 pr-2 shadow-xl' : 'rounded-xl px-6 py-4 shadow-xs'
           }`}
         >
