@@ -37,7 +37,7 @@ import type { CommissionEntityOption, FieldSetting, KnownAgentInfo, VisibilityRu
 import { transactionDealLabel } from '@/lib/transaction-label';
 import { BulkUpdateDialog } from '@/app/(dashboard)/commission-tracker/transactions/components/BulkUpdateDialog';
 import { SyncErrorsDialog, SyncResultDialog, SyncSummaryLine, type SyncRunDetail } from '@/app/(dashboard)/commission-tracker/transactions/components/SyncResultDialog';
-import { lastSyncResultsNote, syncFinishedSummary } from '@/lib/sync-finished-summary';
+import { lastSyncResultsNote, syncFinishedSummary, undoneSyncNote } from '@/lib/sync-finished-summary';
 import { rememberAllSubmissions, rememberSchema, rememberTemplates } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/templateStatusCache';
 import { rememberTransactions } from '@/app/(dashboard)/commission-tracker/transactions/[id]/hooks/useTransactionData';
 import {
@@ -640,7 +640,8 @@ export default function TransactionsListPage() {
               const run = sheetsData.lastRun;
               const errorCount = Number(run?.error_count ?? 0);
               const details = Array.isArray(run?.details) ? run.details as SyncRunDetail[] : [];
-              setSyncHighlights(parseSyncHighlights(run?.highlights));
+              // An undone sync no longer marks anything as just synced.
+              setSyncHighlights(run?.undone_at ? new Map() : parseSyncHighlights(run?.highlights));
               const finishedAt = run?.finished_at || run?.started_at;
               if (run && run.status === 'succeeded' && finishedAt) {
                 setSyncNotice({
@@ -2034,10 +2035,11 @@ export default function TransactionsListPage() {
     selectDefaultView();
   }, [isLoading, ledgerView, deletedDeals.length, defaultView]);
 
+  const lastSyncUndone = Boolean(syncResult?.undoneAt);
   useEffect(() => {
-    if (syncChangesOn || ledgerView !== SYNCED_TAB) return;
+    if ((syncChangesOn && !lastSyncUndone) || ledgerView !== SYNCED_TAB) return;
     selectDefaultView();
-  }, [syncChangesOn, ledgerView, defaultView]);
+  }, [syncChangesOn, lastSyncUndone, ledgerView, defaultView]);
 
   const resetAllFilters = () => {
     clearListFilters();
@@ -2228,7 +2230,7 @@ export default function TransactionsListPage() {
               {[
                 { key: ALL_TAB, label: 'All' },
                 ...transactionViews.map((view) => ({ key: view.id, label: view.name })),
-                ...(syncChangesOn ? [{ key: SYNCED_TAB, label: 'Just synced' }] : []),
+                ...(syncChangesOn && !lastSyncUndone ? [{ key: SYNCED_TAB, label: 'Just synced' }] : []),
                 ...(deletedDeals.length > 0 ? [{ key: DELETED_TAB, label: 'Deleted' }] : []),
               ].map((tab) => {
                 const selected = !activeScorecardId && ledgerView === tab.key;
@@ -2455,6 +2457,18 @@ export default function TransactionsListPage() {
             <>
               <span className="mx-2 inline-block h-1.5 w-1.5 rounded-full bg-brand-500 align-middle" aria-hidden />
               <span className={syncNotice.tone === 'error' ? 'text-rose-600 dark:text-rose-300' : 'text-slate-600 dark:text-slate-300'}>
+                {syncNotice.tone === 'ok' && syncNotice.finishedAt && lastSyncUndone ? (
+                  <>
+                    {undoneSyncNote(syncNotice.finishedAt)}{' '}
+                    <button
+                      type="button"
+                      onClick={() => { setSyncResultFocus(null); setSyncResultOpen(true); }}
+                      className="cursor-pointer font-medium text-brand-600 underline decoration-brand-300 underline-offset-2 transition hover:text-brand-700 dark:text-brand-400 dark:decoration-brand-500/50 dark:hover:text-brand-300"
+                    >
+                      View what it changed
+                    </button>
+                  </>
+                ) : (
                 <SyncSummaryLine
                   text={syncNotice.tone === 'ok' && syncNotice.finishedAt
                     ? lastSyncResultsNote({
@@ -2477,8 +2491,6 @@ export default function TransactionsListPage() {
                   onShowConnected={() => showTmsConnection('connected')}
                   onShowDisconnected={() => showTmsConnection('disconnected')}
                 />
-                {syncNotice.tone === 'ok' && syncResult?.undoneAt && (
-                  <span className="ml-1 font-medium text-amber-700 dark:text-amber-400">This sync was undone.</span>
                 )}
               </span>
             </>

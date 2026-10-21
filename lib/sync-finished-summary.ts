@@ -27,6 +27,19 @@ export function syncFinishedSummary(input: {
 }
 
 /** The transactions-page note for the latest finished sync. */
+function syncTimestamp(finishedAt: string): string {
+  const finished = new Date(finishedAt);
+  if (Number.isNaN(finished.getTime())) return finishedAt;
+  const date = finished.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  const time = finished.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return `${date} at ${time}`;
+}
+
+/** The last-sync line once that sync was undone, so its counts are not read as current. */
+export function undoneSyncNote(finishedAt: string): string {
+  return `Last sync with TMS on ${syncTimestamp(finishedAt)} was undone.`;
+}
+
 export function lastSyncResultsNote(input: {
   finishedAt: string;
   createdCount: number;
@@ -35,14 +48,7 @@ export function lastSyncResultsNote(input: {
   disconnectedCount: number;
   errorCount: number;
 }): string {
-  const finished = new Date(input.finishedAt);
-  const date = Number.isNaN(finished.getTime())
-    ? input.finishedAt
-    : finished.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  const time = Number.isNaN(finished.getTime())
-    ? ''
-    : finished.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  const timestamp = time ? `${date} at ${time}` : date;
+  const timestamp = syncTimestamp(input.finishedAt);
   const errorLabel = `${input.errorCount} error${input.errorCount === 1 ? '' : 's'}`;
   const results = [
     `${input.createdCount} added`,
