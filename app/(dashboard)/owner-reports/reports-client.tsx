@@ -2506,7 +2506,7 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
         <div ref={listRef} role="listbox" aria-label={label} aria-multiselectable="true" className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
           <div className="sticky -top-1 z-10 bg-white px-1 py-1 dark:bg-slate-900">
             <div className="flex items-center justify-between gap-2">
-              <button type="button" onClick={() => commit(values)} className="cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950">Select all</button>
+              <button type="button" onClick={() => commit(values)} className="cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-950">Select all</button>
               <button type="button" onClick={() => onChange(null)} className="cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Reset</button>
             </div>
             {options.length > 8 ? (
@@ -2548,14 +2548,14 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
                 <span className={`block min-w-[4.5rem] text-right text-xs tabular-nums text-slate-400 group-hover:opacity-0 ${armed ? 'opacity-0' : ''}`}>{option.count.toLocaleString()}</span>
                 <button
                   type="button"
-                  className={`absolute inset-0 cursor-pointer items-center justify-end text-[11px] font-semibold text-emerald-700 group-hover:flex dark:text-emerald-300 ${armed ? 'flex' : 'hidden'}`}
+                  className={`absolute inset-0 cursor-pointer items-center justify-end group-hover:flex ${armed ? 'flex' : 'hidden'}`}
                   onClick={(event) => {
                     event.stopPropagation();
                     setOnlyArmed(null);
                     onChange([option.value]);
                   }}
                 >
-                  Only
+                  <span className="rounded-full bg-brand-600 px-2 py-0.5 text-[10px] font-bold leading-none tracking-wide text-white shadow-sm hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-400">ONLY</span>
                 </button>
               </span>
             </div>

@@ -11,10 +11,10 @@ import { formatPercent, isHiddenRecordId } from '@/lib/fields';
 import { widePageFrame } from '@/lib/page-frame';
 import { formatPercentRate, formatTablePercent } from '@/lib/percent';
 import { BooleanMark, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
-import { ClearableSelect } from '@/components/ui/ClearableSelect';
-import { filterControl, filterShell, underlineControl, underlineShell } from '@/components/ui/underline-field';
+import { underlineControl, underlineShell } from '@/components/ui/underline-field';
+import { BLANK_FILTER_VALUE, ColumnHeader, SortButton, columnFilterOptions, matchesColumnFilter, type ColumnFilterOption } from '@/components/ui/column-filter';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { Archive, Check, Highlighter, Link2, ListChecks, ListFilter, Loader2, Plus, RefreshCw, RotateCcw, Rows3, Undo2, Unlink, X, Zap, type LucideIcon } from 'lucide-react';
+import { Archive, Check, Highlighter, Link2, ListChecks, Loader2, Plus, RefreshCw, RotateCcw, Rows3, Undo2, Unlink, X, Zap, type LucideIcon } from 'lucide-react';
 import { HoverNote } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/HoverNote';
 import { useAccess } from '@/components/access-provider';
 import { TrashIcon } from '@/components/ui/trash-icon';
@@ -92,6 +92,9 @@ const TMS_FILTERS: { value: TmsLinkFilter; label: string; iconClass: string; act
   { value: 'disconnected', label: 'Disconnected from TMS', iconClass: 'text-rose-500', activeClass: 'bg-rose-500/20 border-rose-500/40', buttonClass: 'bg-rose-500 text-white hover:bg-rose-600 dark:bg-rose-500 dark:hover:bg-rose-400' },
 ];
 
+// Header filter button when several values are picked: the brand color, since no one value's color fits.
+const MULTI_FILTER_BUTTON_CLASS = 'bg-brand-600 text-white hover:bg-brand-500 dark:bg-brand-600 dark:hover:bg-brand-500';
+
 const BOLT_FILTERS: { tone: BoltTone; label: string; icon: LucideIcon; iconClass: string; activeClass: string; buttonClass: string }[] = [
   { tone: 'submitted', label: 'Submitted', icon: Check, iconClass: 'text-emerald-500', activeClass: 'bg-emerald-500/20 border-emerald-500/40', buttonClass: 'bg-brand-600 text-white hover:bg-emerald-600 dark:bg-brand-600 dark:hover:bg-brand-500' },
   { tone: 'ready', label: 'Ready to submit', icon: Plus, iconClass: 'text-blue-500', activeClass: 'bg-blue-500/20 border-blue-500/40', buttonClass: 'bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-500 dark:hover:bg-blue-400' },
@@ -104,6 +107,23 @@ function BoltStatusIcon({ tone, className }: { tone: BoltTone; className: string
   const filter = BOLT_FILTERS.find((item) => item.tone === tone)!;
   const Icon = filter.icon;
   return <Icon className={`${className} ${filter.iconClass}`} strokeWidth={2.25} aria-hidden />;
+}
+
+function toggleListValue<T>(list: T[], value: T): T[] {
+  return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+}
+
+function MenuCheckbox({ checked }: { checked: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={`inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border ${
+        checked ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 dark:border-slate-500'
+      }`}
+    >
+      {checked ? <Check className="h-2.5 w-2.5" strokeWidth={3} /> : null}
+    </span>
+  );
 }
 
 function FilterClearButton({ label, onClear }: { label: string; onClear: () => void }) {
@@ -162,39 +182,43 @@ const BOLT_TONES = new Set<string>(['submitted', 'ready', 'ineligible', 'drift',
 type TransactionsListState = {
   searchQuery: string;
   ledgerView: LedgerView;
-  statusSelection: string | null;
+  statusSelection: string[];
   activeScorecardId: string | null;
-  boltTone: BoltTone | null;
-  tmsFilter: TmsLinkFilter | null;
-  showFilters: boolean;
-  colFilters: Record<string, string>;
+  boltTone: BoltTone[];
+  tmsFilter: TmsLinkFilter[];
+  colFilters: Record<string, string[]>;
   sortField: string;
   sortOrder: 'asc' | 'desc';
   useDefaultSort: boolean;
   syncChangesOn: boolean;
 };
 
+// Saved state from before the filters took several values holds a single string; read either form.
+function readSavedList(value: unknown, isValid: (item: string) => boolean): string[] {
+  const items = Array.isArray(value) ? value : value === null || value === undefined ? [] : [value];
+  return [...new Set(items.filter((item): item is string => typeof item === 'string' && isValid(item)))];
+}
+
 function readTransactionsListState(): TransactionsListState | null {
   try {
     const raw = window.sessionStorage.getItem(LIST_STATE_KEY);
     if (!raw) return null;
-    const data = JSON.parse(raw) as Partial<TransactionsListState>;
+    const data = JSON.parse(raw) as Partial<Record<keyof TransactionsListState, unknown>>;
     if (typeof data.ledgerView !== 'string' || !isStoredLedgerView(data.ledgerView)) return null;
-    const colFilters: Record<string, string> = {};
+    // Column filters are lists of ticked values; the older typed text filters are dropped.
+    const colFilters: Record<string, string[]> = {};
     if (data.colFilters && typeof data.colFilters === 'object') {
       for (const [key, value] of Object.entries(data.colFilters)) {
-        if (typeof value === 'string') colFilters[key] = value;
+        if (Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'string')) colFilters[key] = value;
       }
     }
-    const boltTone = typeof data.boltTone === 'string' && BOLT_TONES.has(data.boltTone) ? data.boltTone as BoltTone : null;
     return {
       searchQuery: typeof data.searchQuery === 'string' ? data.searchQuery : '',
       ledgerView: data.ledgerView as LedgerView,
-      statusSelection: typeof data.statusSelection === 'string' ? data.statusSelection : null,
+      statusSelection: readSavedList(data.statusSelection, (item) => item !== ''),
       activeScorecardId: typeof data.activeScorecardId === 'string' ? data.activeScorecardId : null,
-      boltTone,
-      tmsFilter: data.tmsFilter === 'connected' || data.tmsFilter === 'disconnected' ? data.tmsFilter : null,
-      showFilters: data.showFilters === true,
+      boltTone: readSavedList(data.boltTone, (item) => BOLT_TONES.has(item)) as BoltTone[],
+      tmsFilter: readSavedList(data.tmsFilter, (item) => item === 'connected' || item === 'disconnected') as TmsLinkFilter[],
       colFilters,
       sortField: typeof data.sortField === 'string' && data.sortField ? data.sortField : 'closing_date',
       sortOrder: data.sortOrder === 'asc' ? 'asc' : 'desc',
@@ -397,15 +421,52 @@ type PageSnapshot = {
 const SNAPSHOT_MAX_AGE_MS = 60 * 60 * 1000;
 let pageSnapshot: PageSnapshot | null = null;
 
-async function readDataVersion(): Promise<{ clientId: string; version: number } | null> {
+type DataVersion = {
+  clientId: string;
+  version: number;
+  /** With `since`: every change after that version touched only these transactions (complete), or it cannot be told. */
+  changes?: { complete: boolean; transactionIds: string[] };
+};
+
+async function readDataVersion(since?: number): Promise<DataVersion | null> {
   try {
-    const response = await fetch('/api/data-version', { cache: 'no-store' });
+    const query = since === undefined ? '' : `?since=${encodeURIComponent(String(since))}`;
+    const response = await fetch(`/api/data-version${query}`, { cache: 'no-store' });
     const data = await response.json();
     if (!response.ok || !data.available || !data.clientId) return null;
-    return { clientId: String(data.clientId), version: Number(data.version) || 0 };
+    const changes = data.changes && typeof data.changes === 'object'
+      ? {
+        complete: data.changes.complete === true,
+        transactionIds: Array.isArray(data.changes.transactionIds) ? data.changes.transactionIds.map(String) : [],
+      }
+      : undefined;
+    return { clientId: String(data.clientId), version: Number(data.version) || 0, ...(changes ? { changes } : {}) };
   } catch {
     return null;
   }
+}
+
+/** Submitted templates by transaction, first submission per template. */
+function submittedTemplatesByTransaction(rows: unknown[]): Map<string, SubmittedTemplate[]> {
+  const byTransaction = new Map<string, SubmittedTemplate[]>();
+  for (const raw of rows) {
+    const row = (raw || {}) as { transaction_id?: unknown; template_id?: unknown; submitted_parameters?: unknown };
+    const transactionId = String(row.transaction_id || '').trim();
+    const templateId = String(row.template_id || '').trim();
+    if (!transactionId || !templateId) continue;
+    const current = byTransaction.get(transactionId) || [];
+    if (current.some((item) => item.templateId === templateId)) continue;
+    const parameters: Record<string, string> = {};
+    const rawParameters = row.submitted_parameters;
+    if (rawParameters && typeof rawParameters === 'object' && !Array.isArray(rawParameters)) {
+      for (const [key, value] of Object.entries(rawParameters as Record<string, unknown>)) {
+        parameters[key] = value === undefined || value === null ? '' : String(value);
+      }
+    }
+    current.push({ templateId, parameters });
+    byTransaction.set(transactionId, current);
+  }
+  return byTransaction;
 }
 
 export default function TransactionsListPage() {
@@ -428,20 +489,19 @@ export default function TransactionsListPage() {
   // those statuses stay as they were; any other list gets a live check.
   const restoredDealsRef = useRef<Record<string, any>[] | null>(saved && saved.paymentDriftReady ? saved.deals : null);
   const [snapshotTick, setSnapshotTick] = useState(0);
-  const [showFilters, setShowFilters] = useState<boolean>(false);
   const [compactRows, setCompactRows] = useState(false);
 
   // Search, ledger view, and the status-header filter. The view stays put when a status is chosen.
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [ledgerView, setLedgerView] = useState<LedgerView>(DEFAULT_TAB);
-  const [statusSelection, setStatusSelection] = useState<string | null>(null);
+  const [statusSelection, setStatusSelection] = useState<string[]>([]);
   const [activeScorecardId, setActiveScorecardId] = useState<string | null>(null);
-  const [boltTone, setBoltTone] = useState<BoltTone | null>(null);
+  const [boltTone, setBoltTone] = useState<BoltTone[]>([]);
   const [boltMenuOpen, setBoltMenuOpen] = useState(false);
   const boltMenuButtonRef = useRef<HTMLButtonElement>(null);
   const boltMenuPanelRef = useRef<HTMLDivElement>(null);
   const [boltMenuBox, setBoltMenuBox] = useState({ top: 0, left: 0 });
-  const [tmsFilter, setTmsFilter] = useState<TmsLinkFilter | null>(null);
+  const [tmsFilter, setTmsFilter] = useState<TmsLinkFilter[]>([]);
   const [tmsMenuOpen, setTmsMenuOpen] = useState(false);
   const tmsMenuButtonRef = useRef<HTMLButtonElement>(null);
   const tmsMenuPanelRef = useRef<HTMLDivElement>(null);
@@ -489,7 +549,7 @@ export default function TransactionsListPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   // Dynamic Column Filter Map { [field_key]: search_value }
-  const [colFilters, setColFilters] = useState<Record<string, string>>({});
+  const [colFilters, setColFilters] = useState<Record<string, string[]>>({});
   const [pendingDelete, setPendingDelete] = useState<{ id: string; label: string; clientId: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -523,7 +583,6 @@ export default function TransactionsListPage() {
       setActiveScorecardId(saved.activeScorecardId);
       setBoltTone(saved.boltTone);
       setTmsFilter(saved.tmsFilter);
-      setShowFilters(saved.showFilters);
       setColFilters(saved.colFilters);
       setSyncChangesOn(saved.syncChangesOn);
       if (!saved.useDefaultSort) {
@@ -566,7 +625,6 @@ export default function TransactionsListPage() {
     activeScorecardId,
     boltTone,
     tmsFilter,
-    showFilters,
     colFilters,
     sortField,
     sortOrder,
@@ -577,7 +635,7 @@ export default function TransactionsListPage() {
   useEffect(() => {
     if (!listReady) return;
     writeTransactionsListState(listSnapshot());
-  }, [listReady, searchQuery, ledgerView, statusSelection, activeScorecardId, boltTone, tmsFilter, showFilters, colFilters, sortField, sortOrder, syncChangesOn]);
+  }, [listReady, searchQuery, ledgerView, statusSelection, activeScorecardId, boltTone, tmsFilter, colFilters, sortField, sortOrder, syncChangesOn]);
 
   const toggleCompactRows = () => {
     setCompactRows((current) => {
@@ -798,24 +856,7 @@ export default function TransactionsListPage() {
         if (submissionRes.ok) {
           const submissionData = await submissionRes.json();
           if (Array.isArray(submissionData.submissions)) rememberAllSubmissions(cacheClientId, submissionData.submissions);
-          const byTransaction = new Map<string, SubmittedTemplate[]>();
-          for (const row of Array.isArray(submissionData.submissions) ? submissionData.submissions : []) {
-            const transactionId = String(row.transaction_id || '').trim();
-            const templateId = String(row.template_id || '').trim();
-            if (!transactionId || !templateId) continue;
-            const current = byTransaction.get(transactionId) || [];
-            if (current.some((item) => item.templateId === templateId)) continue;
-            const parameters: Record<string, string> = {};
-            const rawParameters = row.submitted_parameters;
-            if (rawParameters && typeof rawParameters === 'object' && !Array.isArray(rawParameters)) {
-              for (const [key, value] of Object.entries(rawParameters as Record<string, unknown>)) {
-                parameters[key] = value === undefined || value === null ? '' : String(value);
-              }
-            }
-            current.push({ templateId, parameters });
-            byTransaction.set(transactionId, current);
-          }
-          setSubmittedTemplates(byTransaction);
+          setSubmittedTemplates(submittedTemplatesByTransaction(Array.isArray(submissionData.submissions) ? submissionData.submissions : []));
         } else {
           setSubmittedTemplates(new Map());
         }
@@ -830,8 +871,53 @@ export default function TransactionsListPage() {
       }
     }
 
+    /**
+     * Fetches only the given transactions and the submissions, and puts them into the saved list.
+     * The template statuses are then checked again, since a change to one deal can move another's.
+     */
+    async function refreshChangedTransactions(saved: SavedPageState, ids: string[]): Promise<boolean> {
+      const activeClientId = access?.clientId || 'DEMO';
+      const options: RequestInit = { headers: { 'x-client-id': activeClientId }, cache: 'no-store' };
+      try {
+        const [dealsRes, submissionRes] = await Promise.all([
+          ids.length > 0 ? fetch(`/api/transactions?ids=${ids.map(encodeURIComponent).join(',')}`, options) : Promise.resolve(null),
+          fetch(`/api/commission-template-submissions?client_id=${encodeURIComponent(activeClientId)}`, options),
+        ]);
+        if ((dealsRes && !dealsRes.ok) || !submissionRes.ok) return false;
+        const dealsData = dealsRes ? await dealsRes.json() : { transactions: [] };
+        const submissionData = await submissionRes.json();
+        if (!Array.isArray(dealsData.transactions) || !Array.isArray(submissionData.submissions)) return false;
+
+        const changed = new Set(ids);
+        const rows = dealsData.transactions as Record<string, any>[];
+        const active = rows.filter((row) => row.archived !== true);
+        const deleted = rows.filter((row) => row.archived === true && row.permanently_deleted !== true);
+        const activeById = new Map(active.map((row) => [String(row.id), row]));
+        // Edited deals keep their place; new ones go on top, as the list is newest first.
+        const kept = saved.deals.flatMap((deal) => {
+          const id = String(deal.id || '');
+          if (!changed.has(id)) return [deal];
+          const fresh = activeById.get(id);
+          activeById.delete(id);
+          return fresh ? [fresh] : [];
+        });
+        const nextDeals = [...activeById.values(), ...kept];
+        const nextDeleted = [...deleted, ...saved.deletedDeals.filter((deal) => !changed.has(String(deal.id || '')))];
+
+        clearCommissionModuleCache();
+        rememberTransactions(nextDeals);
+        rememberAllSubmissions(activeClientId, submissionData.submissions);
+        setDeals(nextDeals);
+        setDeletedDeals(nextDeleted);
+        setSubmittedTemplates(submittedTemplatesByTransaction(submissionData.submissions));
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     async function initData() {
-      const versionRead = readDataVersion();
+      const versionRead = readDataVersion(restore ? restore.version : undefined);
       const network: Loader = (url, options) => fetch(url, options);
 
       if (restore) {
@@ -839,6 +925,18 @@ export default function TransactionsListPage() {
         const fresh = Date.now() - restore.loadedAt < SNAPSHOT_MAX_AGE_MS;
         // Nothing changed since this page was loaded, under an hour ago: it stays exactly as shown.
         if (current && current.clientId === restore.clientId && current.version === restore.version && fresh) return;
+        // Only a few transactions changed, all known: refresh those rows, not the whole page.
+        if (current && current.clientId === restore.clientId && fresh && restore.state && current.changes?.complete) {
+          setIsRefreshing(true);
+          const patched = await refreshChangedTransactions(restore.state, current.changes.transactionIds);
+          setIsRefreshing(false);
+          if (patched) {
+            // The hour still counts from the full load, so the rest of the page is reloaded in time.
+            pageSnapshot = { clientId: current.clientId, loadedAt: restore.loadedAt, version: current.version, state: null };
+            setSnapshotTick((tick) => tick + 1);
+            return;
+          }
+        }
         setIsRefreshing(true);
         await runLoad(network, false);
         setIsRefreshing(false);
@@ -1004,8 +1102,13 @@ export default function TransactionsListPage() {
     }
   };
 
-  const handleFilterChange = (fieldKey: string, value: string) => {
-    setColFilters((prev) => ({ ...prev, [fieldKey]: value }));
+  const setColumnFilter = (fieldKey: string, picked: string[]) => {
+    setColFilters((prev) => {
+      const next = { ...prev };
+      if (picked.length > 0) next[fieldKey] = picked;
+      else delete next[fieldKey];
+      return next;
+    });
   };
 
   const syncWithTms = async () => {
@@ -1133,6 +1236,11 @@ export default function TransactionsListPage() {
     return undoSummary;
   };
 
+  // In bulk mode the checkbox, TMS link and bolt columns stay put while the table scrolls sideways.
+  const pinCheckbox = bulkMode ? 'sticky left-0 z-[6]' : '';
+  const pinTms = bulkMode ? 'sticky left-10 z-[6]' : '';
+  const pinBolt = bulkMode ? 'sticky left-[4.5rem] z-[6] shadow-[inset_-1px_0_0_var(--color-slate-200)] dark:shadow-[inset_-1px_0_0_var(--color-slate-700)]' : '';
+
   const canUndoSync = Boolean(
     canWriteTracker && syncResult?.runId && !syncResult.undoneAt
     && syncResult.details.some((detail) => detail.outcome === 'create' || detail.outcome === 'update'),
@@ -1170,8 +1278,8 @@ export default function TransactionsListPage() {
   const showTmsConnection = (filter: TmsLinkFilter) => {
     setLedgerView(defaultViewId || ALL_TAB);
     setActiveScorecardId(null);
-    setStatusSelection(null);
-    setTmsFilter(filter);
+    setStatusSelection([]);
+    setTmsFilter([filter]);
   };
 
   useEffect(() => {
@@ -1418,7 +1526,23 @@ export default function TransactionsListPage() {
   // 2. Process Filters & Sorting
   const showingDeleted = ledgerView === DELETED_TAB && !activeScorecardId;
 
-  const matchesLedgerFilters = (deal: Record<string, any>, ignoreStatus: boolean) => {
+  /** The text a cell shows, as the column filter lists it. Empty cells are BLANK_FILTER_VALUE. */
+  const cellFilterText = (deal: Record<string, any>, field: SchemaField): string => {
+    const raw = deal[field.field_key];
+    if (field.field_type === 'BOOLEAN') return isBooleanChecked(raw) ? 'Yes' : 'No';
+    if (field.field_key === 'agent_id' || field.field_type === 'AGENT_PICKER' || field.field_key === 'primary_agent') {
+      const name = getAgentName(raw, deal);
+      return name && name !== '—' ? name : BLANK_FILTER_VALUE;
+    }
+    if (raw === undefined || raw === null || String(raw).trim() === '') return BLANK_FILTER_VALUE;
+    if (field.field_type === 'CURRENCY') return formatTableCurrency(Number(raw));
+    if (field.field_type === 'PERCENT' || field.field_key === 'gci_perc') return formatTablePercent(raw);
+    if (field.field_type === 'DATE') return String(raw).substring(0, 10);
+    return String(raw).trim();
+  };
+
+  /** `skipColumn` leaves that column's own filter out, to list the values it can still pick from. */
+  const matchesLedgerFilters = (deal: Record<string, any>, ignoreStatus: boolean, skipColumn?: string) => {
     if (activeScorecardId) {
       const card = scorecards.find((item) => item.id === activeScorecardId);
       if (card && !dealMatchesDefaultView(deal, card.filterFormula, fieldTypes)) return false;
@@ -1429,14 +1553,17 @@ export default function TransactionsListPage() {
       if (customView && !dealMatchesDefaultView(deal, customView.filterFormula, fieldTypes)) return false;
     }
 
-    if (!ignoreStatus && statusSelection) {
+    if (!ignoreStatus && statusSelection.length > 0) {
       const statusVal = normalizeStatus(String(deal.transaction_status || deal.status || ''));
-      const selected = statusLookups.find((lookup) => lookup.optionLabel === statusSelection);
-      const selectedValues = [
-        selected ? normalizeStatus(selected.optionValue) : '',
-        normalizeStatus(selected?.optionLabel || statusSelection),
-      ].filter(Boolean);
-      if (!selectedValues.includes(statusVal)) return false;
+      const matchesAny = statusSelection.some((label) => {
+        const selected = statusLookups.find((lookup) => lookup.optionLabel === label);
+        const selectedValues = [
+          selected ? normalizeStatus(selected.optionValue) : '',
+          normalizeStatus(selected?.optionLabel || label),
+        ].filter(Boolean);
+        return selectedValues.includes(statusVal);
+      });
+      if (!matchesAny) return false;
     }
 
     if (searchQuery.trim()) {
@@ -1448,25 +1575,11 @@ export default function TransactionsListPage() {
       if (!matchesGlobal) return false;
     }
 
-    for (const [key, filterVal] of Object.entries(colFilters)) {
-      if (!filterVal || filterVal === 'All') continue;
-      if (key === 'agent_id' || key === 'primary_agent') {
-        const agentName = getAgentName(deal.agent_id, deal).toLowerCase();
-        const rawAgentId = String(deal.agent_id || '').toLowerCase();
-        const target = filterVal.toLowerCase();
-        if (!agentName.includes(target) && !rawAgentId.includes(target)) return false;
-      } else {
-        const fieldDef = schemaFields.find((f) => f.field_key === key);
-        const isPercent = fieldDef?.field_type === 'PERCENT' || key === 'gci_perc';
-        const cellVal = String(deal[key] ?? '').toLowerCase();
-        const target = filterVal.toLowerCase();
-        if (isPercent) {
-          const pctVal = `${formatPercent(deal[key])} ${formatTablePercent(deal[key])}`.toLowerCase();
-          if (!cellVal.includes(target) && !pctVal.includes(target)) return false;
-        } else if (!cellVal.includes(target)) {
-          return false;
-        }
-      }
+    for (const [key, picked] of Object.entries(colFilters)) {
+      if (key === skipColumn || picked.length === 0) continue;
+      const fieldDef = schemaFields.find((item) => item.field_key === key);
+      if (!fieldDef) continue;
+      if (!matchesColumnFilter(cellFilterText(deal, fieldDef), picked)) return false;
     }
 
     return true;
@@ -1485,11 +1598,33 @@ export default function TransactionsListPage() {
 
   viewedDealsRef.current = viewedDeals;
 
+  /** The values a column can be filtered by, among the rows the other filters leave. */
+  const columnOptions = (field: SchemaField): ColumnFilterOption[] => {
+    const source = showingDeleted ? deletedDeals : deals;
+    const texts = source
+      .filter((deal) => matchesLedgerFilters(deal, false, field.field_key))
+      .map((deal) => cellFilterText(deal, field));
+    const numeric = field.field_type === 'CURRENCY' || field.field_type === 'PERCENT' || field.field_type === 'NUMBER' || field.field_key === 'gci_perc';
+    return columnFilterOptions(texts, numeric ? 'number' : 'text');
+  };
+
+  // Several picked values show rows matching any of them; none picked means no filter.
+  const matchesBoltFilter = (deal: Record<string, any>) => {
+    if (boltTone.length === 0) return true;
+    const tone = templateBolt(deal)?.tone;
+    return Boolean(tone && boltTone.includes(tone));
+  };
+
+  const matchesTmsFilter = (deal: Record<string, any>) => {
+    if (tmsFilter.length === 0) return true;
+    const mark = markTmsLink(deal);
+    return Boolean(mark && tmsFilter.includes(mark.disconnected ? 'disconnected' : 'connected'));
+  };
+
   const boltCounts = useMemo(() => {
     const counts: Record<BoltTone, number> = { submitted: 0, ready: 0, ineligible: 0, drift: 0, filed: 0 };
     for (const deal of viewedDeals) {
-      if (tmsFilter === 'connected' && markTmsLink(deal)?.disconnected !== false) continue;
-      if (tmsFilter === 'disconnected' && markTmsLink(deal)?.disconnected !== true) continue;
+      if (!matchesTmsFilter(deal)) continue;
       const tone = templateBolt(deal)?.tone;
       if (tone) counts[tone] += 1;
     }
@@ -1499,7 +1634,7 @@ export default function TransactionsListPage() {
   const tmsCounts = useMemo(() => {
     const counts: Record<TmsLinkFilter, number> = { connected: 0, disconnected: 0 };
     for (const deal of viewedDeals) {
-      if (boltTone && templateBolt(deal)?.tone !== boltTone) continue;
+      if (!matchesBoltFilter(deal)) continue;
       const mark = markTmsLink(deal);
       if (!mark) continue;
       counts[mark.disconnected ? 'disconnected' : 'connected'] += 1;
@@ -1617,10 +1752,7 @@ export default function TransactionsListPage() {
 
   const processedDeals = useMemo(() => {
     const rows = viewedDeals.filter((deal) => {
-      if (boltTone && templateBolt(deal)?.tone !== boltTone) return false;
-      if (tmsFilter === 'connected') return markTmsLink(deal)?.disconnected === false;
-      if (tmsFilter === 'disconnected') return markTmsLink(deal)?.disconnected === true;
-      return true;
+      return matchesBoltFilter(deal) && matchesTmsFilter(deal);
     });
     return [...rows].sort((a, b) => {
         if (transactionViews.some((view) => view.id === ledgerView) && !activeScorecardId && defaultSortRules && defaultSortRules.length > 0) {
@@ -1973,14 +2105,16 @@ export default function TransactionsListPage() {
     return byTmsId;
   }, [deals, deletedDeals]);
 
+  const selectedStatusLookups = visibleStatusLookups.filter((lookup) => statusSelection.includes(lookup.optionLabel));
+  const statusFilterLabel = selectedStatusLookups.map((lookup) => lookup.optionLabel).join(', ');
+  const boltFilterLabel = BOLT_FILTERS.filter((filter) => boltTone.includes(filter.tone)).map((filter) => filter.label).join(', ');
+  const tmsFilterLabel = TMS_FILTERS.filter((filter) => tmsFilter.includes(filter.value)).map((filter) => filter.label).join(', ');
+  const driftOnly = boltTone.length === 1 && boltTone[0] === 'drift';
+
   const statusMenuCounts = useMemo(() => {
     const source = showingDeleted ? deletedDeals : deals;
     const rows = source.filter((deal) => {
-      if (!matchesLedgerFilters(deal, true)) return false;
-      if (boltTone && templateBolt(deal)?.tone !== boltTone) return false;
-      if (tmsFilter === 'connected') return markTmsLink(deal)?.disconnected === false;
-      if (tmsFilter === 'disconnected') return markTmsLink(deal)?.disconnected === true;
-      return true;
+      return matchesLedgerFilters(deal, true) && matchesBoltFilter(deal) && matchesTmsFilter(deal);
     });
     const counts = new Map<string, number>();
     visibleStatusLookups.forEach((lookup) => {
@@ -1990,9 +2124,9 @@ export default function TransactionsListPage() {
   }, [deals, deletedDeals, showingDeleted, ledgerView, statusSelection, activeScorecardId, visibleStatusLookups, boltTone, tmsFilter, templateBolt, markTmsLink, searchQuery, colFilters, schemaFields, defaultView, fieldTypes, scorecards, statusLookups, syncHighlights, transactionViews]);
 
   useEffect(() => {
-    if (isLoading || !statusSelection) return;
-    const stillVisible = visibleStatusLookups.some((lookup) => lookup.optionLabel === statusSelection);
-    if (!stillVisible) setStatusSelection(null);
+    if (isLoading || statusSelection.length === 0) return;
+    const stillVisible = statusSelection.filter((label) => visibleStatusLookups.some((lookup) => lookup.optionLabel === label));
+    if (stillVisible.length !== statusSelection.length) setStatusSelection(stillVisible);
   }, [isLoading, statusSelection, visibleStatusLookups]);
 
   const scorecardRows = useMemo(() => {
@@ -2004,11 +2138,10 @@ export default function TransactionsListPage() {
 
   const clearListFilters = () => {
     setSearchQuery('');
-    setStatusSelection(null);
+    setStatusSelection([]);
     setActiveScorecardId(null);
-    setBoltTone(null);
-    setTmsFilter(null);
-    setShowFilters(false);
+    setBoltTone([]);
+    setTmsFilter([]);
     setColFilters({});
   };
 
@@ -2053,7 +2186,7 @@ export default function TransactionsListPage() {
       return;
     }
     setActiveScorecardId(card.id);
-    setStatusSelection(null);
+    setStatusSelection([]);
   };
 
   const formatScorecardMetric = (value: number | null, kind: string, fieldType?: string) => {
@@ -2399,21 +2532,6 @@ export default function TransactionsListPage() {
             </HoverNote>
             <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />
             <div className="flex items-center gap-2">
-            <HoverNote label="Advanced filters">
-              <button
-                type="button"
-                onClick={() => setShowFilters(!showFilters)}
-                aria-label="Advanced filters"
-                aria-pressed={showFilters}
-                className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition cursor-pointer ${
-                  showFilters
-                    ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
-                    : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
-                }`}
-              >
-                <ListFilter className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
-              </button>
-            </HoverNote>
 
             {/* Quick Search */}
             <div className={`relative w-[20rem] max-w-full ${underlineShell}`}>
@@ -2445,11 +2563,11 @@ export default function TransactionsListPage() {
               <span className="mx-2 inline-block h-1.5 w-1.5 rounded-full bg-violet-500 align-middle" aria-hidden />
               <button
                 type="button"
-                onClick={() => setBoltTone((current) => (current === 'drift' ? null : 'drift'))}
-                aria-pressed={boltTone === 'drift'}
+                onClick={() => setBoltTone(driftOnly ? [] : ['drift'])}
+                aria-pressed={driftOnly}
                 className="cursor-pointer font-semibold text-violet-700 underline decoration-violet-400/50 underline-offset-2 hover:text-violet-600 dark:text-violet-300 dark:hover:text-violet-200"
               >
-                {driftCount} {driftCount === 1 ? 'template' : 'templates'} to review{boltTone === 'drift' ? ' · show all' : ''}
+                {driftCount} {driftCount === 1 ? 'template' : 'templates'} to review{driftOnly ? ' · show all' : ''}
               </button>
             </>
           )}
@@ -2515,9 +2633,9 @@ export default function TransactionsListPage() {
               
               {/* Section Group Header Row */}
               <tr className="bg-slate-200 dark:bg-slate-700 text-[11px] font-bold text-brand-600 dark:text-brand-400">
-                {bulkMode && <th className="w-8 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600" />}
-                {canWriteTracker && <th className="w-8 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600" />}
-                {canWriteTracker && <th className="w-8 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600" />}
+                {bulkMode && <th className={`${pinCheckbox} w-10 min-w-10 max-w-10 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600`} />}
+                {canWriteTracker && <th className={`${pinTms} w-8 min-w-8 max-w-8 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600`} />}
+                {canWriteTracker && <th className={`${pinBolt} w-8 min-w-8 max-w-8 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600`} />}
                 {sectionHeaderGroups.map((group, idx) => (
                   <th
                     key={`${group.name}_${idx}`}
@@ -2536,7 +2654,7 @@ export default function TransactionsListPage() {
               {/* Field Label Header Row */}
               <tr className="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 font-semibold">
                 {bulkMode && (
-                  <th className={`${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} w-8 align-middle bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
+                  <th className={`${pinCheckbox} ${compactRows ? 'py-1.5' : 'py-3'} pl-3 pr-1 w-10 min-w-10 max-w-10 align-middle bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
                     <span className="inline-flex items-center justify-center">
                       <input
                         ref={selectAllRef}
@@ -2544,43 +2662,45 @@ export default function TransactionsListPage() {
                         checked={allVisibleSelected}
                         onChange={toggleVisibleSelection}
                         aria-label="Select all transactions in this view"
-                        className="block h-3.5 w-3.5 accent-brand-600 cursor-pointer"
+                        className="block cursor-pointer"
                       />
                     </span>
                   </th>
                 )}
                 {canWriteTracker && (
-                <th className={`group/filter ${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
+                <th className={`group/filter ${pinTms} ${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} w-8 min-w-8 max-w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
                   <span className="relative inline-flex">
                     <button
                       ref={tmsMenuButtonRef}
                       type="button"
                       aria-expanded={tmsMenuOpen}
                       aria-haspopup="menu"
-                      aria-pressed={tmsFilter !== null}
-                      title={tmsFilter ? `Filtering: ${TMS_FILTERS.find((filter) => filter.value === tmsFilter)?.label}` : 'Filter by TMS connection'}
+                      aria-pressed={tmsFilter.length > 0}
+                      title={tmsFilterLabel ? `Filtering: ${tmsFilterLabel}` : 'Filter by TMS connection'}
                       onClick={() => {
                         setBoltMenuOpen(false);
                         setStatusMenuOpen(false);
                         setTmsMenuOpen((open) => !open);
                       }}
                       className={`inline-flex h-6 w-6 items-center justify-center rounded cursor-pointer ${
-                        tmsFilter
-                          ? TMS_FILTERS.find((filter) => filter.value === tmsFilter)?.buttonClass
+                        tmsFilter.length > 0
+                          ? tmsFilter.length === 1
+                            ? TMS_FILTERS.find((filter) => filter.value === tmsFilter[0])?.buttonClass
+                            : MULTI_FILTER_BUTTON_CLASS
                           : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
                       }`}
                     >
-                      {tmsFilter === 'disconnected' ? (
+                      {tmsFilter.length === 1 && tmsFilter[0] === 'disconnected' ? (
                         <Unlink className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                       ) : (
                         <Link2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                       )}
                     </button>
-                    {tmsFilter ? (
+                    {tmsFilter.length > 0 ? (
                       <FilterClearButton
-                        label={TMS_FILTERS.find((filter) => filter.value === tmsFilter)?.label || 'TMS filter'}
+                        label={tmsFilterLabel || 'TMS filter'}
                         onClear={() => {
-                          setTmsFilter(null);
+                          setTmsFilter([]);
                           setTmsMenuOpen(false);
                         }}
                       />
@@ -2589,33 +2709,35 @@ export default function TransactionsListPage() {
                 </th>
                 )}
                 {canWriteTracker && (
-                <th className={`group/filter ${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
+                <th className={`group/filter ${pinBolt} ${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} w-8 min-w-8 max-w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
                   <span className="relative inline-flex">
                     <button
                       ref={boltMenuButtonRef}
                       type="button"
                       aria-expanded={boltMenuOpen}
                       aria-haspopup="menu"
-                      aria-pressed={boltTone !== null}
-                      title={boltTone ? `Filtering: ${BOLT_FILTERS.find((filter) => filter.tone === boltTone)?.label}` : 'Filter by commission template status'}
+                      aria-pressed={boltTone.length > 0}
+                      title={boltFilterLabel ? `Filtering: ${boltFilterLabel}` : 'Filter by commission template status'}
                       onClick={() => {
                         setTmsMenuOpen(false);
                         setStatusMenuOpen(false);
                         setBoltMenuOpen((open) => !open);
                       }}
                       className={`inline-flex h-6 w-6 items-center justify-center rounded cursor-pointer ${
-                        boltTone
-                          ? BOLT_FILTERS.find((filter) => filter.tone === boltTone)?.buttonClass
+                        boltTone.length > 0
+                          ? boltTone.length === 1
+                            ? BOLT_FILTERS.find((filter) => filter.tone === boltTone[0])?.buttonClass
+                            : MULTI_FILTER_BUTTON_CLASS
                           : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
                       }`}
                     >
-                      <Zap className="h-3.5 w-3.5" fill={boltTone ? 'currentColor' : 'none'} strokeWidth={1.75} aria-hidden />
+                      <Zap className="h-3.5 w-3.5" fill={boltTone.length > 0 ? 'currentColor' : 'none'} strokeWidth={1.75} aria-hidden />
                     </button>
-                    {boltTone ? (
+                    {boltTone.length > 0 ? (
                       <FilterClearButton
-                        label={BOLT_FILTERS.find((filter) => filter.tone === boltTone)?.label || 'template filter'}
+                        label={boltFilterLabel || 'template filter'}
                         onClear={() => {
-                          setBoltTone(null);
+                          setBoltTone([]);
                           setBoltMenuOpen(false);
                         }}
                       />
@@ -2625,9 +2747,7 @@ export default function TransactionsListPage() {
                 )}
                 {schemaFields.map((field) => {
                   const statusColumn = isStatusColumn(field);
-                  const statusLookup = statusColumn && statusSelection
-                    ? visibleStatusLookups.find((lookup) => lookup.optionLabel === statusSelection) ?? null
-                    : null;
+                  const statusLookup = statusColumn ? selectedStatusLookups[0] ?? null : null;
                   const statusColor = statusLookup ? colorForStatus(scorecards, statusLookup.optionLabel, statusLookup.optionValue) : null;
                   const statusPill = statusColor
                     ? SCORECARD_COLOR_STYLES[statusColor].tabActive
@@ -2638,7 +2758,7 @@ export default function TransactionsListPage() {
                         key={field.field_key}
                         className={`group/filter ${compactRows ? 'px-3 py-1.5' : 'px-4 py-3'} bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 whitespace-nowrap border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0`}
                       >
-                        <div className="flex items-center gap-1">
+                        <div className="group/col flex w-full items-center gap-1">
                           <span className="relative inline-flex">
                             <button
                               ref={field.field_key === 'transaction_status' || !schemaFields.some((item) => item.field_key === 'transaction_status') ? statusMenuButtonRef : undefined}
@@ -2646,7 +2766,7 @@ export default function TransactionsListPage() {
                               aria-expanded={statusMenuOpen}
                               aria-haspopup="menu"
                               aria-pressed={Boolean(statusLookup)}
-                              title={statusLookup ? `Filtering: ${statusLookup.optionLabel}` : 'Filter by status'}
+                              title={statusLookup ? `Filtering: ${statusFilterLabel}` : 'Filter by status'}
                               onClick={() => {
                                 setBoltMenuOpen(false);
                                 setTmsMenuOpen(false);
@@ -2657,6 +2777,9 @@ export default function TransactionsListPage() {
                               {statusLookup ? (
                                 <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-semibold ${statusPill}`}>
                                   {statusLookup.optionLabel}
+                                  {selectedStatusLookups.length > 1 ? (
+                                    <span className="ml-1 font-medium opacity-80">+{selectedStatusLookups.length - 1}</span>
+                                  ) : null}
                                 </span>
                               ) : (
                                 <span className="px-0.5">{field.field_label}</span>
@@ -2664,22 +2787,19 @@ export default function TransactionsListPage() {
                             </button>
                             {statusLookup ? (
                               <FilterClearButton
-                                label={statusLookup.optionLabel}
+                                label={statusFilterLabel}
                                 onClear={() => {
-                                  setStatusSelection(null);
+                                  setStatusSelection([]);
                                   setStatusMenuOpen(false);
                                 }}
                               />
                             ) : null}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => handleSort(field.field_key)}
-                            className="cursor-pointer text-slate-400 hover:text-slate-900 dark:text-slate-600 dark:hover:text-white"
-                            aria-label={`Sort ${field.field_label}`}
-                          >
-                            {sortField === field.field_key ? (sortOrder === 'asc' ? '↑' : '↓') : '↕'}
-                          </button>
+                          <SortButton
+                            label={field.field_label}
+                            direction={sortField === field.field_key ? sortOrder : null}
+                            onSort={() => handleSort(field.field_key)}
+                          />
                         </div>
                       </th>
                     );
@@ -2687,15 +2807,18 @@ export default function TransactionsListPage() {
                   return (
                   <th
                     key={field.field_key}
-                    onClick={() => handleSort(field.field_key)}
-                    className={`${compactRows ? 'px-3 py-1.5' : 'px-4 py-3'} bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 cursor-pointer hover:text-slate-900 dark:hover:text-white transition group whitespace-nowrap border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0 ${isNumericColumn(field) ? 'text-right' : ''} ${isDateColumn(field) || isBooleanColumn(field) ? 'text-center' : ''}`}
+                    aria-sort={sortField === field.field_key ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}
+                    className={`${compactRows ? 'px-3 py-1.5' : 'px-4 py-3'} bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 whitespace-nowrap border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0`}
                   >
-                    <div className={`flex items-center gap-1 ${isNumericColumn(field) ? 'justify-end' : ''} ${isDateColumn(field) || isBooleanColumn(field) ? 'justify-center' : ''}`}>
-                      <span>{field.field_label}</span>
-                      <span className="text-slate-400 dark:text-slate-600 group-hover:opacity-100 transition">
-                        {sortField === field.field_key ? (sortOrder === 'asc' ? '↑' : '↓') : '↕'}
-                      </span>
-                    </div>
+                    <ColumnHeader
+                      label={field.field_label}
+                      align={isNumericColumn(field) ? 'right' : isDateColumn(field) || isBooleanColumn(field) ? 'center' : 'left'}
+                      picked={colFilters[field.field_key] || []}
+                      loadOptions={() => columnOptions(field)}
+                      onChange={(picked) => setColumnFilter(field.field_key, picked)}
+                      sortDirection={sortField === field.field_key ? sortOrder : null}
+                      onSort={() => handleSort(field.field_key)}
+                    />
                   </th>
                   );
                 })}
@@ -2706,67 +2829,6 @@ export default function TransactionsListPage() {
                 )}
               </tr>
 
-              {/* Dynamic Filter Inputs */}
-              {showFilters && (
-                <tr className="bg-slate-100 dark:bg-slate-900">
-                  {bulkMode && <th className="w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700" />}
-                  {canWriteTracker && <th className="w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700" />}
-                  {canWriteTracker && <th className="w-8 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700" />}
-                  {schemaFields.map((field) => (
-                    <th key={`filter_${field.field_key}`} className="px-2 py-1.5 min-w-[120px] bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0">
-                      {field.field_key === 'agent_id' || field.field_type === 'AGENT_PICKER' ? (
-                        <label className={filterShell}>
-                          <ClearableSelect
-                            allowBlank={false}
-                            clearValue="All"
-                            value={colFilters[field.field_key] || 'All'}
-                            onChange={(e) => handleFilterChange(field.field_key, e.target.value)}
-                            className={`${filterControl} cursor-pointer pr-5`}
-                          >
-                            <option value="All">All {field.field_label}</option>
-                            {agentsList.map((ag) => {
-                              const name = ag.agent_name || ag.name || '';
-                              return (
-                                <option key={ag.id || name} value={name}>
-                                  {name}
-                                </option>
-                              );
-                            })}
-                          </ClearableSelect>
-                        </label>
-                      ) : field.field_type === 'SELECT' && Array.isArray(field.dropdown_options) ? (
-                        <label className={filterShell}>
-                          <ClearableSelect
-                            allowBlank={false}
-                            clearValue="All"
-                            value={colFilters[field.field_key] || 'All'}
-                            onChange={(e) => handleFilterChange(field.field_key, e.target.value)}
-                            className={`${filterControl} cursor-pointer pr-5`}
-                          >
-                            <option value="All">All {field.field_label}</option>
-                            {field.dropdown_options.map((opt) => (
-                              <option key={opt} value={opt}>
-                                {opt}
-                              </option>
-                            ))}
-                          </ClearableSelect>
-                        </label>
-                      ) : (
-                        <label className={filterShell}>
-                          <input
-                            type={field.field_type === 'DATE' ? 'date' : 'text'}
-                            placeholder={`Filter ${field.field_label}...`}
-                            value={colFilters[field.field_key] || ''}
-                            onChange={(e) => handleFilterChange(field.field_key, e.target.value)}
-                            className={`${filterControl} ${field.field_type === 'DATE' ? 'dark:[color-scheme:dark]' : ''}`}
-                          />
-                        </label>
-                      )}
-                    </th>
-                  ))}
-                  {canWriteTracker && <th className="px-2 py-1.5 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700" />}
-                </tr>
-              )}
             </thead>
 
             {/* Dynamic Table Body */}
@@ -2797,6 +2859,7 @@ export default function TransactionsListPage() {
 
                   const bolt = templateBolt(deal);
                   const tmsLink = markTmsLink(deal);
+                  const rowSelected = bulkMode && selectedIds.has(String(deal.id || dealId));
                   const rowStatus = String(deal.transaction_status || deal.status || '').trim();
                   const rowStatusColor = rowStatus ? colorForStatus(scorecards, rowStatus, rowStatus) : null;
                   const markClass = compactRows ? 'h-3.5 w-3.5' : 'h-4 w-4';
@@ -2834,23 +2897,29 @@ export default function TransactionsListPage() {
                         if (showingDeleted) return;
                         router.push(`/commission-tracker/transactions/${dealId}`);
                       }}
-                      className={`status-stripe even:bg-slate-50 dark:even:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition group ${rowNavigates || bulkMode ? 'cursor-pointer' : ''}`}
+                      aria-selected={bulkMode ? rowSelected : undefined}
+                      className={`status-stripe transition group ${rowSelected
+                        // A checked row is tinted with the brand sky so the selection is easy to see.
+                        ? 'bg-brand-100 hover:bg-[color-mix(in_srgb,var(--color-brand-200)_70%,white)] dark:bg-[color-mix(in_srgb,var(--color-brand-500)_22%,var(--color-slate-800))] dark:hover:bg-[color-mix(in_srgb,var(--color-brand-500)_30%,var(--color-slate-800))]'
+                        // Opaque colors, so the pinned columns cover what scrolls under them.
+                        : 'bg-white even:bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:even:bg-[color-mix(in_srgb,var(--color-slate-900)_30%,var(--color-slate-800))] dark:hover:bg-[color-mix(in_srgb,var(--color-slate-700)_50%,var(--color-slate-800))]'
+                      } ${rowNavigates || bulkMode ? 'cursor-pointer' : ''}`}
                     >
                       {bulkMode && (
-                        <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 align-middle text-center`}>
+                        <td className={`${pinCheckbox} bg-inherit ${compactRows ? 'py-0.5' : 'py-3'} pl-3 pr-1 w-10 min-w-10 max-w-10 align-middle text-center`}>
                           <span className="inline-flex items-center justify-center">
                             <input
                               type="checkbox"
-                              checked={selectedIds.has(String(deal.id || dealId))}
+                              checked={rowSelected}
                               onChange={() => toggleRowSelection(String(deal.id || dealId))}
                               aria-label={`Select ${transactionDealLabel(deal) || String(deal.id || dealId)}`}
-                              className="block h-3.5 w-3.5 accent-brand-600 cursor-pointer"
+                              className="block cursor-pointer"
                             />
                           </span>
                         </td>
                       )}
                       {canWriteTracker && (
-                      <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 align-middle text-center`}>
+                      <td className={`${pinTms} bg-inherit ${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 min-w-8 max-w-8 align-middle text-center`}>
                         {tmsLink ? (
                           <span title={tmsLink.label} aria-label={tmsLink.label} className="flex items-center justify-center">
                             {tmsLink.disconnected ? (
@@ -2863,7 +2932,7 @@ export default function TransactionsListPage() {
                       </td>
                       )}
                       {canWriteTracker && (
-                      <td className={`${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 align-middle text-center`}>
+                      <td className={`${pinBolt} bg-inherit ${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} w-8 min-w-8 max-w-8 align-middle text-center`}>
                         {bolt ? (
                           !rowNavigates ? (
                             <span title={bolt.label} aria-label={bolt.label} className="inline-flex rounded p-0.5 align-middle">
@@ -3031,22 +3100,20 @@ export default function TransactionsListPage() {
           className="fixed z-[80] w-64 rounded-lg border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-800"
         >
           {TMS_FILTERS.map((filter) => {
-            const selected = tmsFilter === filter.value;
+            const selected = tmsFilter.includes(filter.value);
             const Icon = filter.value === 'disconnected' ? Unlink : Link2;
             return (
               <button
                 key={filter.value}
                 type="button"
-                role="menuitemradio"
+                role="menuitemcheckbox"
                 aria-checked={selected}
-                onClick={() => {
-                  setTmsFilter(selected ? null : filter.value);
-                  setTmsMenuOpen(false);
-                }}
+                onClick={() => setTmsFilter((current) => toggleListValue(current, filter.value))}
                 className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-bold cursor-pointer ${
                   selected ? filter.activeClass : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
+                <MenuCheckbox checked={selected} />
                 <Icon className={`h-3.5 w-3.5 shrink-0 ${filter.iconClass}`} strokeWidth={1.75} aria-hidden />
                 <span className="flex-1 text-left">{filter.label}</span>
                 <span className={`tabular-nums ${selected ? 'opacity-80' : 'text-slate-500 dark:text-slate-400'}`}>{tmsCounts[filter.value]}</span>
@@ -3065,22 +3132,20 @@ export default function TransactionsListPage() {
           className="fixed z-[80] w-72 rounded-lg border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-800"
         >
           {BOLT_FILTERS.map((filter) => {
-            const selected = boltTone === filter.tone;
+            const selected = boltTone.includes(filter.tone);
             const Icon = filter.icon;
             return (
               <button
                 key={filter.tone}
                 type="button"
-                role="menuitemradio"
+                role="menuitemcheckbox"
                 aria-checked={selected}
-                onClick={() => {
-                  setBoltTone(selected ? null : filter.tone);
-                  setBoltMenuOpen(false);
-                }}
+                onClick={() => setBoltTone((current) => toggleListValue(current, filter.tone))}
                 className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-bold cursor-pointer ${
                   selected ? filter.activeClass : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
+                <MenuCheckbox checked={selected} />
                 <Icon className={`h-3.5 w-3.5 shrink-0 ${filter.iconClass}`} strokeWidth={2.25} aria-hidden />
                 <span className="flex-1 text-left">{filter.label}</span>
                 <span className={`tabular-nums ${selected ? 'opacity-80' : 'text-slate-500 dark:text-slate-400'}`}>{boltCounts[filter.tone]}</span>
@@ -3099,7 +3164,7 @@ export default function TransactionsListPage() {
           className="fixed z-[80] w-64 rounded-lg border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-800"
         >
           {visibleStatusLookups.map((lookup) => {
-            const selected = statusSelection === lookup.optionLabel;
+            const selected = statusSelection.includes(lookup.optionLabel);
             const color = colorForStatus(scorecards, lookup.optionLabel, lookup.optionValue);
             const pill = color
               ? SCORECARD_COLOR_STYLES[color].tabActive
@@ -3108,16 +3173,14 @@ export default function TransactionsListPage() {
               <button
                 key={lookup.optionLabel}
                 type="button"
-                role="menuitemradio"
+                role="menuitemcheckbox"
                 aria-checked={selected}
-                onClick={() => {
-                  setStatusSelection(selected ? null : lookup.optionLabel);
-                  setStatusMenuOpen(false);
-                }}
+                onClick={() => setStatusSelection((current) => toggleListValue(current, lookup.optionLabel))}
                 className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-bold cursor-pointer ${
                   selected ? 'bg-slate-100 dark:bg-slate-700' : 'hover:bg-slate-100 dark:hover:bg-slate-700'
                 }`}
               >
+                <MenuCheckbox checked={selected} />
                 <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-semibold ${pill}`}>
                   {lookup.optionLabel}
                 </span>

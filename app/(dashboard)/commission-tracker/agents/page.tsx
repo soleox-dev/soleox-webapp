@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
-import { ListChecks, ListFilter, Plus, Rows3 } from 'lucide-react';
+import { ListChecks, Plus, Rows3 } from 'lucide-react';
 import { BulkUpdateDialog } from '@/app/(dashboard)/commission-tracker/transactions/components/BulkUpdateDialog';
 import { HoverNote } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/HoverNote';
 import { ConfirmDialog, useConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -10,13 +10,14 @@ import { isAgentBulkEditableField } from '@/lib/agent-bulk';
 import { isHiddenRecordId } from '@/lib/fields';
 import { widePageFrame } from '@/lib/page-frame';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { BLANK_FILTER_VALUE, ColumnHeader, columnFilterOptions, matchesColumnFilter, type ColumnFilterOption } from '@/components/ui/column-filter';
 import { BooleanField, BooleanMark, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { useAccess } from '@/components/access-provider';
 import { useRegisterSave } from '@/components/save-leave-guard';
-import { filterControl, filterShell, underlineControlPlain as underlineControl } from '@/components/ui/underline-field';
+import { underlineControlPlain as underlineControl } from '@/components/ui/underline-field';
 
 type FieldType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
 
@@ -81,6 +82,9 @@ function agentGroupValue(agent: AgentRecord): string {
   const value = direct ?? custom;
   return value == null ? '' : String(value);
 }
+
+const formatColumnCurrency = (value: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 
 function agentFieldValue(agent: AgentRecord, key: string): unknown {
   if (key === 'group_id' || key === 'group') {
@@ -295,9 +299,8 @@ export default function AgentsPage() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
-  const [showFilters, setShowFilters] = useState(false);
   const [compactRows, setCompactRows] = useState(false);
-  const [colFilters, setColFilters] = useState<Record<string, string>>({});
+  const [colFilters, setColFilters] = useState<Record<string, string[]>>({});
   const [sortField, setSortField] = useState('agent_name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [bulkMode, setBulkMode] = useState(false);
@@ -457,58 +460,59 @@ export default function AgentsPage() {
     }
   };
 
-  const handleFilterChange = (fieldKey: string, value: string) => {
-    setColFilters((prev) => ({ ...prev, [fieldKey]: value }));
+  const setColumnFilter = (fieldKey: string, picked: string[]) => {
+    setColFilters((prev) => {
+      const next = { ...prev };
+      if (picked.length > 0) next[fieldKey] = picked;
+      else delete next[fieldKey];
+      return next;
+    });
+  };
+
+  /** The text a cell shows, as the column filter lists it. Empty cells are BLANK_FILTER_VALUE. */
+  const cellFilterText = (agent: AgentRecord, field: FieldConfig): string => {
+    const raw = agentFieldValue(agent, field.field_key);
+    if (field.field_type === 'BOOLEAN') return isBooleanChecked(raw) ? 'Yes' : 'No';
+    if (raw === undefined || raw === null || String(raw).trim() === '') return BLANK_FILTER_VALUE;
+    if (field.field_type === 'CURRENCY') return formatColumnCurrency(Number(raw) || 0);
+    if (field.field_type === 'PERCENT') return formatTablePercent(raw);
+    return String(raw).trim();
+  };
+
+  /** The group tab and the quick search. */
+  const matchesTabAndSearch = (agent: AgentRecord) => {
+    if (activeGroup !== 'ALL' && agentGroupValue(agent).trim().toLowerCase() !== activeGroup.trim().toLowerCase()) return false;
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    return Object.values(agent).some((val) => {
+      if (val === undefined || val === null) return false;
+      if (typeof val === 'object') return Object.values(val).some((subVal) => String(subVal ?? '').toLowerCase().includes(q));
+      return String(val).toLowerCase().includes(q);
+    });
+  };
+
+  /** The column filters. `skipColumn` leaves that column's own filter out, to list the values it can still pick. */
+  const matchesColumns = (agent: AgentRecord, skipColumn?: string) => {
+    for (const [key, picked] of Object.entries(colFilters)) {
+      if (key === skipColumn || picked.length === 0) continue;
+      const field = fieldConfigs.find((item) => item.field_key === key);
+      if (!field) continue;
+      if (!matchesColumnFilter(cellFilterText(agent, field), picked)) return false;
+    }
+    return true;
+  };
+
+  const columnOptions = (field: FieldConfig): ColumnFilterOption[] => {
+    const texts = agents
+      .filter((agent) => matchesTabAndSearch(agent) && matchesColumns(agent, field.field_key))
+      .map((agent) => cellFilterText(agent, field));
+    const numeric = field.field_type === 'CURRENCY' || field.field_type === 'PERCENT' || field.field_type === 'NUMBER';
+    return columnFilterOptions(texts, numeric ? 'number' : 'text');
   };
 
   const processedAgents = useMemo(() => {
-    let result = [...agents];
+    let result = agents.filter((agent) => matchesTabAndSearch(agent) && matchesColumns(agent));
 
-    if (activeGroup !== 'ALL') {
-      const target = activeGroup.trim().toLowerCase();
-      result = result.filter((agent) => agentGroupValue(agent).trim().toLowerCase() === target);
-    }
-
-    // Global quick search across all agent fields (in-memory viewing)
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      result = result.filter((agent) => {
-        return Object.entries(agent).some(([key, val]) => {
-          if (val === undefined || val === null) return false;
-          if (typeof val === 'object') {
-            return Object.values(val).some((subVal) =>
-              String(subVal ?? '').toLowerCase().includes(q)
-            );
-          }
-          return String(val).toLowerCase().includes(q);
-        });
-      });
-    }
-
-    const activeColumnFilters = Object.entries(colFilters).filter(([, value]) => value && value !== 'All');
-    if (activeColumnFilters.length > 0) {
-      result = result.filter((agent) => {
-        for (const [key, filterVal] of activeColumnFilters) {
-          const field = fieldConfigs.find((item) => item.field_key === key);
-          const raw = agentFieldValue(agent, key);
-          if (field?.field_type === 'BOOLEAN') {
-            const checked = isBooleanChecked(raw);
-            if (filterVal === 'Yes' && !checked) return false;
-            if (filterVal === 'No' && checked) return false;
-            continue;
-          }
-          const cell = String(raw ?? '').toLowerCase();
-          const target = filterVal.toLowerCase();
-          if (field?.field_type === 'PERCENT') {
-            const shown = formatTablePercent(raw).toLowerCase();
-            if (!cell.includes(target) && !shown.includes(target)) return false;
-          } else if (!cell.includes(target)) {
-            return false;
-          }
-        }
-        return true;
-      });
-    }
 
     // Sort by selected column (in-memory viewing)
     result.sort((a, b) => {
@@ -1098,21 +1102,6 @@ export default function AgentsPage() {
             </HoverNote>
             <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />
             <div className="flex items-center gap-2">
-              <HoverNote label="Advanced filters">
-                <button
-                  type="button"
-                  onClick={() => setShowFilters(!showFilters)}
-                  aria-label="Advanced filters"
-                  aria-pressed={showFilters}
-                  className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition cursor-pointer ${
-                    showFilters
-                      ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
-                      : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  <ListFilter className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
-                </button>
-              </HoverNote>
               <div className={`relative w-[20rem] max-w-full ${underlineShell}`}>
                 <input
                   type="text"
@@ -1197,15 +1186,18 @@ export default function AgentsPage() {
                 {activeConfigs.map((cfg, index) => (
                   <th
                     key={cfg.field_key}
-                    onClick={() => handleSort(cfg.field_key)}
-                    className={`${index === 0 ? pinHead : ''} ${compactRows ? 'px-3 py-1.5' : 'px-4 py-3'} bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 whitespace-nowrap cursor-pointer hover:text-slate-900 dark:hover:text-white transition group border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0 ${cfg.field_type === 'BOOLEAN' || cfg.field_type === 'DATE' ? 'text-center' : ''} ${cfg.field_type === 'CURRENCY' || cfg.field_type === 'PERCENT' ? 'text-right' : ''}`}
+                    aria-sort={sortField === cfg.field_key ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}
+                    className={`${index === 0 ? pinHead : ''} ${compactRows ? 'px-3 py-1.5' : 'px-4 py-3'} bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 whitespace-nowrap border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0`}
                   >
-                    <div className={`flex items-center gap-1.5 ${cfg.field_type === 'BOOLEAN' || cfg.field_type === 'DATE' ? 'justify-center' : ''} ${cfg.field_type === 'CURRENCY' || cfg.field_type === 'PERCENT' ? 'justify-end' : ''}`}>
-                      <span>{cfg.field_label}</span>
-                      <span className="text-slate-400 dark:text-slate-600 group-hover:opacity-100 transition">
-                        {sortField === cfg.field_key ? (sortOrder === 'asc' ? '↑' : '↓') : '↕'}
-                      </span>
-                    </div>
+                    <ColumnHeader
+                      label={cfg.field_label}
+                      align={cfg.field_type === 'CURRENCY' || cfg.field_type === 'PERCENT' ? 'right' : cfg.field_type === 'BOOLEAN' || cfg.field_type === 'DATE' ? 'center' : 'left'}
+                      picked={colFilters[cfg.field_key] || []}
+                      loadOptions={() => columnOptions(cfg)}
+                      onChange={(picked) => setColumnFilter(cfg.field_key, picked)}
+                      sortDirection={sortField === cfg.field_key ? sortOrder : null}
+                      onSort={() => handleSort(cfg.field_key)}
+                    />
                   </th>
                 ))}
                 {canWriteTracker && (
@@ -1214,56 +1206,6 @@ export default function AgentsPage() {
                   </th>
                 )}
               </tr>
-              {showFilters && (
-                <tr className="bg-slate-100 dark:bg-slate-900">
-                  {bulkMode && <th className={`${pinCheckHead} border-b border-slate-200 dark:border-slate-700`} />}
-                  {activeConfigs.map((cfg, index) => (
-                    <th key={`filter_${cfg.field_key}`} className={`${index === 0 ? pinHead : ''} px-2 py-1.5 min-w-[120px] bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0`}>
-                      {cfg.field_type === 'SELECT' && Array.isArray(cfg.dropdown_options) ? (
-                        <label className={filterShell}>
-                          <ClearableSelect
-                            allowBlank={false}
-                            clearValue="All"
-                            value={colFilters[cfg.field_key] || 'All'}
-                            onChange={(e) => handleFilterChange(cfg.field_key, e.target.value)}
-                            className={`${filterControl} cursor-pointer pr-5`}
-                          >
-                            <option value="All">All {cfg.field_label}</option>
-                            {cfg.dropdown_options.filter(Boolean).map((opt) => (
-                              <option key={opt} value={opt}>{opt}</option>
-                            ))}
-                          </ClearableSelect>
-                        </label>
-                      ) : cfg.field_type === 'BOOLEAN' ? (
-                        <label className={filterShell}>
-                          <ClearableSelect
-                            allowBlank={false}
-                            clearValue="All"
-                            value={colFilters[cfg.field_key] || 'All'}
-                            onChange={(e) => handleFilterChange(cfg.field_key, e.target.value)}
-                            className={`${filterControl} cursor-pointer pr-5`}
-                          >
-                            <option value="All">All {cfg.field_label}</option>
-                            <option value="Yes">Yes</option>
-                            <option value="No">No</option>
-                          </ClearableSelect>
-                        </label>
-                      ) : (
-                        <label className={filterShell}>
-                          <input
-                            type={cfg.field_type === 'DATE' ? 'date' : 'text'}
-                            placeholder={`Filter ${cfg.field_label}...`}
-                            value={colFilters[cfg.field_key] || ''}
-                            onChange={(e) => handleFilterChange(cfg.field_key, e.target.value)}
-                            className={`${filterControl} ${cfg.field_type === 'DATE' ? 'dark:[color-scheme:dark]' : ''}`}
-                          />
-                        </label>
-                      )}
-                    </th>
-                  ))}
-                  {canWriteTracker && <th className="px-2 py-1.5 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700" />}
-                </tr>
-              )}
             </thead>
             <tbody className="font-normal text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800">
               {isLoading ? (
@@ -1275,7 +1217,7 @@ export default function AgentsPage() {
               ) : processedAgents.length === 0 ? (
                 <tr>
                   <td colSpan={activeConfigs.length + (canWriteTracker ? 1 : 0) + (bulkMode ? 1 : 0)} className="p-5 text-center text-slate-400 italic">
-                    {searchQuery || activeGroup !== 'ALL' || Object.values(colFilters).some((value) => value && value !== 'All')
+                    {searchQuery || activeGroup !== 'ALL' || Object.keys(colFilters).length > 0
                       ? 'No matching agents found for the current filters.'
                       : 'No agents found.'}
                   </td>

@@ -366,6 +366,12 @@ thead th.sticky[class*="left-"] {
 /* Enable class-based dark mode for Tailwind v4 */
 @variant dark (&:where(.dark, .dark *));
 
+@keyframes checkbox-pop {
+  0% { transform: scale(0.8); }
+  60% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
 /* Checkboxes: one modern look everywhere. A rounded box that fills with the brand sky with a white check.
    In the base layer so size, radius and color utilities on an input still win. */
 @layer base {
@@ -376,24 +382,31 @@ thead th.sticky[class*="left-"] {
     width: 1rem;
     height: 1rem;
     margin: 0;
-    border: 1.5px solid #94a3b8;
-    border-radius: 0.3rem;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 0.3125rem;
     background-color: #fff;
     background-position: center;
     background-repeat: no-repeat;
     background-size: 80% 80%;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
     vertical-align: middle;
     cursor: pointer;
-    transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+    transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+  }
+
+  input[type="checkbox"]:active:not(:disabled) {
+    transform: scale(0.9);
   }
 
   input[type="checkbox"]:checked {
+    animation: checkbox-pop 160ms ease-out;
     border-color: #0284c7;
     background-color: #0284c7;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E");
   }
 
   input[type="checkbox"]:indeterminate {
+    animation: checkbox-pop 160ms ease-out;
     border-color: #0284c7;
     background-color: #0284c7;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M4 8h8'/%3E%3C/svg%3E");
@@ -412,11 +425,20 @@ thead th.sticky[class*="left-"] {
   @media (hover: hover) {
     input[type="checkbox"]:not(:disabled):not(:checked):not(:indeterminate):hover {
       border-color: #0284c7;
+      box-shadow: 0 0 0 3px rgb(2 132 199 / 0.12);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    input[type="checkbox"] {
+      transition: none;
+      animation: none !important;
     }
   }
 
   html.dark input[type="checkbox"]:not(:checked):not(:indeterminate) {
-    border-color: #64748b;
+    border-color: #475569;
+    box-shadow: none;
     background-color: #121823;
   }
 }
