@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { normalizeAgentName } from '@/lib/id';
 import { formatPercent, isHiddenRecordId } from '@/lib/fields';
 import { phoneSheet, phoneTitle, widePageFrame } from '@/lib/page-frame';
+import { useIsDesktop } from '@/lib/use-media-query';
 import { formatPercentRate, formatTablePercent } from '@/lib/percent';
 import { BooleanMark, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { underlineControl, underlineShell } from '@/components/ui/underline-field';
@@ -314,6 +315,12 @@ const SCORECARD_STRIP_COLUMNS: Record<number, string> = {
   3: 'xl:grid-cols-3',
   4: 'xl:grid-cols-4',
 };
+
+/** The street part of an address, the text before its first comma: "333 Ward Ave #2801, Honolulu, HI" gives "333 Ward Ave #2801". */
+function shortAddress(value: unknown): string {
+  const text = String(value ?? '').trim();
+  return text.split(',')[0].trim();
+}
 
 /** "7:38 AM" for today, otherwise "Oct 18, 7:38 AM". */
 function formatSyncMoment(value: string): string {
@@ -1239,10 +1246,15 @@ export default function TransactionsListPage() {
     return undoSummary;
   };
 
-  // In bulk mode the checkbox, TMS link and bolt columns stay put while the table scrolls sideways.
-  const pinCheckbox = bulkMode ? 'sticky left-0 z-[6]' : '';
-  const pinTms = bulkMode ? 'sticky left-10 z-[6]' : '';
-  const pinBolt = bulkMode ? 'sticky left-[4.5rem] z-[6] shadow-[inset_-1px_0_0_var(--color-slate-200)] dark:shadow-[inset_-1px_0_0_var(--color-slate-700)]' : '';
+  // On a phone the table keeps a short address pinned on the left, so a row stays recognizable while the
+  // table scrolls sideways. It is the row's first cell, which also carries the status color edge.
+  const pinAddress = !useIsDesktop();
+  // In bulk mode the checkbox, TMS link and bolt columns stay put while the table scrolls sideways. On a phone
+  // only the checkbox does, next to the pinned address, so the pinned part stays narrow.
+  const pinCheckbox = bulkMode ? (pinAddress ? 'sticky left-[7.5rem] z-[6]' : 'sticky left-0 z-[6]') : '';
+  const pinTms = bulkMode && !pinAddress ? 'sticky left-10 z-[6]' : '';
+  const pinBolt = bulkMode && !pinAddress ? 'sticky left-[4.5rem] z-[6] shadow-[inset_-1px_0_0_var(--color-slate-200)] dark:shadow-[inset_-1px_0_0_var(--color-slate-700)]' : '';
+  const pinnedAddressCell = 'sticky left-0 z-[6] w-[7.5rem] min-w-[7.5rem] max-w-[7.5rem] border-r border-slate-200 dark:border-slate-700';
 
   const canUndoSync = Boolean(
     canWriteTracker && syncResult?.runId && !syncResult.undoneAt
@@ -2644,6 +2656,7 @@ export default function TransactionsListPage() {
               
               {/* Section Group Header Row */}
               <tr className="bg-slate-200 dark:bg-slate-700 text-2xs font-bold text-brand-600 dark:text-brand-400">
+                {pinAddress && <th className={`${pinnedAddressCell} z-[7] bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600`} />}
                 {bulkMode && <th className={`${pinCheckbox} w-10 min-w-10 max-w-10 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600`} />}
                 {canWriteTracker && <th className={`${pinTms} w-8 min-w-8 max-w-8 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600`} />}
                 {canWriteTracker && <th className={`${pinBolt} w-8 min-w-8 max-w-8 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600`} />}
@@ -2664,6 +2677,11 @@ export default function TransactionsListPage() {
 
               {/* Field Label Header Row */}
               <tr className="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 font-semibold">
+                {pinAddress && (
+                  <th className={`${pinnedAddressCell} z-[7] ${compactRows ? 'py-1.5' : 'py-3'} px-3 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-left align-middle`}>
+                    Address
+                  </th>
+                )}
                 {bulkMode && (
                   <th className={`${pinCheckbox} ${compactRows ? 'py-1.5' : 'py-3'} pl-3 pr-1 w-10 min-w-10 max-w-10 align-middle bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
                     <span className="inline-flex items-center justify-center">
@@ -2846,13 +2864,13 @@ export default function TransactionsListPage() {
             <tbody className="text-slate-800 dark:text-slate-200 font-normal bg-white dark:bg-slate-800">
               {isLoading ? (
                 <tr>
-                  <td colSpan={schemaFields.length + (canWriteTracker ? 3 : 0) + (bulkMode ? 1 : 0)} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
+                  <td colSpan={schemaFields.length + (canWriteTracker ? 3 : 0) + (bulkMode ? 1 : 0) + (pinAddress ? 1 : 0)} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
                     Loading synchronized schema & transaction ledger...
                   </td>
                 </tr>
               ) : processedDeals.length === 0 ? (
                 <tr>
-                  <td colSpan={schemaFields.length + (canWriteTracker ? 3 : 0) + (bulkMode ? 1 : 0)} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
+                  <td colSpan={schemaFields.length + (canWriteTracker ? 3 : 0) + (bulkMode ? 1 : 0) + (pinAddress ? 1 : 0)} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
                     {showingDeleted && deletedDeals.length === 0
                       ? 'No deleted transactions.'
                       : ledgerView === SYNCED_TAB && syncedMatchCount === 0
@@ -2914,9 +2932,17 @@ export default function TransactionsListPage() {
                         // A checked row is tinted with the brand sky so the selection is easy to see.
                         ? 'bg-brand-100 hover:bg-[color-mix(in_srgb,var(--color-brand-200)_70%,white)] dark:bg-[color-mix(in_srgb,var(--color-brand-500)_22%,var(--color-slate-800))] dark:hover:bg-[color-mix(in_srgb,var(--color-brand-500)_30%,var(--color-slate-800))]'
                         // Opaque colors, so the pinned columns cover what scrolls under them.
-                        : 'bg-white even:bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:even:bg-[color-mix(in_srgb,var(--color-slate-900)_30%,var(--color-slate-800))] dark:hover:bg-[color-mix(in_srgb,var(--color-slate-700)_50%,var(--color-slate-800))]'
+                        // Below md the stripes are stronger, so a row is easy to follow across a narrow screen.
+                        : 'bg-white even:bg-slate-50 max-md:even:bg-slate-100 hover:bg-slate-100 dark:bg-slate-800 dark:even:bg-[color-mix(in_srgb,var(--color-slate-900)_30%,var(--color-slate-800))] dark:max-md:even:bg-[color-mix(in_srgb,var(--color-slate-900)_60%,var(--color-slate-800))] dark:hover:bg-[color-mix(in_srgb,var(--color-slate-700)_50%,var(--color-slate-800))]'
                       } ${rowNavigates || bulkMode ? 'cursor-pointer' : ''}`}
                     >
+                      {pinAddress && (
+                        <td className={`${pinnedAddressCell} bg-inherit ${compactRows ? 'py-0.5' : 'py-2'} px-3 align-middle`}>
+                          <span className="line-clamp-2 break-words text-xs font-medium leading-4 text-slate-800 dark:text-slate-100">
+                            {shortAddress(deal.property_address) || transactionDealLabel(deal) || dealId}
+                          </span>
+                        </td>
+                      )}
                       {bulkMode && (
                         <td className={`${pinCheckbox} bg-inherit ${compactRows ? 'py-0.5' : 'py-3'} pl-3 pr-1 w-10 min-w-10 max-w-10 align-middle text-center`}>
                           <span className="inline-flex items-center justify-center">
@@ -3073,7 +3099,7 @@ export default function TransactionsListPage() {
                 {rowDisplayLimit < processedDeals.length && (
                   <tr ref={sentinelRef}>
                     <td
-                      colSpan={schemaFields.length + (canWriteTracker ? 3 : 0) + (bulkMode ? 1 : 0)}
+                      colSpan={schemaFields.length + (canWriteTracker ? 3 : 0) + (bulkMode ? 1 : 0) + (pinAddress ? 1 : 0)}
                       className="text-center py-3 bg-slate-50/60 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700/60"
                     >
                       <div className="flex items-center justify-center gap-3 text-xs text-slate-500 dark:text-slate-400">
