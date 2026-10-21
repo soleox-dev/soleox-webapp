@@ -10,6 +10,7 @@ import { HoverNote } from './HoverNote';
 import { SplitPair } from './SplitPair';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { SectionIcon } from './SectionIcon';
+import { SECTION_BAND_PHONE, SECTION_BODY_PHONE, SECTION_SHELL_PHONE } from './sectionChrome';
 import { CancelEditPrompt } from './CancelEditPrompt';
 import { useEditOnDoublePress } from './useEditOnDoublePress';
 import { useSectionEditKeys } from './useSectionEditKeys';
@@ -530,10 +531,10 @@ export function CommissionWaterfall({
   const bothDeductionsEmpty = offTopEmpty && preSplitEmpty && !isEditing;
 
   return (
-    <section id="commission" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height))] transition-colors">
+    <section id="commission" onKeyDown={editKeys.onKeyDown} className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height))] transition-colors ${SECTION_SHELL_PHONE}`}>
       {/* Top Header */}
       <div
-        className="bg-slate-50 dark:bg-slate-800 px-3 py-4 sm:px-6 border-b border-slate-200 dark:border-slate-700 flex flex-wrap justify-between items-center gap-x-3 gap-y-3"
+        className={`bg-slate-50 dark:bg-slate-800 px-3 py-4 sm:px-6 border-b border-slate-200 dark:border-slate-700 flex flex-wrap justify-between items-center gap-x-3 gap-y-3 ${SECTION_BAND_PHONE}`}
       >
         <div className="flex shrink-0 items-center gap-3">
           <SectionIcon name="commission" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
@@ -602,7 +603,7 @@ export function CommissionWaterfall({
       </div>
 
       {calculating && <CalculatingCommission rows={4} />}
-      <div className="p-4 sm:p-6 space-y-6 sm:space-y-4" hidden={calculating} {...editOnDoublePress}>
+      <div className={`p-4 sm:p-6 space-y-6 sm:space-y-4 ${SECTION_BODY_PHONE}`} hidden={calculating} {...editOnDoublePress}>
         {/* With both empty and not editing, steps 1 and 2 share one row. Editing splits them again for their + buttons. */}
         {bothDeductionsEmpty ? (
           <div className={`border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm px-4 py-2 ${FLAT_ON_PHONE}`}>

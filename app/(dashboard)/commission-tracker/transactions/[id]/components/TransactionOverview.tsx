@@ -18,6 +18,7 @@ import { isHiddenRecordId } from '@/lib/fields';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { HoverNote } from './HoverNote';
 import { SectionIcon } from './SectionIcon';
+import { SECTION_BAND_PHONE, SECTION_BODY_PHONE, SECTION_SHELL_PHONE } from './sectionChrome';
 import { CancelEditPrompt } from './CancelEditPrompt';
 import { useEditOnDoublePress } from './useEditOnDoublePress';
 import { useSectionEditKeys } from './useSectionEditKeys';
@@ -434,9 +435,9 @@ export function TransactionOverview({
     .filter(([, element]) => element !== null);
 
   return (
-    <section id="overview" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height))] transition-colors">
+    <section id="overview" onKeyDown={editKeys.onKeyDown} className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height))] transition-colors ${SECTION_SHELL_PHONE}`}>
       <div
-        className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center"
+        className={`bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center ${SECTION_BAND_PHONE}`}
       >
         <div className="flex items-center gap-3">
           <SectionIcon name="overview" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
@@ -476,7 +477,7 @@ export function TransactionOverview({
         </div>
       </div>
 
-      <div className="p-6" {...editOnDoublePress}>
+      <div className={`p-6 ${SECTION_BODY_PHONE}`} {...editOnDoublePress}>
         {Object.keys(groupedSections).length === 0 ? (
           <div className="p-6 text-center text-xs text-slate-400 italic">
             Loading Overview fields...
