@@ -899,9 +899,14 @@ export default function Dashboard() {
   const isIdleAgentItem = (item: { agentId?: string | null }) => Boolean(item.agentId && idleAgentIds.has(item.agentId));
   const waterfallAgents = isEditingWaterfall ? agents : agents.filter((agent) => !idleAgentIds.has(agent.id));
   // True until the deal, its submitted template, and its caps and allocations have loaded. The
-  // waterfall computed before then is not final, so its amounts are not shown or saved.
+  // waterfall computed before then is not final, so allocation auto-save waits for it.
   const commissionSettling = !isNewTransaction && (!selectedDeal || templateReplaySettling || !allocationSettled);
-  const showCommissionCalculating = commissionSettling && !isEditingWaterfall && !overviewForm.isEditingOverview;
+  // What the screen waits for is less: the replay of the submitted template (which needs the whole
+  // commission ledger) only changes the amounts shown when a team cap moved money on this deal.
+  // Otherwise the stored waterfall shows as soon as the deal and its caps and allocations load, and
+  // the replay only updates the template button.
+  const displaySettling = !isNewTransaction && (!selectedDeal || !allocationSettled || (templateReplaySettling && Boolean(dealResult.capMovedMoney)));
+  const showCommissionCalculating = displaySettling && !isEditingWaterfall && !overviewForm.isEditingOverview;
 
   type AllocationSaveRow = {
     agentId: string;

@@ -14,7 +14,7 @@ import { isConfiguredOrExistingField, type FormulaLedgerRow, type FormulaLookups
 import type { StoredCommissionItem } from '../commissionItemState';
 import type { CommissionEntityOption, FieldSetting, KnownAgentInfo } from '../types';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
-import { cachedSchema, cachedSubmissions, cachedTemplates, rememberSchema, rememberSubmissions, rememberTemplates, type CachedSubmission } from './templateStatusCache';
+import { cachedPaymentDrift, cachedSchema, cachedSubmissions, cachedTemplates, rememberPaymentDrift, rememberSchema, rememberSubmissions, rememberTemplates, type CachedSubmission } from './templateStatusCache';
 import { BooleanField, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
 import { parameterValidationMessage } from '@/lib/parameter-validation';
@@ -846,7 +846,7 @@ export function CommissionTemplatePanel({
   const [fieldTypes, setFieldTypes] = useState<Record<string, string>>(() => (initialSchema ? schemaFieldTypes(initialSchema) : {}));
   const [overviewFields, setOverviewFields] = useState<FieldSetting[]>(() => (initialSchema ? schemaOverviewFields(initialSchema) : []));
   const [schemaReady, setSchemaReady] = useState(Boolean(initialSchema));
-  const [paymentsWouldChange, setPaymentsWouldChange] = useState(false);
+  const [paymentsWouldChange, setPaymentsWouldChange] = useState(() => (transactionId ? cachedPaymentDrift(clientId, transactionId) ?? false : false));
   const [paymentDriftReady, setPaymentDriftReady] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeletingSubmission, setIsDeletingSubmission] = useState(false);
@@ -956,7 +956,8 @@ export function CommissionTemplatePanel({
     let cancelled = false;
     localSubmitRef.current = false;
     setPaymentDriftReady(false);
-    setPaymentsWouldChange(false);
+    // What the Transactions list or an earlier visit last found stays on the button while it is checked again.
+    setPaymentsWouldChange(cachedPaymentDrift(clientId, transactionId) ?? false);
     // Cached submissions keep the status on screen while they refresh.
     if (!cachedSubmissions(clientId, transactionId)) setSubmissionReady(false);
     const clearSubmission = () => {
@@ -1105,6 +1106,7 @@ export function CommissionTemplatePanel({
       if (!cancelled) {
         setPaymentsWouldChange(changed);
         setPaymentDriftReady(true);
+        if (clientId && transactionId) rememberPaymentDrift(clientId, transactionId, changed);
       }
     };
 

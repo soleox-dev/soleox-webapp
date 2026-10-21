@@ -191,6 +191,9 @@ export function computeTransactionWaterfall({
     });
     const level1Rules = repriced.level1;
     const level2Rules = repriced.level2;
+    // Only when a team cap actually moved money does the submitted template's replay change what shows.
+    const capMovedMoney = Boolean(allocation) && Object.values(teamCapCredits(allocation as DealAllocationContext, allocationLines, agents))
+      .some((cap) => Math.abs(cap.total) > 0.009);
 
     const postSplitCalculated: any[] = [];
     const postSplit2Calculated: any[] = [];
@@ -300,6 +303,7 @@ export function computeTransactionWaterfall({
       idleAgentIds,
       displayPostSplitRulesByAgent: level1Rules,
       displayPostSplit2RulesByAgent: level2Rules,
+      capMovedMoney,
     };
 }
 

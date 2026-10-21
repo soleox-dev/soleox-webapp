@@ -548,14 +548,15 @@ export function CommissionWaterfall({
     <section id="commission" onKeyDown={editKeys.onKeyDown} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height))] transition-colors">
       {/* Top Header */}
       <div
-        className="bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center"
+        className="bg-slate-50 dark:bg-slate-800 px-3 py-4 sm:px-6 border-b border-slate-200 dark:border-slate-700 flex flex-wrap justify-between items-center gap-x-3 gap-y-3"
       >
         <div className="flex shrink-0 items-center gap-3">
           <SectionIcon name="commission" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Commission Waterfall</h2>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* On a phone the buttons take their own row under the title. */}
+        <div className="flex flex-wrap items-center justify-end gap-3 max-sm:w-full">
           {canWrite && (
           <CommissionTemplatePanel
             key={transactionId || 'new'}

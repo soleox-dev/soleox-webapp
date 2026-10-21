@@ -161,9 +161,21 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
         if (!session.deals) setIsLoadingDeals(true);
         // Each list is used as soon as it arrives. The whole deals list is the slowest, and the
         // commission numbers need only the agents and entities.
+        // The deal being opened comes first on its own; the whole list, which the deal search uses,
+        // replaces it when it arrives.
+        let fullListLoaded = false;
+        if (!session.deals && /^TXN_[A-Za-z0-9]+$/.test(routeId || '')) {
+          void fetch(`/api/transactions?ids=${encodeURIComponent(routeId)}`).then(async (dealRes) => {
+            if (!dealRes.ok || !dealRes.headers.get('content-type')?.includes('application/json')) return;
+            const dealData = await dealRes.json();
+            const rows = Array.isArray(dealData.transactions) ? dealData.transactions : [];
+            if (!fullListLoaded && rows.length > 0) setSavedDeals((current) => (current.length > 0 ? current : rows));
+          }).catch(() => {});
+        }
         const loadDeals = fetch('/api/transactions').then(async (dealsRes) => {
           if (dealsRes.ok && dealsRes.headers.get('content-type')?.includes('application/json')) {
             const dealsData = await dealsRes.json();
+            fullListLoaded = true;
             setSavedDeals(dealsData.transactions || dealsData.deals || []);
           }
         });

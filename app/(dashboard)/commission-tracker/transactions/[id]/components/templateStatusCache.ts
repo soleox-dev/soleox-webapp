@@ -67,3 +67,17 @@ export function rememberAllSubmissions(clientId: string, submissions: CachedSubm
   submissionsByClient.set(clientId, byTransaction);
   completeSubmissionClients.add(clientId);
 }
+
+/** Whether replaying each submitted template would change its saved payments, as last checked. */
+const paymentDriftByClient = new Map<string, Map<string, boolean>>();
+
+/** Undefined means not checked yet in this session. */
+export function cachedPaymentDrift(clientId: string, transactionId: string): boolean | undefined {
+  return paymentDriftByClient.get(clientId)?.get(transactionId);
+}
+
+export function rememberPaymentDrift(clientId: string, transactionId: string, wouldChange: boolean): void {
+  const byTransaction = paymentDriftByClient.get(clientId) || new Map<string, boolean>();
+  byTransaction.set(transactionId, wouldChange);
+  paymentDriftByClient.set(clientId, byTransaction);
+}

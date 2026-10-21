@@ -38,7 +38,7 @@ import { transactionDealLabel } from '@/lib/transaction-label';
 import { BulkUpdateDialog } from '@/app/(dashboard)/commission-tracker/transactions/components/BulkUpdateDialog';
 import { SyncErrorsDialog, SyncResultDialog, SyncSummaryLine, type SyncRunDetail } from '@/app/(dashboard)/commission-tracker/transactions/components/SyncResultDialog';
 import { lastSyncResultsNote, syncFinishedSummary, undoneSyncNote } from '@/lib/sync-finished-summary';
-import { rememberAllSubmissions, rememberSchema, rememberTemplates } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/templateStatusCache';
+import { rememberAllSubmissions, rememberPaymentDrift, rememberSchema, rememberTemplates } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/templateStatusCache';
 import { rememberTransactions } from '@/app/(dashboard)/commission-tracker/transactions/[id]/hooks/useTransactionData';
 import {
   DEMO_TRANSACTION_SCORECARDS,
@@ -1446,6 +1446,8 @@ export default function TransactionsListPage() {
             }
           }
           if (changed) drifted.add(transactionId);
+          // Transaction Detail shows this on its template button right away, while it checks again.
+          rememberPaymentDrift(clientId, transactionId, changed);
         }
 
         if (!cancelled) {
