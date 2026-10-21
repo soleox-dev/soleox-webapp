@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { ReorderControls } from '@/components/ui/reorder-controls';
+import { DragHandle, moveItem, useDragReorder } from '@/components/ui/reorder-controls';
 import { OptionMenu } from '@/components/ui/option-menu';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { useRegisterSave } from '@/components/save-leave-guard';
@@ -47,12 +47,7 @@ export function KeyTermsCard({
     .filter((field) => field.is_enabled && !keys.includes(field.field_key))
     .map((field) => ({ value: field.field_key, label: field.field_label || field.field_key }));
 
-  const move = (index: number, offset: number) => {
-    const next = [...keys];
-    const [item] = next.splice(index, 1);
-    next.splice(index + offset, 0, item);
-    setDraft(next);
-  };
+  const drag = useDragReorder((from, to) => setDraft(moveItem(keys, from, to)));
 
   const save = async (): Promise<boolean> => {
     if (!dirty) return true;
@@ -123,20 +118,20 @@ export function KeyTermsCard({
         {keys.map((key, index) => {
           const field = byKey.get(key);
           return (
-            <div key={key} className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+            <div
+              key={key}
+              {...drag.rowProps(index)}
+              className={`flex items-center gap-3 rounded-lg border bg-slate-50 px-3 py-2 dark:bg-slate-900/40 ${
+                drag.overIndex === index ? 'border-brand-500' : 'border-slate-200 dark:border-slate-700'
+              } ${drag.dragIndex === index ? 'opacity-40' : ''}`}
+            >
+              <DragHandle {...drag.handleProps(index)} />
               <span className="w-5 shrink-0 text-right text-[11px] font-semibold text-slate-400">{index + 1}</span>
               <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-900 dark:text-white">
                 {field?.field_label || key}
                 {field && !field.is_enabled && <span className="ml-2 font-normal text-amber-600 dark:text-amber-400">Turned off, so it won&apos;t show</span>}
               </span>
               <span className="shrink-0 text-[10px] text-slate-400">{field?.field_type}</span>
-              <ReorderControls
-                size="sm"
-                onMoveUp={() => move(index, -1)}
-                onMoveDown={() => move(index, 1)}
-                isFirst={index === 0}
-                isLast={index === keys.length - 1}
-              />
               <button
                 type="button"
                 onClick={() => setDraft(keys.filter((other) => other !== key))}

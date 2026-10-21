@@ -3,7 +3,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ReorderControls } from '@/components/ui/reorder-controls';
+import { DragHandle, moveItem, useDragReorder } from '@/components/ui/reorder-controls';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { OptionMenu } from '@/components/ui/option-menu';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
@@ -75,7 +75,7 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   BOOLEAN: 'Checkbox',
 };
 /** A quiet chip for facts about a field: its type, options, and limits. */
-const META_CHIP = 'rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-700/60 dark:text-slate-300';
+const META_CHIP = 'whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-700/60 dark:text-slate-300';
 
 interface ExistingCatalogField {
   field_key: string;
@@ -495,59 +495,8 @@ export default function FieldCustomizationsPage() {
     }
   };
 
-  const handleMoveSection = async (sectionName: string, direction: 'UP' | 'DOWN') => {
-    const currentIndex = orderedSectionNames.indexOf(sectionName);
-    const targetIndex = direction === 'UP' ? currentIndex - 1 : currentIndex + 1;
-
-    if (targetIndex < 0 || targetIndex >= orderedSectionNames.length) return;
-
-    const newSectionOrder = [...orderedSectionNames];
-    const [moved] = newSectionOrder.splice(currentIndex, 1);
-    newSectionOrder.splice(targetIndex, 0, moved);
-
-    const list = activeTab === 'transactions' ? txFields : agentFields;
-    const newFields = list.map((field) => {
-      const secIndex = newSectionOrder.indexOf(field.section_name || 'General');
-      return secIndex !== -1 ? { ...field, section_sort_order: secIndex + 1 } : field;
-    });
-
-    if (activeTab === 'transactions') setTxFields(newFields);
-    else setAgentFields(newFields);
-
-    await persistFieldsList(newFields);
-  };
-
-  const handleMoveField = async (sectionName: string, fieldId: string, direction: 'UP' | 'DOWN') => {
-    const list = activeTab === 'transactions' ? txFields : agentFields;
-    const sectionFields = list
-      .filter((f) => (f.section_name || 'General') === sectionName)
-      .sort((a, b) => a.sort_order - b.sort_order);
-
-    const currentIndex = sectionFields.findIndex((f) => f.id === fieldId);
-    const targetIndex = direction === 'UP' ? currentIndex - 1 : currentIndex + 1;
-
-    if (targetIndex < 0 || targetIndex >= sectionFields.length) return;
-
-    const updatedSectionFields = [...sectionFields];
-    const [movedField] = updatedSectionFields.splice(currentIndex, 1);
-    updatedSectionFields.splice(targetIndex, 0, movedField);
-
-    const newFields = list.map((field) => {
-      if ((field.section_name || 'General') === sectionName) {
-        const newIdx = updatedSectionFields.findIndex((sf) => sf.id === field.id);
-        return newIdx !== -1 ? { ...field, sort_order: newIdx + 1 } : field;
-      }
-      return field;
-    });
-
-    if (activeTab === 'transactions') setTxFields(newFields);
-    else setAgentFields(newFields);
-
-    await persistFieldsList(newFields);
-  };
-
   // Drag and drop: a section moves to the place of the section it is dropped on; a field lands before the
-  // field it is dropped on, or at the end of a section, and can change section that way. Saves like the arrows.
+  // field it is dropped on, or at the end of a section, and can change section that way. Saves right away.
   type DragItem = { kind: 'section'; name: string } | { kind: 'field'; id: string; section: string };
   const [dragItem, setDragItem] = useState<DragItem | null>(null);
   // fieldId: a field to drop before, null for the end of the section, undefined for a section drop.
@@ -851,16 +800,9 @@ export default function FieldCustomizationsPage() {
     });
   };
 
-  const handleMoveOption = (index: number, direction: 'UP' | 'DOWN') => {
-    const list = [...(formData.dropdown_options || [])];
-    const targetIndex = direction === 'UP' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= list.length) return;
-
-    const [temp] = list.splice(index, 1);
-    list.splice(targetIndex, 0, temp);
-
-    setFormData({ ...formData, dropdown_options: list });
-  };
+  const optionDrag = useDragReorder((from, to) =>
+    setFormData((current) => ({ ...current, dropdown_options: moveItem(current.dropdown_options || [], from, to) })),
+  );
 
   const handleSortAlphabetically = () => {
     const list = [...(formData.dropdown_options || [])].sort((a, b) =>
@@ -1314,15 +1256,6 @@ export default function FieldCustomizationsPage() {
                     <GripVertical className="h-3.5 w-3.5" strokeWidth={2} />
                   </span>
                   <span className="min-w-0 truncate text-xs font-bold text-brand-700 dark:text-brand-400">{secName}</span>
-                  <ReorderControls
-                    size="sm"
-                    onMoveUp={() => handleMoveSection(secName, 'UP')}
-                    onMoveDown={() => handleMoveSection(secName, 'DOWN')}
-                    isFirst={secIdx === 0}
-                    isLast={secIdx === orderedSectionNames.length - 1}
-                    upTooltip="Move section up"
-                    downTooltip="Move section down"
-                  />
                   <span className="ml-auto shrink-0 text-[11px] font-medium text-slate-500 dark:text-slate-400">
                     {fields.length} {fields.length === 1 ? 'field' : 'fields'}
                   </span>
@@ -1353,7 +1286,7 @@ export default function FieldCustomizationsPage() {
                         } ${f.is_enabled || isAudit ? '' : 'opacity-60'} border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600`}
                       >
                         {dropBefore && <span aria-hidden className="pointer-events-none absolute inset-x-1 -top-1 h-0.5 rounded-full bg-brand-500" />}
-                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                        <div className="flex min-w-0 flex-1 items-center gap-2 max-sm:basis-full">
                           <span
                             draggable
                             onDragStart={(event) => {
@@ -1370,14 +1303,6 @@ export default function FieldCustomizationsPage() {
                           >
                             <GripVertical className="h-4 w-4" strokeWidth={2} />
                           </span>
-                          <ReorderControls
-                            size="sm"
-                            orientation="vertical"
-                            onMoveUp={() => handleMoveField(secName, f.id, 'UP')}
-                            onMoveDown={() => handleMoveField(secName, f.id, 'DOWN')}
-                            isFirst={fieldIdx === 0}
-                            isLast={fieldIdx === fields.length - 1}
-                          />
 
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -1400,8 +1325,9 @@ export default function FieldCustomizationsPage() {
                         </div>
 
                         {/* Inline Controls & Action Buttons */}
-                        <div className="ml-auto flex shrink-0 items-center gap-3">
-                          <div className="flex items-center gap-4 border-r border-slate-200 pr-3 text-[11px] dark:border-slate-700">
+                        {/* On a phone the toggles and actions take their own line under the field's name. */}
+                        <div className="ml-auto flex shrink-0 items-center gap-3 max-sm:w-full max-sm:border-t max-sm:border-slate-100 max-sm:pt-2 max-sm:dark:border-slate-700/60">
+                          <div className="flex items-center gap-4 border-r max-sm:mr-auto max-sm:border-r-0 border-slate-200 pr-3 text-[11px] dark:border-slate-700">
                             <label
                               className={`flex items-center gap-1.5 ${
                                 isAudit ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
@@ -1931,15 +1857,17 @@ export default function FieldCustomizationsPage() {
 
                     <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                       {(formData.dropdown_options || []).map((opt, idx) => {
-                        const isFirst = idx === 0;
-                        const isLast = idx === (formData.dropdown_options?.length || 0) - 1;
 
                         return (
                           <div
                             key={opt}
-                            className="flex justify-between items-center px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 group hover:border-slate-300 dark:hover:border-slate-600 transition"
+                            {...optionDrag.rowProps(idx)}
+                            className={`flex items-center gap-1 pl-1 pr-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border text-xs font-semibold text-slate-800 dark:text-slate-200 group transition ${
+                              optionDrag.overIndex === idx ? 'border-brand-500' : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                            } ${optionDrag.dragIndex === idx ? 'opacity-40' : ''}`}
                           >
-                            <span className="font-medium truncate mr-2" title={opt}>{opt}</span>
+                            <DragHandle {...optionDrag.handleProps(idx)} />
+                            <span className="mr-auto min-w-0 font-medium truncate pr-2" title={opt}>{opt}</span>
 
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button
@@ -1950,13 +1878,6 @@ export default function FieldCustomizationsPage() {
                               >
                                 <EditPencil />
                               </button>
-                              <ReorderControls
-                                size="sm"
-                                onMoveUp={() => handleMoveOption(idx, 'UP')}
-                                onMoveDown={() => handleMoveOption(idx, 'DOWN')}
-                                isFirst={isFirst}
-                                isLast={isLast}
-                              />
                               <button
                                 type="button"
                                 onClick={() => handleRemoveDropdownOption(opt)}

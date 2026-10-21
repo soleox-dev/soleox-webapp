@@ -133,10 +133,6 @@ export function PostSplitOrder({
             >
               <span className="w-5 text-right text-[11px] font-bold tabular-nums text-slate-400">{index + 1}</span>
               <span className="cursor-grab px-0.5 text-slate-400 active:cursor-grabbing" title="Drag to reorder">⠿</span>
-              <div className="flex flex-col -space-y-0.5">
-                <button type="button" disabled={index === 0} onClick={() => move(index, index - 1)} className="cursor-pointer text-[9px] leading-none text-slate-400 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-20 dark:hover:text-slate-200" title="Move Up" aria-label={`Move ${entity.entity_name} up`}>▲</button>
-                <button type="button" disabled={index === ordered.length - 1} onClick={() => move(index, index + 1)} className="cursor-pointer text-[9px] leading-none text-slate-400 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-20 dark:hover:text-slate-200" title="Move Down" aria-label={`Move ${entity.entity_name} down`}>▼</button>
-              </div>
               <span className="min-w-0 truncate text-xs font-semibold text-slate-900 dark:text-white">{entity.entity_name}</span>
               <span className="rounded border border-slate-300 bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">{entity.entity_type || 'BROKERAGE'}</span>
               <button

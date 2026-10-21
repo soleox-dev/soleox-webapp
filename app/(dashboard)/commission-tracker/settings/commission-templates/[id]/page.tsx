@@ -8,7 +8,7 @@ import { FormulaEditor, FormulaExplain, FormulaHint, FormulaPreview, type Formul
 import { LogicStepForm, LOGIC_SECTIONS, canonicalLogicSection, canonicalResultType, logicSectionShowsAgent, logicSectionShowsEntity, logicContextNames, ledgerFormulaNames, resultTypeLabel, ruleKeyFromName, describeKeyConflict, type LogicStepDraft } from './LogicStepForm';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { TrashIcon } from '@/components/ui/trash-icon';
-import { ReorderControls } from '@/components/ui/reorder-controls';
+import { DragHandle, moveItem, useDragReorder } from '@/components/ui/reorder-controls';
 import { normalizeFormula, validateFormula } from '../formula-validator';
 import { interpretValidationRule } from '@/lib/parameter-validation';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
@@ -289,6 +289,9 @@ export default function CommissionTemplateDetailPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [showParameterFields, setShowParameterFields] = useState(false);
   const [parameterForm, setParameterForm] = useState<typeof emptyParameter | null>(null);
+  const optionDrag = useDragReorder((from, to) =>
+    setParameterForm((current) => current && { ...current, dropdown_options: moveItem(current.dropdown_options, from, to) }),
+  );
   const [editingParameterId, setEditingParameterId] = useState<string | null>(null);
   const [recentParameterId, setRecentParameterId] = useState<string | null>(null);
   const [logicForm, setLogicForm] = useState<LogicStepDraft | null>(null);
@@ -616,23 +619,6 @@ export default function CommissionTemplateDetailPage() {
     }
   };
 
-  const moveParameter = async (parameterId: string, direction: 'UP' | 'DOWN') => {
-    if (isReordering) return;
-    const groups = parameterGroups(parameters);
-    const groupIndex = groups.findIndex((group) => group.items.some((item) => item.id === parameterId));
-    if (groupIndex < 0) return;
-    const items = groups[groupIndex].items;
-    const index = items.findIndex((item) => item.id === parameterId);
-    const targetIndex = direction === 'UP' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= items.length) return;
-
-    const reorderedItems = [...items];
-    const [moved] = reorderedItems.splice(index, 1);
-    reorderedItems.splice(targetIndex, 0, moved);
-    const flat = groups.flatMap((group, i) => (i === groupIndex ? reorderedItems : group.items));
-    await commitParameterLayout(flat.map((item, i) => ({ ...item, sort_order: i + 1 })));
-  };
-
   const dropParameter = async (sourceId: string, target: { parameterId: string; placement: 'before' | 'after' } | { sectionName: string }) => {
     if (isReordering || ('parameterId' in target && target.parameterId === sourceId)) return;
     const groups = parameterGroups(parameters).map((group) => ({ ...group, items: [...group.items] }));
@@ -717,22 +703,6 @@ export default function CommissionTemplateDetailPage() {
     } finally {
       setIsReordering(false);
     }
-  };
-
-  const moveLogic = async (stepId: string, direction: 'UP' | 'DOWN') => {
-    if (isReordering) return;
-    const groups = logicGroups(logicSteps);
-    const group = groups.find((item) => item.items.some((step) => step.id === stepId));
-    if (!group) return;
-    const index = group.items.findIndex((step) => step.id === stepId);
-    const targetIndex = direction === 'UP' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= group.items.length) return;
-    const reordered = [...group.items];
-    const [moved] = reordered.splice(index, 1);
-    reordered.splice(targetIndex, 0, moved);
-    const slots = group.items.map((step) => step.step_number).sort((a, b) => a - b);
-    const updated = new Map(reordered.map((step, itemIndex) => [step.id, { ...step, step_number: slots[itemIndex] }]));
-    await commitLogicOrder(logicSteps.map((step) => updated.get(step.id) ?? step));
   };
 
   const dropLogic = async (sourceId: string, target: { stepId: string; placement: 'before' | 'after' } | { sectionName: string }) => {
@@ -1543,13 +1513,6 @@ export default function CommissionTemplateDetailPage() {
                             >
                               ⠿
                             </span>
-                            <ReorderControls
-                              size="sm"
-                              onMoveUp={() => void moveParameter(parameter.id, 'UP')}
-                              onMoveDown={() => void moveParameter(parameter.id, 'DOWN')}
-                              isFirst={itemIndex === 0 || isReordering || Boolean(parameterSearch.trim())}
-                              isLast={itemIndex === group.items.length - 1 || isReordering || Boolean(parameterSearch.trim())}
-                            />
                             <button type="button" onClick={() => openEditParameter(parameter)} className={`${rowActionClass} text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700`} title="Edit" aria-label="Edit">
                               <EditPencil className="h-[18px] w-[18px]" />
                             </button>
@@ -1824,13 +1787,6 @@ export default function CommissionTemplateDetailPage() {
                             >
                               ⠿
                             </span>
-                            <ReorderControls
-                              size="sm"
-                              onMoveUp={() => void moveLogic(step.id, 'UP')}
-                              onMoveDown={() => void moveLogic(step.id, 'DOWN')}
-                              isFirst={itemIndex === 0 || isReordering || Boolean(logicSearch.trim())}
-                              isLast={itemIndex === group.items.length - 1 || isReordering || Boolean(logicSearch.trim())}
-                            />
                             <button type="button" onClick={() => openEditLogic(step)} className={`${rowActionClass} text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700`} title="Edit" aria-label="Edit">
                               <EditPencil className="h-[18px] w-[18px]" />
                             </button>
@@ -2007,7 +1963,14 @@ export default function CommissionTemplateDetailPage() {
                 </div>
                 <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                   {parameterForm.dropdown_options.map((option, index) => (
-                    <div key={`${option}-${index}`} className="flex justify-between items-center px-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600 transition">
+                    <div
+                      key={`${option}-${index}`}
+                      {...optionDrag.rowProps(index)}
+                      className={`flex items-center gap-1 pl-1 pr-3 py-1.5 bg-white dark:bg-slate-800 rounded-lg border text-xs font-semibold text-slate-800 dark:text-slate-200 transition ${
+                        optionDrag.overIndex === index ? 'border-brand-500' : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                      } ${optionDrag.dragIndex === index ? 'opacity-40' : ''}`}
+                    >
+                      <DragHandle {...optionDrag.handleProps(index)} />
                       {renamingOption === option ? (
                         <input
                           autoFocus
@@ -2030,7 +1993,7 @@ export default function CommissionTemplateDetailPage() {
                           className="flex-1 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded px-2 py-1 text-xs"
                         />
                       ) : (
-                        <span className="font-medium truncate mr-2" title={option}>{option}</span>
+                        <span className="mr-auto min-w-0 font-medium truncate pr-2" title={option}>{option}</span>
                       )}
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button
@@ -2044,25 +2007,6 @@ export default function CommissionTemplateDetailPage() {
                         >
                           <EditPencil />
                         </button>
-                        <ReorderControls
-                          size="sm"
-                          onMoveUp={() => {
-                            if (index === 0) return;
-                            const next = [...parameterForm.dropdown_options];
-                            const [item] = next.splice(index, 1);
-                            next.splice(index - 1, 0, item);
-                            setParameterForm({ ...parameterForm, dropdown_options: next });
-                          }}
-                          onMoveDown={() => {
-                            if (index === parameterForm.dropdown_options.length - 1) return;
-                            const next = [...parameterForm.dropdown_options];
-                            const [item] = next.splice(index, 1);
-                            next.splice(index + 1, 0, item);
-                            setParameterForm({ ...parameterForm, dropdown_options: next });
-                          }}
-                          isFirst={index === 0}
-                          isLast={index === parameterForm.dropdown_options.length - 1}
-                        />
                         <button
                           type="button"
                           onClick={() => setParameterForm({

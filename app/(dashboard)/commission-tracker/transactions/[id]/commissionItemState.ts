@@ -195,11 +195,20 @@ export function waterfallFromCommissionItems(
   const rows = Array.isArray(items) ? items : [];
   const agentRows = rows.filter(isAgentAllocation).sort(byStep);
   const agents: AgentConfig[] = [];
+  // Agents not in the directory yet (it loads after the stored waterfall) take a name from their split rule,
+  // often just "Agent". Names key the post-split rules and the cards, so two such agents get "Agent", "Agent 2".
+  const addAgent = (config: AgentConfig): AgentConfig => {
+    let name = config.name;
+    for (let n = 2; agents.some((agent) => agent.name === name); n += 1) name = `${config.name} ${n}`;
+    const added = name === config.name ? config : { ...config, name };
+    agents.push(added);
+    return added;
+  };
   agentRows.forEach((item) => {
     const allocation = allocationOf(item);
     const config = agentConfig(item, knownAgents, allocation.splitType, allocation.splitVal);
     if (agents.some((agent) => agent.id === config.id)) return;
-    agents.push(config);
+    addAgent(config);
   });
 
   const groupPostSplits = (section: string): Record<string, DynamicRule[]> => {
@@ -210,8 +219,7 @@ export function waterfallFromCommissionItems(
       .forEach((item) => {
         let onDeal = item.agent_id ? agents.find((agent) => agent.id === item.agent_id) : undefined;
         if (!onDeal && item.agent_id) {
-          onDeal = agentConfig(item, knownAgents, 'PERCENT', 0);
-          agents.push(onDeal);
+          onDeal = addAgent(agentConfig(item, knownAgents, 'PERCENT', 0));
         }
         const name = onDeal?.name || nameFromSplitRule(item.rule_name) || 'Agent';
         grouped[name] = [...(grouped[name] || []), toRule(item, knownEntities)];

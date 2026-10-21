@@ -486,26 +486,6 @@ export function CommissionWaterfall({
         >
           ⠿
         </span>
-        <div className="flex flex-col -space-y-0.5">
-          <button
-            type="button"
-            disabled={index === 0}
-            onClick={() => onMove(index, index - 1)}
-            className="p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-20 disabled:hover:text-slate-400 cursor-pointer disabled:cursor-not-allowed transition text-[9px] leading-none"
-            title="Move up"
-          >
-            ▲
-          </button>
-          <button
-            type="button"
-            disabled={index === total - 1}
-            onClick={() => onMove(index, index + 1)}
-            className="p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-20 disabled:hover:text-slate-400 cursor-pointer disabled:cursor-not-allowed transition text-[9px] leading-none"
-            title="Move down"
-          >
-            ▼
-          </button>
-        </div>
       </div>
     );
   };
