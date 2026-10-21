@@ -1231,7 +1231,7 @@ export function CommissionWaterfall({
                         </span>
                       )}
                       <span className="ml-auto whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
-                        (Agent Split: <strong className={agentGrossSplit < -0.004 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-200'}>{formatCurrency(agentGrossSplit)}</strong>)
+                        Agent Split: <strong className={agentGrossSplit < -0.004 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-200'}>{formatCurrency(agentGrossSplit)}</strong>
                       </span>
                     </div>
                   </div>
