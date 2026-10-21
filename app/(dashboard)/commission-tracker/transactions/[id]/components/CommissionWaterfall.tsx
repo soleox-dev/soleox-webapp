@@ -1043,10 +1043,12 @@ export function CommissionWaterfall({
                       key={agent.id}
                       className={`bg-slate-50 dark:bg-slate-900 border border-emerald-500/40 rounded-xl p-3.5 space-y-2.5 relative ${AGENT_ROW_ON_PHONE}`}
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
+                      {/* Read-only, the split sits on the name's row even on a phone; the edit inputs need their own row there. */}
+                      <div className={`flex justify-between gap-2 ${isEditing ? 'flex-col sm:flex-row sm:items-center' : 'flex-row items-center'}`}>
+                        <div className="flex min-w-0 items-center gap-2">
                           <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                            👤 {agent.name}
+                            <span aria-hidden>👤</span>
+                            <span>{agent.name}</span>
                           </span>
                           <span className="text-[11px] bg-brand-500/20 text-brand-800 dark:text-brand-300 border border-brand-500/30 px-2 py-0.5 rounded-full font-bold">
                             Primary
@@ -1099,8 +1101,8 @@ export function CommissionWaterfall({
                     {...getDragRowProps(index, 'agentSplit', onReorderAgents)}
                     className={`bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 space-y-2.5 relative ${AGENT_ROW_ON_PHONE}`}
                   >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                    <div className={`flex justify-between gap-2 ${isEditing ? 'flex-col sm:flex-row sm:items-center' : 'flex-row items-center'}`}>
+                      <div className="flex min-w-0 items-center gap-2 flex-wrap sm:flex-nowrap">
                         {renderReorderControls(index, agents.length, onReorderAgents, 'agentSplit')}
                         {isEditing && (
                           <button
