@@ -212,10 +212,10 @@ function ColumnFilterMenu({ anchor, label, picked, loadOptions, onChange, onClos
   }, [anchor]);
 
   useEffect(() => {
-    const onPointer = (event: MouseEvent) => {
+    const onPointer = (event: PointerEvent) => {
       const target = event.target as Node;
       if (menuRef.current?.contains(target) || anchor.current?.contains(target)) return;
-      swallowNextClick();
+      swallowNextClick(event);
       onClose();
     };
     const onKey = (event: KeyboardEvent) => {
@@ -231,11 +231,11 @@ function ColumnFilterMenu({ anchor, label, picked, loadOptions, onChange, onClos
       if (menuRef.current?.contains(document.activeElement)) return;
       onClose();
     };
-    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('pointerdown', onPointer, true);
     document.addEventListener('keydown', onKey);
     window.addEventListener('scroll', onScroll, true);
     return () => {
-      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('pointerdown', onPointer, true);
       document.removeEventListener('keydown', onKey);
       window.removeEventListener('scroll', onScroll, true);
     };

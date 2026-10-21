@@ -1679,19 +1679,19 @@ export default function TransactionsListPage() {
 
   useEffect(() => {
     if (!boltMenuOpen) return;
-    const close = (event: MouseEvent) => {
+    const close = (event: PointerEvent) => {
       const target = event.target as Node;
       if (boltMenuButtonRef.current?.contains(target) || boltMenuPanelRef.current?.contains(target)) return;
-      swallowNextClick();
+      swallowNextClick(event);
       setBoltMenuOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setBoltMenuOpen(false);
     };
-    document.addEventListener('mousedown', close);
+    document.addEventListener('pointerdown', close, true);
     document.addEventListener('keydown', closeOnEscape);
     return () => {
-      document.removeEventListener('mousedown', close);
+      document.removeEventListener('pointerdown', close, true);
       document.removeEventListener('keydown', closeOnEscape);
     };
   }, [boltMenuOpen]);
@@ -1716,19 +1716,19 @@ export default function TransactionsListPage() {
 
   useEffect(() => {
     if (!tmsMenuOpen) return;
-    const close = (event: MouseEvent) => {
+    const close = (event: PointerEvent) => {
       const target = event.target as Node;
       if (tmsMenuButtonRef.current?.contains(target) || tmsMenuPanelRef.current?.contains(target)) return;
-      swallowNextClick();
+      swallowNextClick(event);
       setTmsMenuOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setTmsMenuOpen(false);
     };
-    document.addEventListener('mousedown', close);
+    document.addEventListener('pointerdown', close, true);
     document.addEventListener('keydown', closeOnEscape);
     return () => {
-      document.removeEventListener('mousedown', close);
+      document.removeEventListener('pointerdown', close, true);
       document.removeEventListener('keydown', closeOnEscape);
     };
   }, [tmsMenuOpen]);
@@ -1753,19 +1753,19 @@ export default function TransactionsListPage() {
 
   useEffect(() => {
     if (!statusMenuOpen) return;
-    const close = (event: MouseEvent) => {
+    const close = (event: PointerEvent) => {
       const target = event.target as Node;
       if (statusMenuButtonRef.current?.contains(target) || statusMenuPanelRef.current?.contains(target)) return;
-      swallowNextClick();
+      swallowNextClick(event);
       setStatusMenuOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setStatusMenuOpen(false);
     };
-    document.addEventListener('mousedown', close);
+    document.addEventListener('pointerdown', close, true);
     document.addEventListener('keydown', closeOnEscape);
     return () => {
-      document.removeEventListener('mousedown', close);
+      document.removeEventListener('pointerdown', close, true);
       document.removeEventListener('keydown', closeOnEscape);
     };
   }, [statusMenuOpen]);
@@ -2684,7 +2684,7 @@ export default function TransactionsListPage() {
                 )}
                 {bulkMode && (
                   <th className={`${pinCheckbox} ${compactRows ? 'py-1.5' : 'py-3'} pl-3 pr-1 w-10 min-w-10 max-w-10 align-middle bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-center`}>
-                    <span className="inline-flex items-center justify-center">
+                    <span className="flex items-center justify-center">
                       <input
                         ref={selectAllRef}
                         type="checkbox"
@@ -2945,7 +2945,7 @@ export default function TransactionsListPage() {
                       )}
                       {bulkMode && (
                         <td className={`${pinCheckbox} bg-inherit ${compactRows ? 'py-0.5' : 'py-3'} pl-3 pr-1 w-10 min-w-10 max-w-10 align-middle text-center`}>
-                          <span className="inline-flex items-center justify-center">
+                          <span className="flex items-center justify-center">
                             <input
                               type="checkbox"
                               checked={rowSelected}

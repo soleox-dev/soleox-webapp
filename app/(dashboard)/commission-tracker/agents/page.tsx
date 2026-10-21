@@ -1173,7 +1173,7 @@ export default function AgentsPage() {
               <tr className="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 font-semibold">
                 {bulkMode && (
                   <th className={`${pinCheckHead} ${compactRows ? 'px-1 py-1.5' : 'px-1 py-3'} align-middle border-b border-slate-200 dark:border-slate-700 text-center`}>
-                    <span className="inline-flex items-center justify-center">
+                    <span className="flex items-center justify-center">
                       <input
                         ref={selectAllRef}
                         type="checkbox"
@@ -1258,7 +1258,7 @@ export default function AgentsPage() {
                   >
                     {bulkMode && (
                       <td className={`${pinCheckCell} ${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} text-center align-middle`}>
-                        <span className="inline-flex items-center justify-center">
+                        <span className="flex items-center justify-center">
                           <input
                             type="checkbox"
                             checked={selectedIds.has(String(ag.id || ''))}
