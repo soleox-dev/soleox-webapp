@@ -951,13 +951,15 @@ export default function AgentsPage() {
   const badgeSize = compactRows ? 'inline-flex h-4 items-center px-1.5 leading-none' : 'inline-block px-2.5 py-0.5';
   const pinEdge = 'shadow-[8px_0_12px_-12px_rgba(15,23,42,0.55)]';
   const pinLeft = bulkMode ? 'left-8' : 'left-0';
-  const pinHead = `sticky ${pinLeft} z-30 ${pinEdge}`;
+  // On a phone the pinned name column is narrow (long names wrap to two lines), like the address on Transactions.
+  const pinNarrow = 'max-md:w-[7.5rem] max-md:min-w-[7.5rem] max-md:max-w-[7.5rem] max-md:whitespace-normal max-md:break-words';
+  const pinHead = `sticky ${pinLeft} z-30 ${pinEdge} ${pinNarrow}`;
   // Frozen cells are opaque, so they repeat the row band and hover in solid colors, mixed from the
   // theme so they follow the palette: slate-900 at 30% over slate-800, and slate-700 at 50% over slate-800.
-  const pinCell = `sticky ${pinLeft} z-10 bg-white group-even:bg-slate-50 group-hover:bg-slate-100 dark:bg-slate-800 dark:group-even:bg-[color-mix(in_srgb,var(--color-slate-900)_30%,var(--color-slate-800))] dark:group-hover:bg-[color-mix(in_srgb,var(--color-slate-700)_50%,var(--color-slate-800))] ${pinEdge}`;
+  const pinCell = `sticky ${pinLeft} z-10 bg-white group-even:bg-slate-50 group-hover:bg-slate-100 dark:bg-slate-800 dark:group-even:bg-[color-mix(in_srgb,var(--color-slate-900)_30%,var(--color-slate-800))] dark:group-hover:bg-[color-mix(in_srgb,var(--color-slate-700)_50%,var(--color-slate-800))] max-md:group-even:bg-slate-100 dark:max-md:group-even:bg-[color-mix(in_srgb,var(--color-slate-900)_60%,var(--color-slate-800))] ${pinEdge} ${pinNarrow}`;
   const pinCheckHead = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-slate-100 dark:bg-slate-900';
   const pinCheckSection = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-slate-200 dark:bg-slate-700';
-  const pinCheckCell = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-white group-even:bg-slate-50 group-hover:bg-slate-100 dark:bg-slate-800 dark:group-even:bg-[color-mix(in_srgb,var(--color-slate-900)_30%,var(--color-slate-800))] dark:group-hover:bg-[color-mix(in_srgb,var(--color-slate-700)_50%,var(--color-slate-800))]';
+  const pinCheckCell = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-white group-even:bg-slate-50 group-hover:bg-slate-100 dark:bg-slate-800 dark:group-even:bg-[color-mix(in_srgb,var(--color-slate-900)_30%,var(--color-slate-800))] dark:group-hover:bg-[color-mix(in_srgb,var(--color-slate-700)_50%,var(--color-slate-800))] max-md:group-even:bg-slate-100 dark:max-md:group-even:bg-[color-mix(in_srgb,var(--color-slate-900)_60%,var(--color-slate-800))]';
 
   return (
     <main className={`${widePageFrame} min-h-screen bg-slate-100 py-6 text-slate-900 transition-colors duration-200 space-y-6 dark:bg-slate-900 dark:text-slate-100 md:py-8`}>
@@ -1252,7 +1254,7 @@ export default function AgentsPage() {
                       if (target?.closest('a, button, input, select, textarea, label')) return;
                       if (bulkMode) toggleRowSelection(String(ag.id || ''));
                     }}
-                    className={`group even:bg-slate-50 dark:even:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition ${bulkMode ? 'cursor-pointer' : ''}`}
+                    className={`group even:bg-slate-50 dark:even:bg-slate-900/30 max-md:even:bg-slate-100 dark:max-md:even:bg-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition ${bulkMode ? 'cursor-pointer' : ''}`}
                   >
                     {bulkMode && (
                       <td className={`${pinCheckCell} ${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} text-center align-middle`}>

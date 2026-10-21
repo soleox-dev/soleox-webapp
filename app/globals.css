@@ -788,3 +788,45 @@ html.modal-open body {
     overscroll-behavior-y: none;
   }
 }
+/* Phones: a table marked `pin-col-N` keeps its Nth column (the one that names the row: agent, lead source,
+   address, month) pinned on the left while it scrolls sideways, narrow, with long names wrapping to two lines.
+   Rows get an opaque background so the pinned cell covers what scrolls under it; a row's own background wins.
+   Row stripes are a step stronger, so a row is easy to follow across the screen. */
+@media (max-width: 767px) {
+  :is(.pin-col-1 tr > :nth-child(1), .pin-col-2 tr > :nth-child(2), .pin-col-5 tr > :nth-child(5)):not([colspan]) {
+    position: sticky;
+    left: 0;
+    width: 7.5rem;
+    min-width: 7.5rem;
+    max-width: 7.5rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    box-shadow: inset -1px 0 0 var(--color-slate-200);
+  }
+  :is(.pin-col-1 tbody tr > td:nth-child(1), .pin-col-2 tbody tr > td:nth-child(2), .pin-col-5 tbody tr > td:nth-child(5)):not([colspan]) {
+    z-index: 2;
+  }
+  :is(.pin-col-1 thead tr > th:nth-child(1), .pin-col-2 thead tr > th:nth-child(2), .pin-col-5 thead tr > th:nth-child(5)):not([colspan]) {
+    z-index: 5;
+  }
+  /* A pinned cell takes its row's background unless it has its own (zero specificity, so cell classes win). */
+  :where(.pin-col-1 tr > :nth-child(1), .pin-col-2 tr > :nth-child(2), .pin-col-5 tr > :nth-child(5)),
+  :where(.pin-col-1, .pin-col-2, .pin-col-5) thead > tr {
+    background-color: inherit;
+  }
+  :where(.pin-col-1, .pin-col-2, .pin-col-5) tbody > tr {
+    background-color: var(--color-white);
+  }
+  :where(.pin-col-1, .pin-col-2, .pin-col-5) tbody > tr:nth-child(even) {
+    background-color: var(--color-slate-100);
+  }
+  .dark :is(.pin-col-1 tr > :nth-child(1), .pin-col-2 tr > :nth-child(2), .pin-col-5 tr > :nth-child(5)):not([colspan]) {
+    box-shadow: inset -1px 0 0 var(--color-slate-700);
+  }
+  .dark :where(.pin-col-1, .pin-col-2, .pin-col-5) tbody > tr {
+    background-color: var(--color-slate-900);
+  }
+  .dark :where(.pin-col-1, .pin-col-2, .pin-col-5) tbody > tr:nth-child(even) {
+    background-color: color-mix(in srgb, var(--color-slate-800) 70%, var(--color-slate-900));
+  }
+}

@@ -556,7 +556,7 @@ export default function TransactionIntegrationsPage() {
 
           {mappings.length > 0 && (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left text-sm">
+              <table className="pin-col-1 w-full min-w-[720px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-xs text-slate-400 dark:border-slate-700">
                     <th className="py-2 pr-3 font-semibold">Sheet Column</th>

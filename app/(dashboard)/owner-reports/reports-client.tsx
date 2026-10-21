@@ -4093,7 +4093,7 @@ function MonthlyTable({ title, rows, mode }: { title: string; rows: MonthRow[]; 
   const ordered = sortBy(rows, sort, (row, key) => (key === 'label' ? row.key : row[key as keyof MonthRow]) as string | number);
   return (
     <div className={reportTableWrap}>
-      <table className="w-full text-sm">
+      <table className="pin-col-1 w-full text-sm">
         <thead className="report-head text-sm text-slate-500">
           <tr>
             <SortHead column="label" label={title} sort={sort} onSort={toggle} className="px-3 py-2" />
@@ -4149,7 +4149,7 @@ function AgentTable({ rows, caption, paid = false }: { rows: AgentRow[]; caption
   return (
     <div className={reportTableWrap}>
       <p className="px-4 pt-3 text-xs text-slate-500">{caption}</p>
-      <table className="w-full text-sm">
+      <table className="pin-col-1 w-full text-sm">
         <thead className="report-head text-sm text-slate-500">
           <tr>
             <SortHead column="name" label="Agent" sort={sort} onSort={toggle} className="px-4 py-2" />
@@ -4443,7 +4443,7 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
         <BoardScore tone={tone} label="Pending" amount={formatValue(pendingValue)} compactAmount={formatValue(pendingValue, true)} toneClass={pendingTone} selected={statusFilter === 'pending'} onSelect={() => onSelectStatus('pending')} />
       </div>
       <div className="report-table rounded-xl">
-      <table className="w-full text-sm">
+      <table className="pin-col-2 w-full text-sm">
         <thead className={`${tone === 'volume' ? 'leader-head-volume' : 'leader-head-units'} text-sm font-medium normal-case [&_th]:text-sm [&_th]:font-medium`}>
           <tr className="text-left">
             <SortHead column="rank" label="#" sort={sort} onSort={toggle} align="right" className="w-10 px-3 py-2" />
@@ -4542,7 +4542,7 @@ function SourceTable({ rows }: { rows: Array<Totals & { source: string }> }) {
   const ordered = sortBy(rows, sort, (row, key) => (key === 'share' ? row.gci : row[key as keyof typeof row]) as string | number);
   return (
     <div className={reportTableWrap}>
-      <table className="w-full text-sm">
+      <table className="pin-col-1 w-full text-sm">
         <thead className="report-head text-sm text-slate-500">
           <tr>
             <SortHead column="source" label="Lead Source" sort={sort} onSort={toggle} className="px-4 py-2" />
@@ -5098,7 +5098,7 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
             if (pivotFootScrollRef.current) pivotFootScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
           }}
         >
-          <table ref={pivotBodyRef} className="w-full text-xs">
+          <table ref={pivotBodyRef} className="pin-col-2 w-full text-xs">
             <thead className={earningHead}>
               <tr>
                 <SortHead column="rank" label="#" sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
@@ -5324,7 +5324,7 @@ function EarningTransactions({ lines, names, wrapRef }: { lines: Array<{ key: st
           if (footScrollRef.current) footScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
         }}
       >
-        <table ref={bodyRef} className="w-full text-xs">
+        <table ref={bodyRef} className="pin-col-2 w-full text-xs">
           <thead className={earningHead}>
             <tr>
               <SortHead column="rank" label="#" sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
@@ -5387,7 +5387,7 @@ function DealTable({ deals, names }: { deals: ReportDeal[]; names: Map<string, s
   });
   return (
     <div className={reportTableWrap}>
-      <table className="w-full text-sm">
+      <table className="pin-col-1 w-full text-sm">
         <thead className="report-head text-sm text-slate-500">
           <tr>
             <SortHead column="address" label="Address" sort={sort} onSort={toggle} className="px-3 py-2" />
@@ -5436,7 +5436,7 @@ function PriceChange({ deals, names }: { deals: ReportDeal[]; names: Map<string,
         <Stat label="Avg. Change" value={money(rows.length ? (sale - list) / rows.length : 0)} hint={percent(sale - list, list)} />
       </div>
       <div className={reportTableWrap}>
-        <table className="w-full text-sm">
+        <table className="pin-col-1 w-full text-sm">
           <thead className="report-head text-sm text-slate-500">
             <tr>
               <SortHead column="address" label="Address" sort={sort} onSort={toggle} className="px-3 py-2" />
@@ -5908,7 +5908,7 @@ function MonthTable({
           if (footScrollRef.current) footScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
         } : undefined}
       >
-      <table ref={bodyRef} className="w-full text-xs">
+      <table ref={bodyRef} className="pin-col-1 w-full text-xs">
         <thead className="report-head-dark text-xs font-medium normal-case">
           <tr>
             <SortHead column="month" label={periodLabel} sort={sort} onSort={toggle} className="sticky left-0 z-10 px-2 py-2 text-xs font-medium" />
@@ -6166,7 +6166,7 @@ function ProductionDrilldownTable({
           if (footScrollRef.current) footScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
         }}
       >
-        <table ref={bodyRef} className="w-full text-xs">
+        <table ref={bodyRef} className="pin-col-5 w-full text-xs">
           <thead className="report-head-dark text-xs font-medium normal-case">
             <tr>
               <SortHead column="rank" label="#" sort={sort} onSort={toggle} align="right" className="px-2 py-2 text-xs font-medium" />

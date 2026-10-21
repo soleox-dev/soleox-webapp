@@ -225,7 +225,7 @@ function CapSection({ cap, rows, openAgentId, onOpen, showPaid }: {
     <section className="flex min-h-0 flex-1 flex-col">
       {open ? (
         <div className="report-table report-table-fit min-h-0 flex-1 rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-          <table className="w-full min-w-[960px] text-xs">
+          <table className="pin-col-5 w-full min-w-[960px] text-xs">
             <thead className="report-head-dark text-xs font-medium normal-case">
               <tr>
                 <SortHead column="rank" label="#" sort={detailSort.sort} onSort={detailSort.toggle} align="right" />
@@ -284,7 +284,7 @@ function CapSection({ cap, rows, openAgentId, onOpen, showPaid }: {
               if (standingsFootScrollRef.current) standingsFootScrollRef.current.scrollLeft = event.currentTarget.scrollLeft;
             }}
           >
-            <table ref={standingsBodyRef} className="w-full min-w-[880px] text-xs">
+            <table ref={standingsBodyRef} className="pin-col-2 w-full min-w-[880px] text-xs">
               <thead className="report-head-dark text-xs font-medium normal-case">
                 <tr>
                   <SortHead column="rank" label="#" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" />
