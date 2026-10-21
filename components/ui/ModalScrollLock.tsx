@@ -7,6 +7,17 @@ function isAppLayer(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest('[data-app-layer]'));
 }
 
+/**
+ * The popup in front: the one stacked highest (z-index), and the last in the page among equals. A confirmation
+ * rendered earlier in a page can sit over a dialog rendered after it, so page order alone picks the wrong one.
+ */
+function frontModal(): HTMLElement | null {
+  const modals = [...document.querySelectorAll<HTMLElement>('.app-modal')];
+  if (modals.length === 0) return null;
+  const stackOrder = (modal: HTMLElement) => Number.parseInt(getComputedStyle(modal).zIndex, 10) || 0;
+  return modals.reduce((top, modal) => (stackOrder(modal) >= stackOrder(top) ? modal : top));
+}
+
 /** Freezes the page behind any `.app-modal` overlay: no scroll, click, or typing. */
 export function ModalScrollLock() {
   useEffect(() => {
@@ -35,11 +46,10 @@ export function ModalScrollLock() {
     };
 
     const apply = () => {
-      const modals = [...document.querySelectorAll<HTMLElement>('.app-modal')];
+      const active = frontModal();
       release();
-      if (modals.length === 0) return;
+      if (!active) return;
 
-      const active = modals[modals.length - 1];
       lockedScrollY = window.scrollY;
       document.documentElement.classList.add('modal-open');
       document.body.style.position = 'fixed';
@@ -84,8 +94,7 @@ export function ModalScrollLock() {
     };
 
     const blockBackgroundScroll = (event: Event) => {
-      const modals = document.querySelectorAll<HTMLElement>('.app-modal');
-      const active = modals[modals.length - 1];
+      const active = frontModal();
       if (!active) return;
       const target = event.target;
       if (isAppLayer(target)) return;
@@ -96,8 +105,7 @@ export function ModalScrollLock() {
     const blockBackgroundKeys = (event: KeyboardEvent) => {
       const keys = [' ', 'PageUp', 'PageDown', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
       if (!keys.includes(event.key)) return;
-      const modals = document.querySelectorAll<HTMLElement>('.app-modal');
-      const active = modals[modals.length - 1];
+      const active = frontModal();
       if (!active) return;
       const target = event.target;
       if (isAppLayer(target)) return;
