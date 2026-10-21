@@ -170,7 +170,7 @@ function ColumnFilterMenu({ anchor, label, picked, loadOptions, onChange, onClos
   const menuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
-  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+  const [position, setPosition] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
   // Read once per opening: the list stays put while values are ticked.
   const [options] = useState(loadOptions);
   const pickedSet = useMemo(() => new Set(picked), [picked]);
@@ -191,7 +191,16 @@ function ColumnFilterMenu({ anchor, label, picked, loadOptions, onChange, onClos
       const width = menu.offsetWidth;
       const gutter = 8;
       const left = Math.min(Math.max(gutter, rect.left), window.innerWidth - width - gutter);
-      setPosition({ top: rect.bottom + 4, left });
+      // Below the header when it fits; on a short screen it opens upward if there is more room there.
+      const below = window.innerHeight - rect.bottom - 4 - gutter;
+      const above = rect.top - 4 - gutter;
+      const wanted = Math.min(448, menu.scrollHeight);
+      if (below >= wanted || below >= above) {
+        setPosition({ top: rect.bottom + 4, left, maxHeight: Math.max(160, Math.min(448, below)) });
+      } else {
+        const maxHeight = Math.max(160, Math.min(448, above));
+        setPosition({ top: rect.top - 4 - Math.min(wanted, maxHeight), left, maxHeight });
+      }
     };
     place();
     searchRef.current?.focus();
@@ -240,8 +249,8 @@ function ColumnFilterMenu({ anchor, label, picked, loadOptions, onChange, onClos
       ref={menuRef}
       role="dialog"
       aria-label={`Filter ${label}`}
-      style={{ top: position?.top ?? -9999, left: position?.left ?? -9999 }}
-      className="fixed z-[90] flex max-h-[min(28rem,calc(100dvh-6rem))] w-72 flex-col rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      style={{ top: position?.top ?? -9999, left: position?.left ?? -9999, maxHeight: position?.maxHeight ?? 448 }}
+      className="fixed z-[90] flex w-72 flex-col rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
     >
       <div className="space-y-1 px-1 pb-1 pt-1">
         <div className="flex items-center justify-between gap-2">

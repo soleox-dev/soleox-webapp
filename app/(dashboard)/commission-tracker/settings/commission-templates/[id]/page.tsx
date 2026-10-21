@@ -1255,8 +1255,8 @@ export default function CommissionTemplateDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-xs">
-        <div className="grid min-h-[4.75rem] grid-cols-[minmax(0,1fr)_auto] grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-3">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-5 shadow-xs">
+        <div className="grid min-h-[4.75rem] grid-cols-[minmax(0,1fr)_auto] grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-3 max-sm:min-h-0 max-sm:grid-cols-1 max-sm:grid-rows-none max-sm:gap-y-1">
           <Link href="/commission-tracker/settings/commission-templates" className="col-start-1 row-start-1 self-start text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline">
             ← All templates
           </Link>
@@ -1271,7 +1271,7 @@ export default function CommissionTemplateDetailPage() {
             <p className="col-start-1 row-start-3 self-end text-[11px] leading-4 text-slate-500 dark:text-slate-400">{template.description}</p>
           )}
           {template && (
-            <div className="col-start-2 row-start-1 row-span-3 self-center flex items-center gap-1">
+            <div className="col-start-2 row-start-1 row-span-3 self-center flex items-center gap-1 max-sm:col-start-1 max-sm:row-span-1 max-sm:row-start-4 max-sm:mt-2">
               <button
                 type="button"
                 onClick={toggleCompactRows}
