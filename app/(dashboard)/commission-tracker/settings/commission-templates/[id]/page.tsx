@@ -259,6 +259,21 @@ const emptyLogic: LogicStepDraft = {
   divider_below: false,
 };
 
+/** The Commission Template form section a calculation rule shows in, or "" when it is not shown there. */
+function calculationFormSection(step: LogicStep): string {
+  return step.show_in_popup ? step.popup_section?.trim() || '' : '';
+}
+
+/**
+ * True when the next rule is a calculation in a different form section (Agent 1, then Agent 2): the rules
+ * list draws a stronger line between them.
+ */
+function calculationFormSectionEnds(step: LogicStep, next: LogicStep | undefined): boolean {
+  if (!next) return false;
+  if (canonicalLogicSection(step.section || '') !== 'Calculation' || canonicalLogicSection(next.section || '') !== 'Calculation') return false;
+  return calculationFormSection(step) !== calculationFormSection(next);
+}
+
 export default function CommissionTemplateDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -1783,7 +1798,7 @@ export default function CommissionTemplateDetailPage() {
                         {group.items.map((step, itemIndex) => (
                       <tr
                         key={step.id}
-                        className={`align-top ${step.id === recentLogicId ? '[&>td]:bg-emerald-50 dark:[&>td]:bg-emerald-500/10' : ''} ${logicDropTarget && 'stepId' in logicDropTarget && logicDropTarget.stepId === step.id ? (logicDropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
+                        className={`align-top ${calculationFormSectionEnds(step, group.items[itemIndex + 1]) ? '[&>td]:border-b-2 [&>td]:!border-b-slate-400 dark:[&>td]:!border-b-slate-500' : ''} ${step.id === recentLogicId ? '[&>td]:bg-emerald-50 dark:[&>td]:bg-emerald-500/10' : ''} ${logicDropTarget && 'stepId' in logicDropTarget && logicDropTarget.stepId === step.id ? (logicDropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
                         onDragOver={(event) => {
                           if (logicSearch.trim()) return;
                           event.preventDefault();
