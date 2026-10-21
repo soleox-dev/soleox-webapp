@@ -1812,7 +1812,12 @@ export default function CommissionTemplateDetailPage() {
                             formulaField(compactRows, step.apply_condition, 'Condition', logicFormulaNames, () => openEditLogic(step), '')
                           ) : 'Always'}
                         </td>
-                        <td className="px-4 py-3">{canonicalLogicSection(step.section || '') || step.section?.trim() || '—'}</td>
+                        <td className="px-4 py-3">
+                          {/* A calculation shown in the Commission Template form names the form section it shows in. */}
+                          {canonicalLogicSection(step.section || '') === 'Calculation' && step.show_in_popup && step.popup_section?.trim()
+                            ? `Calculation: ${step.popup_section.trim()}`
+                            : canonicalLogicSection(step.section || '') || step.section?.trim() || '—'}
+                        </td>
                         <td className="px-4 py-3 font-mono text-sky-700 dark:text-sky-300">
                           {logicSectionShowsAgent(canonicalLogicSection(step.section || '')) ? (step.agent_key?.trim() || '—') : '—'}
                         </td>
