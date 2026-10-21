@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronDown, Loader2, Lock, Plus, RefreshCw, RotateCcw, Trash2, X, Zap, type LucideIcon } from 'lucide-react';
+import { Check, ChevronDown, Info, Loader2, Lock, Plus, RefreshCw, RotateCcw, Trash2, X, Zap, type LucideIcon } from 'lucide-react';
 import { evaluateFormula, formulaValueToInput, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { normalizeAgentName } from '@/lib/id';
 import { qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection, type TeamCapRule } from '@/lib/agent-allocations';
@@ -135,6 +135,114 @@ function calculationText(row: AppliedCalculation): { text: string; error: boolea
   if (field.kind === 'percent') return { text: Number.isFinite(amount) ? `${amount.toLocaleString('en-US', { maximumFractionDigits: 3 })}%` : field.value, error: false };
   if (field.kind === 'number') return { text: Number.isFinite(amount) ? amount.toLocaleString('en-US', { maximumFractionDigits: 4 }) : field.value, error: false };
   return { text: field.value || '—', error: false };
+}
+
+/**
+ * The info icon inside a section's pill. Its calculations (caps, prior contributions, what remains) open in a
+ * list on hover, or on a tap where there is no hover; a tap elsewhere or Escape closes it. Any calculation that
+ * failed turns the icon red, so a problem is not hidden behind it.
+ */
+function SectionCalculationsInfo({ section, rows }: { section: string; rows: AppliedCalculation[] }) {
+  const [open, setOpen] = useState(false);
+  const [box, setBox] = useState<{ top: number; left: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<number | undefined>(undefined);
+  const lines = rows.map((row) => ({ row, ...calculationText(row) }));
+  const hasError = lines.some((line) => line.error);
+
+  const show = () => {
+    window.clearTimeout(closeTimer.current);
+    setOpen(true);
+  };
+  // A short delay lets the pointer cross from the icon into the list.
+  const hideSoon = () => {
+    window.clearTimeout(closeTimer.current);
+    closeTimer.current = window.setTimeout(() => setOpen(false), 150);
+  };
+  useEffect(() => () => window.clearTimeout(closeTimer.current), []);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const anchor = buttonRef.current?.getBoundingClientRect();
+      const panel = panelRef.current;
+      if (!anchor || !panel) return;
+      const width = panel.offsetWidth;
+      const height = panel.offsetHeight;
+      const roomRight = window.innerWidth - anchor.right - 8;
+      const left = roomRight >= width + 8 ? anchor.right + 8 : Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8));
+      const below = roomRight >= width + 8 ? anchor.top - 6 : anchor.bottom + 6;
+      const top = Math.max(8, Math.min(below, window.innerHeight - height - 8));
+      setBox({ top, left });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (panelRef.current?.contains(target) || buttonRef.current?.contains(target)) return;
+      swallowNextClick(event);
+      setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointer, true);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer, true);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => (open ? setOpen(false) : show())}
+        onPointerEnter={(event) => { if (event.pointerType === 'mouse') show(); }}
+        onPointerLeave={(event) => { if (event.pointerType === 'mouse') hideSoon(); }}
+        aria-expanded={open}
+        aria-label={`${section} calculations`}
+        className={`mr-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition hover:bg-brand-500/15 ${hasError
+          ? 'text-rose-600 dark:text-rose-400'
+          : `text-brand-700/70 hover:text-brand-700 dark:text-brand-400/70 dark:hover:text-brand-300 ${open ? 'bg-brand-500/15 text-brand-700 dark:text-brand-300' : ''}`}`}
+      >
+        <Info aria-hidden strokeWidth={2.25} className="h-3.5 w-3.5" />
+      </button>
+      {open && (
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-label={`${section} calculations`}
+          onPointerEnter={(event) => { if (event.pointerType === 'mouse') show(); }}
+          onPointerLeave={(event) => { if (event.pointerType === 'mouse') hideSoon(); }}
+          style={{ top: box?.top ?? -9999, left: box?.left ?? -9999 }}
+          className="fixed z-[90] w-max max-w-[min(26rem,calc(100vw-1rem))] rounded-lg border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-800"
+        >
+          <p className="mb-2 text-xs font-bold text-brand-700 dark:text-brand-400">{section}</p>
+          <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-6 gap-y-1 text-xs">
+            {lines.map(({ row, text, error }) => (
+              <React.Fragment key={row.id}>
+                <dt className="text-slate-500 dark:text-slate-400">{row.name}</dt>
+                <dd className={`text-right font-semibold tabular-nums ${error ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}>{text}</dd>
+              </React.Fragment>
+            ))}
+          </dl>
+        </div>
+      )}
+    </>
+  );
 }
 
 /** A deal field as short text for the line beside a team cap, in the same style as the calculation line. */
@@ -1764,13 +1872,15 @@ export function CommissionTemplatePanel({
                       {/* Each section is one row: its name on the left, with a line on its right that runs to the bottom of the
                           section, and its fields and rule text to the right. Faint lines separate the sections. */}
                       <div className={`flex items-start gap-2 border-b pb-1.5 @min-[720px]/params:row-span-2 @min-[720px]/params:border-b-0 @min-[720px]/params:border-r @min-[720px]/params:pb-0 @min-[720px]/params:pr-3 @min-[720px]/params:pt-1 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-brand-500/50 dark:border-brand-400/50'}`}>
+                        {/* The pill holds the section's name, which collapses an empty section, and the info icon for its calculations. */}
+                        <div className={`flex min-w-0 flex-1 items-center rounded-full ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}>
                         <button
                           type="button"
                           onClick={canCollapse ? () => toggleSection(group.name) : undefined}
                           disabled={!canCollapse}
                           aria-expanded={canCollapse ? !isCollapsed : undefined}
                           title={canCollapse ? (isCollapsed ? 'Expand section' : 'Collapse section') : undefined}
-                          className={`flex min-w-0 flex-1 items-center gap-2 rounded-full px-3 py-1 text-left disabled:cursor-default ${canCollapse ? 'cursor-pointer transition hover:brightness-95 dark:hover:brightness-125' : ''} ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}
+                          className={`flex min-w-0 flex-1 items-center gap-2 rounded-full px-3 py-1 text-left disabled:cursor-default ${canCollapse ? 'cursor-pointer transition hover:brightness-95 dark:hover:brightness-125' : ''}`}
                         >
                           <span className={`min-w-0 flex-1 truncate text-xs font-bold ${isUnsectioned ? 'text-amber-700 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}>
                             {group.name}
@@ -1783,6 +1893,10 @@ export function CommissionTemplatePanel({
                             />
                           )}
                         </button>
+                        {!isCollapsed && (inlineCalculations.get(group.name)?.length ?? 0) > 0 && (
+                          <SectionCalculationsInfo section={group.name} rows={inlineCalculations.get(group.name)!} />
+                        )}
+                        </div>
                       </div>
                       {!isCollapsed && (
                         <div className="mt-1.5 grid gap-x-3 gap-y-1.5 px-1 [grid-template-columns:repeat(auto-fill,minmax(7.5rem,1fr))] @min-[720px]/params:mt-0 @min-[720px]/params:px-0">
@@ -1804,20 +1918,6 @@ export function CommissionTemplatePanel({
                             </div>
                           ))}
                         </div>
-                      )}
-                      {!isCollapsed && (inlineCalculations.get(group.name)?.length ?? 0) > 0 && (
-                        <p className="mt-1.5 px-1 text-2xs leading-5 text-slate-500 @min-[720px]/params:col-start-2 @min-[720px]/params:mt-0 @min-[720px]/params:px-0 dark:text-slate-400">
-                          {inlineCalculations.get(group.name)!.map((row, index) => {
-                            const { text, error } = calculationText(row);
-                            return (
-                              <React.Fragment key={row.id}>
-                                {index > 0 && <span aria-hidden className="px-1.5 text-slate-300 dark:text-slate-600">—</span>}
-                                <span className="whitespace-nowrap">{row.name}:</span>{' '}
-                                <span className={`font-semibold tabular-nums ${error ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}>{text}</span>
-                              </React.Fragment>
-                            );
-                          })}
-                        </p>
                       )}
                     </div>
                     );
