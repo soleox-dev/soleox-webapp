@@ -24,6 +24,7 @@ export interface LogicStepDraft {
   popup_section: string;
   show_only_when: boolean;
   show_when_formula: string;
+  divider_below: boolean;
 }
 
 export type CalculationResultType = 'CURRENCY' | 'NUMBER' | 'PERCENT';
@@ -432,6 +433,14 @@ export function LogicStepForm({
                     <datalist id="logic-popup-sections">
                       {popupSections.map((name) => <option key={name} value={name} />)}
                     </datalist>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <BooleanCheckbox
+                      id="divider-below"
+                      checked={draft.divider_below}
+                      onChange={(checked) => onChange({ ...draft, divider_below: checked })}
+                    />
+                    <span className="text-xs font-medium text-slate-800 dark:text-slate-200">Add Horizontal Divider Below This Rule</span>
                   </label>
                   <label className="inline-flex cursor-pointer items-center gap-2">
                     <BooleanCheckbox

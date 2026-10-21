@@ -66,6 +66,7 @@ interface LogicStep {
   show_in_popup?: boolean | null;
   popup_section?: string | null;
   show_when_formula?: string | null;
+  divider_below?: boolean | null;
 }
 
 interface CommissionEntity {
@@ -253,6 +254,7 @@ const emptyLogic: LogicStepDraft = {
   popup_section: '',
   show_only_when: false,
   show_when_formula: '',
+  divider_below: false,
 };
 
 export default function CommissionTemplateDetailPage() {
@@ -863,6 +865,7 @@ export default function CommissionTemplateDetailPage() {
             show_when_formula: !postsSplit && logicForm.show_in_popup && logicForm.show_only_when
               ? normalizeFormula(logicForm.show_when_formula).text.trim() || null
               : null,
+            divider_below: !postsSplit && logicForm.show_in_popup && logicForm.divider_below,
           },
         }),
       });
@@ -972,6 +975,7 @@ export default function CommissionTemplateDetailPage() {
       popup_section: step.popup_section || '',
       show_only_when: Boolean(step.show_when_formula?.trim()),
       show_when_formula: step.show_when_formula || '',
+      divider_below: Boolean(step.divider_below),
     });
   };
 

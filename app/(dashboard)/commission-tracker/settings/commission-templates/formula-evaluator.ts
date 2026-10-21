@@ -405,7 +405,7 @@ const KNOWN_TABLE_COLUMNS: Record<string, ReadonlySet<string>> = {
     'id', 'template_id', 'step_number', 'rule_name', 'rule_key', 'section',
     'payee_entity_id', 'agent_key', 'payee_formula', 'apply_condition',
     'custom_baseline', 'calculation_formula', 'split_type', 'result_type',
-    'show_in_popup', 'popup_section', 'show_when_formula', 'client_id',
+    'show_in_popup', 'popup_section', 'show_when_formula', 'divider_below', 'client_id',
     'created_at', 'created_by', 'updated_at', 'updated_by',
   ]),
   payments: new Set([

@@ -86,6 +86,7 @@ export interface TemplateLogicStep {
   show_in_popup?: boolean | null;
   popup_section?: string | null;
   show_when_formula?: string | null;
+  divider_below?: boolean | null;
 }
 
 export interface NamedParty {
@@ -111,6 +112,8 @@ export interface AppliedCalculation {
   value: FormulaValue | null;
   resultType?: string | null;
   error?: string;
+  /** A line is drawn below this result in its section's calculations list. */
+  dividerBelow?: boolean;
 }
 
 export interface AppliedTemplateRules {
@@ -457,6 +460,7 @@ export function applyTemplateLogic({
       value: pending.error ? null : (stored || { type: 'blank' }),
       resultType: pending.step.result_type,
       error: pending.error,
+      dividerBelow: Boolean(pending.step.divider_below),
     });
   };
 

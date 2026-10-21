@@ -83,6 +83,7 @@ export async function POST(request: Request) {
       show_in_popup: Boolean(logic.show_in_popup),
       popup_section: logic.popup_section ? String(logic.popup_section).trim() || null : null,
       show_when_formula: logic.show_when_formula ? String(logic.show_when_formula).trim() || null : null,
+      divider_below: Boolean(logic.divider_below),
       archived: Boolean(logic.archived),
       created_by: logic.created_by || user,
       updated_at: new Date().toISOString(),
@@ -110,7 +111,7 @@ export async function POST(request: Request) {
     }
 
     let { data, error } = await query;
-    for (const column of ['result_type', 'popup_section', 'show_in_popup', 'show_when_formula']) {
+    for (const column of ['result_type', 'popup_section', 'show_in_popup', 'show_when_formula', 'divider_below']) {
       if (!error || !String(error.message || '').includes(column)) continue;
       delete rowPayload[column];
       const retry = isUpdate

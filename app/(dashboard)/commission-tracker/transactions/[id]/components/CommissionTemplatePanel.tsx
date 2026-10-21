@@ -232,10 +232,14 @@ function SectionCalculationsInfo({ section, rows }: { section: string; rows: App
         >
           <p className="mb-2 text-xs font-bold text-brand-700 dark:text-brand-400">{section}</p>
           <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-6 gap-y-1 text-xs">
-            {lines.map(({ row, text, error }) => (
+            {lines.map(({ row, text, error }, index) => (
               <React.Fragment key={row.id}>
                 <dt className="text-slate-500 dark:text-slate-400">{row.name}</dt>
                 <dd className={`text-right font-semibold tabular-nums ${error ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}>{text}</dd>
+                {/* "Add horizontal divider below this rule" in the template's rule settings. */}
+                {row.dividerBelow && index < lines.length - 1 && (
+                  <div role="separator" className="col-span-2 my-1 border-t border-slate-200 dark:border-slate-700" />
+                )}
               </React.Fragment>
             ))}
           </dl>
