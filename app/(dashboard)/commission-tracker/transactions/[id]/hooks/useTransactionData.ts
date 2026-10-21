@@ -77,6 +77,8 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
   const [knownAgents, setKnownAgents] = useState<KnownAgentInfo[]>(() => session.agents ?? []);
   const [knownEntities, setKnownEntities] = useState<CommissionEntityOption[]>(() => session.entities ?? []);
   const [isLoadingDeals, setIsLoadingDeals] = useState<boolean>(() => !session.deals);
+  // The commission replay maps ledger lines to entity names, so it waits for this list.
+  const [entitiesLoaded, setEntitiesLoaded] = useState<boolean>(() => Boolean(session.entities));
 
   // Keep the session copy current, including saves and edits made on this page.
   useEffect(() => {
@@ -157,46 +159,51 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
     async function loadDealsAndAgents() {
       try {
         if (!session.deals) setIsLoadingDeals(true);
-        const [dealsRes, agentsRes, entitiesRes] = await Promise.all([
-          fetch('/api/transactions'),
-          fetch('/api/agents?include_archived=true'),
-          fetch('/api/commission-entities'),
-        ]);
-
-        if (dealsRes.ok && dealsRes.headers.get('content-type')?.includes('application/json')) {
-          const dealsData = await dealsRes.json();
-          setSavedDeals(dealsData.transactions || dealsData.deals || []);
-        }
-
-        if (agentsRes.ok && agentsRes.headers.get('content-type')?.includes('application/json')) {
-          const agentsData = await agentsRes.json();
-          if (agentsData.success && agentsData.agents) {
-            setKnownAgents(
-              agentsData.agents.map((ag: any) => ({
-                id: ag.id || `AGT_${ag.agent_name}`,
-                name: ag.agent_name || ag.name || ag.full_name || 'Unnamed Agent',
-                email: ag.agent_email || ag.email,
-                isTeamLead: Boolean(ag.is_team_lead || ag.isTeamLead),
-                clientId: ag.client_id ? String(ag.client_id) : undefined,
-                fields: agentFormulaFields(ag),
-              }))
-            );
+        // Each list is used as soon as it arrives. The whole deals list is the slowest, and the
+        // commission numbers need only the agents and entities.
+        const loadDeals = fetch('/api/transactions').then(async (dealsRes) => {
+          if (dealsRes.ok && dealsRes.headers.get('content-type')?.includes('application/json')) {
+            const dealsData = await dealsRes.json();
+            setSavedDeals(dealsData.transactions || dealsData.deals || []);
           }
-        }
-
-        if (entitiesRes.ok && entitiesRes.headers.get('content-type')?.includes('application/json')) {
-          const entitiesData = await entitiesRes.json();
-          if (entitiesData.success && entitiesData.entities) {
-            setKnownEntities(
-              entitiesData.entities.map((e: any) => ({
-                id: e.id,
-                name: e.entity_name || e.name || 'Unnamed Entity',
-                type: e.entity_type || e.type,
-                waterfallSortOrder: e.waterfall_sort_order == null ? null : Number(e.waterfall_sort_order),
-              }))
-            );
+        });
+        const loadAgents = fetch('/api/agents?include_archived=true').then(async (agentsRes) => {
+          if (agentsRes.ok && agentsRes.headers.get('content-type')?.includes('application/json')) {
+            const agentsData = await agentsRes.json();
+            if (agentsData.success && agentsData.agents) {
+              setKnownAgents(
+                agentsData.agents.map((ag: any) => ({
+                  id: ag.id || `AGT_${ag.agent_name}`,
+                  name: ag.agent_name || ag.name || ag.full_name || 'Unnamed Agent',
+                  email: ag.agent_email || ag.email,
+                  isTeamLead: Boolean(ag.is_team_lead || ag.isTeamLead),
+                  clientId: ag.client_id ? String(ag.client_id) : undefined,
+                  fields: agentFormulaFields(ag),
+                }))
+              );
+            }
           }
-        }
+        });
+        const loadEntities = fetch('/api/commission-entities').then(async (entitiesRes) => {
+          if (entitiesRes.ok && entitiesRes.headers.get('content-type')?.includes('application/json')) {
+            const entitiesData = await entitiesRes.json();
+            if (entitiesData.success && entitiesData.entities) {
+              setKnownEntities(
+                entitiesData.entities.map((e: any) => ({
+                  id: e.id,
+                  name: e.entity_name || e.name || 'Unnamed Entity',
+                  type: e.entity_type || e.type,
+                  waterfallSortOrder: e.waterfall_sort_order == null ? null : Number(e.waterfall_sort_order),
+                }))
+              );
+            }
+          }
+        }).finally(() => setEntitiesLoaded(true));
+
+        const results = await Promise.allSettled([loadDeals, loadAgents, loadEntities]);
+        results.forEach((result) => {
+          if (result.status === 'rejected') console.error('Error fetching initial data:', result.reason);
+        });
       } catch (err) {
         console.error('Error fetching initial data:', err);
       } finally {
@@ -299,6 +306,7 @@ export function useTransactionData(routeId: string, isNewTransaction: boolean) {
     overviewFields,
     knownAgents,
     knownEntities,
+    entitiesLoaded,
     commissionItems,
     setCommissionItems,
     commissionItemsDealId,

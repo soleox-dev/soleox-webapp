@@ -49,6 +49,9 @@ async function loadCommissionLedgerRows(supabase: SupabaseClient, clientId: stri
   });
 }
 
+// Set once the database says post_split_history (migration 057) is missing, so later requests skip it.
+let postSplitHistoryMissing = false;
+
 // GET: Fetch non-archived commission breakdown items
 export async function GET(request: Request) {
   try {
@@ -67,6 +70,23 @@ export async function GET(request: Request) {
       const entityIds = list(searchParams.get('entity_ids'));
       const excludeId = searchParams.get('exclude_transaction_id') || '';
       if (agentIds.length === 0 || entityIds.length === 0) return NextResponse.json({ success: true, history: [] });
+      const startedAt = Date.now();
+      // One query when migration 057 is applied; otherwise the paged read below.
+      if (!postSplitHistoryMissing) {
+        const { data: joined, error: joinedError } = await supabase.rpc('post_split_history', {
+          p_client_id: clientId,
+          p_agent_ids: agentIds,
+          p_entity_ids: entityIds,
+          p_exclude_transaction_id: excludeId || null,
+        });
+        if (!joinedError && Array.isArray(joined)) {
+          return NextResponse.json(
+            { success: true, history: joined },
+            { headers: { 'Server-Timing': `history;dur=${Date.now() - startedAt}` } },
+          );
+        }
+        if (joinedError?.code === 'PGRST202') postSplitHistoryMissing = true;
+      }
       const items = await fetchAllPages((offset, limit, withCount) => {
         let itemsQuery = supabase
           .from('transaction_commission_items')
@@ -81,21 +101,27 @@ export async function GET(request: Request) {
         if (excludeId) itemsQuery = itemsQuery.neq('transaction_id', excludeId);
         return itemsQuery;
       });
+      const itemsMs = Date.now() - startedAt;
       const transactionIds = [...new Set(items.map((row) => String(row.transaction_id || '')).filter(Boolean))];
       const dates = new Map<string, string | null>();
-      for (let index = 0; index < transactionIds.length; index += 100) {
-        const slice = transactionIds.slice(index, index + 100);
-        const { data: deals, error: dealsError } = await supabase
+      const slices: string[][] = [];
+      for (let index = 0; index < transactionIds.length; index += 100) slices.push(transactionIds.slice(index, index + 100));
+      // A few slices at a time, instead of one after another, keeps the cap history off the page's critical path.
+      for (let index = 0; index < slices.length; index += 5) {
+        const results = await Promise.all(slices.slice(index, index + 5).map((slice) => supabase
           .from('transactions')
           .select('id, closing_date, archived')
           .eq('client_id', clientId)
-          .in('id', slice);
-        if (dealsError) throw dealsError;
-        for (const deal of deals || []) {
-          if (deal.archived) continue;
-          dates.set(String(deal.id), deal.closing_date);
+          .in('id', slice)));
+        for (const { data: deals, error: dealsError } of results) {
+          if (dealsError) throw dealsError;
+          for (const deal of deals || []) {
+            if (deal.archived) continue;
+            dates.set(String(deal.id), deal.closing_date);
+          }
         }
       }
+      const datesMs = Date.now() - startedAt - itemsMs;
       return NextResponse.json({
         success: true,
         history: items.flatMap((row) => {
@@ -108,7 +134,7 @@ export async function GET(request: Request) {
             closingDate: dates.get(transactionId) || null,
           }];
         }),
-      });
+      }, { headers: { 'Server-Timing': `items;dur=${itemsMs}, dates;dur=${datesMs}` } });
     }
 
     let query = supabase

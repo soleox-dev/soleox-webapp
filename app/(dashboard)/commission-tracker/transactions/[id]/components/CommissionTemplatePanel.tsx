@@ -879,6 +879,11 @@ export function CommissionTemplatePanel({
   const [templateMenuBox, setTemplateMenuBox] = useState({ top: 0, left: 0, width: 0 });
 
   useEffect(() => {
+    // Waits for the active client instead of asking for another one's templates.
+    if (!clientId) {
+      setIsLoadingTemplates(true);
+      return;
+    }
     let cancelled = false;
     const loadTemplates = async () => {
       if (!cachedTemplates(clientId)) setIsLoadingTemplates(true);
@@ -903,6 +908,7 @@ export function CommissionTemplatePanel({
   }, [clientId]);
 
   useEffect(() => {
+    if (!clientId) return;
     let cancelled = false;
     const loadSchema = async () => {
       try {
@@ -940,6 +946,10 @@ export function CommissionTemplatePanel({
       onTeamCapSelectionRef.current?.(null);
       onStoredSubmissionRef.current?.(null);
       setSubmissionReady(true);
+      return;
+    }
+    if (!clientId) {
+      setSubmissionReady(false);
       return;
     }
     let cancelled = false;
@@ -1237,6 +1247,7 @@ export function CommissionTemplatePanel({
   );
 
   useEffect(() => {
+    if (!clientId) return;
     let cancelled = false;
     const loadCaps = async () => {
       try {

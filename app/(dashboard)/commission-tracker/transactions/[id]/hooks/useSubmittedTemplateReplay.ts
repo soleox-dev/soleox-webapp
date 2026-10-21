@@ -6,6 +6,8 @@ import {
   loadCommissionLedger,
   loadFormulaLookups,
   loadTemplateBundle,
+  peekFormulaLookups,
+  peekTemplateBundle,
   templateFormulaSources,
   type NamedParty,
   type TemplateLogicStep,
@@ -54,11 +56,18 @@ function sameParameters(left: Record<string, string>, right: Record<string, stri
   return leftKeys.every((key) => left[key] === right[key]);
 }
 
+export type SubmittedTemplateReplayState = {
+  replay: SubmittedTemplateReplay | null;
+  /** True while this transaction's submitted template is still loading, so the waterfall is not final yet. */
+  settling: boolean;
+};
+
 export function useSubmittedTemplateReplay({
   clientId,
   transactionId,
   entities,
   rosterAgents,
+  entitiesReady = true,
   pendingSubmission = null,
   revision = 0,
   reset = 0,
@@ -66,14 +75,19 @@ export function useSubmittedTemplateReplay({
   clientId: string;
   transactionId: string;
   entities: NamedParty[];
+  /** False until the entity list has loaded. The replay is not final before then. */
+  entitiesReady?: boolean;
   rosterAgents: NamedParty[];
   /** The template submit still waiting to be saved. Its parameters win over the stored submission. */
   pendingSubmission?: PendingTemplateReplay | null;
   revision?: number;
   /** Discards the unsaved parameters and waits for the stored submission. */
   reset?: number;
-}): SubmittedTemplateReplay | null {
+}): SubmittedTemplateReplayState {
   const [loaded, setLoaded] = useState<LoadedReplay | null>(null);
+  const [settledKey, setSettledKey] = useState('');
+  // Cached rules and lookup rows from an earlier visit are fetched again once per page visit.
+  const revalidatedRef = useRef(new Set<string>());
   const [seenReset, setSeenReset] = useState(reset);
   const entitiesRef = useRef(entities);
   entitiesRef.current = entities;
@@ -84,6 +98,7 @@ export function useSubmittedTemplateReplay({
   const pendingParameters = pendingSubmission?.submitted_parameters
     ? stripParameters(pendingSubmission.submitted_parameters)
     : null;
+  const requestKey = `${clientId}|${transactionId}|${entitiesReady ? entityKey : '…'}|${revision}|${pendingTemplateId}`;
 
   if (reset !== seenReset) {
     setSeenReset(reset);
@@ -104,6 +119,9 @@ export function useSubmittedTemplateReplay({
       return;
     }
     let cancelled = false;
+    const settle = () => {
+      if (!cancelled && entitiesReady) setSettledKey(requestKey);
+    };
     const load = async () => {
       const pending = pendingRef.current;
       const pendingId = String(pending?.template_id || '').trim();
@@ -120,15 +138,37 @@ export function useSubmittedTemplateReplay({
       }
       if (!templateId) {
         if (!cancelled) setLoaded(null);
+        settle();
         return;
       }
-      const bundle = await loadTemplateBundle(templateId, { refresh: true });
+      // Rules and lookup rows are small, so rows left from an earlier visit are fetched again once in
+      // case Settings or the Agents page changed them; a request already in flight is shared. The
+      // whole-tenant ledger (tens of thousands of lines) comes from the session cache, which every
+      // edit path empties with clearCommissionModuleCache().
+      const revalidate = (key: string, cached: boolean) => {
+        const seen = revalidatedRef.current.has(key);
+        revalidatedRef.current.add(key);
+        return cached && !seen;
+      };
+      const bundle = await loadTemplateBundle(templateId, {
+        refresh: revalidate(`bundle:${templateId}`, peekTemplateBundle(templateId) !== null),
+      });
       const steps = bundle.steps;
       const parameterRows = bundle.parameters;
       const needs = formulaDataNeeds(templateFormulaSources(steps, parameterRows));
+      const refreshLookups = revalidate(
+        `lookups:${clientId}:${needs.lookupTables.join(',')}`,
+        peekFormulaLookups(clientId, needs.lookupTables) !== null,
+      );
+      // The ledger is cached per entity list, so it waits for the real one. The rules and lookups
+      // are already loaded when the entities arrive.
+      if (!entitiesReady) {
+        if (needs.lookupTables.length > 0) await loadFormulaLookups(clientId, needs.lookupTables, { refresh: refreshLookups });
+        return;
+      }
       const [ledger, lookups] = await Promise.all([
-        needs.needsLedger ? loadCommissionLedger(clientId, entitiesRef.current, { refresh: true }) : Promise.resolve([]),
-        needs.lookupTables.length > 0 ? loadFormulaLookups(clientId, needs.lookupTables, { refresh: true }) : Promise.resolve({ clientId, tables: {} }),
+        needs.needsLedger ? loadCommissionLedger(clientId, entitiesRef.current) : Promise.resolve([]),
+        needs.lookupTables.length > 0 ? loadFormulaLookups(clientId, needs.lookupTables, { refresh: refreshLookups }) : Promise.resolve({ clientId, tables: {} }),
       ]);
       if (cancelled) return;
       const latestPending = pendingRef.current;
@@ -145,27 +185,39 @@ export function useSubmittedTemplateReplay({
         ledger,
         lookups,
       });
+      settle();
     };
     void load().catch(() => {
       if (!cancelled) setLoaded(null);
+      settle();
     });
     return () => {
       cancelled = true;
     };
-  }, [clientId, transactionId, entityKey, revision, pendingTemplateId]);
+  }, [clientId, transactionId, entityKey, entitiesReady, revision, pendingTemplateId, requestKey]);
 
-  if (reset !== seenReset || !loaded || loaded.transactionId !== transactionId) return null;
-  if (pendingTemplateId && pendingTemplateId !== loaded.templateId) return null;
-  const parameters = pendingParameters && pendingTemplateId === loaded.templateId
+  const current = reset === seenReset
+    && loaded
+    && loaded.transactionId === transactionId
+    && (!pendingTemplateId || pendingTemplateId === loaded.templateId)
+    ? loaded
+    : null;
+  // A replay already shown for this transaction and template stays up while it reloads.
+  const settling = Boolean(transactionId) && settledKey !== requestKey && !current;
+  if (!current) return { replay: null, settling };
+  const parameters = pendingParameters && pendingTemplateId === current.templateId
     ? pendingParameters
-    : loaded.parameters;
+    : current.parameters;
   return {
-    steps: loaded.steps,
-    parameters,
-    parameterTypes: loaded.parameterTypes,
-    entities,
-    rosterAgents,
-    ledger: loaded.ledger,
-    lookups: loaded.lookups,
+    settling,
+    replay: {
+      steps: current.steps,
+      parameters,
+      parameterTypes: current.parameterTypes,
+      entities,
+      rosterAgents,
+      ledger: current.ledger,
+      lookups: current.lookups,
+    },
   };
 }

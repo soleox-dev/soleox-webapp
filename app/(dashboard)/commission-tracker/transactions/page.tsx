@@ -31,7 +31,7 @@ import {
   type TransactionView,
 } from '@/lib/transaction-default-view';
 import { allocationForReplay, loadAllocationCatalog, loadAllocationHistory, loadAllocationOverrides, payoutSignature, replayedPaymentSignature, savedPayouts } from '@/lib/template-payment-drift';
-import { clearCommissionModuleCache, formulaDataNeeds, loadCommissionLedger, loadFormulaLookups, templateFormulaSources, type TemplateLogicStep } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/applyTemplateLogic';
+import { clearCommissionModuleCache, formulaDataNeeds, invalidateCommissionLedger, loadCommissionLedger, loadFormulaLookups, templateFormulaSources, type TemplateLogicStep } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/applyTemplateLogic';
 import type { StoredCommissionItem } from '@/app/(dashboard)/commission-tracker/transactions/[id]/commissionItemState';
 import type { CommissionEntityOption, FieldSetting, KnownAgentInfo, VisibilityRulesConfig } from '@/app/(dashboard)/commission-tracker/transactions/[id]/types';
 import { transactionDealLabel } from '@/lib/transaction-label';
@@ -1025,6 +1025,7 @@ export default function TransactionsListPage() {
       if (!res.ok || data.success === false) {
         throw new Error(data.error || 'Failed to delete the transaction.');
       }
+      invalidateCommissionLedger();
       setDeals((current) => current.filter((deal) => String(deal.id) !== pendingDelete.id));
       setDeletedDeals((current) => {
         const alreadyListed = current.some((deal) => String(deal.id) === pendingDelete.id);
@@ -1055,6 +1056,7 @@ export default function TransactionsListPage() {
       if (!res.ok || data.success === false) {
         throw new Error(data.error || 'Failed to restore the transaction.');
       }
+      invalidateCommissionLedger();
       setDeletedDeals((current) => current.filter((item) => String(item.id) !== dealId));
       setDeals((current) => {
         if (current.some((item) => String(item.id) === dealId)) return current;
@@ -1968,6 +1970,8 @@ export default function TransactionsListPage() {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.success) throw new Error(payload.error || 'Could not update those transactions.');
+      // Closing dates and statuses feed the SUMIFS ledger the detail page reuses.
+      invalidateCommissionLedger();
       const rows = Array.isArray(payload.rows) ? payload.rows : [];
       if (rows.length > 0) {
         const byId = new Map(rows.map((row: Record<string, any>) => [String(row.id), row]));

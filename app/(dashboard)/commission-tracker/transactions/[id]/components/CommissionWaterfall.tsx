@@ -15,6 +15,7 @@ import { useEditOnDoublePress } from './useEditOnDoublePress';
 import { useSectionEditKeys } from './useSectionEditKeys';
 import { CommissionTemplatePanel, type TemplateSubmissionDraft } from './CommissionTemplatePanel';
 import { CommissionFlowBar, type FlowPayee } from './CommissionFlowBar';
+import { CalculatingCommission } from './CalculatingCommission';
 import type { AppliedTemplateRules } from './applyTemplateLogic';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { AgentAllocationNotes, AgentCapNote, TeamCapAmount, adjustedSplitView, teamCapGroups, type AgentAllocationLine } from './AgentAllocationNotes';
@@ -24,6 +25,8 @@ import { useAccess } from '@/components/access-provider';
 import { usePhonePortrait } from '@/lib/use-media-query';
 
 interface CommissionWaterfallProps {
+  /** Inputs are still loading; amounts would be provisional, so a placeholder replaces them. */
+  calculating?: boolean;
   isEditing: boolean;
   hasChanges: boolean;
   onStartEdit: () => void;
@@ -213,6 +216,7 @@ export function CommissionWaterfall({
   onTeamCapAmountChange,
   onRemoveTeamCap,
   agentCapCells = {},
+  calculating = false,
 }: CommissionWaterfallProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -610,8 +614,9 @@ export function CommissionWaterfall({
         </div>
       </div>
 
-      <div className="p-3 sm:p-6 space-y-4" {...editOnDoublePress}>
-        {flow && <CommissionFlowBar total={flow.total} agents={flow.agents} entities={flow.entities} />}
+      {calculating && <CalculatingCommission rows={4} />}
+      <div className="p-3 sm:p-6 space-y-4" hidden={calculating} {...editOnDoublePress}>
+        {flow && !calculating && <CommissionFlowBar total={flow.total} agents={flow.agents} entities={flow.entities} />}
         {/* With both empty and not editing, steps 1 and 2 share one row. Editing splits them again for their + buttons. */}
         {bothDeductionsEmpty ? (
           <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm px-4 py-2">

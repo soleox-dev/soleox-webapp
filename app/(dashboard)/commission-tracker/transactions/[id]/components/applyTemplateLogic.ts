@@ -704,10 +704,16 @@ function closingDay(value: unknown): string {
 
 type LedgerParty = { id: string; name: string };
 
+type LedgerItem = Record<string, unknown>;
+
+/**
+ * The raw ledger, once per client: one 8 MB download however many callers ask, and while one is in flight
+ * later callers share it. Entity names only label the rows, so each entity list gets its own labelled copy.
+ */
 type LedgerCacheEntry = {
-  entitiesKey: string;
-  rows: FormulaLedgerRow[] | null;
-  promise: Promise<FormulaLedgerRow[]> | null;
+  items: LedgerItem[] | null;
+  promise: Promise<LedgerItem[]> | null;
+  labelled: Map<string, FormulaLedgerRow[]>;
 };
 
 const ledgerCache = new Map<string, LedgerCacheEntry>();
@@ -716,14 +722,19 @@ function ledgerEntitiesKey(entities: LedgerParty[]): string {
   return entities.map((entity) => `${entity.id}\t${entity.name}`).join('\n');
 }
 
-async function fetchCommissionLedger(clientId: string, entities: LedgerParty[]): Promise<FormulaLedgerRow[]> {
+async function fetchCommissionLedgerItems(clientId: string): Promise<LedgerItem[]> {
   const response = await fetch(`/api/transaction-commission-items?client_id=${encodeURIComponent(clientId)}&view=ledger`, { cache: 'no-store' });
   const data = await response.json();
   if (!response.ok || data.success === false) throw new Error(data.error || 'Failed to load commission lines.');
-  const items = Array.isArray(data.items) ? data.items as Record<string, unknown>[] : [];
-  const entityNames = new Map(entities.map((entity) => [entity.id, entity.name]));
+  return Array.isArray(data.items) ? data.items as LedgerItem[] : [];
+}
 
-  return items.map((item) => {
+function labelLedger(entry: LedgerCacheEntry, items: LedgerItem[], entities: LedgerParty[]): FormulaLedgerRow[] {
+  const key = ledgerEntitiesKey(entities);
+  const cached = entry.labelled.get(key);
+  if (cached) return cached;
+  const entityNames = new Map(entities.map((entity) => [entity.id, entity.name]));
+  const rows = items.map((item) => {
     const fields: Record<string, string> = {
       'transaction_commission_items.final_amount': ledgerValue(item.final_amount),
       'transaction_commission_items.agent_id': ledgerValue(item.agent_id),
@@ -736,13 +747,15 @@ async function fetchCommissionLedger(clientId: string, entities: LedgerParty[]):
     };
     return { fields };
   });
+  entry.labelled.set(key, rows);
+  return rows;
 }
 
 /** Rows already loaded for this client. The popup can calculate while a refresh is still running. */
 export function peekCommissionLedger(clientId: string, entities: LedgerParty[]): FormulaLedgerRow[] | null {
   const entry = ledgerCache.get(clientId);
-  if (!entry || entry.entitiesKey !== ledgerEntitiesKey(entities)) return null;
-  return entry.rows;
+  if (!entry?.items) return null;
+  return labelLedger(entry, entry.items, entities);
 }
 
 /** Commission lines joined to their transaction, for SUMIFS in calculation rules. */
@@ -751,29 +764,35 @@ export function loadCommissionLedger(
   entities: LedgerParty[],
   options?: { refresh?: boolean },
 ): Promise<FormulaLedgerRow[]> {
-  const entitiesKey = ledgerEntitiesKey(entities);
-  const existing = ledgerCache.get(clientId);
-  const sameEntities = existing?.entitiesKey === entitiesKey;
-  if (sameEntities && existing?.promise && (!options?.refresh || !existing.rows)) return existing.promise;
-
-  const promise = fetchCommissionLedger(clientId, entities).then((rows) => {
-    const current = ledgerCache.get(clientId);
-    if (current?.promise === promise) current.rows = rows;
-    return rows;
-  }).catch((error) => {
-    const current = ledgerCache.get(clientId);
-    if (current?.promise === promise) {
+  let entry = ledgerCache.get(clientId);
+  if (!entry) {
+    entry = { items: null, promise: null, labelled: new Map() };
+    ledgerCache.set(clientId, entry);
+  }
+  const current = entry;
+  // A refresh while a download is already running shares it; otherwise reuse what is loaded.
+  if (current.promise && (!options?.refresh || !current.items)) {
+    return current.promise.then((items) => labelLedger(current, items, entities));
+  }
+  if (current.items && !options?.refresh) {
+    return Promise.resolve(labelLedger(current, current.items, entities));
+  }
+  const promise = fetchCommissionLedgerItems(clientId).then((items) => {
+    if (current.promise === promise) {
+      current.items = items;
+      current.labelled = new Map();
       current.promise = null;
-      if (!current.rows) ledgerCache.delete(clientId);
+    }
+    return items;
+  }).catch((error) => {
+    if (current.promise === promise) {
+      current.promise = null;
+      if (!current.items) ledgerCache.delete(clientId);
     }
     throw error;
   });
-  ledgerCache.set(clientId, {
-    entitiesKey,
-    rows: sameEntities ? existing?.rows ?? null : null,
-    promise,
-  });
-  return promise;
+  current.promise = promise;
+  return promise.then((items) => labelLedger(current, items, entities));
 }
 
 export function templateFormulaSources(
