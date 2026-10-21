@@ -15,6 +15,9 @@ export const FIT_SCREEN_QUERY = '(min-width: 768px) and (min-height: 560px)';
 export const DESKTOP_NAV_QUERY =
   '(min-width: 768px) and (not ((hover: none) and (pointer: coarse) and (max-height: 500px)))';
 
+/** A phone held upright: narrower than `md`, taller than wide. */
+export const PHONE_PORTRAIT_QUERY = '(max-width: 767px) and (orientation: portrait)';
+
 /** Same media query as the `touch:` variant in globals.css. */
 export const TOUCH_QUERY = '(hover: none) and (pointer: coarse)';
 
@@ -62,4 +65,9 @@ export function useFitsScreen(): boolean {
 /** True where the desktop top bar shows (see DESKTOP_NAV_QUERY). Assumes desktop before hydration. */
 export function useIsDesktopNav(): boolean {
   return useMediaQuery(DESKTOP_NAV_QUERY, true);
+}
+
+/** True on a phone held upright (see PHONE_PORTRAIT_QUERY). False before hydration, matching desktop. */
+export function usePhonePortrait(): boolean {
+  return useMediaQuery(PHONE_PORTRAIT_QUERY, false);
 }

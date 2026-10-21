@@ -989,13 +989,13 @@ export default function AgentsPage() {
         )}
       </div>
 
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden p-5 space-y-4 transition-colors">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden p-3 sm:p-5 space-y-4 transition-colors">
         {bulkNotice && (
           <p className="text-xs text-slate-600 dark:text-slate-300">{bulkNotice}</p>
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-700 pb-4">
-          <div className="flex flex-wrap items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+          <div className="flex max-w-full items-center gap-1 overflow-x-auto bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700 [scrollbar-width:none] md:flex-wrap">
             {[{ key: 'ALL', label: 'All', count: agents.length }, ...groupOptions.map((option) => ({
               key: option,
               label: option,
@@ -1084,7 +1084,7 @@ export default function AgentsPage() {
                 )}
               </div>
             )}
-            {canWriteTracker && <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />}
+            {canWriteTracker && <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 max-md:hidden dark:bg-slate-500" />}
             <HoverNote label="Compact table view">
               <button
                 type="button"
@@ -1100,9 +1100,9 @@ export default function AgentsPage() {
                 <Rows3 className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
               </button>
             </HoverNote>
-            <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />
+            <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 max-md:hidden dark:bg-slate-500" />
             <div className="flex items-center gap-2">
-              <div className={`relative w-[20rem] max-w-full ${underlineShell}`}>
+              <div className={`relative w-full max-w-full md:w-[20rem] ${underlineShell}`}>
                 <input
                   type="text"
                   value={searchQuery}

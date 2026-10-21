@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Building2, ChartColumn, Gauge, Link2, ListFilter, PanelLeftClose, PanelLeftOpen, Scale, ScrollText, Settings2, Zap, type LucideIcon } from 'lucide-react';
@@ -45,7 +45,8 @@ const NAV_LINKS = NAV.flatMap((entry) => (entry.kind === 'link' ? [entry.item] :
 
 /**
  * Settings pages share one sidebar. It starts open; collapsing it leaves an icon rail whose names show on
- * hover, and the choice is remembered for this browser. Phones always show the full list above the page.
+ * hover, and the choice is remembered for this browser. Phones and narrow screens get one row of page
+ * pills above the page instead, scrolled so the current page shows.
  */
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -69,6 +70,10 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   };
 
   const isActive = (href: string) => pathname.startsWith(href);
+  const activePillRef = useRef<HTMLAnchorElement>(null);
+  useEffect(() => {
+    activePillRef.current?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }, [pathname]);
   const linkClass = (href: string) => `flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold transition ${
     isActive(href)
       ? 'bg-brand-500/10 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400'
@@ -77,7 +82,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
   return (
     <main className={`${pageFrame} space-y-6 py-6 md:py-8`}>
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-6 py-5 shadow-xs transition-colors">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-4 sm:px-6 sm:py-5 shadow-xs transition-colors">
         <div className="text-xs font-bold text-brand-600 dark:text-brand-400 mb-1">Commission Tracker</div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
         <p className="text-slate-600 dark:text-slate-400 text-sm">
@@ -124,8 +129,32 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
             </nav>
           )}
 
-          {/* Full list: always on phones, and on wide screens while open. */}
-          <nav className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2 shadow-xs transition-colors ${collapsed ? 'lg:hidden' : ''}`}>
+          {/* Phones and narrow screens: one row of page pills that scrolls sideways. */}
+          <nav aria-label="Settings pages" className="flex gap-1.5 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xs [scrollbar-width:none] lg:hidden dark:border-slate-700 dark:bg-slate-800">
+            {NAV_LINKS.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  ref={active ? activePillRef : undefined}
+                  href={item.href}
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                    active
+                      ? 'bg-brand-500/10 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700/50 dark:hover:text-white'
+                  }`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Full list on wide screens while open. */}
+          <nav className={`hidden bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2 shadow-xs transition-colors ${collapsed ? '' : 'lg:block'}`}>
             <div className="flex items-center justify-between px-3 pb-1 pt-1.5">
               <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500">Settings</span>
               <button

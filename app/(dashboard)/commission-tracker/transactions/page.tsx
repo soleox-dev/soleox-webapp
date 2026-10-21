@@ -2349,7 +2349,7 @@ export default function TransactionsListPage() {
       )}
 
       {/* Ledger Table Container */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden p-5 space-y-4 transition-colors">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden p-3 sm:p-5 space-y-4 transition-colors">
         {restoreError && (
           <p className="text-xs text-rose-600 dark:text-rose-400">{restoreError}</p>
         )}
@@ -2359,7 +2359,7 @@ export default function TransactionsListPage() {
         
         {/* Controls Bar */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-700 pb-4">
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+          <div className="flex max-w-full items-center gap-1 overflow-x-auto bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700 [scrollbar-width:none]">
               {[
                 { key: ALL_TAB, label: 'All' },
                 ...transactionViews.map((view) => ({ key: view.id, label: view.name })),
@@ -2458,7 +2458,7 @@ export default function TransactionsListPage() {
             )}
             {canWriteTracker && !showingDeleted && (
               <>
-                {tmsConnectorActive && <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />}
+                {tmsConnectorActive && <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 max-md:hidden dark:bg-slate-500" />}
                 <div className="flex flex-wrap items-center gap-2">
                   <HoverNote label="Select transactions to update or delete at once">
                     <button
@@ -2514,7 +2514,7 @@ export default function TransactionsListPage() {
                 </div>
               </>
             )}
-            {canWriteTracker && (tmsConnectorActive || !showingDeleted) && <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />}
+            {canWriteTracker && (tmsConnectorActive || !showingDeleted) && <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 max-md:hidden dark:bg-slate-500" />}
             <HoverNote label="Compact table view">
               <button
                 type="button"
@@ -2530,11 +2530,11 @@ export default function TransactionsListPage() {
                 <Rows3 className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
               </button>
             </HoverNote>
-            <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 dark:bg-slate-500" />
+            <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 max-md:hidden dark:bg-slate-500" />
             <div className="flex items-center gap-2">
 
             {/* Quick Search */}
-            <div className={`relative w-[20rem] max-w-full ${underlineShell}`}>
+            <div className={`relative w-full max-w-full md:w-[20rem] ${underlineShell}`}>
               <input
                 type="text"
                 value={searchQuery}

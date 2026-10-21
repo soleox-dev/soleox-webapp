@@ -5,6 +5,7 @@ import { formatPercentRate } from '@/lib/percent';
 import { roundCurrency } from '../types';
 import { SectionIcon } from './SectionIcon';
 import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
+import { WATERFALL_HEADING } from './CommissionWaterfallTable';
 
 export interface AgentDisbursement {
   name: string;
@@ -93,7 +94,7 @@ function PaymentShareCard({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border px-4 py-3 ${
+      className={`relative overflow-hidden rounded-xl border px-3 py-3 sm:px-4 ${
         isAgent
           ? 'border-emerald-500/30 bg-slate-50 dark:bg-slate-900'
           : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900'
@@ -125,11 +126,14 @@ function PaymentShareCard({
             Lead
           </span>
         )}
-        <span className="ml-auto shrink-0 text-xs font-medium text-slate-500 dark:text-slate-400">
-          {totalCommission > 0 ? formatPercentRate(share) : '—'}
-        </span>
-        <span className={`shrink-0 text-sm font-semibold tabular-nums whitespace-nowrap ${isAgent ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'}`}>
-          {formatCurrency(amount)}
+        {/* On a phone the share sits under the amount, so the name keeps its room. */}
+        <span className="ml-auto flex shrink-0 items-baseline gap-2 max-sm:flex-col-reverse max-sm:items-end max-sm:gap-0">
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            {totalCommission > 0 ? formatPercentRate(share) : '—'}
+          </span>
+          <span className={`text-sm font-semibold tabular-nums whitespace-nowrap ${isAgent ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'}`}>
+            {formatCurrency(amount)}
+          </span>
         </span>
       </div>
     </div>
@@ -163,7 +167,7 @@ export function FinalDisbursements({
       >
         <div className="flex items-center gap-3">
           <SectionIcon name="disbursements" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">3. Payments Breakdown</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Payments Breakdown</h2>
         </div>
 
       </div>
@@ -178,11 +182,9 @@ export function FinalDisbursements({
         </div>
       )}
 
-      <div className={`grid grid-cols-1 gap-6 px-6 pb-6 md:grid-cols-2 md:gap-0 ${showSplitWarning ? 'pt-0' : 'pt-6'}`}>
+      <div className={`grid grid-cols-1 gap-6 px-3 pb-6 sm:px-6 md:grid-cols-2 md:gap-0 ${showSplitWarning ? 'pt-0' : 'pt-6'}`}>
         <div className="flex h-full flex-col gap-3 md:pr-6">
-          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block">
-            Payments to agents
-          </span>
+          <h3 className={WATERFALL_HEADING}>Payments to agents</h3>
 
           {agentDisbursements.length === 0 ? (
             <p className="text-xs text-slate-400 italic py-2">No agent payments.</p>
@@ -211,9 +213,7 @@ export function FinalDisbursements({
         </div>
 
         <div className="flex h-full flex-col gap-3 border-t border-slate-200 pt-6 dark:border-slate-700 md:border-t-0 md:border-l md:pt-0 md:pl-6">
-          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block">
-            Payments to entities
-          </span>
+          <h3 className={WATERFALL_HEADING}>Payments to entities</h3>
 
           {entityDisbursements.length === 0 ? (
             <p className="text-xs text-slate-400 italic py-2">No entity payments.</p>

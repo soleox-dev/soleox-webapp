@@ -21,6 +21,7 @@ import { AgentAllocationNotes, AgentCapNote, TeamCapAmount, adjustedSplitView, t
 import { formatAgentCapLine, type AgentCapCell } from '@/lib/agent-cap-progress';
 import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
 import { useAccess } from '@/components/access-provider';
+import { usePhonePortrait } from '@/lib/use-media-query';
 
 interface CommissionWaterfallProps {
   isEditing: boolean;
@@ -242,7 +243,10 @@ export function CommissionWaterfall({
     ? dealResult.displayPostSplit2RulesByAgent
     : postSplit2RulesByAgent;
   const agentNames = agents.map((a) => a.name);
-  const [agentLayout, setAgentLayout] = useState<'table' | 'cards'>('table');
+  const [chosenAgentLayout, setAgentLayout] = useState<'table' | 'cards'>('table');
+  // A phone held upright only has room for the cards; the saved choice applies again on wider screens.
+  const phonePortrait = usePhonePortrait();
+  const agentLayout = phonePortrait ? 'cards' : chosenAgentLayout;
   const canWrite = Boolean(useAccess().access?.permissions.commissionTrackerWrite);
   const editOnDoublePress = useEditOnDoublePress(!isEditing && canWrite, onStartEdit);
 
@@ -543,7 +547,7 @@ export function CommissionWaterfall({
       >
         <div className="flex shrink-0 items-center gap-3">
           <SectionIcon name="commission" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">2. Commission Waterfall</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Commission Waterfall</h2>
         </div>
 
         <div className="flex items-center gap-3">
@@ -566,7 +570,7 @@ export function CommissionWaterfall({
             submissionRevision={submissionRevision}
           />
           )}
-          {agentLayoutToggle}
+          {!phonePortrait && agentLayoutToggle}
           {canWrite && !isEditing ? (
             <HoverNote label="Edit commission waterfall">
               <button
@@ -606,12 +610,12 @@ export function CommissionWaterfall({
         </div>
       </div>
 
-      <div className="p-6 space-y-4" {...editOnDoublePress}>
+      <div className="p-3 sm:p-6 space-y-4" {...editOnDoublePress}>
         {flow && <CommissionFlowBar total={flow.total} agents={flow.agents} entities={flow.entities} />}
         {/* With both empty and not editing, steps 1 and 2 share one row. Editing splits them again for their + buttons. */}
         {bothDeductionsEmpty ? (
           <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm px-4 py-2">
-            <div className="flex min-h-8 justify-between items-center gap-3">
+            <div className="flex min-h-8 flex-wrap justify-between items-center gap-x-3 gap-y-2">
               <div className="flex items-center gap-2">
                 <span className={WATERFALL_HEADING}>Off-the-top &amp; pre-split deductions</span>
                 <span className="text-xs italic text-slate-400">None</span>
@@ -629,8 +633,8 @@ export function CommissionWaterfall({
         ) : (
           <>
           {/* Step 1: Off-The-Top Deductions. With nothing in it, the section is one row: its name, None, and the total. */}
-          <div className={`border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm ${offTopEmpty ? 'px-4 py-2' : 'p-4 space-y-3'}`}>
-            <div className={`flex justify-between items-center ${offTopEmpty ? 'min-h-8' : 'border-b border-slate-200 dark:border-slate-700 pb-3'}`}>
+          <div className={`border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm ${offTopEmpty ? 'px-3 py-2 sm:px-4' : 'p-3 sm:p-4 space-y-3'}`}>
+            <div className={`flex flex-wrap justify-between items-center gap-x-3 gap-y-2 ${offTopEmpty ? 'min-h-8' : 'border-b border-slate-200 dark:border-slate-700 pb-3'}`}>
               <div className="flex items-center gap-2">
                 <span className={WATERFALL_HEADING}>Off-the-top deductions</span>
                 {offTopEmpty && <span className="text-xs italic text-slate-400">None</span>}
@@ -794,8 +798,8 @@ export function CommissionWaterfall({
           </div>
 
           {/* Step 2: Pre-Split Deductions. One row when empty, like step 1. */}
-          <div className={`border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm ${preSplitEmpty ? 'px-4 py-2' : 'p-4 space-y-3'}`}>
-            <div className={`flex justify-between items-center ${preSplitEmpty ? 'min-h-8' : 'border-b border-slate-200 dark:border-slate-700 pb-3'}`}>
+          <div className={`border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm ${preSplitEmpty ? 'px-3 py-2 sm:px-4' : 'p-3 sm:p-4 space-y-3'}`}>
+            <div className={`flex flex-wrap justify-between items-center gap-x-3 gap-y-2 ${preSplitEmpty ? 'min-h-8' : 'border-b border-slate-200 dark:border-slate-700 pb-3'}`}>
               <div className="flex items-center gap-2">
                 <span className={WATERFALL_HEADING}>Pre-split deductions</span>
                 {preSplitEmpty && <span className="text-xs italic text-slate-400">None</span>}
@@ -993,8 +997,8 @@ export function CommissionWaterfall({
         ) : (
         <>
         {/* Step 3: Agent Splits Breakdown */}
-        <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-3 shadow-sm">
-          <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
+        <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-3 sm:p-4 space-y-3 shadow-sm">
+          <div className="flex flex-wrap justify-between items-center gap-x-3 gap-y-2 border-b border-slate-200 dark:border-slate-700 pb-3">
             <div className="flex items-center gap-2">
               <span className={WATERFALL_HEADING}>Agent splits</span>
               {isEditing && (
@@ -1053,12 +1057,8 @@ export function CommissionWaterfall({
                           <span className="text-[11px] bg-brand-500/20 text-brand-800 dark:text-brand-300 border border-brand-500/30 px-2 py-0.5 rounded-full font-bold">
                             PRIMARY
                           </span>
-                          <span className="relative inline-flex group/painfo">
-                            <button
-                              type="button"
-                              aria-label="Primary Agent explained"
-                              className="inline-flex items-center justify-center w-4 h-4 rounded-full text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-default"
-                            >
+                          <HoverNote label="Primary Agent (tied to Transaction Overview • receives remaining balance after secondary agent splits)">
+                            <span tabIndex={0} role="img" aria-label="Primary Agent explained" className="inline-flex items-center justify-center w-4 h-4 rounded-full text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-help outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 viewBox="0 0 20 20"
@@ -1072,14 +1072,8 @@ export function CommissionWaterfall({
                                   clipRule="evenodd"
                                 />
                               </svg>
-                            </button>
-                            <span
-                              role="tooltip"
-                              className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 w-72 -translate-x-1/2 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2.5 py-2 text-[11px] leading-relaxed text-slate-600 dark:text-slate-300 shadow-lg opacity-0 invisible group-hover/painfo:opacity-100 group-hover/painfo:visible transition-opacity duration-150"
-                            >
-                              Primary Agent (tied to Transaction Overview • receives remaining balance after secondary agent splits)
                             </span>
-                          </span>
+                          </HoverNote>
                           {agent.isTeamLead && (
                             <span className="text-[11px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-semibold">
                               LEAD
@@ -1185,12 +1179,8 @@ export function CommissionWaterfall({
           <div className="border-b border-slate-200 dark:border-slate-700 pb-3">
             <div className="flex items-center gap-1.5">
               <span className={WATERFALL_HEADING}>Post-split deductions</span>
-              <span className="relative inline-flex group/psinfo">
-                <button
-                  type="button"
-                  aria-label="Post-split levels explained"
-                  className="inline-flex items-center justify-center w-4 h-4 rounded-full text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-default"
-                >
+              <HoverNote label="Level 1: Common deductions from Agent Split • Level 2: Other deductions from Net after Level 1 Post-splits (e.g., 5% Brokerage stock options)">
+                <span tabIndex={0} role="img" aria-label="Post-split levels explained" className="inline-flex items-center justify-center w-4 h-4 rounded-full text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-help outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 20 20"
@@ -1204,14 +1194,8 @@ export function CommissionWaterfall({
                       clipRule="evenodd"
                     />
                   </svg>
-                </button>
-                <span
-                  role="tooltip"
-                  className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 w-72 -translate-x-1/2 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2.5 py-2 text-[11px] leading-relaxed text-slate-600 dark:text-slate-300 shadow-lg opacity-0 invisible group-hover/psinfo:opacity-100 group-hover/psinfo:visible transition-opacity duration-150"
-                >
-                  Level 1: Common deductions from Agent Split • Level 2: Other deductions from Net after Level 1 Post-splits (e.g., 5% Brokerage stock options)
                 </span>
-              </span>
+              </HoverNote>
             </div>
           </div>
 

@@ -213,14 +213,16 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
                 >
                   {title}
                 </button>
-                {hasDeal && deal?.side && <span className="shrink-0 text-xs text-slate-500 dark:text-slate-400">{deal.side}</span>}
-                {hasDeal && deal?.status && <StatusChip status={deal.status} />}
+                {hasDeal && deal?.side && <span className="shrink-0 text-xs text-slate-500 max-sm:hidden dark:text-slate-400">{deal.side}</span>}
+                {/* On a phone the address gets the room; side and status show in the page itself. */}
+                {hasDeal && deal?.status && <span className="contents max-sm:hidden"><StatusChip status={deal.status} /></span>}
               </div>
               {actions}
             </div>
           ) : (
             <div key="expanded" className="header-swap flex flex-wrap items-center gap-x-4 gap-y-3">
-              <div className="min-w-0 flex-1">
+              {/* On a phone the title takes the full width and the actions wrap below it. */}
+              <div className="min-w-0 flex-1 basis-full sm:basis-auto">
                 {onBack && (
                   <button
                     type="button"
@@ -231,7 +233,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
                     Transactions
                   </button>
                 )}
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{title}</h1>
+                <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl dark:text-white">{title}</h1>
                 {hasDeal ? (
                   <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
                     {deal?.status && <StatusChip status={deal.status} />}

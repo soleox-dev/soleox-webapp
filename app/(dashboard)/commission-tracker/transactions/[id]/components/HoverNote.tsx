@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 export function HoverNote({ label, children }: { label: string; children: ReactNode }) {
@@ -40,6 +40,17 @@ export function HoverNote({ label, children }: { label: string; children: ReactN
     setBox((prev) => ({ ...prev, ready: false }));
   };
 
+  // Touch screens have no hover: a tap opens the note and a tap anywhere else closes it.
+  useEffect(() => {
+    if (!open) return;
+    const onTouch = (event: TouchEvent) => {
+      if (anchorRef.current?.contains(event.target as Node)) return;
+      close();
+    };
+    document.addEventListener('touchstart', onTouch, { passive: true });
+    return () => document.removeEventListener('touchstart', onTouch);
+  }, [open]);
+
   return (
     <span
       ref={anchorRef}
@@ -48,6 +59,11 @@ export function HoverNote({ label, children }: { label: string; children: ReactN
       onMouseLeave={close}
       onFocus={() => setOpen(true)}
       onBlur={close}
+      onTouchEnd={(event) => {
+        // Buttons and links inside keep their own tap; the note opens on taps elsewhere in it.
+        if ((event.target as HTMLElement).closest('button, a, input, select, textarea')) return;
+        setOpen((value) => !value);
+      }}
     >
       {children}
       {open && createPortal(

@@ -440,7 +440,7 @@ export function TransactionOverview({
       >
         <div className="flex items-center gap-3">
           <SectionIcon name="overview" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">1. Transaction Overview</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Transaction Overview</h2>
         </div>
         
         <div className="flex items-center gap-3">

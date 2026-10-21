@@ -15,7 +15,8 @@ const contentSecurityPolicy = [
 ].join('; ');
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ['utility-exile-aftermost.ngrok-free.dev'],
+  // Phone testing: the ngrok tunnel and this Mac's private Tailscale address (tailscale serve).
+  allowedDevOrigins: ['utility-exile-aftermost.ngrok-free.dev', 'soleox-macbook-pro.tail41b6f6.ts.net'],
   devIndicators: false,
   logging: {
     incomingRequests: false,

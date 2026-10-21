@@ -149,7 +149,7 @@ export default function Home() {
           Your account doesn&apos;t have access to a module for this client yet. Ask an admin to grant it.
         </p>
       ) : (
-        <div className="grid items-start gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
           {showTracker && (
             <ModulePanel
               icon={CircleDollarSign}

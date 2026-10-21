@@ -97,9 +97,10 @@ export function TeamCapAmount({
   if (!canEdit) {
     return (
       <span className="inline-flex flex-col items-end">
-        <span className="inline-flex w-[6.5rem] items-baseline justify-end gap-1 pr-2">
-          <span className={`text-xs font-semibold ${amountTone}`}>{money.format(amount)}</span>
+        {/* "edited" goes before the amount, so the amount keeps the split amounts' right edge above it. */}
+        <span className="inline-flex items-baseline justify-end gap-1">
           {edited ? <span className={`text-[10.5px] font-bold ${editedTone}`}>edited</span> : null}
+          <span className={`text-xs font-semibold ${amountTone}`}>{money.format(amount)}</span>
         </span>
         {standingNote}
       </span>
