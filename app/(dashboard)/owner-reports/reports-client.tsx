@@ -4971,7 +4971,7 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
   );
 }
 
-const earningHead = 'report-head-dark text-xs font-medium normal-case text-white';
+const earningHead = 'report-head-dark text-xs font-medium normal-case';
 const earningHeadCell = 'px-2 py-2 text-xs font-medium';
 
 function earningRowClass(index: number, selected: boolean, total = false): string {
@@ -5699,9 +5699,9 @@ function MonthTable({
         } : undefined}
       >
       <table ref={bodyRef} className="w-full text-xs">
-        <thead className="report-head-dark text-xs font-medium normal-case text-white">
+        <thead className="report-head-dark text-xs font-medium normal-case">
           <tr>
-            <SortHead column="month" label={periodLabel} sort={sort} onSort={toggle} className="sticky left-0 z-10 bg-slate-800 px-2 py-2 text-xs font-medium text-white" />
+            <SortHead column="month" label={periodLabel} sort={sort} onSort={toggle} className="sticky left-0 z-10 px-2 py-2 text-xs font-medium" />
             <SortHead column="closedUnits" label="Closed units" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
             <SortHead column="closedVolume" label="Closed volume" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
             <SortHead column="closedCommission" label="Closed total comm." title="Closed total commission" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
@@ -5957,7 +5957,7 @@ function ProductionDrilldownTable({
         }}
       >
         <table ref={bodyRef} className="w-full text-xs">
-          <thead className="report-head-dark text-xs font-medium normal-case text-white">
+          <thead className="report-head-dark text-xs font-medium normal-case">
             <tr>
               <SortHead column="rank" label="#" sort={sort} onSort={toggle} align="right" className="px-2 py-2 text-xs font-medium" />
               <SortHead column="status" label="Status" sort={sort} onSort={toggle} className="px-3 py-2 text-xs font-medium" />

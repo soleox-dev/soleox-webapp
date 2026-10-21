@@ -226,7 +226,7 @@ function CapSection({ cap, rows, openAgentId, onOpen, showPaid }: {
       {open ? (
         <div className="report-table report-table-fit min-h-0 flex-1 rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
           <table className="w-full min-w-[960px] text-xs">
-            <thead className="report-head-dark text-xs font-medium normal-case text-white">
+            <thead className="report-head-dark text-xs font-medium normal-case">
               <tr>
                 <SortHead column="rank" label="#" sort={detailSort.sort} onSort={detailSort.toggle} align="right" />
                 <SortHead column="status" label="Status" sort={detailSort.sort} onSort={detailSort.toggle} />
@@ -285,7 +285,7 @@ function CapSection({ cap, rows, openAgentId, onOpen, showPaid }: {
             }}
           >
             <table ref={standingsBodyRef} className="w-full min-w-[880px] text-xs">
-              <thead className="report-head-dark text-xs font-medium normal-case text-white">
+              <thead className="report-head-dark text-xs font-medium normal-case">
                 <tr>
                   <SortHead column="rank" label="#" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" />
                   <SortHead column="agent" label="Agent" sort={standingsSort.sort} onSort={standingsSort.toggle} />
