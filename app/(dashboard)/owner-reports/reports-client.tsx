@@ -694,6 +694,8 @@ export default function OwnerReportsPage() {
   const swipeRef = useRef<HTMLElement>(null);
   const arrivalRef = useRef<SwipeDirection | null>(null);
   const hintRef = useRef<HTMLDivElement>(null);
+  // Hides the double-tap hint. Kept apart from the paging timers, which the report change clears.
+  const hintHideTimer = useRef<number | null>(null);
   const selectReport = (id: string | null) => {
     const href = id ? `/owner-reports/${id}` : '/owner-reports';
     if (href === pathname) return;
@@ -789,7 +791,7 @@ export default function OwnerReportsPage() {
     const paintHint = (dir: SwipeDirection | null, name = '') => {
       if (!hint || !circle || !label) return;
       if (!dir) {
-        hint.style.transition = 'transform 180ms ease-out, opacity 180ms ease-out';
+        hint.style.transition = 'transform 320ms ease-out, opacity 320ms ease-out';
         hint.style.opacity = '0';
         hint.style.transform = `translate(${hint.dataset.dir === 'next' ? 56 : -56}px, -50%)`;
         return;
@@ -860,7 +862,12 @@ export default function OwnerReportsPage() {
         if (target) {
           const choice = reportChoice(target.id);
           paintHint(dir, `${choice.number} ${choice.name}`);
-          later(() => paintHint(null), 450);
+          // Shown for half a second, then it fades away, even though the report changes underneath it.
+          if (hintHideTimer.current != null) window.clearTimeout(hintHideTimer.current);
+          hintHideTimer.current = window.setTimeout(() => {
+            hintHideTimer.current = null;
+            paintHint(null);
+          }, 500);
         }
         commit(dir);
         return;
