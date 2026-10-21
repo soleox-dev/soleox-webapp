@@ -1165,7 +1165,7 @@ export function CommissionWaterfall({
         </div>
 
         {/* Step 4: Post-Split Deductions (Level 1 & Level 2 / Stock) */}
-        <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 space-y-4 shadow-sm">
+        <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-3 sm:p-4 space-y-4 shadow-sm">
           <div className="border-b border-slate-200 dark:border-slate-700 pb-3">
             <div className="flex items-center gap-1.5">
               <span className={WATERFALL_HEADING}>Post-Split Deductions</span>
@@ -1218,20 +1218,22 @@ export function CommissionWaterfall({
               return (
                 <div
                   key={agentName}
-                  className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4"
+                  className="bg-slate-50 dark:bg-slate-800/60 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3 sm:space-y-4"
                 >
                   {/* Agent Sub-Card Header */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-700 pb-3">
-                    <div className="flex w-full flex-wrap items-center gap-2">
-                      <span className="whitespace-nowrap text-sm font-bold text-slate-900 dark:text-white">
-                        👤 {agentName}
+                  {/* A pill, like the section headers on the Fields settings page: the agent, then their split. */}
+                  <div className="rounded-full bg-brand-500/10 py-1.5 pl-2.5 pr-3 sm:pl-3 sm:pr-4 dark:bg-brand-500/15">
+                    <div className="flex w-full items-center gap-1.5 sm:gap-2">
+                      <span aria-hidden className="shrink-0 text-sm">👤</span>
+                      <span className="min-w-0 truncate text-sm font-bold text-brand-800 dark:text-brand-300">
+                        {agentName}
                       </span>
                       {agentObj?.isTeamLead && (
-                        <span className="text-[11px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-semibold">
+                        <span className="shrink-0 text-[11px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-semibold">
                           Lead
                         </span>
                       )}
-                      <span className="ml-auto whitespace-nowrap text-xs text-slate-500 dark:text-slate-400" title="Agent split">
+                      <span className="ml-auto shrink-0 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400" title="Agent split">
                         <strong className={agentGrossSplit < -0.004 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-200'}>{formatCurrency(agentGrossSplit)}</strong>
                       </span>
                     </div>
