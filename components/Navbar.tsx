@@ -142,11 +142,11 @@ export default function Navbar() {
   }, [isOwnerReports, isDesktop]);
 
   // Desktop only. The Transactions list hides the bar at the bottom of the page so the tabs and
-  // buttons above the table show. Transaction Detail hides it as soon as the page scrolls down.
-  // Scrolling up or pointing at the top edge brings it back on both.
-  const scrollHideMode: 'bottom' | 'down' | null = !isDesktop || !isTransactionsActive
+  // buttons above the table show; scrolling up or pointing at the top edge brings it back.
+  // Transaction Detail keeps the bar in place while it scrolls.
+  const scrollHideMode: 'bottom' | null = !isDesktop || !isTransactionsActive || isTransactionDetail
     ? null
-    : isTransactionDetail ? 'down' : 'bottom';
+    : 'bottom';
   const [scrollHidden, setScrollHidden] = useState(false);
   const [navPeek, setNavPeek] = useState(false);
   useEffect(() => {
@@ -155,20 +155,9 @@ export default function Navbar() {
       setNavPeek(false);
       return;
     }
-    let lastY = window.scrollY;
     const measure = () => {
       const y = window.scrollY;
-      if (y <= 0) {
-        setScrollHidden(false);
-      } else if (scrollHideMode === 'bottom') {
-        setScrollHidden(Math.ceil(y + window.innerHeight) >= document.documentElement.scrollHeight - 2);
-      } else if (y > lastY + 2) {
-        setScrollHidden(true);
-      } else if (y < lastY - 2 && document.documentElement.dataset.navScrollHold !== '1') {
-        // Pages set navScrollHold while they scroll on their own, such as a jump to a section.
-        setScrollHidden(false);
-      }
-      lastY = y;
+      setScrollHidden(y > 0 && Math.ceil(y + window.innerHeight) >= document.documentElement.scrollHeight - 2);
     };
     const onMove = (event: MouseEvent) => {
       const overBar = headerRef.current?.contains(event.target as Node) ?? false;

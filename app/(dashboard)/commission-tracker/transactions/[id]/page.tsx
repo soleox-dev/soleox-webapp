@@ -141,20 +141,16 @@ export default function Dashboard() {
       const stripHeight = strip?.offsetHeight ?? 0;
       const sectionTop = el.getBoundingClientRect().top + window.scrollY;
       const root = document.documentElement;
-      const goingDown = sectionTop - stripHeight > window.scrollY;
+      // The top bar stays in place on this page, so the section lands under it.
       const barHidden = root.style.getPropertyValue('--app-nav-offset').trim() === '0px';
-      const barHides = (goingDown || barHidden) && window.matchMedia('(min-width: 768px)').matches;
-      const barHeight = barHides ? 0 : (document.querySelector('header')?.offsetHeight ?? 64);
-      // A jump from the section links is not the user scrolling up, so the top bar stays as it is.
-      // The hold lasts until the smooth scroll ends. A long jump can take well over a second.
-      root.dataset.navScrollHold = '1';
+      const barHeight = barHidden ? 0 : (document.querySelector('header')?.offsetHeight ?? 64);
+      // The jump counts as programmatic until the smooth scroll ends. A long jump can take well over a second.
       let released = false;
       const release = () => {
         if (released) return;
         released = true;
         window.removeEventListener('scrollend', release);
         window.setTimeout(() => {
-          delete root.dataset.navScrollHold;
           isProgrammaticScrollRef.current = false;
         }, 100);
       };
@@ -1864,7 +1860,7 @@ export default function Dashboard() {
   return (
     // No scroll anchoring here: the header keeps the room it gives up when it collapses (HeaderCard), and Chrome
     // anchoring on top of that would move the page by the same amount again.
-    <div className={`${pageFrame} relative space-y-6 py-8 max-sm:pt-0`} style={{ '--txn-header-height': `${headerStick}px`, overflowAnchor: 'none' } as React.CSSProperties}>
+    <div className={`${pageFrame} relative space-y-6 pt-3 pb-8 max-sm:pt-0`} style={{ '--txn-header-height': `${headerStick}px`, overflowAnchor: 'none' } as React.CSSProperties}>
       {toast && <ToastBanner message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
 
       <HeaderCard
