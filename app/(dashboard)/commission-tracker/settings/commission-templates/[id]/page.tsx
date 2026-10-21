@@ -274,6 +274,24 @@ function calculationFormSectionEnds(step: LogicStep, next: LogicStep | undefined
   return calculationFormSection(step) !== calculationFormSection(next);
 }
 
+/**
+ * In run order, true when the rule after this one starts another form section's block: the next calculation shown
+ * in the form belongs to a different section (Agent 2) than the last one shown before it (Agent 1), with that
+ * agent's splits in between.
+ */
+function runOrderBlockEnds(steps: LogicStep[], index: number): boolean {
+  const next = steps[index + 1];
+  if (!next) return false;
+  const nextSection = canonicalLogicSection(next.section || '') === 'Calculation' ? calculationFormSection(next) : '';
+  if (!nextSection) return false;
+  for (let earlier = index; earlier >= 0; earlier -= 1) {
+    const step = steps[earlier];
+    const section = canonicalLogicSection(step.section || '') === 'Calculation' ? calculationFormSection(step) : '';
+    if (section) return section !== nextSection;
+  }
+  return false;
+}
+
 export default function CommissionTemplateDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -305,6 +323,8 @@ export default function CommissionTemplateDetailPage() {
   const [parametersCollapsed, setParametersCollapsed] = useState(true);
   const [logicCollapsed, setLogicCollapsed] = useState(true);
   const [compactRows, setCompactRows] = useState(false);
+  // Rules list: one list in the order the engine runs them, or grouped by waterfall section.
+  const [ruleView, setRuleView] = useState<'run' | 'section'>('run');
   const [parameterSearch, setParameterSearch] = useState('');
   const [logicSearch, setLogicSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -394,7 +414,21 @@ export default function CommissionTemplateDetailPage() {
 
   useEffect(() => {
     setCompactRows(window.localStorage.getItem('soleox-template-row-density') === 'compact');
+    try {
+      if (window.localStorage.getItem('soleox-template-rule-view') === 'section') setRuleView('section');
+    } catch {
+      // Storage can be blocked; the list then opens in run order.
+    }
   }, []);
+
+  const chooseRuleView = (next: 'run' | 'section') => {
+    setRuleView(next);
+    try {
+      window.localStorage.setItem('soleox-template-rule-view', next);
+    } catch {
+      // Not remembered when storage is blocked.
+    }
+  };
 
   const toggleCompactRows = () => {
     setCompactRows((current) => {
@@ -781,6 +815,19 @@ export default function CommissionTemplateDetailPage() {
         })();
     ordered.splice(insertAt, 0, nextMoved);
     setLogicDropTarget(null);
+    await commitLogicOrder(ordered.map((step, itemIndex) => ({ ...step, step_number: itemIndex + 1 })));
+  };
+
+  // In run order a rule keeps its section and moves to the dropped place in the order the engine runs rules.
+  const dropLogicInRunOrder = async (sourceId: string, target: { stepId: string; placement: 'before' | 'after' }) => {
+    if (isReordering || target.stepId === sourceId) return;
+    const ordered = [...logicSteps].sort((a, b) => a.step_number - b.step_number);
+    const from = ordered.findIndex((step) => step.id === sourceId);
+    if (from < 0) return;
+    const [moved] = ordered.splice(from, 1);
+    const index = ordered.findIndex((step) => step.id === target.stepId);
+    if (index < 0) return;
+    ordered.splice(target.placement === 'before' ? index : index + 1, 0, moved);
     await commitLogicOrder(ordered.map((step, itemIndex) => ({ ...step, step_number: itemIndex + 1 })));
   };
 
@@ -1634,6 +1681,22 @@ export default function CommissionTemplateDetailPage() {
                 </span>
               </button>
               <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0">
+                <div role="group" aria-label="Rule Order" className="inline-flex shrink-0 rounded-lg border border-slate-200 p-0.5 dark:border-slate-700">
+                  {([['run', 'Run Order', 'Every rule in the order it runs'], ['section', 'By Section', 'Rules grouped by waterfall section']] as const).map(([value, label, hint]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => chooseRuleView(value)}
+                      aria-pressed={ruleView === value}
+                      title={hint}
+                      className={`whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-bold transition cursor-pointer ${ruleView === value
+                        ? 'bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 <div className={`relative w-full sm:w-64 ${underlineShell}`}>
                   <input
                     type="text"
@@ -1704,10 +1767,13 @@ export default function CommissionTemplateDetailPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {logicGroups(filteredLogicSteps).map((group) => {
+                    {(ruleView === 'run'
+                      ? [{ name: '', items: [...filteredLogicSteps].sort((a, b) => a.step_number - b.step_number) }]
+                      : logicGroups(filteredLogicSteps)).map((group) => {
                       const isUnsectioned = group.name === 'No Section';
                       return (
                       <React.Fragment key={group.name}>
+                        {ruleView === 'section' && (
                         <tr
                           onDragOver={(event) => {
                             if (logicSearch.trim()) return;
@@ -1795,10 +1861,11 @@ export default function CommissionTemplateDetailPage() {
                             </div>
                           </td>
                         </tr>
+                        )}
                         {group.items.map((step, itemIndex) => (
                       <tr
                         key={step.id}
-                        className={`align-top ${calculationFormSectionEnds(step, group.items[itemIndex + 1]) ? '[&>td]:border-b-2 [&>td]:!border-b-slate-400 dark:[&>td]:!border-b-slate-500' : ''} ${step.id === recentLogicId ? '[&>td]:bg-emerald-50 dark:[&>td]:bg-emerald-500/10' : ''} ${logicDropTarget && 'stepId' in logicDropTarget && logicDropTarget.stepId === step.id ? (logicDropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
+                        className={`align-top ${(ruleView === 'run' ? runOrderBlockEnds(group.items, itemIndex) : calculationFormSectionEnds(step, group.items[itemIndex + 1])) ? '[&>td]:border-b-2 [&>td]:!border-b-slate-400 dark:[&>td]:!border-b-slate-500' : ''} ${step.id === recentLogicId ? '[&>td]:bg-emerald-50 dark:[&>td]:bg-emerald-500/10' : ''} ${logicDropTarget && 'stepId' in logicDropTarget && logicDropTarget.stepId === step.id ? (logicDropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
                         onDragOver={(event) => {
                           if (logicSearch.trim()) return;
                           event.preventDefault();
@@ -1813,7 +1880,7 @@ export default function CommissionTemplateDetailPage() {
                           const bounds = event.currentTarget.getBoundingClientRect();
                           const placement = event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
                           setLogicDropTarget(null);
-                          if (sourceId) void dropLogic(sourceId, { stepId: step.id, placement });
+                          if (sourceId) void (ruleView === 'run' ? dropLogicInRunOrder : dropLogic)(sourceId, { stepId: step.id, placement });
                         }}
                       >
                         <td className="px-4 py-3 text-slate-500">{step.step_number}</td>
@@ -1828,10 +1895,25 @@ export default function CommissionTemplateDetailPage() {
                           ) : 'Always'}
                         </td>
                         <td className="px-4 py-3">
-                          {/* A calculation shown in the Commission Template form names the form section it shows in. */}
-                          {canonicalLogicSection(step.section || '') === 'Calculation' && step.show_in_popup && step.popup_section?.trim()
-                            ? `Calculation: ${step.popup_section.trim()}`
-                            : canonicalLogicSection(step.section || '') || step.section?.trim() || '—'}
+                          {/* A calculation shown in the Commission Template form names the form section it shows in. In run
+                              order the section is a chip, since there are no section headings. */}
+                          {(() => {
+                            const isCalculation = canonicalLogicSection(step.section || '') === 'Calculation';
+                            const sectionText = isCalculation && step.show_in_popup && step.popup_section?.trim()
+                              ? `${ruleSectionLabel('Calculation')}: ${step.popup_section.trim()}`
+                              : ruleView === 'run'
+                                ? ruleSectionLabel(logicSectionName(step))
+                                : canonicalLogicSection(step.section || '') || step.section?.trim() || '—';
+                            if (ruleView === 'section') return sectionText;
+                            return (
+                              <span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-2xs font-semibold ${isCalculation
+                                ? 'bg-slate-500/10 text-slate-600 dark:bg-slate-400/10 dark:text-slate-300'
+                                : 'bg-brand-500/10 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300'}`}
+                              >
+                                {sectionText}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-3 font-mono text-sky-700 dark:text-sky-300">
                           {logicSectionShowsAgent(canonicalLogicSection(step.section || '')) ? (step.agent_key?.trim() || '—') : '—'}
