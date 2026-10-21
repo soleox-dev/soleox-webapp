@@ -10,7 +10,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useSoleoxTheme } from '@/app/providers';
 import { SoleoxLogo } from '@/components/ui/logo';
 import { useAccess } from '@/components/access-provider';
-import { pageFrame } from '@/lib/page-frame';
+import { isWidePagePath, pageFrame, widePageFrame } from '@/lib/page-frame';
 import { useIsDesktop, useIsDesktopNav } from '@/lib/use-media-query';
 import { OWNER_REPORTS, OWNER_REPORT_GROUPS } from '@/lib/owner-reports';
 import { BarChart3, Briefcase, Building2, ChevronDown, ChevronLeft, ChevronRight, House, LayoutGrid, List, Menu, Monitor, Moon, PieChart, Receipt, Search, Settings, Sun, Target, UserPlus, Users, X, type LucideIcon } from 'lucide-react';
@@ -283,7 +283,7 @@ export default function Navbar() {
         ? `${reportsBarClass} ${barClass}`
         : `sticky top-0 z-50 transition-transform duration-200 ease-out motion-reduce:transition-none ${navHidden ? '-translate-y-full pointer-events-none' : navPeek && scrollHidden ? 'shadow-lg' : ''} ${barClass}`}
     >
-      <div className={`${pageFrame} flex h-16 items-center justify-between`}>
+      <div className={`${isWidePagePath(pathname) ? widePageFrame : pageFrame} flex h-16 items-center justify-between`}>
         
         {/* Brand Logo Component with REBI Badge */}
         <div className="flex items-center gap-4">

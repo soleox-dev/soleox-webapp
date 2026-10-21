@@ -4,7 +4,7 @@ import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } f
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, X } from 'lucide-react';
-import { pageFrame } from '@/lib/page-frame';
+import { widePageFrame } from '@/lib/page-frame';
 import { DESKTOP_QUERY, useFitsScreen, useIsDesktop, useIsTouch } from '@/lib/use-media-query';
 import { FieldChevron, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { LoadingDataPage, type LoadingProgressInfo } from './loading-data-page';
@@ -994,7 +994,7 @@ export default function OwnerReportsPage() {
   return (
     <main onClick={!report && !loading ? launch : undefined} className={`[overflow-anchor:none] text-slate-900 dark:text-slate-100 ${reportCanvas} ${!report && !loading ? 'cursor-pointer' : ''} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'min-h-screen screenfit:min-h-0 screenfit:h-dvh screenfit:overflow-hidden' : 'min-h-screen'}`}>
       <SwipeHint ref={hintRef} />
-      <div className={`${pageFrame} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'pb-3 screenfit:flex screenfit:h-full screenfit:min-h-0 screenfit:flex-col screenfit:overflow-hidden' : 'pb-4'}`}>
+      <div className={`${widePageFrame} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'pb-3 screenfit:flex screenfit:h-full screenfit:min-h-0 screenfit:flex-col screenfit:overflow-hidden' : 'pb-4'}`}>
         <section ref={swipeRef} className={`min-w-0 ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'screenfit:flex screenfit:min-h-0 screenfit:flex-1 screenfit:flex-col' : `space-y-4 ${reveal ? 'report-arrive' : ''}`}`}>
           {loading ? (
             <LoadingDataPage

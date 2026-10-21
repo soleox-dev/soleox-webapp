@@ -8,7 +8,7 @@ import { ConfirmDialog, useConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { PERCENT_POINT_DECIMALS, formatPercentPoints, formatTablePercent, fromPercentPoints, toPercentPoints } from '@/lib/percent';
 import { isAgentBulkEditableField } from '@/lib/agent-bulk';
 import { isHiddenRecordId } from '@/lib/fields';
-import { pageFrame } from '@/lib/page-frame';
+import { widePageFrame } from '@/lib/page-frame';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { BooleanField, BooleanMark, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
@@ -956,7 +956,7 @@ export default function AgentsPage() {
   const pinCheckCell = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-white group-even:bg-slate-50 group-hover:bg-slate-100 dark:bg-slate-800 dark:group-even:bg-[color-mix(in_srgb,var(--color-slate-900)_30%,var(--color-slate-800))] dark:group-hover:bg-[color-mix(in_srgb,var(--color-slate-700)_50%,var(--color-slate-800))]';
 
   return (
-    <main className={`${pageFrame} min-h-screen bg-slate-100 py-6 text-slate-900 transition-colors duration-200 space-y-6 dark:bg-slate-900 dark:text-slate-100 md:py-8`}>
+    <main className={`${widePageFrame} min-h-screen bg-slate-100 py-6 text-slate-900 transition-colors duration-200 space-y-6 dark:bg-slate-900 dark:text-slate-100 md:py-8`}>
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs flex flex-wrap justify-between items-start sm:items-center gap-4 transition-colors">
         <div>
           <div className="flex items-center gap-2 text-xs font-bold text-brand-600 dark:text-brand-400 mb-1">

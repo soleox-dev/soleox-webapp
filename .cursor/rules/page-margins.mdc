@@ -10,7 +10,9 @@ The left and right edges of page content match the Owner Reports filters card.
 
 Use `pageFrame` from `@/lib/page-frame` on the page column. That class is `mx-auto w-full max-w-[1600px] px-4 md:px-6`: a 1600px column, 16px of side padding, and 24px from the `md` breakpoint up. The top navigation uses the same class.
 
-Keep each page’s own top and bottom padding. Do not add a second max width or extra side padding inside a page that already sits in `pageFrame`, including settings pages. Cards, tables, modals, and form fields keep their own padding.
+Data pages use the full screen width: the Transactions list, the Agents list, and Owner, Agent, and Office Reports. They use `widePageFrame` (`w-full px-4 md:px-6`): the same side padding with no max width. `isWidePagePath` in the same file lists these routes, and the top navigation switches to `widePageFrame` on them so its edges still line up. A transaction's detail page, settings, and the other pages keep `pageFrame`.
+
+Keep each page’s own top and bottom padding. Do not add a second max width or extra side padding inside a page that already sits in `pageFrame` or `widePageFrame`, including settings pages. Cards, tables, modals, and form fields keep their own padding.
 
 Sign-in, choose client, and no access stay a narrow centered column. Their only side padding is `px-4 md:px-6`.
 

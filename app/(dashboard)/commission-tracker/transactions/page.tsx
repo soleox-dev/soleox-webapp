@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { normalizeAgentName } from '@/lib/id';
 import { formatPercent, isHiddenRecordId } from '@/lib/fields';
-import { pageFrame } from '@/lib/page-frame';
+import { widePageFrame } from '@/lib/page-frame';
 import { formatPercentRate, formatTablePercent } from '@/lib/percent';
 import { BooleanMark, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
@@ -2048,7 +2048,7 @@ export default function TransactionsListPage() {
   ].filter(Boolean).join(' · ');
 
   return (
-    <main className={`${pageFrame} min-h-screen bg-slate-100 py-6 text-slate-900 transition-colors duration-200 space-y-6 dark:bg-slate-900 dark:text-slate-100 md:py-8`}>
+    <main className={`${widePageFrame} min-h-screen bg-slate-100 pt-6 pb-3 text-slate-900 transition-colors duration-200 space-y-6 dark:bg-slate-900 dark:text-slate-100 md:pt-8 md:pb-4`}>
       {/* Top Banner */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs flex flex-wrap justify-between items-start sm:items-center gap-4 transition-colors">
         <div>

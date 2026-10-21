@@ -149,7 +149,8 @@ When resolving custom attributes or fields in formulas (e.g., `XLOOKUP(agent_1, 
 ### Page Margins & Layout
 - Page frames must match the Owner Reports filter layout.
 - Wrap main page content in `pageFrame` from `@/lib/page-frame` (`mx-auto w-full max-w-[1600px] px-4 md:px-6`).
-- Do not introduce nested max-widths or extra horizontal padding inside pages wrapped by `pageFrame`.
+- Data pages (Transactions list, Agents list, Owner/Agent/Office Reports) use `widePageFrame` instead (`w-full px-4 md:px-6`, full screen width). `isWidePagePath` lists them so the top navigation matches; add a page there when it switches frames.
+- Do not introduce nested max-widths or extra horizontal padding inside pages wrapped by `pageFrame` or `widePageFrame`.
 
 ### Form Controls
 - **Inputs & Fields**: Use `underlineShell`, `underlineLabel`, `underlineControl`, and `UnderlineField` from `@/components/ui/underline-field`. Faint bottom underline that turns the brand sky on focus.
