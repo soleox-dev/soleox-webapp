@@ -791,9 +791,9 @@ export default function OwnerReportsPage() {
     const paintHint = (dir: SwipeDirection | null, name = '') => {
       if (!hint || !circle || !label) return;
       if (!dir) {
-        hint.style.transition = 'transform 320ms ease-out, opacity 320ms ease-out';
+        // It fades where it is; it does not slide away.
+        hint.style.transition = 'opacity 700ms ease-in-out';
         hint.style.opacity = '0';
-        hint.style.transform = `translate(${hint.dataset.dir === 'next' ? 56 : -56}px, -50%)`;
         return;
       }
       hint.dataset.dir = dir;
