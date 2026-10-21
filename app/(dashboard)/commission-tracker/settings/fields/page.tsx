@@ -9,7 +9,7 @@ import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { OptionMenu } from '@/components/ui/option-menu';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
 import { EditPencil } from '@/components/ui/edit-pencil';
-import { GripVertical, List, User } from 'lucide-react';
+import { Copy, GripVertical, List, User } from 'lucide-react';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { ToastBanner } from '@/components/ui/ToastBanner';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -626,6 +626,44 @@ export default function FieldCustomizationsPage() {
     }
   };
 
+  // Opens Add Field filled in from an existing field, as a new custom field: same type, section, options,
+  // validation, formula, and visibility rules. The label gets " Copy" and the key is left blank, so it is made
+  // from whatever label is typed. A copy of a built-in field is a custom field too: its key is a fixed column.
+  const handleOpenDuplicate = (field: FieldConfig) => {
+    setEditingField(null);
+    setSelectionMode('CUSTOM');
+    setSelectedCatalogKey('');
+    const formula = field.calculation_formula || '';
+    setHasFormula(Boolean(formula.trim()));
+    const { id: _id, key_terms_position: _keyTerms, ...rest } = field;
+    void _id;
+    void _keyTerms;
+    setFormData({
+      ...rest,
+      field_key: '',
+      field_label: `${formatFieldLabel(field.field_key, field.field_label)} Copy`,
+      storage_type: 'CUSTOM_JSON',
+      is_system: false,
+      is_enabled: true,
+      dropdown_options: [...(field.dropdown_options || [])],
+      regex_pattern: field.regex_pattern || '',
+      regex_mode: field.regex_mode || 'MATCHES',
+      calculation_formula: formula,
+    });
+    if (field.visibility_rules && Array.isArray(field.visibility_rules.conditions)) {
+      setRuleGroup({
+        operator: field.visibility_rules.operator || 'OR',
+        conditions: field.visibility_rules.conditions.map((condition) => ({
+          ...condition,
+          id: `cond_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        })),
+      });
+    } else {
+      setRuleGroup({ operator: 'OR', conditions: [] });
+    }
+    setIsModalOpen(true);
+  };
+
   const handleOpenAdd = () => {
     setEditingField(null);
     const hasAvailable = availableCatalogOptions.length > 0;
@@ -992,6 +1030,12 @@ export default function FieldCustomizationsPage() {
         formattedKey = cleaned.startsWith('custom_') ? cleaned : `custom_${cleaned}`;
         const renamed = await renameFieldKey(editingField.field_key, formattedKey);
         if (!renamed) return false;
+      }
+
+      // A new field never takes the key of one already on this tab: the save would overwrite that field.
+      if (!editingField && currentFields.some((field) => field.field_key === formattedKey.trim())) {
+        showToast(`A field with the key "${formattedKey.trim()}" already exists. Change the label or the key.`, 'error');
+        return false;
       }
 
       const isAudit = READ_ONLY_AUDIT_KEYS.has(formattedKey);
@@ -1499,6 +1543,16 @@ export default function FieldCustomizationsPage() {
                             aria-label={`Edit ${f.field_label}`}
                           >
                             <EditPencil className="h-[18px] w-[18px]" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDuplicate(f)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
+                            title="Duplicate Field"
+                            aria-label={`Duplicate ${f.field_label}`}
+                          >
+                            <Copy className="h-[17px] w-[17px]" strokeWidth={1.75} />
                           </button>
 
                           <button
@@ -2113,7 +2167,7 @@ export default function FieldCustomizationsPage() {
                   </button>
                   <button
                     type="submit"
-                    disabled={isSavingField || !fieldDirty}
+                    disabled={isSavingField || (Boolean(editingField) && !fieldDirty)}
                     className="px-4 py-1.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-lg shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                   >
                     {isSavingField ? (
