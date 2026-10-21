@@ -378,6 +378,20 @@ thead th.sticky[class*="left-"] {
 
 /* Checkboxes: one modern look everywhere. A rounded box that fills with the brand sky with a white check.
    In the base layer so size, radius and color utilities on an input still win. */
+/* Everything clickable shows the hand cursor. Tailwind v4 leaves buttons on the arrow; a button's own cursor
+   class (grab, not-allowed) still wins, and disabled buttons keep the arrow. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"],
+  select:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+}
+
 @layer base {
   input[type="checkbox"] {
     appearance: none;
