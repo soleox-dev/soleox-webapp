@@ -219,7 +219,7 @@ function SyncErrorGroups({
               <tr className="text-[11px] text-slate-500">
                 <th className="py-2 pr-4 font-semibold">Property Address</th>
                 <th className="py-2 pr-4 font-semibold">Side</th>
-                <th className="px-4 py-2 text-center font-semibold">Sheet row</th>
+                <th className="px-4 py-2 text-center font-semibold">Sheet Row</th>
                 <th className="py-2 font-semibold">TMS ID</th>
               </tr>
             </thead>

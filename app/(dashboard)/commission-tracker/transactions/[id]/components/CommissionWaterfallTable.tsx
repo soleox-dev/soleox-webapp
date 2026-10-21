@@ -393,7 +393,7 @@ export function CommissionWaterfallTable({
               <tr>
                 <td className={`${sectionLabel} bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200`}>
                   <div className="flex items-center gap-2">
-                    <span>Agent splits</span>
+                    <span>Agent Splits</span>
                     {isEditing && plusButton('Add new agent split', onOpenAddAgentModal, 'emerald')}
                   </div>
                 </td>

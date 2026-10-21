@@ -180,10 +180,10 @@ export default function CommissionRulesSettingsPage() {
           <table className="w-full text-left text-xs divide-y divide-slate-200 dark:divide-slate-700">
             <thead className="bg-slate-50 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 font-bold">
               <tr>
-                <th className="p-3.5">Rule name & details</th>
-                <th className="p-3.5">Waterfall stage</th>
-                <th className="p-3.5">Target entity</th>
-                <th className="p-3.5">Default value</th>
+                <th className="p-3.5">Rule Name & Details</th>
+                <th className="p-3.5">Waterfall Stage</th>
+                <th className="p-3.5">Target Entity</th>
+                <th className="p-3.5">Default Value</th>
                 <th className="p-3.5">Applies To</th>
                 <th className="p-3.5 text-right">Status</th>
               </tr>

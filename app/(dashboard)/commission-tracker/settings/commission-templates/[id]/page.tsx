@@ -1398,7 +1398,7 @@ export default function CommissionTemplateDetailPage() {
                       <th className="px-4 py-3">Key</th>
                       <th className="px-4 py-3">Type</th>
                       <th className="px-4 py-3">Required</th>
-                      <th className="px-4 py-3">Autofill formula</th>
+                      <th className="px-4 py-3">Autofill Formula</th>
                       <th className="px-4 py-3">Validation</th>
                       <th className="sticky right-0 top-0 z-30 bg-slate-50 dark:bg-slate-900 px-4 py-3 border-l border-slate-200 dark:border-slate-700 shadow-[-10px_0_12px_-12px_rgba(15,23,42,0.7)]"></th>
                     </tr>
@@ -1653,10 +1653,10 @@ export default function CommissionTemplateDetailPage() {
                       <th className="px-4 py-3">Section</th>
                       <th className="px-4 py-3">Agent</th>
                       <th className="px-4 py-3">Entity</th>
-                      <th className="px-4 py-3">Custom baseline</th>
+                      <th className="px-4 py-3">Custom Baseline</th>
                       <th className="px-4 py-3">Calculation</th>
-                      <th className="px-4 py-3">Result type</th>
-                      <th className="px-4 py-3">Split type</th>
+                      <th className="px-4 py-3">Result Type</th>
+                      <th className="px-4 py-3">Split Type</th>
                       <th className="sticky right-0 top-0 z-30 bg-slate-50 dark:bg-slate-900 px-4 py-3 border-l border-slate-200 dark:border-slate-700 shadow-[-10px_0_12px_-12px_rgba(15,23,42,0.7)]"></th>
                     </tr>
                   </thead>

@@ -556,9 +556,9 @@ export default function TransactionIntegrationsPage() {
               <table className="w-full min-w-[720px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-xs text-slate-400 dark:border-slate-700">
-                    <th className="py-2 pr-3 font-semibold">Sheet column</th>
-                    <th className="py-2 pr-3 font-semibold">Soleox field</th>
-                    <th className="py-2 font-semibold">When values differ</th>
+                    <th className="py-2 pr-3 font-semibold">Sheet Column</th>
+                    <th className="py-2 pr-3 font-semibold">Soleox Field</th>
+                    <th className="py-2 font-semibold">When Values Differ</th>
                   </tr>
                 </thead>
                 <tbody>

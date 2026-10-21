@@ -2986,21 +2986,21 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
           <SectionHeading>Closed net commission income to owner(s)</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
-            <Score pulse={pulse} label="Total commission" amount={totalCommission} changeAmount={totalCommission - priorCommission} />
+            <Score pulse={pulse} label="Total Commission" amount={totalCommission} changeAmount={totalCommission - priorCommission} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">−</span>
-            <Score pulse={pulse} label="Cost of sales" amount={costOfSales} changeAmount={costOfSales - priorCost} />
+            <Score pulse={pulse} label="Cost of Sales" amount={costOfSales} changeAmount={costOfSales - priorCost} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">=</span>
-            <Score pulse={pulse} label="Net commission income" amount={shownNet} changeAmount={shownNet - shownPriorNet} tone="result" />
+            <Score pulse={pulse} label="Net Commission Income" amount={shownNet} changeAmount={shownNet - shownPriorNet} tone="result" />
           </div>
         </div>
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
           <SectionHeading>Closed net income to owner(s)</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
-            <Score pulse={pulse} label="Net commission income" amount={shownNet} changeAmount={shownNet - shownPriorNet} />
+            <Score pulse={pulse} label="Net Commission Income" amount={shownNet} changeAmount={shownNet - shownPriorNet} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">−</span>
-            <Score pulse={pulse} label="Operating expenses" amount={operatingExpenses} change="—" />
+            <Score pulse={pulse} label="Operating Expenses" amount={operatingExpenses} change="—" />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">=</span>
-            <Score pulse={pulse} label="Net income" amount={netIncome} changeAmount={netIncome - priorIncome} tone="result" />
+            <Score pulse={pulse} label="Net Income" amount={netIncome} changeAmount={netIncome - priorIncome} tone="result" />
           </div>
         </div>
       </div>
@@ -3008,9 +3008,9 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
           <SectionHeading tone="slate">Return on investment (ROI)</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
-            <Score pulse={pulse} label="Net income" amount={netIncome} changeAmount={netIncome - priorIncome} />
+            <Score pulse={pulse} label="Net Income" amount={netIncome} changeAmount={netIncome - priorIncome} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">/</span>
-            <Score pulse={pulse} label="Operating expenses" amount={operatingExpenses} change="—" />
+            <Score pulse={pulse} label="Operating Expenses" amount={operatingExpenses} change="—" />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">=</span>
             <Score pulse={pulse} label="ROI" value={percent(netIncome, operatingExpenses)} change="—" tone="result" />
           </div>
@@ -3018,9 +3018,9 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
           <SectionHeading tone="slate">Net income to total commission ratio (NI/TC)</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
-            <Score pulse={pulse} label="Net income" amount={netIncome} changeAmount={netIncome - priorIncome} />
+            <Score pulse={pulse} label="Net Income" amount={netIncome} changeAmount={netIncome - priorIncome} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">/</span>
-            <Score pulse={pulse} label="Total commission" amount={totalCommission} changeAmount={totalCommission - priorCommission} />
+            <Score pulse={pulse} label="Total Commission" amount={totalCommission} changeAmount={totalCommission - priorCommission} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">=</span>
             <Score pulse={pulse} label="NI/TC" value={percent(netIncome, totalCommission)} change={signedRatioChange(netIncome, priorIncome, totalCommission, priorCommission)} tone="result" />
           </div>
@@ -3030,7 +3030,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
           <SectionHeading tone="listing">Average listing metrics</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
-            <Score pulse={pulse} label="Avg. sales price" tone="listing" {...averageFigures(sellerTotals.volume, sellerTotals.units, priorSellerTotals.volume, priorSellerTotals.units)} />
+            <Score pulse={pulse} label="Avg. Sales Price" tone="listing" {...averageFigures(sellerTotals.volume, sellerTotals.units, priorSellerTotals.volume, priorSellerTotals.units)} />
             <span className="invisible text-lg font-semibold" aria-hidden="true">−</span>
             <Score pulse={pulse} label="Avg. GCI" tone="listing" {...averageFigures(sellerTotals.gci, sellerTotals.units, priorSellerTotals.gci, priorSellerTotals.units)} />
             <span className="invisible text-lg font-semibold" aria-hidden="true">=</span>
@@ -3040,7 +3040,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
           <SectionHeading tone="buyer">Average buyer metrics</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
-            <Score pulse={pulse} label="Avg. sales price" tone="buyer" {...averageFigures(buyerTotals.volume, buyerTotals.units, priorBuyerTotals.volume, priorBuyerTotals.units)} />
+            <Score pulse={pulse} label="Avg. Sales Price" tone="buyer" {...averageFigures(buyerTotals.volume, buyerTotals.units, priorBuyerTotals.volume, priorBuyerTotals.units)} />
             <span className="invisible text-lg font-semibold" aria-hidden="true">−</span>
             <Score pulse={pulse} label="Avg. GCI" tone="buyer" {...averageFigures(buyerTotals.gci, buyerTotals.units, priorBuyerTotals.gci, priorBuyerTotals.units)} />
             <span className="invisible text-lg font-semibold" aria-hidden="true">=</span>
@@ -3891,7 +3891,7 @@ function MonthlyTable({ title, rows, mode }: { title: string; rows: MonthRow[]; 
           <tr>
             <SortHead column="label" label={title} sort={sort} onSort={toggle} className="px-3 py-2" />
             {mode === 'units' ? <SortHead column="units" label="Units" sort={sort} onSort={toggle} align="right" className="px-3 py-2" /> : null}
-            {mode === 'net' ? <SortHead column="net" label="Net commission income" sort={sort} onSort={toggle} align="right" className="px-3 py-2" /> : null}
+            {mode === 'net' ? <SortHead column="net" label="Net Commission Income" sort={sort} onSort={toggle} align="right" className="px-3 py-2" /> : null}
             {mode === 'production' ? (
               <>
                 <SortHead column="units" label="Units" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
@@ -4243,7 +4243,7 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
             <SortHead column="label" label={rowLabel} sort={sort} onSort={toggle} className="px-2 py-2" />
             <SortHead column="value" label={amountLabel} sort={sort} onSort={toggle} className="px-2 py-2" />
             <SortHead column="delta" label="% Δ" sort={sort} onSort={toggle} align="right" className="px-2 py-2" note={`How much each ${rowLabel} is up or down compared with the same dates in the prior year. +10% means it is 10% higher than the prior year. A dash means the prior year was zero, so there is no percent to show.`} />
-            <SortHead column="share" label="% of total" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
+            <SortHead column="share" label="% of Total" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
           </tr>
         </thead>
         <tbody>
@@ -4338,7 +4338,7 @@ function SourceTable({ rows }: { rows: Array<Totals & { source: string }> }) {
       <table className="w-full text-sm">
         <thead className="report-head text-sm text-slate-500">
           <tr>
-            <SortHead column="source" label="Lead source" sort={sort} onSort={toggle} className="px-4 py-2" />
+            <SortHead column="source" label="Lead Source" sort={sort} onSort={toggle} className="px-4 py-2" />
             <SortHead column="units" label="Units" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
             <SortHead column="volume" label="Volume" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
             <SortHead column="gci" label="GCI" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
@@ -5122,13 +5122,13 @@ function EarningTransactions({ lines, names, wrapRef }: { lines: Array<{ key: st
             <tr>
               <SortHead column="rank" label="#" sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
               <SortHead column="agent" label="Agent" sort={sort} onSort={toggle} className={earningHeadCell} />
-              <SortHead column="primary" label="Primary agent" sort={sort} onSort={toggle} className={earningHeadCell} />
+              <SortHead column="primary" label="Primary Agent" sort={sort} onSort={toggle} className={earningHeadCell} />
               <SortHead column="address" label="Address" sort={sort} onSort={toggle} className={earningHeadCell} />
               <SortHead column="side" label="Side" sort={sort} onSort={toggle} className={earningHeadCell} />
               <SortHead column="client" label="Client" sort={sort} onSort={toggle} className={earningHeadCell} />
               <SortHead column="status" label="Status" sort={sort} onSort={toggle} className={earningHeadCell} />
-              <SortHead column="closing" label="Closing date" sort={sort} onSort={toggle} className={earningHeadCell} />
-              <SortHead column="price" label="Sales price" sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
+              <SortHead column="closing" label="Closing Date" sort={sort} onSort={toggle} className={earningHeadCell} />
+              <SortHead column="price" label="Sales Price" sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
               <SortHead column="gci" label="GCI" sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
               <SortHead column="earnings" label="Earnings" sort={sort} onSort={toggle} align="right" className={earningHeadCell} />
             </tr>
@@ -5187,7 +5187,7 @@ function DealTable({ deals, names }: { deals: ReportDeal[]; names: Map<string, s
             <SortHead column="side" label="Side" sort={sort} onSort={toggle} className="px-3 py-2" />
             <SortHead column="status" label="Status" sort={sort} onSort={toggle} className="px-3 py-2" />
             <SortHead column="agent" label="Agent" sort={sort} onSort={toggle} className="px-3 py-2" />
-            <SortHead column="price" label="Sales price" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
+            <SortHead column="price" label="Sales Price" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
             <SortHead column="gci" label="GCI" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
           </tr>
         </thead>
@@ -5224,9 +5224,9 @@ function PriceChange({ deals, names }: { deals: ReportDeal[]; names: Map<string,
   return (
     <div className="space-y-3">
       <div className="grid md:grid-cols-3 gap-3">
-        <Stat label="Listings compared" value={unitsLabel(rows.length)} />
-        <Stat label="Avg. list price" value={money(rows.length ? list / rows.length : 0)} />
-        <Stat label="Avg. change" value={money(rows.length ? (sale - list) / rows.length : 0)} hint={percent(sale - list, list)} />
+        <Stat label="Listings Compared" value={unitsLabel(rows.length)} />
+        <Stat label="Avg. List Price" value={money(rows.length ? list / rows.length : 0)} />
+        <Stat label="Avg. Change" value={money(rows.length ? (sale - list) / rows.length : 0)} hint={percent(sale - list, list)} />
       </div>
       <div className={reportTableWrap}>
         <table className="w-full text-sm">
@@ -5263,7 +5263,7 @@ function DailyManagement(props: { range: DateRange; closed: ReportDeal[]; pendin
       <div className="grid md:grid-cols-3 gap-3">
         <Stat label="Closings" value={unitsLabel(props.closed.length)} hint={compactMoney(sumOf(props.closed).volume)} />
         <Stat label="Pendings" value={unitsLabel(props.pending.length)} hint={compactMoney(sumOf(props.pending).volume)} />
-        <Stat label="Listings taken" value={unitsLabel(props.taken.length)} />
+        <Stat label="Listings Taken" value={unitsLabel(props.taken.length)} />
       </div>
     </div>
   );
@@ -5301,17 +5301,17 @@ function signedCompact(value: number): string {
 const VERSUS_LAST_YEAR = ' The number underneath is the change from the same dates last year.';
 
 const SCORE_NOTES: Record<string, string> = {
-  'Total commission': `Sum of Total Commission on Closed transactions whose closing date is in this date range.${VERSUS_LAST_YEAR}`,
-  'Cost of sales': `Total commission minus net commission income.${VERSUS_LAST_YEAR}`,
-  'Net commission income': `Sum of payments on those Closed transactions to agents marked as team leads. Archived payments are excluded.${VERSUS_LAST_YEAR}`,
-  'Operating expenses': 'Shown as $0 until the Operating Expenses module is added.',
-  'Net income': `Net commission income minus operating expenses. This is the bottom line.${VERSUS_LAST_YEAR}`,
+  'Total Commission': `Sum of Total Commission on Closed transactions whose closing date is in this date range.${VERSUS_LAST_YEAR}`,
+  'Cost of Sales': `Total commission minus net commission income.${VERSUS_LAST_YEAR}`,
+  'Net Commission Income': `Sum of payments on those Closed transactions to agents marked as team leads. Archived payments are excluded.${VERSUS_LAST_YEAR}`,
+  'Operating Expenses': 'Shown as $0 until the Operating Expenses module is added.',
+  'Net Income': `Net commission income minus operating expenses. This is the bottom line.${VERSUS_LAST_YEAR}`,
   'ROI': 'Net income divided by operating expenses. A dash is shown when operating expenses are $0.',
   'NI/TC': `Net Income divided by Total Commission.${VERSUS_LAST_YEAR}`,
-  'listing:Avg. sales price': `Average sales price of Closed Seller transactions whose closing date is in this date range.${VERSUS_LAST_YEAR}`,
+  'listing:Avg. Sales Price': `Average sales price of Closed Seller transactions whose closing date is in this date range.${VERSUS_LAST_YEAR}`,
   'listing:Avg. GCI': `Average GCI of Closed Seller transactions whose closing date is in this date range.${VERSUS_LAST_YEAR}`,
   'listing:Avg. GCI %': `Total GCI divided by total sales price for Closed Seller transactions whose closing date is in this date range.${VERSUS_LAST_YEAR}`,
-  'buyer:Avg. sales price': `Average sales price of Closed Buyer transactions whose closing date is in this date range.${VERSUS_LAST_YEAR}`,
+  'buyer:Avg. Sales Price': `Average sales price of Closed Buyer transactions whose closing date is in this date range.${VERSUS_LAST_YEAR}`,
   'buyer:Avg. GCI': `Average GCI of Closed Buyer transactions whose closing date is in this date range.${VERSUS_LAST_YEAR}`,
   'buyer:Avg. GCI %': `Total GCI divided by total sales price for Closed Buyer transactions whose closing date is in this date range.${VERSUS_LAST_YEAR}`,
 };
@@ -5704,21 +5704,21 @@ function MonthTable({
         <thead className="report-head-dark text-xs font-medium normal-case">
           <tr>
             <SortHead column="month" label={periodLabel} sort={sort} onSort={toggle} className="sticky left-0 z-10 px-2 py-2 text-xs font-medium" />
-            <SortHead column="closedUnits" label="Closed units" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="closedVolume" label="Closed volume" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="closedCommission" label="Closed total comm." title="Closed total commission" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="closedNet" label="Closed net comm." title="Closed net commission income" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="expenses" label={'Operating\nexpenses'} sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="closedNetIncome" label="Closed net inc." title="Closed net income" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="listingsTaken" label="Listings taken" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="listingsPended" label="Listings pended" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="listingsClosed" label="Listings closed" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="buyersPended" label="Buyers pended" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="buyersClosed" label="Buyers closed" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="pendingUnits" label="Pending units" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="pendingVolume" label="Pending volume" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="pendingCommission" label="Pending total comm." title="Pending total commission" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
-            <SortHead column="pendingNet" label="Pending net comm." title="Pending net commission income" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="closedUnits" label="Closed Units" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="closedVolume" label="Closed Volume" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="closedCommission" label="Closed Total Comm." title="Closed total commission" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="closedNet" label="Closed Net Comm." title="Closed net commission income" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="expenses" label={'Operating\nExpenses'} sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="closedNetIncome" label="Closed Net Income" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="listingsTaken" label="Listings Taken" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="listingsPended" label="Listings Pended" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="listingsClosed" label="Listings Closed" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="buyersPended" label="Buyers Pended" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="buyersClosed" label="Buyers Closed" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="pendingUnits" label="Pending Units" sort={sort} onSort={toggle} align="right" width="narrow" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="pendingVolume" label="Pending Volume" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="pendingCommission" label="Pending Total Comm." title="Pending total commission" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
+            <SortHead column="pendingNet" label="Pending Net Comm." title="Pending net commission income" sort={sort} onSort={toggle} align="right" width="wide" className="px-1.5 py-2 text-xs font-medium" />
           </tr>
         </thead>
         <tbody>
@@ -5963,16 +5963,16 @@ function ProductionDrilldownTable({
             <tr>
               <SortHead column="rank" label="#" sort={sort} onSort={toggle} align="right" className="px-2 py-2 text-xs font-medium" />
               <SortHead column="status" label="Status" sort={sort} onSort={toggle} className="px-3 py-2 text-xs font-medium" />
-              <SortHead column="agent" label="Primary agent" sort={sort} onSort={toggle} className="px-3 py-2 text-xs font-medium" />
+              <SortHead column="agent" label="Primary Agent" sort={sort} onSort={toggle} className="px-3 py-2 text-xs font-medium" />
               <SortHead column="side" label="Side" sort={sort} onSort={toggle} className="px-3 py-2 text-xs font-medium" />
               <SortHead column="address" label="Property" sort={sort} onSort={toggle} className="px-3 py-2 text-xs font-medium" />
               <SortHead column="date" label={dateColLabel} sort={sort} onSort={toggle} className="px-3 py-2 text-xs font-medium" />
-              <SortHead column="price" label="Sales price" sort={sort} onSort={toggle} align="right" className="px-3 py-2 text-xs font-medium" />
-              <SortHead column="commission" label="Total comm." title="Total commission" sort={sort} onSort={toggle} align="right" className="px-3 py-2 text-xs font-medium" />
+              <SortHead column="price" label="Sales Price" sort={sort} onSort={toggle} align="right" className="px-3 py-2 text-xs font-medium" />
+              <SortHead column="commission" label="Total Comm." title="Total commission" sort={sort} onSort={toggle} align="right" className="px-3 py-2 text-xs font-medium" />
               {showNet ? (
-                <SortHead column="net" label="Net comm." title="Net commission to owner(s)" sort={sort} onSort={toggle} align="right" className="px-3 py-2 text-xs font-medium" />
+                <SortHead column="net" label="Net Comm." title="Net commission to owner(s)" sort={sort} onSort={toggle} align="right" className="px-3 py-2 text-xs font-medium" />
               ) : null}
-              <SortHead column="source" label="Lead source" sort={sort} onSort={toggle} className="px-3 py-2 text-xs font-medium" />
+              <SortHead column="source" label="Lead Source" sort={sort} onSort={toggle} className="px-3 py-2 text-xs font-medium" />
             </tr>
           </thead>
           <tbody>

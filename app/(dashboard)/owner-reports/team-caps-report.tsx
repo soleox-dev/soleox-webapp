@@ -230,16 +230,16 @@ function CapSection({ cap, rows, openAgentId, onOpen, showPaid }: {
               <tr>
                 <SortHead column="rank" label="#" sort={detailSort.sort} onSort={detailSort.toggle} align="right" />
                 <SortHead column="status" label="Status" sort={detailSort.sort} onSort={detailSort.toggle} />
-                <SortHead column="agent" label="Primary agent" sort={detailSort.sort} onSort={detailSort.toggle} />
+                <SortHead column="agent" label="Primary Agent" sort={detailSort.sort} onSort={detailSort.toggle} />
                 <SortHead column="side" label="Side" sort={detailSort.sort} onSort={detailSort.toggle} />
                 <SortHead column="address" label="Property" sort={detailSort.sort} onSort={detailSort.toggle} />
-                <SortHead column="closing" label="Closing date" sort={detailSort.sort} onSort={detailSort.toggle} />
-                <SortHead column="price" label="Sales price" sort={detailSort.sort} onSort={detailSort.toggle} align="right" />
-                <SortHead column="source" label="Lead source" sort={detailSort.sort} onSort={detailSort.toggle} />
+                <SortHead column="closing" label="Closing Date" sort={detailSort.sort} onSort={detailSort.toggle} />
+                <SortHead column="price" label="Sales Price" sort={detailSort.sort} onSort={detailSort.toggle} align="right" />
+                <SortHead column="source" label="Lead Source" sort={detailSort.sort} onSort={detailSort.toggle} />
                 <SortHead column="amount" label="Contribution" sort={detailSort.sort} onSort={detailSort.toggle} align="right" title={cap.kind === 'agent' ? 'Post-split dollars paid to this cap’s entity on the transaction' : 'Team cap dollars recorded for this agent on the transaction'} />
                 <SortHead column="cumulative" label="Cumulative" sort={detailSort.sort} onSort={detailSort.toggle} align="right" />
-                <SortHead column="toward" label="Toward goal" sort={detailSort.sort} onSort={detailSort.toggle} align="right" title="Cumulative contribution against this agent's goal" />
-                <SortHead column="left" label="Left to cap" sort={detailSort.sort} onSort={detailSort.toggle} align="right" title="Goal minus the running cumulative. Negative means the agent is past the goal." />
+                <SortHead column="toward" label="Toward Goal" sort={detailSort.sort} onSort={detailSort.toggle} align="right" title="Cumulative contribution against this agent's goal" />
+                <SortHead column="left" label="Left to Cap" sort={detailSort.sort} onSort={detailSort.toggle} align="right" title="Goal minus the running cumulative. Negative means the agent is past the goal." />
               </tr>
             </thead>
             <tbody>
@@ -290,13 +290,13 @@ function CapSection({ cap, rows, openAgentId, onOpen, showPaid }: {
                   <SortHead column="rank" label="#" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" />
                   <SortHead column="agent" label="Agent" sort={standingsSort.sort} onSort={standingsSort.toggle} />
                   <SortHead column="reset" label="Reset" sort={standingsSort.sort} onSort={standingsSort.toggle} title="The month and day this agent's cap year starts" />
-                  <SortHead column="start" label="Cap start" sort={standingsSort.sort} onSort={standingsSort.toggle} />
-                  <SortHead column="end" label="Cap end" sort={standingsSort.sort} onSort={standingsSort.toggle} />
+                  <SortHead column="start" label="Cap Start" sort={standingsSort.sort} onSort={standingsSort.toggle} />
+                  <SortHead column="end" label="Cap End" sort={standingsSort.sort} onSort={standingsSort.toggle} />
                   <SortHead column="closed" label="Closed" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" title="Closed contribution in this cap year" />
                   <SortHead column="pending" label="Pending" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" title="Pending contribution in this cap year" />
                   <SortHead column="total" label="Contribution" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" title="Closed plus pending" />
                   <SortHead column="goal" label="Goal" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" />
-                  <SortHead column="left" label="Left to cap" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" title="Goal minus closed and pending. Negative means the agent is past the goal." />
+                  <SortHead column="left" label="Left to Cap" sort={standingsSort.sort} onSort={standingsSort.toggle} align="right" title="Goal minus closed and pending. Negative means the agent is past the goal." />
                 </tr>
               </thead>
               <tbody>

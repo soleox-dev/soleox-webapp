@@ -96,9 +96,9 @@ export default function ListsSettingsPage() {
           <table className="w-full text-left text-xs divide-y divide-slate-200 dark:divide-slate-700">
             <thead className="bg-slate-50 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 font-bold">
               <tr>
-                <th className="p-3.5">List name & purpose</th>
-                <th className="p-3.5">Schema code</th>
-                <th className="p-3.5">Items enrolled</th>
+                <th className="p-3.5">List Name & Purpose</th>
+                <th className="p-3.5">Schema Code</th>
+                <th className="p-3.5">Items Enrolled</th>
                 <th className="p-3.5 text-right">Action</th>
               </tr>
             </thead>
