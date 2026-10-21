@@ -496,6 +496,32 @@ export default function FieldCustomizationsPage() {
     }
   };
 
+  // Renames a section by moving every field in it to the new name. Their order stays as it is.
+  const [renamingSection, setRenamingSection] = useState<string | null>(null);
+  const [sectionDraft, setSectionDraft] = useState('');
+  const [sectionRenameError, setSectionRenameError] = useState<string | null>(null);
+  const cancelSectionRename = () => {
+    setRenamingSection(null);
+    setSectionRenameError(null);
+  };
+  const renameSection = async (oldName: string, nextName: string) => {
+    const name = nextName.trim();
+    if (!name || name === oldName) {
+      cancelSectionRename();
+      return;
+    }
+    if (orderedSectionNames.some((section) => section !== oldName && section.toLowerCase() === name.toLowerCase())) {
+      setSectionRenameError(`A section named "${name}" already exists. Pick another name, or drag the fields there instead.`);
+      return;
+    }
+    cancelSectionRename();
+    const list = activeTab === 'transactions' ? txFields : agentFields;
+    const newFields = list.map((field) => ((field.section_name || 'General') === oldName ? { ...field, section_name: name } : field));
+    if (activeTab === 'transactions') setTxFields(newFields);
+    else setAgentFields(newFields);
+    await persistFieldsList(newFields);
+  };
+
   // Drag and drop: a section moves to the place of the section it is dropped on; a field lands before the
   // field it is dropped on, or at the end of a section, and can change section that way. Saves right away.
   type DragItem = { kind: 'section'; name: string } | { kind: 'field'; id: string; section: string };
@@ -1256,10 +1282,59 @@ export default function FieldCustomizationsPage() {
                   >
                     <GripVertical className="h-3.5 w-3.5" strokeWidth={2} />
                   </span>
-                  <span className="min-w-0 truncate text-xs font-bold text-brand-700 dark:text-brand-400">{secName}</span>
-                  <span className="ml-auto shrink-0 text-2xs font-medium text-slate-500 dark:text-slate-400">
-                    {fields.length} {fields.length === 1 ? 'field' : 'fields'}
-                  </span>
+                  {renamingSection === secName ? (
+                    <form
+                      className="flex min-w-0 flex-1 flex-wrap items-center gap-2"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void renameSection(secName, sectionDraft);
+                      }}
+                    >
+                      <input
+                        autoFocus
+                        value={sectionDraft}
+                        onChange={(event) => {
+                          setSectionDraft(event.target.value);
+                          setSectionRenameError(null);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Escape') cancelSectionRename();
+                        }}
+                        aria-label={`New name for ${secName}`}
+                        placeholder={secName}
+                        className="min-w-0 max-w-xs flex-1 rounded-md border border-brand-500/40 bg-white px-2 py-0.5 text-base font-bold text-slate-900 outline-none focus:border-brand-500 md:text-xs dark:bg-slate-900 dark:text-white"
+                      />
+                      <button type="submit" className="rounded-full bg-brand-600 px-3 py-0.5 text-2xs font-bold text-white hover:bg-brand-500 cursor-pointer">Rename</button>
+                      <button
+                        type="button"
+                        onClick={cancelSectionRename}
+                        className="rounded-full px-2 py-0.5 text-2xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      {sectionRenameError && <span className="basis-full text-2xs font-semibold text-rose-600 dark:text-rose-400">{sectionRenameError}</span>}
+                    </form>
+                  ) : (
+                    <>
+                      <span className="min-w-0 truncate text-xs font-bold text-brand-700 dark:text-brand-400">{secName}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRenamingSection(secName);
+                          setSectionDraft(secName);
+                          setSectionRenameError(null);
+                        }}
+                        aria-label={`Rename section ${secName}`}
+                        title="Rename Section"
+                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-white/70 hover:text-brand-700 cursor-pointer dark:hover:bg-slate-800 dark:hover:text-brand-400"
+                      >
+                        <EditPencil className="h-3.5 w-3.5" />
+                      </button>
+                      <span className="ml-auto shrink-0 text-2xs font-medium text-slate-500 dark:text-slate-400">
+                        {fields.length} {fields.length === 1 ? 'field' : 'fields'}
+                      </span>
+                    </>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
