@@ -40,10 +40,11 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* A scorecard whose figure just changed washes in the brand blue (the brighter dark-mode blue there). */
 @keyframes scorecard-pulse {
-  0% { box-shadow: inset 0 0 0 100px rgb(16 185 129 / 0); }
-  50% { box-shadow: inset 0 0 0 100px rgb(16 185 129 / 0.42); }
-  100% { box-shadow: inset 0 0 0 100px rgb(16 185 129 / 0); }
+  0% { box-shadow: inset 0 0 0 100px color-mix(in srgb, var(--color-brand-500) 0%, transparent); }
+  50% { box-shadow: inset 0 0 0 100px color-mix(in srgb, var(--color-brand-500) 38%, transparent); }
+  100% { box-shadow: inset 0 0 0 100px color-mix(in srgb, var(--color-brand-500) 0%, transparent); }
 }
 
 .scorecard-pulse {
