@@ -31,7 +31,7 @@ import {
   type TransactionView,
 } from '@/lib/transaction-default-view';
 import { allocationForReplay, loadAllocationCatalog, loadAllocationHistory, loadAllocationOverrides, payoutSignature, replayedPaymentSignature, savedPayouts } from '@/lib/template-payment-drift';
-import { formulaDataNeeds, loadCommissionLedger, loadFormulaLookups, templateFormulaSources, type TemplateLogicStep } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/applyTemplateLogic';
+import { clearCommissionModuleCache, formulaDataNeeds, loadCommissionLedger, loadFormulaLookups, templateFormulaSources, type TemplateLogicStep } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/applyTemplateLogic';
 import type { StoredCommissionItem } from '@/app/(dashboard)/commission-tracker/transactions/[id]/commissionItemState';
 import type { CommissionEntityOption, FieldSetting, KnownAgentInfo, VisibilityRulesConfig } from '@/app/(dashboard)/commission-tracker/transactions/[id]/types';
 import { transactionDealLabel } from '@/lib/transaction-label';
@@ -214,6 +214,17 @@ function writeTransactionsListState(state: TransactionsListState) {
   }
 }
 
+interface SyncResultState {
+  summary: string;
+  note: string | null;
+  details: SyncRunDetail[];
+  /** The sync run, so its result can be undone. */
+  runId?: string;
+  /** Set once the run was undone, with what the undo did. */
+  undoneAt?: string | null;
+  undoSummary?: string | null;
+}
+
 function parseSyncHighlights(raw: unknown): Map<string, Set<string>> {
   const highlights = new Map<string, Set<string>>();
   if (!Array.isArray(raw)) return highlights;
@@ -371,7 +382,7 @@ type SavedPageState = {
   tmsConnectorActive: boolean;
   syncHighlights: Map<string, Set<string>>;
   syncNotice: { tone: 'ok' | 'error'; text: string; finishedAt?: string; createdCount?: number; updatedCount?: number; errorCount?: number } | null;
-  syncResult: { summary: string; note: string | null; details: SyncRunDetail[] } | null;
+  syncResult: SyncResultState | null;
   sourceTmsIds: Set<string> | null;
   paymentDriftCheckedIds: Set<string>;
   paymentDriftIds: Set<string>;
@@ -450,7 +461,7 @@ export default function TransactionsListPage() {
     updatedCount?: number;
     errorCount?: number;
   } | null>(() => (saved ? saved.syncNotice : null));
-  const [syncResult, setSyncResult] = useState<{ summary: string; note: string | null; details: SyncRunDetail[] } | null>(() => (saved ? saved.syncResult : null));
+  const [syncResult, setSyncResult] = useState<SyncResultState | null>(() => (saved ? saved.syncResult : null));
   const [syncResultOpen, setSyncResultOpen] = useState(false);
   const [syncResultFocus, setSyncResultFocus] = useState<'added' | 'updated' | null>(null);
   const [syncChangesOn, setSyncChangesOn] = useState(false);
@@ -655,6 +666,8 @@ export default function TransactionsListPage() {
                   summary,
                   note: run.message ? String(run.message) : null,
                   details,
+                  runId: run.id ? String(run.id) : undefined,
+                  undoneAt: run.undone_at ? String(run.undone_at) : null,
                 });
               }
             }
@@ -1053,6 +1066,8 @@ export default function TransactionsListPage() {
         summary,
         note: run.message ? String(run.message) : null,
         details,
+        runId: run.id ? String(run.id) : undefined,
+        undoneAt: null,
       });
       setSyncResultFocus(null);
       setSyncResultOpen(true);
@@ -1063,6 +1078,56 @@ export default function TransactionsListPage() {
     } finally {
       setIsSyncing(false);
     }
+  };
+
+  /** Puts back what the latest sync changed. Returns the line shown in the sync dialog. */
+  const undoLastSync = async (): Promise<string> => {
+    const runId = syncResult?.runId;
+    if (!runId) throw new Error('There is no sync to undo.');
+    const clientId = access?.clientId || 'DEMO';
+    const fetchOptions = { headers: { 'x-client-id': clientId } };
+    const response = await fetch('/api/integrations/google-sheets/sync/undo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-client-id': clientId },
+      body: JSON.stringify({ clientId, runId }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.result) throw new Error(data.error || 'The sync could not be undone.');
+    const result = data.result as {
+      reverted: { fields: unknown[] }[];
+      removed: unknown[];
+      skipped: unknown[];
+      errors: { label: string; reason: string }[];
+    };
+    clearCommissionModuleCache();
+    const [dealsRes, deletedRes] = await Promise.all([
+      fetch('/api/transactions', fetchOptions),
+      fetch('/api/transactions?view=deleted', fetchOptions),
+    ]);
+    if (dealsRes.ok) {
+      const dealsData = await dealsRes.json();
+      const list = dealsData.transactions || dealsData.deals || dealsData.catalog || [];
+      setDeals(Array.isArray(list) ? list : []);
+    }
+    if (deletedRes.ok) {
+      const deletedData = await deletedRes.json();
+      const list = deletedData.transactions || deletedData.deals || [];
+      setDeletedDeals(Array.isArray(list) ? list : []);
+    }
+    setSyncHighlights(new Map());
+    const fieldCount = result.reverted.reduce((sum, row) => sum + row.fields.length, 0);
+    const plural = (count: number, one: string, many: string) => `${count.toLocaleString()} ${count === 1 ? one : many}`;
+    const parts = [
+      `${plural(fieldCount, 'field', 'fields')} restored on ${plural(result.reverted.length, 'transaction', 'transactions')}`,
+      `${plural(result.removed.length, 'added transaction', 'added transactions')} deleted`,
+    ];
+    if (result.skipped.length > 0) parts.push(`${plural(result.skipped.length, 'change', 'changes')} kept because ${result.skipped.length === 1 ? 'it was' : 'they were'} edited after the sync`);
+    if (result.errors.length > 0) parts.push(`${plural(result.errors.length, 'error', 'errors')}: ${result.errors.slice(0, 3).map((item) => `${item.label} (${item.reason})`).join('; ')}`);
+    const undoSummary = `Sync undone. ${parts.join(', ')}.`;
+    setSyncResult((current) => current && current.runId === runId
+      ? { ...current, undoneAt: new Date().toISOString(), undoSummary }
+      : current);
+    return undoSummary;
   };
 
   const fieldTypes = useMemo(
@@ -2086,6 +2151,12 @@ export default function TransactionsListPage() {
             fieldLabels={fieldLabels}
             identityByTmsId={syncErrorIdentity}
             focus={syncResultFocus}
+            undone={Boolean(syncResult.undoneAt)}
+            undoSummary={syncResult.undoSummary ?? null}
+            onUndo={canWriteTracker && syncResult.runId && !syncResult.undoneAt
+              && syncResult.details.some((detail) => detail.outcome === 'create' || detail.outcome === 'update')
+              ? undoLastSync
+              : undefined}
             onClose={() => setSyncResultOpen(false)}
           />
         )}

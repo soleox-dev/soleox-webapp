@@ -89,11 +89,16 @@ export async function loadGoogleSheetIntegration(sb: SupabaseClient, clientId: s
   let lastRun = null;
   let protections: Array<Record<string, unknown>> = [];
   if (connection?.id) {
-    const [{ data: mappingRows, error: mappingError }, { data: runs, error: runError }, { data: protectionRows, error: protectionError }] = await Promise.all([
+    const runColumns = 'id, status, started_at, finished_at, created_count, updated_count, skipped_count, error_count, unchanged_count, connected_count, disconnected_count, message, details, highlights';
+    const latestRun = (columns: string) => sb.from('integration_sync_runs').select(columns).eq('connection_id', connection.id).order('started_at', { ascending: false }).limit(1);
+    const [{ data: mappingRows, error: mappingError }, runResult, { data: protectionRows, error: protectionError }] = await Promise.all([
       sb.from('integration_field_mappings').select('source_header, field_key, policy').eq('connection_id', connection.id).order('source_header'),
-      sb.from('integration_sync_runs').select('id, status, started_at, finished_at, created_count, updated_count, skipped_count, error_count, unchanged_count, connected_count, disconnected_count, message, details, highlights').eq('connection_id', connection.id).order('started_at', { ascending: false }).limit(1),
+      latestRun(`${runColumns}, undone_at`),
       sb.from('transaction_field_protections').select('id, transaction_id, field_key, protection, protected_by, protected_at').eq('client_id', clientId).order('protected_at', { ascending: false }),
     ]);
+    let { data: runs, error: runError } = runResult;
+    // Before migration 055 there is no undone_at column.
+    if (runError && runError.message.includes('undone_at')) ({ data: runs, error: runError } = await latestRun(runColumns));
     if (mappingError) throw new Error(mappingError.message);
     if (runError) throw new Error(runError.message);
     if (protectionError) throw new Error(protectionError.message);

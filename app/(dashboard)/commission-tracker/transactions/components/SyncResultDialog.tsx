@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Check, Copy, X } from 'lucide-react';
+import { Check, Copy, Loader2, Undo2, X } from 'lucide-react';
 import { duplicateTmsIdReason, isDuplicateTmsIdReason } from '@/lib/sync-finished-summary';
 
 export interface SyncFieldChange {
@@ -343,6 +343,9 @@ export function SyncResultDialog({
   fieldLabels,
   identityByTmsId,
   focus = null,
+  undone = false,
+  undoSummary = null,
+  onUndo,
   onClose,
 }: {
   summary: string;
@@ -351,8 +354,15 @@ export function SyncResultDialog({
   fieldLabels: Record<string, string>;
   identityByTmsId?: Map<string, SyncErrorIdentity>;
   focus?: 'added' | 'updated' | null;
+  /** The run was undone. undoSummary says what the undo did, when it happened in this session. */
+  undone?: boolean;
+  undoSummary?: string | null;
+  /** Shown only for the latest sync, to someone who can sync. Resolves to the line to show. */
+  onUndo?: () => Promise<string>;
   onClose: () => void;
 }) {
+  const [undoStep, setUndoStep] = useState<'idle' | 'confirm' | 'running'>('idle');
+  const [undoError, setUndoError] = useState<string | null>(null);
   const added = details.filter((detail) => detail.outcome === 'create');
   const updated = details.filter((detail) => detail.outcome === 'update' && (detail.changes?.length || 0) > 0);
   const notAdded = details.filter((detail) => detail.outcome === 'skip' && !detail.transactionId);
@@ -360,6 +370,20 @@ export function SyncResultDialog({
   const showAdded = focus !== 'updated' && added.length > 0;
   const showUpdated = focus !== 'added' && updated.length > 0;
   const showRest = focus === null;
+  const changedFieldCount = updated.reduce((sum, detail) => sum + (detail.changes?.length || 0), 0);
+
+  const runUndo = async () => {
+    if (!onUndo) return;
+    setUndoStep('running');
+    setUndoError(null);
+    try {
+      await onUndo();
+      setUndoStep('idle');
+    } catch (error) {
+      setUndoError(error instanceof Error ? error.message : 'The sync could not be undone.');
+      setUndoStep('confirm');
+    }
+  };
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -386,7 +410,23 @@ export function SyncResultDialog({
             <h3 id="sync-result-title" className="text-base font-bold text-slate-900 dark:text-white">Sync with TMS</h3>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{summary}</p>
             {note && <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{note}</p>}
+            {undone && (
+              <p className="mt-1 text-sm font-medium text-amber-700 dark:text-amber-400">
+                {undoSummary || 'This sync was undone.'}
+              </p>
+            )}
           </div>
+          <div className="flex shrink-0 items-start gap-2">
+          {onUndo && !undone && undoStep === 'idle' && (
+            <button
+              type="button"
+              onClick={() => { setUndoError(null); setUndoStep('confirm'); }}
+              className="inline-flex h-8 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700"
+            >
+              <Undo2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+              <span>Undo sync</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -396,7 +436,41 @@ export function SyncResultDialog({
           >
             <X className="h-4 w-4 transition-transform duration-200 group-hover:rotate-90" strokeWidth={2} aria-hidden />
           </button>
+          </div>
         </div>
+        {onUndo && !undone && undoStep !== 'idle' && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-5 py-3 dark:border-amber-900/60 dark:bg-amber-950/40" role="alert">
+            <div className="text-sm text-amber-900 dark:text-amber-200">
+              <p className="font-semibold">Undo this sync?</p>
+              <p className="mt-0.5">
+                {[
+                  changedFieldCount > 0 ? `Puts back the ${changedFieldCount.toLocaleString()} ${changedFieldCount === 1 ? 'field' : 'fields'} it changed on ${updated.length.toLocaleString()} ${updated.length === 1 ? 'transaction' : 'transactions'}` : '',
+                  added.length > 0 ? `deletes the ${added.length.toLocaleString()} ${added.length === 1 ? 'transaction' : 'transactions'} it added` : '',
+                ].filter(Boolean).join(' and ')}. Anything edited since the sync is kept. The next sync brings the TMS values back unless they change in the TMS.
+              </p>
+              {undoError && <p className="mt-1 font-medium text-rose-700 dark:text-rose-400">{undoError}</p>}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => { setUndoError(null); setUndoStep('idle'); }}
+                disabled={undoStep === 'running'}
+                className="h-8 cursor-pointer rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void runUndo()}
+                disabled={undoStep === 'running'}
+                className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-rose-600 px-3 text-xs font-bold text-white transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {undoStep === 'running' && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
+                <span>{undoStep === 'running' ? 'Undoing…' : 'Undo sync'}</span>
+              </button>
+            </div>
+          </div>
+        )}
         <div className="space-y-5 overflow-y-auto px-5 py-3">
           {showRest && added.length === 0 && updated.length === 0 && notAdded.length === 0 && failed.length === 0 && (
             <p className="text-sm text-slate-600 dark:text-slate-300">No transactions were added, and no TMS fields changed.</p>

@@ -94,6 +94,32 @@ export interface SyncRunDetail {
   transactionSide?: string | null;
 }
 
+/** One raw field value a run replaced. Undo writes `previous` back when the field still holds `value`. */
+export interface SyncUndoWrite {
+  fieldKey: string;
+  storageType: 'CORE_COLUMN' | 'CUSTOM_JSON';
+  fieldType: string;
+  previous: unknown;
+  value: unknown;
+}
+
+export interface SyncUndoRow {
+  transactionId: string;
+  outcome: 'create' | 'update' | 'unchanged';
+  writes: SyncUndoWrite[];
+  /** TMS link before the run. Updates always mark a transaction connected. */
+  previousConnection?: string | null;
+  /** Field locks the run released, so undo can put them back. */
+  clearedProtections?: { fieldKey: string; protection: 'locked' | 'keep_until_tms' }[];
+}
+
+/** What a run changed, in raw values. Stored on integration_sync_runs.undo (migration 055). */
+export interface SyncRunUndo {
+  version: 1;
+  rows: SyncUndoRow[];
+  links: { transactionId: string; previous: string | null; next: string }[];
+}
+
 export interface SyncHighlight {
   transactionId: string;
   fieldKeys: string[];
@@ -116,7 +142,7 @@ export interface SyncRunRecord {
   sheet?: SheetReadHealth;
 }
 
-function displaySyncValue(
+export function displaySyncValue(
   value: unknown,
   fieldKey: string,
   fieldType: string | undefined,
@@ -215,10 +241,11 @@ async function insertRun(
     message?: string | null;
     details?: SyncRunDetail[];
     highlights?: SyncHighlight[];
+    undo?: SyncRunUndo | null;
   },
 ) {
   const finishedAt = new Date().toISOString();
-  const { error } = await sb.from('integration_sync_runs').insert({
+  const row: Record<string, unknown> = {
     id: run.id,
     client_id: run.clientId,
     connection_id: run.connectionId,
@@ -235,9 +262,56 @@ async function insertRun(
     message: run.message ?? null,
     details: run.details ?? [],
     highlights: run.highlights ?? [],
-  });
+  };
+  if (run.undo) row.undo = run.undo;
+  let { error } = await sb.from('integration_sync_runs').insert(row);
+  if (error && run.undo && missingUndoColumn(error.message)) {
+    // Before migration 055 the run is still recorded, only without undo data.
+    console.warn('Sync runs cannot be undone until migration 055 is applied.');
+    delete row.undo;
+    ({ error } = await sb.from('integration_sync_runs').insert(row));
+  }
   if (error) throw new Error(error.message);
   return finishedAt;
+}
+
+export function missingUndoColumn(message: string | undefined): boolean {
+  const text = message || '';
+  return /\bundo(ne_at|ne_by)?\b/.test(text) && (text.includes('does not exist') || text.includes('schema cache'));
+}
+
+function undoData(
+  applied: PlannedSyncRow[],
+  catalog: SyncFieldCatalogEntry[],
+  protections: SyncProtection[],
+  previousConnection: Map<string, unknown>,
+  links: SyncRunUndo['links'],
+): SyncRunUndo {
+  const fieldTypes = new Map(catalog.map((field) => [field.fieldKey, field.fieldType]));
+  const rows: SyncUndoRow[] = [];
+  applied.forEach((row) => {
+    if (!row.transactionId) return;
+    if (row.outcome !== 'create' && row.outcome !== 'update' && row.outcome !== 'unchanged') return;
+    const clearedProtections = row.clearProtections
+      .map((fieldKey) => protections.find((item) => item.transactionId === row.transactionId && item.fieldKey === fieldKey))
+      .filter((item): item is SyncProtection => Boolean(item))
+      .map((item) => ({ fieldKey: item.fieldKey, protection: item.protection }));
+    if (row.outcome === 'unchanged' && clearedProtections.length === 0) return;
+    rows.push({
+      transactionId: row.transactionId,
+      outcome: row.outcome,
+      writes: row.outcome === 'unchanged' ? [] : row.writes.map((write) => ({
+        fieldKey: write.fieldKey,
+        storageType: write.storageType,
+        fieldType: fieldTypes.get(write.fieldKey) || (write.fieldKey === 'agent_id' ? 'AGENT_PICKER' : 'TEXT'),
+        previous: write.previous ?? null,
+        value: write.value ?? null,
+      })),
+      ...(row.outcome === 'update' ? { previousConnection: storedText(previousConnection.get(row.transactionId)) } : {}),
+      ...(clearedProtections.length > 0 ? { clearedProtections } : {}),
+    });
+  });
+  return { version: 1, rows, links };
 }
 
 function blockMessage(formula: string, formulaError: string | null, tmsMapped: boolean): string | null {
@@ -441,6 +515,10 @@ export async function syncGoogleSheetConnection(
 
   let created = 0;
   let updated = 0;
+  // TMS links as they were before any write, for undo.
+  const originalConnection = new Map(
+    [...existingByTmsId.values()].map((row) => [row.id, row.deal.tms_connection]),
+  );
 
   const applied = await runPool(plannedRows, WRITE_CONCURRENCY, async (row): Promise<PlannedSyncRow> => {
     try {
@@ -506,8 +584,12 @@ export async function syncGoogleSheetConnection(
       .in('id', batch.ids);
     if (error) throw new Error(error.message);
   });
+  const undoLinks: SyncRunUndo['links'] = [];
   linkUpdates.forEach((update) => {
     const previous = previousConnection.get(update.transactionId);
+    if (previous !== update.tmsConnection) {
+      undoLinks.push({ transactionId: update.transactionId, previous: storedText(previous), next: update.tmsConnection });
+    }
     if (update.tmsConnection === 'connected' && previous === 'disconnected') connected += 1;
     if (update.tmsConnection === 'disconnected' && previous === 'connected') disconnected += 1;
   });
@@ -539,6 +621,7 @@ export async function syncGoogleSheetConnection(
     message,
     details,
     highlights,
+    undo: undoData(applied, catalog, syncProtections, originalConnection, undoLinks),
   });
 
   return {
