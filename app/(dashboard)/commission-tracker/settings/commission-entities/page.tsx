@@ -1,5 +1,6 @@
 'use client';
 
+import { phoneSheetFlush } from '@/lib/page-frame';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { EditPencil } from '@/components/ui/edit-pencil';
@@ -421,7 +422,7 @@ export default function CommissionEntitiesPage() {
       <PostSplitOrder entities={entities} loading={isLoading} onSaved={loadEntities} />
 
       {/* Table */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden transition-colors">
+      <div className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden transition-colors ${phoneSheetFlush}`}>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold select-none">

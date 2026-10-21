@@ -1,5 +1,6 @@
 'use client';
 
+import { phoneSheetFlush } from '@/lib/page-frame';
 import React, { useEffect, useState } from 'react';
 import { SettingsHeader, SETTINGS_CARD, SETTINGS_PRIMARY_BUTTON } from '@/components/settings/SettingsHeader';
 
@@ -47,7 +48,7 @@ export default function ActivityPage() {
   }, []);
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white shadow-xs transition-colors dark:border-slate-700 dark:bg-slate-800">
+    <section className={`rounded-xl border border-slate-200 bg-white shadow-xs transition-colors dark:border-slate-700 dark:bg-slate-800 ${phoneSheetFlush}`}>
       <div className="border-b border-slate-200 dark:border-slate-700 px-6 py-5">
         <SettingsHeader
           title="Activity"

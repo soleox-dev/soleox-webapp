@@ -2,6 +2,7 @@
 
 'use client';
 
+import { phoneSheet, phoneSheetFlush } from '@/lib/page-frame';
 import React, { useState, useEffect, useRef } from 'react';
 import { DragHandle, moveItem, useDragReorder } from '@/components/ui/reorder-controls';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
@@ -1139,7 +1140,7 @@ export default function FieldCustomizationsPage() {
       {confirmDialog}
 
       {/* Top Controller Bar */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-xs flex flex-wrap justify-between items-center gap-3 transition-colors">
+      <div className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-xs flex flex-wrap justify-between items-center gap-3 transition-colors ${phoneSheet}`}>
         <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
           <button
             onClick={() => setActiveTab('transactions')}
@@ -1199,7 +1200,7 @@ export default function FieldCustomizationsPage() {
       )}
 
       {/* Configurations Table */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden transition-colors">
+      <div className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden transition-colors ${phoneSheetFlush}`}>
         <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex flex-wrap justify-between items-center gap-2">
           <div>
             <h2 className="text-xs font-bold text-slate-900 dark:text-white">

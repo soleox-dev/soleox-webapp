@@ -1,5 +1,6 @@
 'use client';
 
+import { phoneSheetFlush } from '@/lib/page-frame';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import { FormulaEditor, type FormulaName } from '../commission-templates/FormulaEditor';
@@ -214,7 +215,7 @@ export default function ScorecardsSettingsPage() {
   }, [isDirty]);
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
+    <section className={`rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800 ${phoneSheetFlush}`}>
       <div className="sticky top-6 z-40 rounded-t-xl border-b border-slate-200 bg-white px-6 py-5 before:pointer-events-none before:absolute before:inset-x-0 before:-top-6 before:h-6 before:bg-slate-100 before:content-[''] dark:border-slate-700 dark:bg-slate-800 dark:before:bg-slate-900">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

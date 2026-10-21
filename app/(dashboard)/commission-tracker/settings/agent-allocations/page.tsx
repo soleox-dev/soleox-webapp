@@ -1,5 +1,6 @@
 'use client';
 
+import { phoneSheet } from '@/lib/page-frame';
 import React, { useEffect, useState } from 'react';
 import { useRegisterSave } from '@/components/save-leave-guard';
 import { UnderlineField, underlineControl } from '@/components/ui/underline-field';
@@ -125,7 +126,7 @@ export default function AgentAllocationsPage() {
       {message && <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{message}</p>}
       {error && <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">{error}</p>}
 
-      <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-700 dark:bg-slate-800">
+      <section className={`space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-700 dark:bg-slate-800 ${phoneSheet}`}>
         <label className={`inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-bold cursor-pointer ${volume.enabled ? 'bg-brand-500/15 text-brand-800 dark:text-brand-200' : 'bg-amber-500/15 text-amber-900 dark:text-amber-100'}`}>
           <input type="checkbox" checked={volume.enabled} onChange={(event) => setVolume({ ...volume, enabled: event.target.checked })} className="h-4 w-4 cursor-pointer accent-brand-600" />
           {`${label} is ${volume.enabled ? 'enabled' : 'disabled'}`}

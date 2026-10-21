@@ -21,7 +21,10 @@ export const phoneTitle = 'max-sm:rounded-none max-sm:border-0 max-sm:bg-transpa
 
 /**
  * `phoneSheet` turns a content panel (a table, a list, a settings group) into a sheet that runs edge to edge
- * across the screen, keeping its own padding and a rule above and below. Floating things (menus, dialogs),
+ * across the screen, with a rule above and below and its content on the page's 16px margin. Floating things (menus, dialogs),
  * the report filters, and small summary tiles keep their cards.
  */
-export const phoneSheet = 'max-sm:-mx-4 max-sm:rounded-none max-sm:border-x-0 max-sm:shadow-none';
+export const phoneSheet = 'max-sm:-mx-4 max-sm:rounded-none max-sm:border-x-0 max-sm:px-4 max-sm:shadow-none';
+
+/** `phoneSheet` for a panel with no padding of its own, whose header and body rows pad themselves. */
+export const phoneSheetFlush = 'max-sm:-mx-4 max-sm:rounded-none max-sm:border-x-0 max-sm:shadow-none';

@@ -1,5 +1,6 @@
 'use client';
 
+import { phoneSheetFlush } from '@/lib/page-frame';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -105,7 +106,7 @@ export default function CommissionTemplatesPage() {
 
       {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
 
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden">
+      <div className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden ${phoneSheetFlush}`}>
         {isLoading ? (
           <p className="p-6 text-xs text-slate-500 dark:text-slate-400">Loading templates...</p>
         ) : templates.length === 0 ? (

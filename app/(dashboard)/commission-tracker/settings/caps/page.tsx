@@ -1,5 +1,6 @@
 'use client';
 
+import { phoneSheet } from '@/lib/page-frame';
 import React, { useEffect, useState } from 'react';
 import { Gauge, Plus, User } from 'lucide-react';
 import { useRegisterSave, useRequestLeave } from '@/components/save-leave-guard';
@@ -495,7 +496,7 @@ function TeamCapList({
         const keyError = keyErrorFor(cap, named);
         const token = cap.key.trim() || 'this key';
         return (
-          <section key={cap.id} className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-700 dark:bg-slate-800">
+          <section key={cap.id} className={`space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-700 dark:bg-slate-800 ${phoneSheet}`}>
             <EnabledRow
               name={cap.name}
               enabled={cap.enabled}
@@ -587,7 +588,7 @@ function AgentCapList({
       ) : caps.map((cap) => {
         const keyError = keyErrorFor(cap, named);
         return (
-          <section key={cap.id} className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-700 dark:bg-slate-800">
+          <section key={cap.id} className={`space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-700 dark:bg-slate-800 ${phoneSheet}`}>
             <EnabledRow
               name={cap.name}
               enabled={cap.enabled}

@@ -1,5 +1,6 @@
 'use client';
 
+import { phoneSheet } from '@/lib/page-frame';
 import React, { useState } from 'react';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { FieldChevron, UnderlineField, underlineControl, underlineShell } from '@/components/ui/underline-field';
@@ -141,7 +142,7 @@ export default function CommissionRulesSettingsPage() {
     <div className="space-y-6">
       
       {/* Header Card */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs flex justify-between items-center transition-colors">
+      <div className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs flex justify-between items-center transition-colors ${phoneSheet}`}>
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
             Global Commission Rules & Waterfall Templates
@@ -160,7 +161,7 @@ export default function CommissionRulesSettingsPage() {
       </div>
 
       {/* Rules Table Section */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs space-y-4 transition-colors">
+      <div className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs space-y-4 transition-colors ${phoneSheet}`}>
         <div className="flex justify-between items-center gap-4">
           <div className={`w-full md:w-80 ${underlineShell}`}>
             <input

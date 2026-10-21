@@ -1,5 +1,6 @@
 'use client';
 
+import { phoneSheet } from '@/lib/page-frame';
 import React, { useEffect, useState } from 'react';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { useRegisterSave } from '@/components/save-leave-guard';
@@ -95,7 +96,7 @@ export function PostSplitOrder({
   if (loading && entities.length === 0) return null;
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-700 dark:bg-slate-800">
+    <section className={`rounded-xl border border-slate-200 bg-white p-5 shadow-md dark:border-slate-700 dark:bg-slate-800 ${phoneSheet}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="text-sm font-bold text-slate-900 dark:text-white">Post-Split Order</h3>

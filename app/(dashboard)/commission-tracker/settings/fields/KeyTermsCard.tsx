@@ -1,5 +1,6 @@
 'use client';
 
+import { phoneSheetFlush } from '@/lib/page-frame';
 import React, { useMemo, useState } from 'react';
 import { DragHandle, moveItem, useDragReorder } from '@/components/ui/reorder-controls';
 import { OptionMenu } from '@/components/ui/option-menu';
@@ -80,7 +81,7 @@ export function KeyTermsCard({
   });
 
   return (
-    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden transition-colors">
+    <div className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden transition-colors ${phoneSheetFlush}`}>
       <div className="p-4 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-xs font-bold text-slate-900 dark:text-white">Key Terms</h2>

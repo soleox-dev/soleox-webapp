@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Building2, ChartColumn, Gauge, Link2, ListFilter, PanelLeftClose, PanelLeftOpen, Scale, ScrollText, Settings2, Zap, type LucideIcon } from 'lucide-react';
-import { pageFrame } from '@/lib/page-frame';
+import { pageFrame, phoneSheet, phoneTitle } from '@/lib/page-frame';
 
 const COLLAPSED_KEY = 'soleox-settings-sidebar-collapsed';
 
@@ -82,7 +82,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
   return (
     <main className={`${pageFrame} space-y-6 py-6 md:py-8`}>
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-4 sm:px-6 sm:py-5 shadow-xs transition-colors">
+      <div className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-4 sm:px-6 sm:py-5 shadow-xs transition-colors ${phoneTitle}`}>
         <div className="text-xs font-bold text-brand-600 dark:text-brand-400 mb-1">Commission Tracker</div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
         <p className="text-slate-600 dark:text-slate-400 text-sm">
@@ -130,7 +130,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           )}
 
           {/* Phones and narrow screens: one row of page pills that scrolls sideways. */}
-          <nav aria-label="Settings pages" className="flex gap-1.5 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xs [scrollbar-width:none] lg:hidden dark:border-slate-700 dark:bg-slate-800">
+          <nav aria-label="Settings pages" className={`flex gap-1.5 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xs [scrollbar-width:none] lg:hidden dark:border-slate-700 dark:bg-slate-800 ${phoneSheet}`}>
             {NAV_LINKS.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.href);

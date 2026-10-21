@@ -8,7 +8,7 @@ import { ConfirmDialog, useConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { PERCENT_POINT_DECIMALS, formatPercentPoints, formatTablePercent, fromPercentPoints, toPercentPoints } from '@/lib/percent';
 import { isAgentBulkEditableField } from '@/lib/agent-bulk';
 import { isHiddenRecordId } from '@/lib/fields';
-import { widePageFrame } from '@/lib/page-frame';
+import { phoneSheet, phoneTitle, widePageFrame } from '@/lib/page-frame';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { BLANK_FILTER_VALUE, ColumnHeader, columnFilterOptions, matchesColumnFilter, type ColumnFilterOption } from '@/components/ui/column-filter';
 import { BooleanField, BooleanMark, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
@@ -961,7 +961,7 @@ export default function AgentsPage() {
 
   return (
     <main className={`${widePageFrame} min-h-screen bg-slate-100 py-6 text-slate-900 transition-colors duration-200 space-y-6 dark:bg-slate-900 dark:text-slate-100 md:py-8`}>
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs flex flex-wrap justify-between items-start sm:items-center gap-4 transition-colors">
+      <div className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs flex flex-wrap justify-between items-start sm:items-center gap-4 transition-colors ${phoneTitle}`}>
         <div>
           <div className="flex items-center gap-2 text-xs font-bold text-brand-600 dark:text-brand-400 mb-1">
             <span>Commission Tracker</span>
@@ -989,7 +989,7 @@ export default function AgentsPage() {
         )}
       </div>
 
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden p-3 sm:p-5 space-y-4 transition-colors">
+      <div className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden p-3 sm:p-5 space-y-4 transition-colors ${phoneSheet}`}>
         {bulkNotice && (
           <p className="text-xs text-slate-600 dark:text-slate-300">{bulkNotice}</p>
         )}

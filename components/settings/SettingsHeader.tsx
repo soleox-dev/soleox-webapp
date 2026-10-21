@@ -1,7 +1,8 @@
 import React from 'react';
+import { phoneSheet } from '@/lib/page-frame';
 
 /** The card every Settings page sits in: one border, a light shadow, the same padding. */
-export const SETTINGS_CARD = 'rounded-xl border border-slate-200 bg-white p-6 shadow-xs transition-colors dark:border-slate-700 dark:bg-slate-800';
+export const SETTINGS_CARD = `rounded-xl border border-slate-200 bg-white p-6 shadow-xs transition-colors dark:border-slate-700 dark:bg-slate-800 ${phoneSheet}`;
 
 /**
  * The top of every Settings page: its name, one line on what it controls, and its main action on the right.
