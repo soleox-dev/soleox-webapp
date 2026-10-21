@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth';
 import { SearchHeightHold } from '@/components/SearchHeightHold';
+import { TableWheelAssist } from '@/components/TableWheelAssist';
 
 export default async function DashboardLayout({
   children,
@@ -20,6 +21,7 @@ export default async function DashboardLayout({
   return (
     <>
       <SearchHeightHold />
+      <TableWheelAssist />
       {children}
     </>
   );
