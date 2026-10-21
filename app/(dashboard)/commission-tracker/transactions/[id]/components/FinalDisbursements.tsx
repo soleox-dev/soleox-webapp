@@ -54,7 +54,7 @@ function ColumnSubtotal({
       }`}
     >
       <span
-        className={`text-xs font-bold ${
+        className={`text-sm font-semibold ${
           isAgent ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'
         }`}
       >
