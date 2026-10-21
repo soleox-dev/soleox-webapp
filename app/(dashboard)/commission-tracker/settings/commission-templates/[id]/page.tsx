@@ -808,12 +808,28 @@ export default function CommissionTemplateDetailPage() {
     await commitLogicOrder(ordered.map((step, itemIndex) => ({ ...step, step_number: itemIndex + 1 })));
   };
 
-  const toggleRuleSelected = (id: string) => setSelectedRuleIds((current) => {
-    const next = new Set(current);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    return next;
-  });
+  // The last rule ticked or unticked by itself, where a Shift-click range starts.
+  const lastToggledRuleId = useRef<string | null>(null);
+  // Shift-click sets every rule shown between the last one clicked and this one, in the order the list shows them,
+  // to this one's new state.
+  const toggleRuleSelected = (id: string, shiftKey: boolean, shownIds: string[]) => {
+    // Read before the state update runs: the ref moves to this rule below.
+    const from = lastToggledRuleId.current ? shownIds.indexOf(lastToggledRuleId.current) : -1;
+    const to = shownIds.indexOf(id);
+    const range = shiftKey && from >= 0 && to >= 0
+      ? shownIds.slice(Math.min(from, to), Math.max(from, to) + 1)
+      : [id];
+    setSelectedRuleIds((current) => {
+      const next = new Set(current);
+      const select = !current.has(id);
+      for (const rangeId of range) {
+        if (select) next.add(rangeId);
+        else next.delete(rangeId);
+      }
+      return next;
+    });
+    lastToggledRuleId.current = id;
+  };
 
   // Only names are sent; keys, formulas and order stay. The selection stays too, for another change after this one.
   const applyBulkRename = async (names: { id: string; rule_name: string }[]) => {
@@ -1219,6 +1235,11 @@ export default function CommissionTemplateDetailPage() {
       );
     });
   }, [logicSteps, logicSearch, entities]);
+  // The rules as the list shows them: one run-order list, or grouped by section.
+  const shownRuleGroups = useMemo(() => (ruleView === 'run'
+    ? [{ name: '', items: [...filteredLogicSteps].sort((a, b) => a.step_number - b.step_number) }]
+    : logicGroups(filteredLogicSteps)), [ruleView, filteredLogicSteps]);
+  const shownRuleIds = useMemo(() => shownRuleGroups.flatMap((group) => group.items.map((step) => step.id)), [shownRuleGroups]);
 
   const parameterFields: FormulaName[] = parameters
     .filter((parameter) => parameter.id !== editingParameterId)
@@ -1722,6 +1743,7 @@ export default function CommissionTemplateDetailPage() {
                   onClick={() => {
                     setSelectingRules((current) => !current);
                     setSelectedRuleIds(new Set());
+                    lastToggledRuleId.current = null;
                   }}
                   className={`whitespace-nowrap rounded-lg border px-2.5 py-1 text-xs font-bold transition cursor-pointer ${selectingRules
                     ? 'border-brand-500/50 bg-brand-500/15 text-brand-700 dark:text-brand-300'
@@ -1836,9 +1858,7 @@ export default function CommissionTemplateDetailPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {(ruleView === 'run'
-                      ? [{ name: '', items: [...filteredLogicSteps].sort((a, b) => a.step_number - b.step_number) }]
-                      : logicGroups(filteredLogicSteps)).map((group) => {
+                    {shownRuleGroups.map((group) => {
                       const isUnsectioned = group.name === 'No Section';
                       return (
                       <React.Fragment key={group.name}>
@@ -1959,7 +1979,10 @@ export default function CommissionTemplateDetailPage() {
                                 type="checkbox"
                                 aria-label={`Select ${step.rule_name}`}
                                 checked={selectedRuleIds.has(step.id)}
-                                onChange={() => toggleRuleSelected(step.id)}
+                                onChange={() => {}}
+                                onMouseDown={(event) => { if (event.shiftKey) event.preventDefault(); }}
+                                onClick={(event) => toggleRuleSelected(step.id, event.shiftKey, shownRuleIds)}
+                                title="Shift-click to select a range"
                                 className="block h-3.5 w-3.5 accent-brand-600 cursor-pointer"
                               />
                               {step.step_number}
