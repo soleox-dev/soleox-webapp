@@ -204,7 +204,9 @@ function ColumnFilterMenu({ anchor, label, picked, loadOptions, onChange, onClos
       }
     };
     place();
-    searchRef.current?.focus();
+    // On a touch screen focusing the search raises the keyboard and scrolls the page, which would close the
+    // menu at once; there the search is focused only when tapped.
+    if (!window.matchMedia('(hover: none) and (pointer: coarse)').matches) searchRef.current?.focus();
     window.addEventListener('resize', place);
     return () => window.removeEventListener('resize', place);
   }, [anchor]);
@@ -219,9 +221,14 @@ function ColumnFilterMenu({ anchor, label, picked, loadOptions, onChange, onClos
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
-    // The menu is placed against the header, so it closes when the page or table scrolls under it.
+    // The menu is placed against the header, so it closes when the page or table scrolls under it. A scroll in
+    // the first moment after opening (the browser settling the tap) does not count.
+    const openedAt = performance.now();
     const onScroll = (event: Event) => {
       if (menuRef.current?.contains(event.target as Node)) return;
+      if (performance.now() - openedAt < 400) return;
+      // Typing in the menu's search raises the phone keyboard, which scrolls the page; that is not leaving.
+      if (menuRef.current?.contains(document.activeElement)) return;
       onClose();
     };
     document.addEventListener('mousedown', onPointer);
