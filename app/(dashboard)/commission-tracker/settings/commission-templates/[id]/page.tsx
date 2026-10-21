@@ -72,14 +72,14 @@ interface CommissionEntity {
 }
 
 const PARAMETER_TYPES: { value: ParameterType; label: string }[] = [
-  { value: 'TEXT', label: 'Text input' },
+  { value: 'TEXT', label: 'Text Input' },
   { value: 'CURRENCY', label: 'Currency ($)' },
   { value: 'PERCENT', label: 'Percent' },
   { value: 'NUMBER', label: 'Number' },
-  { value: 'DATE', label: 'Date picker' },
-  { value: 'SELECT', label: 'Select dropdown' },
-  { value: 'AGENT_PICKER', label: 'Agent picker' },
-  { value: 'BOOLEAN', label: 'Boolean toggle' },
+  { value: 'DATE', label: 'Date Picker' },
+  { value: 'SELECT', label: 'Select Dropdown' },
+  { value: 'AGENT_PICKER', label: 'Agent Picker' },
+  { value: 'BOOLEAN', label: 'Boolean Toggle' },
 ];
 
 const underlineShell =
@@ -804,9 +804,9 @@ export default function CommissionTemplateDetailPage() {
     const entityFormula = logicSectionShowsEntity(selectedSection) && logicForm.entity_mode === 'formula';
     const formulas = [
       ...(selectedSection === 'Calculation'
-        ? (logicForm.show_in_popup && logicForm.show_only_when ? [['Show when', logicForm.show_when_formula] as const] : [])
+        ? (logicForm.show_in_popup && logicForm.show_only_when ? [['Show When', logicForm.show_when_formula] as const] : [])
         : [['Condition', logicForm.apply_condition] as const]),
-      ['Custom baseline', logicForm.custom_baseline],
+      ['Custom Baseline', logicForm.custom_baseline],
       ['Formula', logicForm.calculation_formula],
       ...(entityFormula ? [['Entity', logicForm.payee_formula] as const] : []),
     ] as const;
@@ -828,7 +828,7 @@ export default function CommissionTemplateDetailPage() {
       && logicForm.show_only_when
       && !normalizeFormula(logicForm.show_when_formula).text.trim()
     ) {
-      setFormError('Enter a Show when formula, or uncheck "Show only under specific conditions".');
+      setFormError('Enter a Show When formula, or uncheck "Show ONLY Under Specific Conditions".');
       return;
     }
     const section = canonicalLogicSection(logicForm.section);
@@ -1122,7 +1122,7 @@ export default function CommissionTemplateDetailPage() {
     ...transactionFields,
     ...agentFields,
     ...logicContextNames,
-    { name: 'total_commission', label: 'Total commission' },
+    { name: 'total_commission', label: 'Total Commission' },
   ];
   const parameterKeyConflict = editingParameterId ? null : describeKeyConflict(draftParameterKey, parameterKeyOwners);
   const parameterWasOpen = useRef(false);
@@ -1173,7 +1173,7 @@ export default function CommissionTemplateDetailPage() {
           .filter((step) => step.id !== editingLogicId && step.rule_key?.trim())
           .map((step) => ({ name: step.rule_key!.trim(), label: step.rule_name })),
         ...logicContextNames,
-        { name: 'total_commission', label: 'Total commission' },
+        { name: 'total_commission', label: 'Total Commission' },
       ])
     : null;
   useRegisterSave({
@@ -1220,7 +1220,7 @@ export default function CommissionTemplateDetailPage() {
   const validationFieldGroups = [
     { id: 'transactions', title: 'Transactions', fields: transactionFields },
     { id: 'agents', title: 'Agents', fields: agentFields },
-    { id: 'parameters', title: 'Template parameters', fields: validationParameterFields },
+    { id: 'parameters', title: 'Template Parameters', fields: validationParameterFields },
   ];
 
   const formulaNames: FormulaName[] = [
@@ -1238,7 +1238,7 @@ export default function CommissionTemplateDetailPage() {
   const fieldGroups = [
     { id: 'transactions', title: 'Transactions', fields: transactionFields },
     { id: 'agents', title: 'Agents', fields: agentFields },
-    { id: 'parameters', title: 'Template parameters', fields: parameterFields },
+    { id: 'parameters', title: 'Template Parameters', fields: parameterFields },
   ];
 
   const sectionOptions = [...new Set(parameters.map((parameter) => parameter.section?.trim()).filter((section): section is string => Boolean(section)))];
@@ -1258,7 +1258,7 @@ export default function CommissionTemplateDetailPage() {
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-5 shadow-xs">
         <div className="grid min-h-[4.75rem] grid-cols-[minmax(0,1fr)_auto] grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-3 max-sm:min-h-0 max-sm:grid-cols-1 max-sm:grid-rows-none max-sm:gap-y-1">
           <Link href="/commission-tracker/settings/commission-templates" className="col-start-1 row-start-1 self-start text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline">
-            ← All templates
+            ← All Templates
           </Link>
           {isLoading ? (
             <p className="col-start-1 row-start-2 text-xs text-slate-500">Loading template...</p>
@@ -1290,8 +1290,8 @@ export default function CommissionTemplateDetailPage() {
                 type="button"
                 onClick={openEditTemplate}
                 className={`${rowActionClass} text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700`}
-                title="Edit template"
-                aria-label="Edit template"
+                title="Edit Template"
+                aria-label="Edit Template"
               >
                 <EditPencil className="h-[18px] w-[18px]" />
               </button>
@@ -1299,8 +1299,8 @@ export default function CommissionTemplateDetailPage() {
                 type="button"
                 onClick={() => setConfirmDelete({ kind: 'template', label: template.template_name })}
                 className={`${rowActionClass} text-[18px] leading-none text-rose-500 hover:text-rose-600 hover:bg-rose-500/10`}
-                title="Delete template"
-                aria-label="Delete template"
+                title="Delete Template"
+                aria-label="Delete Template"
               >
                 <TrashIcon />
               </button>
@@ -1354,8 +1354,8 @@ export default function CommissionTemplateDetailPage() {
                       type="button"
                       onClick={() => setParameterSearch('')}
                       className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
-                      title="Clear search"
-                      aria-label="Clear search"
+                      title="Clear Search"
+                      aria-label="Clear Search"
                     >
                       ✕
                     </button>
@@ -1371,7 +1371,7 @@ export default function CommissionTemplateDetailPage() {
                   }}
                   className="px-3 py-1.5 text-xs font-bold rounded-lg bg-brand-600 hover:bg-brand-500 text-white cursor-pointer whitespace-nowrap"
                 >
-                  Add parameter
+                  Add Parameter
                 </button>
               </div>
             </div>
@@ -1385,7 +1385,7 @@ export default function CommissionTemplateDetailPage() {
                   onClick={() => setParameterSearch('')}
                   className="ml-2 font-semibold text-emerald-600 hover:underline dark:text-emerald-400 cursor-pointer"
                 >
-                  Clear search
+                  Clear Search
                 </button>
               </div>
             ) : (
@@ -1476,7 +1476,7 @@ export default function CommissionTemplateDetailPage() {
                                       }}
                                       disabled={isReordering}
                                       aria-label={`Rename section ${group.name}`}
-                                      title={isUnsectioned ? 'Name this section' : 'Rename section'}
+                                      title={isUnsectioned ? 'Name This Section' : 'Rename Section'}
                                       className="inline-flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition hover:bg-white/70 hover:text-brand-700 disabled:opacity-40 cursor-pointer dark:hover:bg-slate-800 dark:hover:text-brand-400"
                                     >
                                       <EditPencil className="h-3.5 w-3.5" />
@@ -1609,8 +1609,8 @@ export default function CommissionTemplateDetailPage() {
                       type="button"
                       onClick={() => setLogicSearch('')}
                       className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
-                      title="Clear search"
-                      aria-label="Clear search"
+                      title="Clear Search"
+                      aria-label="Clear Search"
                     >
                       ✕
                     </button>
@@ -1625,7 +1625,7 @@ export default function CommissionTemplateDetailPage() {
                   }}
                   className="px-3 py-1.5 text-xs font-bold rounded-lg bg-brand-600 hover:bg-brand-500 text-white cursor-pointer whitespace-nowrap"
                 >
-                  Add rule
+                  Add Rule
                 </button>
               </div>
             </div>
@@ -1639,7 +1639,7 @@ export default function CommissionTemplateDetailPage() {
                   onClick={() => setLogicSearch('')}
                   className="ml-2 font-semibold text-emerald-600 hover:underline dark:text-emerald-400 cursor-pointer"
                 >
-                  Clear search
+                  Clear Search
                 </button>
               </div>
             ) : (
@@ -1738,7 +1738,7 @@ export default function CommissionTemplateDetailPage() {
                                         setRuleRenameError(null);
                                       }}
                                       aria-label={`Rename section ${ruleSectionLabel(group.name)}`}
-                                      title="Rename section"
+                                      title="Rename Section"
                                       className="inline-flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition hover:bg-white/70 hover:text-brand-700 cursor-pointer dark:hover:bg-slate-800 dark:hover:text-brand-400"
                                     >
                                       <EditPencil className="h-3.5 w-3.5" />
@@ -1777,7 +1777,7 @@ export default function CommissionTemplateDetailPage() {
                         <td className="px-4 py-3">
                           <div className="font-bold text-slate-900 dark:text-white">{step.rule_name}</div>
                           {!compactRows && step.rule_key?.trim() && <div className="mt-0.5 font-mono text-[11px] text-sky-700 dark:text-sky-300">{step.rule_key}</div>}
-                          {!compactRows && step.show_in_popup && <div className="mt-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">Shown when applying{step.popup_section?.trim() ? ` · ${step.popup_section.trim()}` : ''}</div>}
+                          {!compactRows && step.show_in_popup && <div className="mt-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">Shown When Applying{step.popup_section?.trim() ? ` · ${step.popup_section.trim()}` : ''}</div>}
                         </td>
                         <td className={`px-4 py-3 ${compactRows ? '' : 'min-w-[12rem]'} text-slate-600 dark:text-slate-300`}>
                           {canonicalLogicSection(step.section || '') === 'Calculation' ? '—' : step.apply_condition?.trim() ? (
@@ -1855,7 +1855,7 @@ export default function CommissionTemplateDetailPage() {
           <form onSubmit={saveParameter} className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full rounded-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden ${showParameterFields ? 'max-w-[min(75rem,calc(100vw-2rem))]' : 'max-w-2xl'}`}>
             <div className="shrink-0 px-6 pt-6 pb-3">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">{editingParameterId ? 'Edit parameter' : 'Add parameter'}</h3>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">{editingParameterId ? 'Edit Parameter' : 'Add Parameter'}</h3>
                 <button
                   type="button"
                   aria-pressed={showParameterFields}
@@ -1866,7 +1866,7 @@ export default function CommissionTemplateDetailPage() {
                       : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700'
                   }`}
                 >
-                  {showParameterFields ? 'Hide fields and parameters' : 'Fields and parameters'}
+                  {showParameterFields ? 'Hide Fields and Parameters' : 'Fields and Parameters'}
                 </button>
               </div>
               {formError && <p className="mt-3 text-xs text-rose-600 dark:text-rose-400">{formError}</p>}
@@ -2070,7 +2070,7 @@ export default function CommissionTemplateDetailPage() {
                             dropdown_options: parameterForm.dropdown_options.filter((item) => item !== option),
                           })}
                           className="text-rose-500 hover:text-rose-600 font-bold px-1.5 py-0.5 rounded hover:bg-rose-500/10 cursor-pointer"
-                          title="Remove option"
+                          title="Remove Option"
                         >
                           ✕
                         </button>
@@ -2083,7 +2083,7 @@ export default function CommissionTemplateDetailPage() {
             )}
             <div className={`${fieldColumn} grid grid-cols-[7.75rem_minmax(0,1fr)] items-start gap-x-3`}>
               <div className="flex h-6 items-center gap-1">
-                <p className="whitespace-nowrap text-xs font-bold leading-4 text-slate-900 dark:text-white">Autofill formula</p>
+                <p className="whitespace-nowrap text-xs font-bold leading-4 text-slate-900 dark:text-white">Autofill Formula</p>
                 <FormulaHint text="Optional. This formula will be evaluated when loading the commission template to determine the default value of this parameter." />
               </div>
               <div className="min-w-0">
@@ -2138,7 +2138,7 @@ export default function CommissionTemplateDetailPage() {
             </div>
             <div className="flex shrink-0 justify-end gap-2 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
               <button type="button" onClick={() => { setParameterForm(null); setEditingParameterId(null); setFormError(null); setShowParameterFields(false); }} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer">Cancel</button>
-              <button type="submit" disabled={isSaving || Boolean(parameterKeyConflict) || !parameterDirty} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 text-slate-950 cursor-pointer disabled:opacity-50">{isSaving ? 'Saving...' : 'Save parameter'}</button>
+              <button type="submit" disabled={isSaving || Boolean(parameterKeyConflict) || !parameterDirty} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 text-slate-950 cursor-pointer disabled:opacity-50">{isSaving ? 'Saving...' : 'Save Parameter'}</button>
             </div>
           </form>
           {sectionMenuOpen && sectionOptions.length > 0 && createPortal(
@@ -2218,9 +2218,9 @@ export default function CommissionTemplateDetailPage() {
             aria-modal="true"
             aria-labelledby="edit-template-title"
           >
-            <h3 id="edit-template-title" className="text-lg font-bold text-slate-900 dark:text-white">Edit commission template</h3>
+            <h3 id="edit-template-title" className="text-lg font-bold text-slate-900 dark:text-white">Edit Commission Template</h3>
             <label className={underlineShell}>
-              <span className={underlineLabel}>Template name</span>
+              <span className={underlineLabel}>Template Name</span>
               <input
                 required
                 value={editName}
@@ -2238,7 +2238,7 @@ export default function CommissionTemplateDetailPage() {
               />
             </label>
             <FormulaEditor
-              label="Template eligibility formula"
+              label="Template Eligibility Formula"
               value={editEligibility}
               onChange={setEditEligibility}
               names={eligibilityFormulaNames(transactionFields)}
@@ -2260,7 +2260,7 @@ export default function CommissionTemplateDetailPage() {
                 disabled={isSaving || !templateDirty || !editName.trim()}
                 className="px-4 py-1.5 text-xs font-bold rounded-lg bg-brand-600 hover:bg-brand-500 text-white cursor-pointer disabled:opacity-50"
               >
-                {isSaving ? 'Saving...' : 'Save template'}
+                {isSaving ? 'Saving...' : 'Save Template'}
               </button>
             </div>
           </form>

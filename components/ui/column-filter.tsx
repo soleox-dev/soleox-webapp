@@ -261,7 +261,7 @@ function ColumnFilterMenu({ anchor, label, picked, loadOptions, onChange, onClos
             onClick={() => onChange([])}
             className="cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-950"
           >
-            Select all
+            Select All
           </button>
           <button
             type="button"

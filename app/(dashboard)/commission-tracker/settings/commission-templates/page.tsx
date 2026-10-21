@@ -85,7 +85,7 @@ export default function CommissionTemplatesPage() {
     <div className="space-y-6">
       <div className={SETTINGS_CARD}>
         <SettingsHeader
-          title="Commission templates"
+          title="Commission Templates"
           description="Create a template, then define its parameters and calculation steps."
           actions={
         <button
@@ -97,7 +97,7 @@ export default function CommissionTemplatesPage() {
           }}
           className={SETTINGS_PRIMARY_BUTTON}
         >
-          + New template
+          + New Template
         </button>
           }
         />
@@ -140,9 +140,9 @@ export default function CommissionTemplatesPage() {
             onSubmit={handleCreate}
             className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-lg rounded-xl p-6 shadow-2xl space-y-4"
           >
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">New commission template</h3>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">New Commission Template</h3>
             <label className={underlineShell}>
-              <span className={underlineLabel}>Template name</span>
+              <span className={underlineLabel}>Template Name</span>
               <input
                 required
                 value={templateName}
@@ -172,7 +172,7 @@ export default function CommissionTemplatesPage() {
                 disabled={isSaving}
                 className="px-4 py-1.5 text-xs font-bold rounded-lg bg-brand-600 hover:bg-brand-500 text-white cursor-pointer disabled:opacity-50"
               >
-                {isSaving ? 'Creating...' : 'Create template'}
+                {isSaving ? 'Creating...' : 'Create Template'}
               </button>
             </div>
           </form>

@@ -19,7 +19,7 @@ export default function MainMenu() {
       id: 'commission-tracker',
       title: 'Commission Tracker',
       icon: '💸',
-      status: 'Active rollout',
+      status: 'Active Rollout',
       statusColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
       description:
         'Manage real estate transactions, execute multi-agent waterfall commission calculations, track YTD broker caps, and process final disbursement payables.',
@@ -33,7 +33,7 @@ export default function MainMenu() {
       id: 'owner-reports',
       title: 'Owner Reports',
       icon: '📊',
-      status: 'Active rollout',
+      status: 'Active Rollout',
       statusColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
       description:
         'See production, pipeline, agent leaderboards, and lead sources for the year, calculated from your transactions.',
@@ -85,9 +85,9 @@ export default function MainMenu() {
           <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
             <span>Soleox ERP Suite</span>
             <span>•</span>
-            <span className="text-slate-500 dark:text-slate-400">Main menu</span>
+            <span className="text-slate-500 dark:text-slate-400">Main Menu</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Executive operations launchpad</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Executive Operations Launchpad</h1>
           <p className="text-slate-600 dark:text-slate-400 text-sm">
             Select a module below to launch your management workflows.
           </p>

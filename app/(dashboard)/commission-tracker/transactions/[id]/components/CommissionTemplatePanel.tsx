@@ -1603,7 +1603,7 @@ export function CommissionTemplatePanel({
   const tone = bolt ? bolt.tone : null;
   const templateButtonLabel = singleTemplate
     ? (locked || committedTemplateId === singleTemplate.id ? singleTemplate.template_name : `Add ${singleTemplate.template_name}`)
-    : 'Commission template';
+    : 'Commission Template';
   const templateButtonTitle = locked
     ? 'Not eligible for a commission template'
     : bolt && tone
@@ -1624,7 +1624,7 @@ export function CommissionTemplatePanel({
     <div className={embedded ? `${singleTemplate ? 'shrink-0' : 'w-56 sm:w-64'} text-xs` : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xs space-y-3 text-xs transition-colors'}>
       {!embedded && (
         <span className="font-bold text-slate-800 dark:text-slate-300 block border-b border-slate-200 dark:border-slate-700 pb-2">
-          Commission template
+          Commission Template
         </span>
       )}
       <div ref={templateFieldRef} className="relative">
@@ -1695,7 +1695,7 @@ export function CommissionTemplatePanel({
           onClick={(event) => event.stopPropagation()}
         >
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-[1800px] rounded-xl p-5 shadow-2xl flex flex-col max-h-[calc(100vh-2rem)]">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">{selectedTemplate?.template_name || 'Commission template'}</h3>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">{selectedTemplate?.template_name || 'Commission Template'}</h3>
             {loadError && <p className="text-xs text-rose-600 dark:text-rose-400 mt-3">{loadError}</p>}
             <div className="@container/params mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl bg-slate-100 p-4 dark:bg-slate-900">
               <div className="space-y-6">
@@ -1709,7 +1709,7 @@ export function CommissionTemplatePanel({
                   : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800'}`}>
                   {/* Same columns as the parameter sections below, so the blue line under the title lines up with theirs. */}
                   <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-3 py-2 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:gap-x-4">
-                    <span className="text-sm font-bold text-brand-600 dark:text-brand-400 @min-[720px]/params:self-stretch @min-[720px]/params:flex @min-[720px]/params:items-center @min-[720px]/params:border-r @min-[720px]/params:border-brand-500/50 @min-[720px]/params:pr-3 @min-[720px]/params:dark:border-brand-400/50">Team caps</span>
+                    <span className="text-sm font-bold text-brand-600 dark:text-brand-400 @min-[720px]/params:self-stretch @min-[720px]/params:flex @min-[720px]/params:items-center @min-[720px]/params:border-r @min-[720px]/params:border-brand-500/50 @min-[720px]/params:pr-3 @min-[720px]/params:dark:border-brand-400/50">Team Caps</span>
                     <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                     {qualifyingCaps.map((cap) => (
                       <div key={cap.id} className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
@@ -1833,7 +1833,7 @@ export function CommissionTemplatePanel({
                   >
                     <span className="w-3 shrink-0 text-center text-sm font-bold leading-none text-emerald-600 dark:text-emerald-400">{logicOpen ? '−' : '+'}</span>
                     <span className="text-sm font-bold text-brand-600 dark:text-brand-400">Calculations</span>
-                    <span className="text-[10px] font-semibold tracking-wide text-slate-400 dark:text-slate-500">(Read only)</span>
+                    <span className="text-[10px] font-semibold tracking-wide text-slate-400 dark:text-slate-500">(Read Only)</span>
                   </button>
                   {logicOpen && (
                     <div className="border-t border-slate-200 px-3 py-2 dark:border-slate-700">
@@ -1925,7 +1925,7 @@ export function CommissionTemplatePanel({
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 text-slate-600 transition hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-                Reset all
+                Reset All
               </button>
               {submissionIds.length > 0 && (
                 <button
@@ -1935,7 +1935,7 @@ export function CommissionTemplatePanel({
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-rose-300 text-rose-600 transition hover:bg-rose-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/40"
                 >
                   <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-                  Delete submission
+                  Delete Submission
                 </button>
               )}
               </div>

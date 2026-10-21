@@ -30,9 +30,9 @@ interface SchemaField {
 
 const CLIENT_ID = 'DEMO';
 const METRIC_KINDS: { value: ScorecardMetricKind; label: string }[] = [
-  { value: 'count', label: 'Count of records' },
-  { value: 'sum', label: 'Sum of a field' },
-  { value: 'average', label: 'Average of a field' },
+  { value: 'count', label: 'Count of Records' },
+  { value: 'sum', label: 'Sum of a Field' },
+  { value: 'average', label: 'Average of a Field' },
 ];
 
 
@@ -233,7 +233,7 @@ export default function ScorecardsSettingsPage() {
                 disabled={isSaving}
                 className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-brand-500 disabled:opacity-50 cursor-pointer"
               >
-                {isSaving ? 'Saving…' : 'Save scorecards'}
+                {isSaving ? 'Saving…' : 'Save Scorecards'}
               </button>
             )}
             <button
@@ -246,7 +246,7 @@ export default function ScorecardsSettingsPage() {
               className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-brand-500/10 hover:text-brand-700 dark:text-slate-400 dark:hover:bg-brand-500/15 dark:hover:text-brand-400 cursor-pointer"
             >
               <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-              Add scorecard
+              Add Scorecard
             </button>
           </div>
         </div>
@@ -306,7 +306,7 @@ export default function ScorecardsSettingsPage() {
                     value={card.name}
                     onChange={(event) => updateCard(card.id, { name: event.target.value })}
                     placeholder="New scorecard"
-                    aria-label="Scorecard name"
+                    aria-label="Scorecard Name"
                     style={{ width: `${Math.min(32, Math.max((card.name || 'New scorecard').length + 1, 8))}ch` }}
                     className="max-w-full border-0 border-b border-b-slate-300 bg-transparent px-0.5 py-0 text-sm font-semibold text-slate-900 placeholder:font-semibold placeholder:text-slate-400 focus:border-b-brand-500 focus:outline-none focus:ring-0 dark:border-b-slate-600 dark:text-white dark:placeholder:text-slate-500"
                   />
@@ -314,10 +314,10 @@ export default function ScorecardsSettingsPage() {
                     <span className="min-w-0 flex-1 truncate text-xs text-slate-500 dark:text-slate-400">{summary}</span>
                   )}
                   <div className="ml-auto flex shrink-0 items-center gap-1">
-                    <button type="button" onClick={() => moveCard(index, -1)} disabled={index === 0} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:hover:bg-slate-700 dark:hover:text-slate-200 cursor-pointer disabled:cursor-not-allowed" aria-label="Move scorecard earlier">
+                    <button type="button" onClick={() => moveCard(index, -1)} disabled={index === 0} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:hover:bg-slate-700 dark:hover:text-slate-200 cursor-pointer disabled:cursor-not-allowed" aria-label="Move Scorecard Earlier">
                       <ChevronUp className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                     </button>
-                    <button type="button" onClick={() => moveCard(index, 1)} disabled={index === scorecards.length - 1} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:hover:bg-slate-700 dark:hover:text-slate-200 cursor-pointer disabled:cursor-not-allowed" aria-label="Move scorecard later">
+                    <button type="button" onClick={() => moveCard(index, 1)} disabled={index === scorecards.length - 1} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:hover:bg-slate-700 dark:hover:text-slate-200 cursor-pointer disabled:cursor-not-allowed" aria-label="Move Scorecard Later">
                       <ChevronDown className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                     </button>
                     <button
@@ -335,7 +335,7 @@ export default function ScorecardsSettingsPage() {
                 {expanded && (
                 <>
                 <FormulaEditor
-                  label="Qualifying formula"
+                  label="Qualifying Formula"
                   value={card.filterFormula}
                   onChange={(filterFormula) => updateCard(card.id, { filterFormula })}
                   names={formulaNames}
@@ -353,13 +353,13 @@ export default function ScorecardsSettingsPage() {
                         className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-brand-500/10 hover:text-brand-700 dark:text-slate-400 dark:hover:bg-brand-500/15 dark:hover:text-brand-400 cursor-pointer"
                       >
                         <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                        Add metric
+                        Add Metric
                       </button>
                     )}
                   </div>
                   {card.metrics.map((metric, metricIndex) => (
                     <div key={`${card.id}-metric-${metricIndex}`} className="grid gap-2 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
-                      <UnderlineField label="Metric name">
+                      <UnderlineField label="Metric Name">
                         <input
                           value={metric.name}
                           onChange={(event) => updateMetric(card.id, metricIndex, { name: event.target.value })}
@@ -398,7 +398,7 @@ export default function ScorecardsSettingsPage() {
                         onClick={() => updateCard(card.id, { metrics: card.metrics.filter((_, itemIndex) => itemIndex !== metricIndex) })}
                         disabled={card.metrics.length === 1}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-500 hover:bg-rose-500/10 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
-                        aria-label="Remove metric"
+                        aria-label="Remove Metric"
                       >
                         <TrashIcon />
                       </button>

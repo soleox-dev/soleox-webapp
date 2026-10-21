@@ -64,18 +64,18 @@ export type RangePreset =
 export const DATE_PRESETS: Array<{ id: RangePreset; label: string }> = [
   { id: 'today', label: 'Today' },
   { id: 'yesterday', label: 'Yesterday' },
-  { id: 'this-week', label: 'This week' },
-  { id: 'last-week', label: 'Last week' },
-  { id: 'this-month', label: 'This month' },
-  { id: 'last-month', label: 'Last month' },
-  { id: 'this-quarter', label: 'This quarter' },
-  { id: 'last-quarter', label: 'Last quarter' },
-  { id: 'this-year', label: 'This year' },
-  { id: 'last-year', label: 'Last year' },
-  { id: 'last-7', label: 'Last 7 days' },
-  { id: 'last-28', label: 'Last 28 days' },
-  { id: 'last-30', label: 'Last 30 days' },
-  { id: 'ytd', label: 'Year to date' },
+  { id: 'this-week', label: 'This Week' },
+  { id: 'last-week', label: 'Last Week' },
+  { id: 'this-month', label: 'This Month' },
+  { id: 'last-month', label: 'Last Month' },
+  { id: 'this-quarter', label: 'This Quarter' },
+  { id: 'last-quarter', label: 'Last Quarter' },
+  { id: 'this-year', label: 'This Year' },
+  { id: 'last-year', label: 'Last Year' },
+  { id: 'last-7', label: 'Last 7 Days' },
+  { id: 'last-28', label: 'Last 28 Days' },
+  { id: 'last-30', label: 'Last 30 Days' },
+  { id: 'ytd', label: 'Year to Date' },
   { id: 'custom', label: 'Custom' },
 ];
 
@@ -83,9 +83,9 @@ export const METRICS = [
   { id: 'units', label: 'Units' },
   { id: 'volume', label: 'Volume' },
   { id: 'gci', label: 'GCI' },
-  { id: 'commission', label: 'Total commission' },
-  { id: 'net', label: 'Net commission income' },
-  { id: 'agentPaid', label: 'Agent paid' },
+  { id: 'commission', label: 'Total Commission' },
+  { id: 'net', label: 'Net Commission Income' },
+  { id: 'agentPaid', label: 'Agent Paid' },
 ] as const;
 
 export type MetricId = (typeof METRICS)[number]['id'];

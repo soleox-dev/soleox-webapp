@@ -144,7 +144,7 @@ export default function CommissionRulesSettingsPage() {
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs flex justify-between items-center transition-colors">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-            Global commission rules & waterfall templates
+            Global Commission Rules & Waterfall Templates
           </h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
             Configure default off-the-top deductions, post-split fees, and global compliance rules.
@@ -255,7 +255,7 @@ export default function CommissionRulesSettingsPage() {
             </div>
 
             <div className="space-y-3">
-              <UnderlineField label="Rule name (*)">
+              <UnderlineField label="Rule Name (*)">
                 <input
                   type="text"
                   required
@@ -267,7 +267,7 @@ export default function CommissionRulesSettingsPage() {
               </UnderlineField>
 
               <div className="grid grid-cols-2 gap-3">
-                <UnderlineField label="Waterfall stage">
+                <UnderlineField label="Waterfall Stage">
                   <ClearableSelect
                     value={newRule.category}
                     onChange={(e) => setNewRule({ ...newRule, category: e.target.value as any })}
@@ -279,7 +279,7 @@ export default function CommissionRulesSettingsPage() {
                   <FieldChevron />
                 </UnderlineField>
 
-                <UnderlineField label="Target entity (*)">
+                <UnderlineField label="Target Entity (*)">
                   <input
                     type="text"
                     required
@@ -292,19 +292,19 @@ export default function CommissionRulesSettingsPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <UnderlineField label="Calculation type">
+                <UnderlineField label="Calculation Type">
                   <ClearableSelect
                     value={newRule.type}
                     onChange={(e) => setNewRule({ ...newRule, type: e.target.value as any })}
                     className={`${underlineControl} overview-field-select`}
                   >
                     <option value="PERCENT">Percentage (%)</option>
-                    <option value="AMOUNT">Flat amount ($)</option>
+                    <option value="AMOUNT">Flat Amount ($)</option>
                   </ClearableSelect>
                   <FieldChevron />
                 </UnderlineField>
 
-                <UnderlineField label={`Default value (${newRule.type === 'PERCENT' ? '%' : '$'})`}>
+                <UnderlineField label={`Default Value (${newRule.type === 'PERCENT' ? '%' : '$'})`}>
                   <input
                     type="number"
                     step="any"
@@ -340,7 +340,7 @@ export default function CommissionRulesSettingsPage() {
                 disabled={!ruleReady}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-50"
               >
-                Save rule definition
+                Save Rule Definition
               </button>
             </div>
           </form>

@@ -23,7 +23,7 @@ export function CommissionFlowBar({ total, agents, entities }: { total: number; 
   const otherEntities = sortedEntities.slice(MAX_ENTITY_SEGMENTS).reduce((sum, item) => sum + item.amount, 0);
   const entitySegments = [
     ...shownEntities,
-    ...(otherEntities > 0.009 ? [{ name: `Other entities (${sortedEntities.length - MAX_ENTITY_SEGMENTS})`, amount: otherEntities }] : []),
+    ...(otherEntities > 0.009 ? [{ name: `Other Entities (${sortedEntities.length - MAX_ENTITY_SEGMENTS})`, amount: otherEntities }] : []),
   ].map((item, index) => ({ ...item, tone: ENTITY_TONES[index % ENTITY_TONES.length] }));
   const agentSegments = agents.filter((item) => item.amount > 0.009).map((item, index) => ({ ...item, tone: AGENT_TONES[index % AGENT_TONES.length] }));
   // Every payout counts toward the total, including a negative one, so this agrees with Payments.
@@ -43,11 +43,11 @@ export function CommissionFlowBar({ total, agents, entities }: { total: number; 
     <div className="space-y-2.5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="text-sm text-slate-500 dark:text-slate-400">
-          Where the commission goes
+          Where the Commission Goes
           <span className="ml-2 text-lg font-semibold tabular-nums text-slate-900 dark:text-white">{money.format(total)}</span>
         </span>
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${balanced ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' : remainder > 0 ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' : 'bg-rose-500/10 text-rose-700 dark:text-rose-400'}`}>
-          {balanced ? 'Fully allocated' : remainder > 0 ? `${money.format(remainder)} unallocated` : `${money.format(-remainder)} over the commission`}
+          {balanced ? 'Fully Allocated' : remainder > 0 ? `${money.format(remainder)} unallocated` : `${money.format(-remainder)} over the commission`}
         </span>
       </div>
       <div role="img" aria-label={description} className="flex h-3.5 gap-0.5 overflow-hidden rounded-md bg-slate-200 dark:bg-slate-700">

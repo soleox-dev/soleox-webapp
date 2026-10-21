@@ -150,7 +150,7 @@ export function KeyTermsCard({
           );
         })}
         <div className="max-w-xs pt-1">
-          <UnderlineField label="Add a field">
+          <UnderlineField label="Add a Field">
             <OptionMenu
               id="key-terms-add"
               value=""
@@ -159,7 +159,7 @@ export function KeyTermsCard({
                 if (value && !keys.includes(value)) setDraft([...keys, value]);
               }}
               placeholder="Choose a field"
-              aria-label="Add a field to Key Terms"
+              aria-label="Add a Field to Key Terms"
               className={`${underlineControl} overview-field-select pr-4`}
             />
           </UnderlineField>

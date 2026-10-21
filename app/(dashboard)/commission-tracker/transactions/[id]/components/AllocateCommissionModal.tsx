@@ -35,7 +35,7 @@ export function AllocateCommissionModal({
       >
         <div>
           <h3 id="allocate-commission-title" className="text-base font-bold text-slate-900 dark:text-white">
-            Allocate the commission to the Primary Agent?
+            Allocate the Commission to the Primary Agent?
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
             {agentName
@@ -58,7 +58,7 @@ export function AllocateCommissionModal({
             disabled={isSaving}
             className="shrink-0 whitespace-nowrap px-3 py-2 text-xs font-bold rounded-lg border border-rose-500/40 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 cursor-pointer disabled:opacity-50"
           >
-            {isSaving ? 'Saving...' : 'No, record no payments'}
+            {isSaving ? 'Saving...' : 'No, Record No Payments'}
           </button>
           {agentName && (
             <button
@@ -67,7 +67,7 @@ export function AllocateCommissionModal({
               disabled={isSaving}
               className="shrink-0 whitespace-nowrap px-3 py-2 text-xs font-bold rounded-lg bg-brand-600 text-white hover:bg-brand-500 cursor-pointer disabled:opacity-50"
             >
-              {isSaving ? 'Saving...' : `Yes, pay ${agentName}`}
+              {isSaving ? 'Saving...' : `Yes, Pay ${agentName}`}
             </button>
           )}
         </div>

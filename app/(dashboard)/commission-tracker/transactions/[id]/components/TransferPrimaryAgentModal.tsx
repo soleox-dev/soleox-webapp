@@ -36,7 +36,7 @@ export function TransferPrimaryAgentModal({
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              Transfer Primary Agent splits & deductions?
+              Transfer Primary Agent Splits & Deductions?
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
               You updated the Primary Agent in the Transaction Overview. The Agent Splits and Post-splits for the former Primary Agent will be transferred to the new Primary Agent.
@@ -71,7 +71,7 @@ export function TransferPrimaryAgentModal({
           {/* Transfer Summary */}
           <div className="border-t border-slate-200 dark:border-slate-800/80 pt-2.5 text-xs text-slate-600 dark:text-slate-400 space-y-1.5">
             <div className="flex justify-between items-center">
-              <span>Primary Agent split:</span>
+              <span>Primary Agent Split:</span>
               <span className="font-semibold text-slate-900 dark:text-white">
                 {primarySplitType === 'AMOUNT'
                   ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(primarySplitValue || 0)
@@ -79,13 +79,13 @@ export function TransferPrimaryAgentModal({
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span>Level 1 post-split deductions (brokerage/fees):</span>
+              <span>Level 1 Post-Split Deductions (Brokerage/Fees):</span>
               <span className="font-semibold text-slate-900 dark:text-white">
                 {level1RulesCount} {level1RulesCount === 1 ? 'rule' : 'rules'} transferred
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span>Level 2 post-split deductions (stock/elective):</span>
+              <span>Level 2 Post-Split Deductions (Stock/Elective):</span>
               <span className="font-semibold text-slate-900 dark:text-white">
                 {level2RulesCount} {level2RulesCount === 1 ? 'rule' : 'rules'} transferred
               </span>
@@ -111,7 +111,7 @@ export function TransferPrimaryAgentModal({
             onClick={onConfirm}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/20 transition cursor-pointer"
           >
-            Confirm & transfer
+            Confirm & Transfer
           </button>
         </div>
       </div>

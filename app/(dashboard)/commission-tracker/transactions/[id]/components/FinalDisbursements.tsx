@@ -190,7 +190,7 @@ export function FinalDisbursements({
 
       <div className={`grid grid-cols-1 gap-6 px-3 pb-6 sm:px-6 md:grid-cols-2 md:gap-0 ${showSplitWarning ? 'pt-0' : 'pt-6'}`}>
         <div className="flex h-full flex-col gap-3 md:pr-6">
-          <h3 className={WATERFALL_HEADING}>Payments to agents</h3>
+          <h3 className={WATERFALL_HEADING}>Payments to Agents</h3>
 
           {agentDisbursements.length === 0 ? (
             <p className="text-xs text-slate-400 italic py-2">No agent payments.</p>
@@ -211,7 +211,7 @@ export function FinalDisbursements({
           )}
 
           <ColumnSubtotal
-            label="Total to agents"
+            label="Total to Agents"
             amount={agentTotal}
             totalCommission={totalCommission}
             tone="agent"
@@ -219,7 +219,7 @@ export function FinalDisbursements({
         </div>
 
         <div className="flex h-full flex-col gap-3 border-t border-slate-200 pt-6 dark:border-slate-700 md:border-t-0 md:border-l md:pt-0 md:pl-6">
-          <h3 className={WATERFALL_HEADING}>Payments to entities</h3>
+          <h3 className={WATERFALL_HEADING}>Payments to Entities</h3>
 
           {entityDisbursements.length === 0 ? (
             <p className="text-xs text-slate-400 italic py-2">No entity payments.</p>
@@ -238,7 +238,7 @@ export function FinalDisbursements({
           )}
 
           <ColumnSubtotal
-            label="Total to entities"
+            label="Total to Entities"
             amount={entityTotal}
             totalCommission={totalCommission}
             tone="entity"
@@ -263,7 +263,7 @@ export function FinalDisbursements({
           : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800'
       }`}>
         <span className={`text-lg font-semibold ${paymentsOffCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-900 dark:text-white'}`}>
-          Total payments
+          Total Payments
         </span>
         <div className="flex items-center gap-3">
           <span className={`text-sm font-medium ${paymentsOffCommission ? 'text-rose-700 dark:text-rose-300' : 'text-slate-500 dark:text-slate-400'}`}>

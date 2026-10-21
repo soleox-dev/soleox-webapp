@@ -168,22 +168,22 @@ function LabeledRow({
 }
 
 export const logicContextNames: FormulaName[] = [
-  { name: 'baseline_after_off_the_top', label: 'Balance after off-the-top', kind: 'field' },
-  { name: 'baseline_after_pre_splits', label: 'Balance after pre-splits', kind: 'field' },
-  { name: 'baseline_after_agent_splits', label: "Agent's split", kind: 'field' },
-  { name: 'baseline_after_l1_post_splits', label: "Agent's net after Level 1 post-splits", kind: 'field' },
-  { name: 'baseline', label: 'Section baseline', kind: 'field' },
-  { name: 'prior_amounts', label: 'Earlier amounts in this section', kind: 'field' },
+  { name: 'baseline_after_off_the_top', label: 'Balance After Off-the-Top', kind: 'field' },
+  { name: 'baseline_after_pre_splits', label: 'Balance After Pre-Splits', kind: 'field' },
+  { name: 'baseline_after_agent_splits', label: "Agent's Split", kind: 'field' },
+  { name: 'baseline_after_l1_post_splits', label: "Agent's Net After Level 1 Post-Splits", kind: 'field' },
+  { name: 'baseline', label: 'Section Baseline', kind: 'field' },
+  { name: 'prior_amounts', label: 'Earlier Amounts in This Section', kind: 'field' },
 ];
 
 export const ledgerFormulaNames: FormulaName[] = [
-  { name: 'transaction_commission_items.final_amount', label: 'Commission line amount', kind: 'field' },
-  { name: 'transaction_commission_items.agent_id', label: 'Commission line agent', kind: 'field' },
-  { name: 'transaction_commission_items.payee_entity_id', label: 'Commission line entity id', kind: 'field' },
-  { name: 'commission_entities.entity_name', label: 'Commission entity name', kind: 'field' },
-  { name: 'commission_entities.id', label: 'Commission entity id', kind: 'field' },
-  { name: 'transactions.closing_date', label: 'Other deal closing date', kind: 'field' },
-  { name: 'transactions.transaction_status', label: 'Other deal status', kind: 'field' },
+  { name: 'transaction_commission_items.final_amount', label: 'Commission Line Amount', kind: 'field' },
+  { name: 'transaction_commission_items.agent_id', label: 'Commission Line Agent', kind: 'field' },
+  { name: 'transaction_commission_items.payee_entity_id', label: 'Commission Line Entity ID', kind: 'field' },
+  { name: 'commission_entities.entity_name', label: 'Commission Entity Name', kind: 'field' },
+  { name: 'commission_entities.id', label: 'Commission Entity ID', kind: 'field' },
+  { name: 'transactions.closing_date', label: 'Other Deal Closing Date', kind: 'field' },
+  { name: 'transactions.transaction_status', label: 'Other Deal Status', kind: 'field' },
 ];
 
 function FieldChevron() {
@@ -217,7 +217,7 @@ export function LogicStepForm({
     ...formulaNames,
     ...ruleFields,
     ...logicContextNames,
-    { name: 'total_commission', label: 'Total commission' },
+    { name: 'total_commission', label: 'Total Commission' },
   ]);
   const [showFieldCards, setShowFieldCards] = useState(false);
   const [showCustomBaseline, setShowCustomBaseline] = useState(Boolean(draft.custom_baseline.trim()));
@@ -229,13 +229,13 @@ export function LogicStepForm({
   const sharedGroups = [
     ...fieldGroups,
     { id: 'rules', title: 'Rules', fields: ruleFields },
-    { id: 'rule', title: 'This rule', fields: logicContextNames },
+    { id: 'rule', title: 'This Rule', fields: logicContextNames },
   ];
   const transactionChoices = fieldGroups.find((group) => group.id === 'transactions')?.fields || [];
   const parameterChoices = fieldGroups.find((group) => group.id === 'parameters')?.fields || [];
   const agentChoices = [
-    { id: 'transactions', title: 'Transaction fields', fields: transactionChoices },
-    { id: 'parameters', title: 'Template parameters', fields: parameterChoices },
+    { id: 'transactions', title: 'Transaction Fields', fields: transactionChoices },
+    { id: 'parameters', title: 'Template Parameters', fields: parameterChoices },
     { id: 'rules', title: 'Rules', fields: ruleFields },
   ].filter((group) => group.fields.length > 0);
   const knownAgentKeys = new Set(agentChoices.flatMap((group) => group.fields.map((field) => field.name)));
@@ -243,8 +243,8 @@ export function LogicStepForm({
   const amountGroups = [
     ...fieldGroups,
     { id: 'rules', title: 'Rules', fields: ruleFields },
-    { id: 'ledger', title: 'Other deals', fields: ledgerFormulaNames },
-    { id: 'rule', title: 'This rule', fields: logicContextNames },
+    { id: 'ledger', title: 'Other Deals', fields: ledgerFormulaNames },
+    { id: 'rule', title: 'This Rule', fields: logicContextNames },
   ];
 
   return (
@@ -252,7 +252,7 @@ export function LogicStepForm({
       <form onSubmit={onSubmit} className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full rounded-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden ${showFieldCards ? 'max-w-[min(75rem,calc(100vw-2rem))]' : 'max-w-2xl'}`}>
         <div className="shrink-0 px-6 pt-6 pb-3">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">{editing ? 'Edit rule' : 'Add rule'}</h3>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">{editing ? 'Edit Rule' : 'Add Rule'}</h3>
             <button
               type="button"
               aria-pressed={showFieldCards}
@@ -263,13 +263,13 @@ export function LogicStepForm({
                   : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700'
               }`}
             >
-              {showFieldCards ? 'Hide fields and parameters' : 'Fields and parameters'}
+              {showFieldCards ? 'Hide Fields and Parameters' : 'Fields and Parameters'}
             </button>
           </div>
           {error && <p className="mt-3 text-xs text-rose-600 dark:text-rose-400">{error}</p>}
         </div>
         <div className="min-h-0 flex-1 space-y-4 overflow-x-auto overflow-y-auto px-6 pb-4">
-          <LabeledRow label="Rule name" htmlFor="rule-name">
+          <LabeledRow label="Rule Name" htmlFor="rule-name">
             <div className={underlineShell}>
               <input
                 id="rule-name"
@@ -364,7 +364,7 @@ export function LogicStepForm({
                 </div>
                 <FormulaToggle
                   pressed={draft.entity_mode === 'formula'}
-                  label="Entity formula"
+                  label="Entity Formula"
                   title={draft.entity_mode === 'formula' ? 'Formula' : 'Fixed'}
                   onClick={() => onChange({ ...draft, entity_mode: draft.entity_mode === 'formula' ? 'fixed' : 'formula' })}
                 />
@@ -406,8 +406,8 @@ export function LogicStepForm({
                 <button
                   type="button"
                   aria-pressed={draft.show_in_popup}
-                  aria-label="Show in commission template form"
-                  title="Show in commission template form"
+                  aria-label="Show in Commission Template Form"
+                  title="Show in Commission Template Form"
                   onClick={() => onChange({
                     ...draft,
                     show_in_popup: !draft.show_in_popup,
@@ -421,7 +421,7 @@ export function LogicStepForm({
               {draft.show_in_popup && (
                 <div className="min-w-0 space-y-3">
                   <label className={`${underlineShell} min-w-0`}>
-                    <span className={underlineLabel}>Commission template form section</span>
+                    <span className={underlineLabel}>Commission Template Form Section</span>
                     <input
                       value={draft.popup_section}
                       onChange={(event) => onChange({ ...draft, popup_section: event.target.value })}
@@ -444,12 +444,12 @@ export function LogicStepForm({
                       })}
                     />
                     <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
-                      Show <span className="font-bold">ONLY</span> under specific conditions
+                      Show <span className="font-bold">ONLY</span> Under Specific Conditions
                     </span>
                   </label>
                   {draft.show_only_when && (
                     <FormulaEditor
-                      label="Show when"
+                      label="Show When"
                       hint="This result is shown only when the formula is true. A section stays hidden when none of its results qualify."
                       value={draft.show_when_formula}
                       onChange={(show_when_formula) => onChange({ ...draft, show_when_formula })}
@@ -474,8 +474,8 @@ export function LogicStepForm({
                 </div>
                 <FormulaToggle
                   pressed={showCondition}
-                  label="Condition formula"
-                  title={showCondition ? 'Formula' : 'Always apply'}
+                  label="Condition Formula"
+                  title={showCondition ? 'Formula' : 'Always Apply'}
                   onClick={() => {
                     const open = !showCondition;
                     setShowCondition(open);
@@ -502,11 +502,11 @@ export function LogicStepForm({
 
           <div className={`${fieldColumn} grid grid-cols-[7.75rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1`}>
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-bold leading-4 text-slate-900 dark:text-white">Custom baseline</p>
+              <p className="text-xs font-bold leading-4 text-slate-900 dark:text-white">Custom Baseline</p>
               <FormulaToggle
                 pressed={showCustomBaseline}
-                label="Custom baseline formula"
-                title={showCustomBaseline ? 'Formula' : 'Section baseline'}
+                label="Custom Baseline Formula"
+                title={showCustomBaseline ? 'Formula' : 'Section Baseline'}
                 onClick={() => {
                   const open = !showCustomBaseline;
                   setShowCustomBaseline(open);
@@ -532,7 +532,7 @@ export function LogicStepForm({
 
           {!postsSplit && (
             <LabeledRow
-              label="Result type"
+              label="Result Type"
               htmlFor="rule-result-type"
               note={<p className="text-[11px] text-slate-500 dark:text-slate-400">Currency shows money. Number shows a count. Percent shows a rate, so 0.05 displays as 5%.</p>}
             >
@@ -554,7 +554,7 @@ export function LogicStepForm({
 
           <div className={`${fieldColumn} grid grid-cols-[7.75rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2`}>
             <div className="flex h-6 items-center gap-1">
-              <p className="whitespace-nowrap text-xs font-bold leading-4 text-slate-900 dark:text-white">Rule calculation</p>
+              <p className="whitespace-nowrap text-xs font-bold leading-4 text-slate-900 dark:text-white">Rule Calculation</p>
               <FormulaHint text={postsSplit ? 'How the dollar amount is calculated.' : 'How this result is calculated.'} />
             </div>
             <div className="min-w-0 space-y-2">
@@ -566,13 +566,13 @@ export function LogicStepForm({
                       checked={draft.split_type === 'PERCENT'}
                       onChange={(event) => onChange({ ...draft, split_type: event.target.checked ? 'PERCENT' : 'AMOUNT' })}
                     />
-                    <span>Show resulting waterfall split with percent</span>
+                    <span>Show Resulting Waterfall Split with Percent</span>
                   </label>
                   <p className="mt-1 pl-[1.375rem] text-[11px] font-medium text-slate-500 dark:text-slate-400">The formula below always calculates a dollar amount. Checking this shows that amount as a percent of the section pool.</p>
                 </div>
               )}
               <FormulaEditor
-                label="Amount formula"
+                label="Amount Formula"
                 hint="The result of this formula will be the amount applied to this rule. Use baseline_after_off_the_top, baseline_after_pre_splits, baseline_after_agent_splits, or baseline_after_l1_post_splits. baseline is the section default, or the custom baseline when one is set."
                 value={draft.calculation_formula}
                 onChange={(calculation_formula) => onChange({ ...draft, calculation_formula })}
@@ -587,7 +587,7 @@ export function LogicStepForm({
         </div>
         <div className="shrink-0 flex justify-end gap-2 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
           <button type="button" onClick={onCancel} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer">Cancel</button>
-          <button type="submit" disabled={saving || Boolean(ruleKeyConflict) || !canSave} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 text-slate-950 cursor-pointer disabled:opacity-50">{saving ? 'Saving...' : 'Save rule'}</button>
+          <button type="submit" disabled={saving || Boolean(ruleKeyConflict) || !canSave} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 text-slate-950 cursor-pointer disabled:opacity-50">{saving ? 'Saving...' : 'Save Rule'}</button>
         </div>
       </form>
     </div>

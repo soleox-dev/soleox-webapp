@@ -245,7 +245,7 @@ export default function TransactionViewsPage() {
           className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-brand-500/10 hover:text-brand-700 disabled:opacity-40 dark:text-slate-400 dark:hover:bg-brand-500/15 dark:hover:text-brand-400 cursor-pointer disabled:cursor-not-allowed"
         >
           <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-          Add view
+          Add View
         </button>
       </div>
 
@@ -282,14 +282,14 @@ export default function TransactionViewsPage() {
                           : 'border border-slate-300 text-slate-600 hover:border-brand-400 hover:text-brand-700 dark:border-slate-600 dark:text-slate-300 dark:hover:text-brand-400'
                       }`}
                     >
-                      {isDefault ? 'Default view' : 'Set as default'}
+                      {isDefault ? 'Default View' : 'Set as Default'}
                     </button>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => moveView(index, -1)} disabled={index === 0} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:hover:bg-slate-700 dark:hover:text-slate-200 cursor-pointer disabled:cursor-not-allowed" aria-label="Move view earlier">
+                    <button type="button" onClick={() => moveView(index, -1)} disabled={index === 0} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:hover:bg-slate-700 dark:hover:text-slate-200 cursor-pointer disabled:cursor-not-allowed" aria-label="Move View Earlier">
                       <ChevronUp className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                     </button>
-                    <button type="button" onClick={() => moveView(index, 1)} disabled={index === config.views.length - 1} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:hover:bg-slate-700 dark:hover:text-slate-200 cursor-pointer disabled:cursor-not-allowed" aria-label="Move view later">
+                    <button type="button" onClick={() => moveView(index, 1)} disabled={index === config.views.length - 1} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:hover:bg-slate-700 dark:hover:text-slate-200 cursor-pointer disabled:cursor-not-allowed" aria-label="Move View Later">
                       <ChevronDown className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                     </button>
                     <button
@@ -306,7 +306,7 @@ export default function TransactionViewsPage() {
                 {nameError && <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">{nameError}</p>}
 
                 <FormulaEditor
-                  label="Include when"
+                  label="Include When"
                   value={view.filterFormula}
                   onChange={(filterFormula) => updateView(view.id, { filterFormula })}
                   names={formulaNames}
@@ -316,7 +316,7 @@ export default function TransactionViewsPage() {
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Sort order</h3>
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Sort Order</h3>
                     <button
                       type="button"
                       onClick={() => updateView(view.id, {
@@ -325,7 +325,7 @@ export default function TransactionViewsPage() {
                       className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-brand-500/10 hover:text-brand-700 dark:text-slate-400 dark:hover:bg-brand-500/15 dark:hover:text-brand-400 cursor-pointer"
                     >
                       <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                      Add column
+                      Add Column
                     </button>
                   </div>
                   {view.sortRules.length === 0 ? (
@@ -353,17 +353,17 @@ export default function TransactionViewsPage() {
                             />
                             <FieldChevron />
                           </div>
-                          <button type="button" onClick={() => moveRule(view.id, ruleIndex, -1)} disabled={ruleIndex === 0} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:hover:bg-slate-700 dark:hover:text-slate-200 cursor-pointer disabled:cursor-not-allowed" aria-label="Move sort earlier">
+                          <button type="button" onClick={() => moveRule(view.id, ruleIndex, -1)} disabled={ruleIndex === 0} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:hover:bg-slate-700 dark:hover:text-slate-200 cursor-pointer disabled:cursor-not-allowed" aria-label="Move Sort Earlier">
                             <ChevronUp className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                           </button>
-                          <button type="button" onClick={() => moveRule(view.id, ruleIndex, 1)} disabled={ruleIndex === view.sortRules.length - 1} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:hover:bg-slate-700 dark:hover:text-slate-200 cursor-pointer disabled:cursor-not-allowed" aria-label="Move sort later">
+                          <button type="button" onClick={() => moveRule(view.id, ruleIndex, 1)} disabled={ruleIndex === view.sortRules.length - 1} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 dark:hover:bg-slate-700 dark:hover:text-slate-200 cursor-pointer disabled:cursor-not-allowed" aria-label="Move Sort Later">
                             <ChevronDown className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                           </button>
                           <button
                             type="button"
                             onClick={() => updateView(view.id, { sortRules: view.sortRules.filter((_, itemIndex) => itemIndex !== ruleIndex) })}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-500 hover:bg-rose-500/10 cursor-pointer"
-                            aria-label="Remove sort column"
+                            aria-label="Remove Sort Column"
                           >
                             <TrashIcon />
                           </button>
@@ -383,7 +383,7 @@ export default function TransactionViewsPage() {
               disabled={!viewDirty || isSaving}
               className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-brand-500 disabled:opacity-50 cursor-pointer"
             >
-              {isSaving ? 'Saving…' : 'Save views'}
+              {isSaving ? 'Saving…' : 'Save Views'}
             </button>
             {message && <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{message}</span>}
             {error && <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">{error}</span>}

@@ -21,7 +21,7 @@ export default function ListsSettingsPage() {
   const lists: ListCategory[] = [
     {
       id: 'L-01',
-      name: 'Transaction statuses',
+      name: 'Transaction Statuses',
       code: 'transaction_status',
       itemCount: 6,
       description: 'Manage lifecycle stages from Pending to Closed and Cancelled.',
@@ -29,7 +29,7 @@ export default function ListsSettingsPage() {
     },
     {
       id: 'L-02',
-      name: 'Client types',
+      name: 'Client Types',
       code: 'client_type',
       itemCount: 4,
       description: 'Define participant classifications like Seller, Buyer, Dual, or Landlord.',
@@ -37,7 +37,7 @@ export default function ListsSettingsPage() {
     },
     {
       id: 'L-03',
-      name: 'Lead sources',
+      name: 'Lead Sources',
       code: 'lead_source',
       itemCount: 8,
       description: 'Categorize acquisition channels (Agent-generated, Zillow, Sphere of Influence).',
@@ -45,7 +45,7 @@ export default function ListsSettingsPage() {
     },
     {
       id: 'L-04',
-      name: 'Finance statuses',
+      name: 'Finance Statuses',
       code: 'finance_status',
       itemCount: 5,
       description: 'Track loan approval milestones (Cash, Pre-approved, Contingent, Funded).',
@@ -67,7 +67,7 @@ export default function ListsSettingsPage() {
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs flex justify-between items-center transition-colors">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-            Dropdown lists & system categories
+            Dropdown Lists & System Categories
           </h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
             Configure dropdown options, pipeline stages, and transaction attribute lists.
@@ -122,7 +122,7 @@ export default function ListsSettingsPage() {
                       onClick={() => void notify({ title: list.name, message: `Opening editor for ${list.name}` })}
                       className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 px-3 py-1 rounded-lg font-semibold transition"
                     >
-                      Manage items
+                      Manage Items
                     </button>
                   </td>
                 </tr>

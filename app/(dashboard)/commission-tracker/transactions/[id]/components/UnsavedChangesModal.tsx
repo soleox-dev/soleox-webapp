@@ -32,7 +32,7 @@ export function UnsavedChangesModal({
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              Unsaved changes
+              Unsaved Changes
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
               {description}
@@ -47,7 +47,7 @@ export function UnsavedChangesModal({
             disabled={isSaving}
             className="text-xs px-3 py-2 rounded-lg font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 transition cursor-pointer disabled:opacity-50"
           >
-            Stay on page
+            Stay on Page
           </button>
           <button
             type="button"
@@ -55,7 +55,7 @@ export function UnsavedChangesModal({
             disabled={isSaving}
             className="text-xs px-3 py-2 rounded-lg font-bold border border-rose-500/40 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition cursor-pointer disabled:opacity-50"
           >
-            Discard changes
+            Discard Changes
           </button>
           <button
             type="button"
@@ -64,7 +64,7 @@ export function UnsavedChangesModal({
             title={saveDisabled ? saveDisabledReason : undefined}
             className="text-xs px-3 py-2 rounded-lg font-bold bg-brand-600 text-white hover:bg-brand-500 transition cursor-pointer disabled:opacity-50"
           >
-            {isSaving ? 'Saving...' : 'Save & leave'}
+            {isSaving ? 'Saving...' : 'Save & Leave'}
           </button>
         </div>
       </div>

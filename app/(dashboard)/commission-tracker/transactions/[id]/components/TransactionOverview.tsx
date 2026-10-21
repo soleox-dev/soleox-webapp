@@ -467,7 +467,7 @@ export function TransactionOverview({
                   onClick={onApplyEdit}
                   className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg font-bold transition hover:bg-brand-500 cursor-pointer"
                 >
-                  Apply changes
+                  Apply Changes
                 </button>
               )}
             </div>

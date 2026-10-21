@@ -65,19 +65,19 @@ const POLICY_OPTIONS: Array<{
 }> = [
   {
     value: 'tms_wins',
-    label: 'TMS wins',
+    label: 'TMS Wins',
     closedClass: 'border-sky-300 bg-sky-50 text-sky-950 dark:border-sky-500/50 dark:bg-sky-950/60 dark:text-sky-100',
     optionClass: 'bg-sky-50 text-sky-950 hover:bg-sky-100 dark:bg-sky-950 dark:text-sky-100 dark:hover:bg-sky-900',
   },
   {
     value: 'lock_on_edit',
-    label: 'Lock after a user edit',
+    label: 'Lock After a User Edit',
     closedClass: 'border-rose-300 bg-rose-50 text-rose-950 dark:border-rose-500/50 dark:bg-rose-950/60 dark:text-rose-100',
     optionClass: 'bg-rose-50 text-rose-950 hover:bg-rose-100 dark:bg-rose-950 dark:text-rose-100 dark:hover:bg-rose-900',
   },
   {
     value: 'keep_until_tms',
-    label: 'Keep a user value until the TMS has one',
+    label: 'Keep a User Value Until the TMS Has One',
     closedClass: 'border-violet-300 bg-violet-50 text-violet-950 dark:border-violet-500/50 dark:bg-violet-950/60 dark:text-violet-100',
     optionClass: 'bg-violet-50 text-violet-950 hover:bg-violet-100 dark:bg-violet-950 dark:text-violet-100 dark:hover:bg-violet-900',
   },
@@ -181,7 +181,7 @@ function PolicySelect({
           </span>
         ))}
         <div className={`col-start-1 row-start-1 rounded-lg border-amber-300 bg-amber-100/70 font-medium text-amber-800 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-200 ${rowClass}`}>
-          Not synced
+          Not Synced
         </div>
       </div>
     );
@@ -481,7 +481,7 @@ export default function TransactionIntegrationsPage() {
     <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-700 dark:bg-slate-800">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">TMS integrations</h2>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">TMS Integrations</h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-400">
             Soleox reads the SOLEOX Integration tab and adds every sheet row that has a TMS ID. It updates transactions that are in the default view. Commission calculations and payments stay in Soleox.
           </p>
@@ -492,7 +492,7 @@ export default function TransactionIntegrationsPage() {
           disabled={!canManage || isSyncing || isLoading || !syncReady}
           className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-brand-500 disabled:opacity-50 cursor-pointer"
         >
-          {isSyncing ? 'Syncing…' : 'Sync now'}
+          {isSyncing ? 'Syncing…' : 'Sync Now'}
         </button>
       </div>
 
@@ -536,15 +536,15 @@ export default function TransactionIntegrationsPage() {
 
           <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
             <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} disabled={!canManage} className="h-4 w-4 accent-brand-600" />
-            Sync this spreadsheet every hour
+            Sync This Spreadsheet Every Hour
           </label>
 
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={preview} disabled={!canManage || isPreviewing} className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-brand-500 disabled:opacity-50 cursor-pointer">
-              {isPreviewing ? 'Loading columns…' : 'Load columns'}
+              {isPreviewing ? 'Loading columns…' : 'Load Columns'}
             </button>
             <button type="button" onClick={save} disabled={!canManage || isSaving || !isDirty} className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-brand-500 disabled:opacity-50 cursor-pointer">
-              {isSaving ? 'Saving…' : 'Save integration'}
+              {isSaving ? 'Saving…' : 'Save Integration'}
             </button>
             {message && <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{message}</span>}
           </div>
@@ -607,7 +607,7 @@ export default function TransactionIntegrationsPage() {
 
           {lastRun && (
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Last sync</h3>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Last Sync</h3>
               <p className="text-sm text-slate-600 dark:text-slate-400">
                 {formatWhen(lastRun.finished_at || lastRun.started_at)} · {lastRun.status}. {lastRun.created_count} added, {lastRun.updated_count} updated, {lastRun.connected_count ?? 0} connected to TMS, {lastRun.disconnected_count ?? 0} disconnected from TMS, {lastRun.skipped_count} outside the default view, {lastRun.unchanged_count} already up to date, {lastRun.error_count} errors.
               </p>
@@ -628,7 +628,7 @@ export default function TransactionIntegrationsPage() {
           )}
 
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Fields held from the TMS</h3>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Fields Held from the TMS</h3>
             {protections.length === 0 ? (
               <p className="text-xs italic text-slate-400">No user edits are holding a column back from the next sync.</p>
             ) : (
@@ -640,10 +640,10 @@ export default function TransactionIntegrationsPage() {
                       {' · '}
                       {item.tmsId || item.propertyAddress || item.fieldKey}
                       {' · '}
-                      {item.protection === 'locked' ? 'Locked after a user edit' : 'Kept until the TMS sends a value'}
+                      {item.protection === 'locked' ? 'Locked After a User Edit' : 'Kept Until the TMS Sends a Value'}
                     </div>
                     <button type="button" onClick={() => clearProtection(item.id)} disabled={!canManage} className="text-xs font-semibold text-brand-700 hover:underline disabled:opacity-50 dark:text-brand-400 cursor-pointer">
-                      Resume TMS updates
+                      Resume TMS Updates
                     </button>
                   </li>
                 ))}

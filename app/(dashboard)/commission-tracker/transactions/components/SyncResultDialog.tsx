@@ -184,7 +184,7 @@ function syncErrorTableText(
   return groupSyncErrors(failed, fieldLabels).map((group) => {
     const rows = [
       group.label,
-      ['Property Address', 'Side', 'Sheet row', 'TMS ID'].join('\t'),
+      ['Property Address', 'Side', 'Sheet Row', 'TMS ID'].join('\t'),
       ...group.rows.map((detail) => {
         const identity = errorIdentity(detail, identityByTmsId);
         return [
@@ -306,7 +306,7 @@ export function SyncErrorsDialog({
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-slate-700">
           <div>
             <h3 id="sync-errors-title" className="text-base font-bold text-slate-900 dark:text-white">
-              {failed.length} sync error{failed.length === 1 ? '' : 's'}
+              {failed.length} Sync Error{failed.length === 1 ? '' : 's'}
             </h3>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">These sheet rows were not written to Soleox.</p>
           </div>
@@ -427,7 +427,7 @@ export function SyncResultDialog({
               className="inline-flex h-8 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700"
             >
               <Undo2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-              <span>Undo sync</span>
+              <span>Undo Sync</span>
             </button>
           )}
           <button
@@ -444,7 +444,7 @@ export function SyncResultDialog({
         {onUndo && !undone && undoStep !== 'idle' && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-5 py-3 dark:border-amber-900/60 dark:bg-amber-950/40" role="alert">
             <div className="text-sm text-amber-900 dark:text-amber-200">
-              <p className="font-semibold">Undo this sync?</p>
+              <p className="font-semibold">Undo This Sync?</p>
               <p className="mt-0.5">
                 {[
                   changedFieldCount > 0 ? `Puts back the ${changedFieldCount.toLocaleString()} ${changedFieldCount === 1 ? 'field' : 'fields'} it changed on ${updated.length.toLocaleString()} ${updated.length === 1 ? 'transaction' : 'transactions'}` : '',
@@ -469,7 +469,7 @@ export function SyncResultDialog({
                 className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-rose-600 px-3 text-xs font-bold text-white transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {undoStep === 'running' && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
-                <span>{undoStep === 'running' ? 'Undoing…' : 'Undo sync'}</span>
+                <span>{undoStep === 'running' ? 'Undoing…' : 'Undo Sync'}</span>
               </button>
             </div>
           </div>
@@ -548,7 +548,7 @@ export function SyncResultDialog({
           )}
           {showRest && notAdded.length > 0 && (
             <section>
-              <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400">Not added</h4>
+              <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400">Not Added</h4>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">These sheet rows are outside the default view, so Soleox did not create them.</p>
               <ul className="mt-2 space-y-1">
                 {notAdded.map((detail, index) => (
@@ -562,7 +562,7 @@ export function SyncResultDialog({
           )}
           {showRest && failed.length > 0 && (
             <section>
-              <h4 className="text-xs font-bold text-rose-600 dark:text-rose-400">Could not sync</h4>
+              <h4 className="text-xs font-bold text-rose-600 dark:text-rose-400">Could Not Sync</h4>
               <div className="mt-2">
                 <SyncErrorGroups details={failed} fieldLabels={fieldLabels} identityByTmsId={identityByTmsId} />
               </div>

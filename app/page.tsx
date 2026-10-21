@@ -126,7 +126,7 @@ export default function Home() {
             {canSwitchClient && (
               <>
                 {' · '}
-                <Link href="/select-client" className="font-semibold text-brand-700 hover:underline dark:text-brand-400">Switch client</Link>
+                <Link href="/select-client" className="font-semibold text-brand-700 hover:underline dark:text-brand-400">Switch Client</Link>
               </>
             )}
           </p>
@@ -164,7 +164,7 @@ export default function Home() {
               title="Owner Reports"
               description="Production, pipeline, and agent results, calculated from your transactions."
               links={reportLinks}
-              footer={{ href: '/owner-reports', label: 'All reports', hint: '' }}
+              footer={{ href: '/owner-reports', label: 'All Reports', hint: '' }}
             />
           )}
         </div>

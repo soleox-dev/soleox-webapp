@@ -104,7 +104,7 @@ export function BackToTop() {
         <button
           type="button"
           onClick={goToTop}
-          aria-label="Back to top"
+          aria-label="Back to Top"
           tabIndex={visible ? 0 : -1}
           className="group flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 cursor-pointer dark:text-slate-400 dark:hover:bg-slate-700/50 dark:hover:text-white"
         >

@@ -98,10 +98,10 @@ const MULTI_FILTER_BUTTON_CLASS = 'bg-brand-600 text-white hover:bg-brand-500 da
 
 const BOLT_FILTERS: { tone: BoltTone; label: string; icon: LucideIcon; iconClass: string; activeClass: string; buttonClass: string }[] = [
   { tone: 'submitted', label: 'Submitted', icon: Check, iconClass: 'text-emerald-500', activeClass: 'bg-emerald-500/20 border-emerald-500/40', buttonClass: 'bg-brand-600 text-white hover:bg-emerald-600 dark:bg-brand-600 dark:hover:bg-brand-500' },
-  { tone: 'ready', label: 'Ready to submit', icon: Plus, iconClass: 'text-blue-500', activeClass: 'bg-blue-500/20 border-blue-500/40', buttonClass: 'bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-500 dark:hover:bg-blue-400' },
-  { tone: 'ineligible', label: 'No longer eligible', icon: X, iconClass: 'text-rose-500', activeClass: 'bg-rose-500/20 border-rose-500/40', buttonClass: 'bg-rose-500 text-white hover:bg-rose-600 dark:bg-rose-500 dark:hover:bg-rose-400' },
-  { tone: 'drift', label: 'Payments would change', icon: RefreshCw, iconClass: 'text-violet-400', activeClass: 'bg-violet-500/20 border-violet-500/40', buttonClass: 'bg-violet-500 text-white hover:bg-violet-600 dark:bg-violet-500 dark:hover:bg-violet-400' },
-  { tone: 'filed', label: 'Outside default view', icon: Archive, iconClass: 'text-slate-500 dark:text-slate-400', activeClass: 'bg-slate-500/20 border-slate-400/40', buttonClass: 'bg-slate-500 text-white hover:bg-slate-600 dark:bg-slate-500 dark:hover:bg-slate-400' },
+  { tone: 'ready', label: 'Ready to Submit', icon: Plus, iconClass: 'text-blue-500', activeClass: 'bg-blue-500/20 border-blue-500/40', buttonClass: 'bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-500 dark:hover:bg-blue-400' },
+  { tone: 'ineligible', label: 'No Longer Eligible', icon: X, iconClass: 'text-rose-500', activeClass: 'bg-rose-500/20 border-rose-500/40', buttonClass: 'bg-rose-500 text-white hover:bg-rose-600 dark:bg-rose-500 dark:hover:bg-rose-400' },
+  { tone: 'drift', label: 'Payments Would Change', icon: RefreshCw, iconClass: 'text-violet-400', activeClass: 'bg-violet-500/20 border-violet-500/40', buttonClass: 'bg-violet-500 text-white hover:bg-violet-600 dark:bg-violet-500 dark:hover:bg-violet-400' },
+  { tone: 'filed', label: 'Outside Default View', icon: Archive, iconClass: 'text-slate-500 dark:text-slate-400', activeClass: 'bg-slate-500/20 border-slate-400/40', buttonClass: 'bg-slate-500 text-white hover:bg-slate-600 dark:bg-slate-500 dark:hover:bg-slate-400' },
 ];
 
 function BoltStatusIcon({ tone, className }: { tone: BoltTone; className: string }) {
@@ -2282,7 +2282,7 @@ export default function TransactionsListPage() {
           className="border border-slate-300 bg-white px-4 py-2.5 rounded-lg text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700 flex items-center gap-2 whitespace-nowrap"
         >
           <Plus className="h-3.5 w-3.5 text-emerald-500" strokeWidth={1.75} aria-hidden />
-          <span>New transaction</span>
+          <span>New Transaction</span>
         </Link>
         )}
         {syncResult && syncErrorsOpen && (
@@ -2371,7 +2371,7 @@ export default function TransactionsListPage() {
               {[
                 { key: ALL_TAB, label: 'All' },
                 ...transactionViews.map((view) => ({ key: view.id, label: view.name })),
-                ...(syncChangesOn && !lastSyncUndone ? [{ key: SYNCED_TAB, label: 'Just synced' }] : []),
+                ...(syncChangesOn && !lastSyncUndone ? [{ key: SYNCED_TAB, label: 'Just Synced' }] : []),
                 ...(deletedDeals.length > 0 ? [{ key: DELETED_TAB, label: 'Deleted' }] : []),
               ].map((tab) => {
                 const selected = !activeScorecardId && ledgerView === tab.key;
@@ -2428,7 +2428,7 @@ export default function TransactionsListPage() {
                   className="h-9 border border-slate-300 bg-white px-3 rounded-lg text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700 inline-flex items-center gap-2 whitespace-nowrap cursor-pointer"
                 >
                   <Undo2 className="h-3.5 w-3.5 text-rose-500" strokeWidth={1.75} aria-hidden />
-                  <span>Undo sync</span>
+                  <span>Undo Sync</span>
                 </button>
               )}
               <button
@@ -2591,7 +2591,7 @@ export default function TransactionsListPage() {
                       onClick={() => { setSyncResultFocus(null); setSyncResultOpen(true); }}
                       className="cursor-pointer font-medium text-brand-600 underline decoration-brand-300 underline-offset-2 transition hover:text-brand-700 dark:text-brand-400 dark:decoration-brand-500/50 dark:hover:text-brand-300"
                     >
-                      View what it changed
+                      View What It Changed
                     </button>
                   </>
                 ) : (
@@ -3079,7 +3079,7 @@ export default function TransactionsListPage() {
                           onClick={() => setRowDisplayLimit((prev) => Math.min(prev + 100, processedDeals.length))}
                           className="font-semibold text-brand-700 dark:text-brand-400 hover:underline cursor-pointer"
                         >
-                          Load next 100
+                          Load Next 100
                         </button>
                         <span className="text-slate-300 dark:text-slate-600">•</span>
                         <button
@@ -3087,7 +3087,7 @@ export default function TransactionsListPage() {
                           onClick={() => setRowDisplayLimit(processedDeals.length)}
                           className="font-semibold text-slate-600 dark:text-slate-300 hover:underline cursor-pointer"
                         >
-                          Load all ({processedDeals.length})
+                          Load All ({processedDeals.length})
                         </button>
                       </div>
                     </td>
@@ -3204,7 +3204,7 @@ export default function TransactionsListPage() {
 
       {pendingBulkDelete && (
         <ConfirmDialog
-          title={`Delete ${selectedIds.size} ${selectedIds.size === 1 ? 'transaction' : 'transactions'}?`}
+          title={`Delete ${selectedIds.size} ${selectedIds.size === 1 ? 'Transaction' : 'Transactions'}?`}
           message={selectedIds.size === 1
             ? 'This removes the transaction, including its commission and payment records. You can restore it from Deleted.'
             : `This removes these ${selectedIds.size} transactions, including their commission and payment records. You can restore them from Deleted.`}
@@ -3218,7 +3218,7 @@ export default function TransactionsListPage() {
       )}
       {pendingDelete && (
         <ConfirmDialog
-          title={`Delete transaction "${pendingDelete.label}"?`}
+          title={`Delete Transaction "${pendingDelete.label}"?`}
           message="This removes the transaction, including its commission and payment records. You can restore it from Deleted Transactions."
           error={deleteError}
           isPending={isDeleting}
@@ -3230,10 +3230,10 @@ export default function TransactionsListPage() {
       )}
       {pendingPermanent && (
         <ConfirmDialog
-          title={`Permanently delete "${pendingPermanent.label}"?`}
+          title={`Permanently Delete "${pendingPermanent.label}"?`}
           message="This transaction will leave Deleted Transactions and cannot be restored. A later sync will not add it again."
           error={permanentError}
-          confirmLabel="Delete permanently"
+          confirmLabel="Delete Permanently"
           pendingLabel="Deleting..."
           isPending={isPermanentDeleting}
           onCancel={() => {

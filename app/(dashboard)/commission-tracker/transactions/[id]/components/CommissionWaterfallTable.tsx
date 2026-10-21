@@ -362,11 +362,11 @@ export function CommissionWaterfallTable({
     <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 shadow-sm space-y-3">
       <div className="flex justify-between items-center gap-3">
         <div className="flex items-center gap-2">
-          <span className={WATERFALL_HEADING}>Agent splits &amp; post-split deductions</span>
+          <span className={WATERFALL_HEADING}>Agent Splits &amp; Post-Split Deductions</span>
         </div>
         <div className="flex items-center gap-3">
           <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-4'}`}>
-            Remaining commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
+            Remaining Commission: <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
           </span>
         </div>
       </div>
@@ -497,7 +497,7 @@ export function CommissionWaterfallTable({
                       <HoverNote label="Percent deductions are calculated from agent split">
                         <span className={level1Pill}>Level 1</span>
                       </HoverNote>
-                      Post-splits
+                      Post-Splits
                     </span>
                     {isEditing && plusButton('Add new Level 1 post-split', () => {
                       setAddingLevel1Row((open) => !open);
@@ -606,7 +606,7 @@ export function CommissionWaterfallTable({
                 </tr>
               )}
               <tr>
-                <td className={`${labelCell} font-bold text-slate-700 dark:text-slate-200`}>Net after Level 1 post-splits</td>
+                <td className={`${labelCell} font-bold text-slate-700 dark:text-slate-200`}>Net After Level 1 Post-Splits</td>
                 {agents.map((agent) => {
                   const computed = (dealResult.agentSplitItems || []).find((item: { agentId?: string; agentName?: string; amount?: number }) => item.agentId === agent.id || item.agentName === agent.name);
                   const net = dealResult.agentNetAfterLevel1?.[agent.name] ?? computed?.amount ?? 0;
@@ -621,7 +621,7 @@ export function CommissionWaterfallTable({
                       <HoverNote label="Percent deductions are calculated from net after Level 1 post-splits.">
                         <span className={level2Pill}>Level 2</span>
                       </HoverNote>
-                      Post-splits
+                      Post-Splits
                     </span>
                     {isEditing && plusButton('Add new Level 2 post-split', () => {
                       setAddingLevel2Row((open) => !open);
@@ -732,7 +732,7 @@ export function CommissionWaterfallTable({
                 </tr>
               )}
               <tr>
-                <td className={`${labelCell} font-bold text-slate-700 dark:text-slate-200`}>Net payout to agents</td>
+                <td className={`${labelCell} font-bold text-slate-700 dark:text-slate-200`}>Net Payout to Agents</td>
                 {agents.map((agent) => {
                   const computed = (dealResult.agentSplitItems || []).find((item: { agentId?: string; agentName?: string; amount?: number }) => item.agentId === agent.id || item.agentName === agent.name);
                   const netAfterL1 = dealResult.agentNetAfterLevel1?.[agent.name] ?? computed?.amount ?? 0;

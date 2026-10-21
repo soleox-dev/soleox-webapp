@@ -355,7 +355,7 @@ export default function Navbar() {
                     className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${isMainMenu ? 'bg-brand-500/10 text-brand-700 dark:bg-brand-950/80 dark:text-brand-400' : 'text-slate-800 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'}`}
                   >
                     <LayoutGrid className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
-                    All modules
+                    All Modules
                   </Link>
                 </div>
               )}
@@ -405,7 +405,7 @@ export default function Navbar() {
               setPhoneNavLevel(isOwnerReports && showOwnerReports ? 'owner-reports' : 'main');
               setPhoneNavOpen(true);
             }}
-            aria-label="Open menu"
+            aria-label="Open Menu"
             aria-expanded={phoneNavOpen}
             className="me-0 inline-flex h-10 w-10 items-center justify-center rounded-lg text-slate-700 dark:text-slate-200 desktop-nav:hidden cursor-pointer"
           >
@@ -417,7 +417,7 @@ export default function Navbar() {
             <button
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
               className="w-8 h-8 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800 font-bold rounded-full flex items-center justify-center text-xs hover:ring-2 hover:ring-emerald-500/40 transition cursor-pointer"
-              aria-label="User menu"
+              aria-label="User Menu"
             >
               {getUserInitials()}
             </button>
@@ -427,7 +427,7 @@ export default function Navbar() {
                 {/* Active Session Info */}
                 <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">
                   <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                    {session?.user?.name || 'Authenticated user'}
+                    {session?.user?.name || 'Authenticated User'}
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
                     {session?.user?.email || 'user@soleox.com'}
@@ -497,7 +497,7 @@ export default function Navbar() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V5" />
                   </svg>
-                  Sign out
+                  Sign Out
                 </button>
               </div>
             )}
@@ -519,21 +519,21 @@ export default function Navbar() {
         <div className="app-modal fixed inset-0 z-[60] desktop-nav:hidden" role="dialog" aria-modal="true" aria-label="Menu">
           <button
             type="button"
-            aria-label="Close menu"
+            aria-label="Close Menu"
             onClick={() => setPhoneNavOpen(false)}
             className="absolute inset-0 h-full w-full cursor-default bg-slate-950/50"
           />
           <div className="absolute inset-y-0 right-0 flex w-[min(20rem,calc(100%-3rem))] flex-col overflow-y-auto overscroll-contain bg-white pb-[env(safe-area-inset-bottom)] text-slate-900 shadow-2xl dark:bg-[#0e131c] dark:text-white">
             <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800">
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">{session?.user?.name || 'Authenticated user'}</p>
+                <p className="truncate text-sm font-semibold">{session?.user?.name || 'Authenticated User'}</p>
                 <p className="truncate text-xs text-slate-500 dark:text-slate-400">{session?.user?.email || 'user@soleox.com'}</p>
                 {access?.clientName && <p className="truncate text-xs text-brand-700 dark:text-brand-400">{access.clientName}</p>}
               </div>
               <button
                 type="button"
                 onClick={() => setPhoneNavOpen(false)}
-                aria-label="Close menu"
+                aria-label="Close Menu"
                 className="-mr-2 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 cursor-pointer"
               >
                 <X className="h-5 w-5" strokeWidth={2} aria-hidden />
@@ -547,7 +547,7 @@ export default function Navbar() {
                   onClick={() => setPhoneNavLevel('main')}
                   className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-brand-700 dark:text-brand-400 cursor-pointer"
                 >
-                  <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden /> Back to main menu
+                  <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden /> Back to Main Menu
                 </button>
                 <Link href="/owner-reports" className={sheetLinkClass(pathname === '/owner-reports')}>
                   <Briefcase className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden /> Owner Reports
@@ -576,7 +576,7 @@ export default function Navbar() {
             <>
             <nav className="px-2 py-2" aria-label="Main">
               <Link href="/" className={sheetLinkClass(isMainMenu)}>
-                <House className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden /> Main menu
+                <House className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden /> Main Menu
               </Link>
               {showTracker && <p className={sheetHeadingClass}>Commission Tracker</p>}
               {showTransactions && (
@@ -675,7 +675,7 @@ export default function Navbar() {
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V5" />
                 </svg>
-                Sign out
+                Sign Out
               </button>
             </div>
             </>

@@ -21,7 +21,7 @@ const NAV: NavEntry[] = [
     items: [
       { label: 'Views', href: '/commission-tracker/settings/transaction-view', icon: ListFilter },
       { label: 'Scorecards', href: '/commission-tracker/settings/scorecards', icon: ChartColumn },
-      { label: 'TMS integrations', href: '/commission-tracker/settings/integrations', icon: Link2 },
+      { label: 'TMS Integrations', href: '/commission-tracker/settings/integrations', icon: Link2 },
     ],
   },
   {
@@ -31,7 +31,7 @@ const NAV: NavEntry[] = [
       { label: 'Entities', href: '/commission-tracker/settings/commission-entities', icon: Building2 },
       { label: 'Templates', href: '/commission-tracker/settings/commission-templates', icon: Zap },
       { label: 'Caps', href: '/commission-tracker/settings/caps', icon: Gauge },
-      { label: 'Agent allocations', href: '/commission-tracker/settings/agent-allocations', icon: Scale },
+      { label: 'Agent Allocations', href: '/commission-tracker/settings/agent-allocations', icon: Scale },
     ],
   },
   {
@@ -99,8 +99,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                 type="button"
                 onClick={() => setAndRemember(false)}
                 className="mb-1 inline-flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700/50 dark:hover:text-white cursor-pointer transition"
-                aria-label="Expand sidebar"
-                title="Expand sidebar"
+                aria-label="Expand Sidebar"
+                title="Expand Sidebar"
               >
                 <PanelLeftOpen className="h-4 w-4" strokeWidth={1.75} />
               </button>
@@ -161,8 +161,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                 type="button"
                 onClick={() => setAndRemember(true)}
                 className="hidden lg:inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700/50 dark:hover:text-slate-200 cursor-pointer transition"
-                aria-label="Collapse sidebar"
-                title="Collapse sidebar"
+                aria-label="Collapse Sidebar"
+                title="Collapse Sidebar"
               >
                 <PanelLeftClose className="h-4 w-4" strokeWidth={1.75} />
               </button>

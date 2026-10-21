@@ -81,7 +81,7 @@ export function AgentPickerModal({
         <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-3">
           <div className="flex items-center gap-2">
             <span className="text-xl">👤</span>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">Add agent to deal</h3>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">Add Agent to Deal</h3>
           </div>
           <button
             type="button"
@@ -133,7 +133,7 @@ export function AgentPickerModal({
                       <span>{agentObj.name}</span>
                       {agentObj.isTeamLead && (
                         <span className="text-[10px] bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-semibold">
-                          LEAD
+                          Lead
                         </span>
                       )}
                     </div>
@@ -170,7 +170,7 @@ export function AgentPickerModal({
               }`}
             >
               <span>%</span>
-              <span>Percent split</span>
+              <span>Percent Split</span>
             </button>
             <button
               type="button"
@@ -185,7 +185,7 @@ export function AgentPickerModal({
               }`}
             >
               <span>$</span>
-              <span>Flat amount split</span>
+              <span>Flat Amount Split</span>
             </button>
           </div>
 
@@ -193,7 +193,7 @@ export function AgentPickerModal({
           <div>
             <div className="flex justify-between items-center mb-1">
               <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
-                {splitType === 'PERCENT' ? 'Split percentage (%)' : 'Split dollar amount ($)'}
+                {splitType === 'PERCENT' ? 'Split Percentage (%)' : 'Split Dollar Amount ($)'}
               </span>
               {commissionAfterOffTop > 0 && numericVal > 0 && (
                 <span className={`text-[11px] font-semibold ${
@@ -271,7 +271,7 @@ export function AgentPickerModal({
                 : 'bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
             }`}
           >
-            Confirm & add agent
+            Confirm & Add Agent
           </button>
         </div>
       </div>

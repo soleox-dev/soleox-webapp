@@ -108,7 +108,7 @@ export default function AgentAllocationsPage() {
     <div className="space-y-6">
       <div className={SETTINGS_CARD}>
         <SettingsHeader
-          title="Agent allocations"
+          title="Agent Allocations"
           description="One rule for the amount allocated to the agents on a deal. It can follow sales price, or sales price times units. It does not change the agent splits. A blank qualifying formula applies to every deal."
           actions={
             <button
@@ -137,20 +137,20 @@ export default function AgentAllocationsPage() {
           <AllocationFieldMenu
             label="Basis"
             value={volume.anchor}
-            placeholder="Sales price"
-            options={[{ value: 'sales_price', label: 'Sales price' }, { value: 'sales_price_x_units', label: 'Sales price × units' }]}
+            placeholder="Sales Price"
+            options={[{ value: 'sales_price', label: 'Sales Price' }, { value: 'sales_price_x_units', label: 'Sales Price × Units' }]}
             onChange={(anchor) => setVolume({ ...volume, anchor: anchor === 'sales_price_x_units' ? 'sales_price_x_units' : 'sales_price' })}
           />
           <AllocationFieldMenu
             label="Assignment"
             value={volume.assignment}
-            placeholder="Each agent’s share of the deal"
-            options={[{ value: 'agent_share', label: 'Each agent’s share of the deal' }, { value: 'primary_agent', label: 'Primary agent' }]}
+            placeholder="Each Agent’s Share of the Deal"
+            options={[{ value: 'agent_share', label: 'Each Agent’s Share of the Deal' }, { value: 'primary_agent', label: 'Primary Agent' }]}
             onChange={(assignment) => setVolume({ ...volume, assignment: assignment === 'primary_agent' ? 'primary_agent' : 'agent_share' })}
           />
         </div>
         <FormulaEditor
-          label="Qualifying formula"
+          label="Qualifying Formula"
           value={volume.qualifyingFormula}
           onChange={(qualifyingFormula) => setVolume({ ...volume, qualifyingFormula })}
           names={formulaNames}

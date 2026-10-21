@@ -304,11 +304,11 @@ export default function CapsPage() {
         <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
           <button type="button" onClick={() => chooseTab('team')} className={tabClass(tab === 'team')}>
             <Gauge className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-            Team caps
+            Team Caps
           </button>
           <button type="button" onClick={() => chooseTab('agent')} className={tabClass(tab === 'agent')}>
             <User className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-            Agent caps
+            Agent Caps
           </button>
         </div>
       </div>
@@ -317,7 +317,7 @@ export default function CapsPage() {
       <p className="max-w-2xl text-[11px] text-slate-500 dark:text-slate-400">
         {tab === 'team'
           ? 'A client can use several team caps. A deal uses every enabled cap whose formula is true, and the agent cannot pay more than their share. The agent split is that share before the cut paid to the selected agent. A blank qualifying formula applies to every deal. The selected agent has to be on the agent splits to receive the payment.'
-          : 'An agent cap follows a post-split the commission template already calculates. It does not change the split. The report uses the name, the cap amount field, and the reset date. Hide over-allocations keeps the report and the waterfall at the cap amount when that fee continues past it.'}
+          : 'An agent cap follows a post-split the commission template already calculates. It does not change the split. The report uses the name, the cap amount field, and the reset date. Hide Over-Allocations keeps the report and the waterfall at the cap amount when that fee continues past it.'}
       </p>
       {message && <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{message}</p>}
       {error && <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">{error}</p>}
@@ -488,7 +488,7 @@ function TeamCapList({
 }) {
   return (
     <div className="space-y-6">
-      <CapHeading action="Add team cap" onAdd={onAdd} />
+      <CapHeading action="Add Team Cap" onAdd={onAdd} />
       {!isLoading && caps.length === 0 ? (
         <p className="text-xs italic text-slate-400">No team caps. This client does not use a team cap until you add one.</p>
       ) : caps.map((cap) => {
@@ -516,28 +516,28 @@ function TeamCapList({
                 onKey={(key) => onChange(cap.id, { key, keyCustom: true })}
               />
               <AllocationFieldMenu
-                label="Allocated to"
+                label="Allocated To"
                 value={cap.recipientAgentId}
                 placeholder="Choose an agent"
                 options={recipientOptions(cap.recipientAgentId).map((agent) => ({ value: agent.id, label: agent.name }))}
                 onChange={(recipientAgentId) => onChange(cap.id, { recipientAgentId })}
               />
               <AllocationFieldMenu
-                label="Agent split percent field"
+                label="Agent Split Percent Field"
                 value={cap.splitPercentFieldKey}
                 placeholder="Choose a field"
                 options={fieldOptions(agentFields, PERCENT_FIELD_TYPES, cap.splitPercentFieldKey).map((field) => ({ value: field.field_key, label: field.field_label || field.field_key }))}
                 onChange={(splitPercentFieldKey) => onChange(cap.id, { splitPercentFieldKey })}
               />
               <AllocationFieldMenu
-                label="Cap amount field"
+                label="Cap Amount Field"
                 value={cap.capAmountFieldKey}
                 placeholder="Choose a field"
                 options={fieldOptions(agentFields, AMOUNT_FIELD_TYPES, cap.capAmountFieldKey).map((field) => ({ value: field.field_key, label: field.field_label || field.field_key }))}
                 onChange={(capAmountFieldKey) => onChange(cap.id, { capAmountFieldKey })}
               />
               <AllocationFieldMenu
-                label="Reset date field"
+                label="Reset Date Field"
                 value={cap.resetDateFieldKey}
                 placeholder="Choose a field"
                 options={fieldOptions(agentFields, DATE_FIELD_TYPES, cap.resetDateFieldKey).map((field) => ({ value: field.field_key, label: field.field_label || field.field_key }))}
@@ -545,7 +545,7 @@ function TeamCapList({
               />
             </div>
             <FormulaEditor
-              label="Qualifying formula"
+              label="Qualifying Formula"
               value={cap.qualifyingFormula}
               onChange={(qualifyingFormula) => onChange(cap.id, { qualifyingFormula })}
               names={formulaNames}
@@ -581,7 +581,7 @@ function AgentCapList({
 }) {
   return (
     <div className="space-y-6">
-      <CapHeading action="Add agent cap" onAdd={onAdd} />
+      <CapHeading action="Add Agent Cap" onAdd={onAdd} />
       {!isLoading && caps.length === 0 ? (
         <p className="text-xs italic text-slate-400">No agent caps. Add one for each post-split that has a cap amount.</p>
       ) : caps.map((cap) => {
@@ -608,21 +608,21 @@ function AgentCapList({
                 onKey={(key) => onChange(cap.id, { key, keyCustom: true })}
               />
               <AllocationFieldMenu
-                label="Post-split entity"
+                label="Post-Split Entity"
                 value={cap.commissionEntityId}
                 placeholder="Choose an entity"
                 options={entityOptions(cap.commissionEntityId)}
                 onChange={(commissionEntityId) => onChange(cap.id, { commissionEntityId })}
               />
               <AllocationFieldMenu
-                label="Cap amount field"
+                label="Cap Amount Field"
                 value={cap.capAmountFieldKey}
                 placeholder="Choose a field"
                 options={fieldOptions(agentFields, AMOUNT_FIELD_TYPES, cap.capAmountFieldKey).map((field) => ({ value: field.field_key, label: field.field_label || field.field_key }))}
                 onChange={(capAmountFieldKey) => onChange(cap.id, { capAmountFieldKey })}
               />
               <AllocationFieldMenu
-                label="Reset date field"
+                label="Reset Date Field"
                 value={cap.resetDateFieldKey}
                 placeholder="Choose a field"
                 options={fieldOptions(agentFields, DATE_FIELD_TYPES, cap.resetDateFieldKey).map((field) => ({ value: field.field_key, label: field.field_label || field.field_key }))}
@@ -637,7 +637,7 @@ function AgentCapList({
                 className="mt-0.5 h-4 w-4 cursor-pointer accent-brand-600"
               />
               <span>
-                <span className="font-semibold">Hide over-allocations</span>
+                <span className="font-semibold">Hide Over-Allocations</span>
                 <span className="mt-0.5 block text-[11px] font-normal text-slate-500 dark:text-slate-400">Reports and the waterfall stay at the cap amount. A fee that continues after the cap, such as the smaller Flat Cap Fee, is not shown as going past it.</span>
               </span>
             </label>

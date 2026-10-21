@@ -70,6 +70,7 @@ export function BulkUpdateDialog({
   const [touched, setTouched] = useState(false);
   const selected = choices.find((choice) => choice.fieldKey === fieldKey) || null;
   const noun = selectedCount === 1 ? recordNoun : `${recordNoun}s`;
+  const titleNoun = `${noun.charAt(0).toUpperCase()}${noun.slice(1)}`;
   const isTmsId = recordNoun === 'transaction' && selected?.fieldKey === 'tms_id';
   const isText = Boolean(selected && selected.fieldType === 'TEXT' && !isTmsId);
   const choosingClear = value === CLEAR_VALUE;
@@ -100,7 +101,7 @@ export function BulkUpdateDialog({
       : textClear
         ? 'Clear'
         : clearing
-          ? 'Clear field'
+          ? 'Clear Field'
           : 'Update';
 
   return (
@@ -119,7 +120,7 @@ export function BulkUpdateDialog({
       >
         <div>
           <h3 id="bulk-update-title" className="text-base font-bold text-slate-900 dark:text-white">
-            {isTmsId ? `Clear TMS ID on ${selectedCount} ${noun}` : `Update ${selectedCount} ${noun}`}
+            {isTmsId ? `Clear TMS ID on ${selectedCount} ${titleNoun}` : `Update ${selectedCount} ${titleNoun}`}
           </h3>
           <p className={`mt-1 text-sm ${isTmsId ? 'text-amber-700 dark:text-amber-300' : 'text-slate-600 dark:text-slate-300'}`}>{summary}</p>
         </div>

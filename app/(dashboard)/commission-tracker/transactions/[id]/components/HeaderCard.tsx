@@ -110,7 +110,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
   }, []);
 
   const hasDeal = Boolean(deal?.address) && !isNewTransaction;
-  const title = hasDeal ? String(deal?.address) : isNewTransaction ? 'New transaction' : 'Transaction detail';
+  const title = hasDeal ? String(deal?.address) : isNewTransaction ? 'New Transaction' : 'Transaction Detail';
 
   const actions = (
     <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -119,7 +119,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
       )}
       {/* The compact bar has no room for it; Discard and Save already say there are changes. */}
       {hasUnsavedChanges && !compact && (
-        <span className="shrink-0 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">Unsaved changes</span>
+        <span className="shrink-0 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">Unsaved Changes</span>
       )}
       {hasUnsavedChanges && (
         <button
@@ -128,7 +128,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
           disabled={isSaving}
           className="px-4 py-1.5 text-xs font-bold rounded-full border border-slate-300 text-slate-600 transition hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
         >
-          Discard changes
+          Discard Changes
         </button>
       )}
       {(hasUnsavedChanges || isSaving) && (
@@ -140,7 +140,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
           className="px-4 py-1.5 font-bold text-xs rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer bg-amber-500 hover:bg-amber-400 text-slate-950"
         >
           <span>{isSaving ? '⏳' : '💾'}</span>
-          <span>{isSaving ? 'Saving transaction...' : 'Save transaction'}</span>
+          <span>{isSaving ? 'Saving transaction...' : 'Save Transaction'}</span>
         </button>
       )}
       {children && (
@@ -154,7 +154,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
           className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 cursor-pointer dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
         >
           <Search className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-          <span className={compact ? 'sr-only' : 'hidden sm:inline'}>Switch deal</span>
+          <span className={compact ? 'sr-only' : 'hidden sm:inline'}>Switch Deal</span>
           <kbd className="hidden rounded border border-slate-200 px-1 font-mono text-[10px] text-slate-400 sm:inline dark:border-slate-600">/</kbd>
         </button>
       )}

@@ -99,7 +99,7 @@ export function TeamCapAmount({
       <span className="inline-flex flex-col items-end">
         {/* "edited" goes before the amount, so the amount keeps the split amounts' right edge above it. */}
         <span className="inline-flex items-baseline justify-end gap-1">
-          {edited ? <span className={`text-[10.5px] font-bold ${editedTone}`}>edited</span> : null}
+          {edited ? <span className={`text-[10.5px] font-bold ${editedTone}`}>Edited</span> : null}
           <span className={`text-xs font-semibold ${amountTone}`}>{money.format(amount)}</span>
         </span>
         {standingNote}
@@ -116,7 +116,7 @@ export function TeamCapAmount({
           title={`Use the calculated ${money.format(calculated)}`}
           className={`text-[10.5px] font-bold cursor-pointer ${editedTone} ${exceeded ? 'hover:text-rose-700 dark:hover:text-rose-200' : 'hover:text-amber-900 dark:hover:text-amber-100'}`}
         >
-          calculated
+          Calculated
         </button>
       ) : null}
       <span className="underline-field relative inline-flex w-[6.5rem] rounded-t-md border-b border-b-amber-300 transition-colors dark:border-b-amber-700 focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)]">
@@ -180,8 +180,8 @@ export function AgentAllocationNotes({ agentId, allocations }: { agentId: string
     <div className="mt-1 space-y-0.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
       {lines.map((line) => (
         <p key={line.id}>
-          {line.kind === 'sales_volume' ? 'Agent allocation' : `${line.cap_name || (line.tracked === false ? 'Team lead' : 'Team cap')}${line.tracked === false && line.cap_name ? ' · team lead' : ''}`} {money.format(Number(line.amount) || 0)}
-          {line.is_override ? ' · edited' : ''}
+          {line.kind === 'sales_volume' ? 'Agent Allocation' : `${line.cap_name || (line.tracked === false ? 'Team Lead' : 'Team Cap')}${line.tracked === false && line.cap_name ? ' · Team Lead' : ''}`} {money.format(Number(line.amount) || 0)}
+          {line.is_override ? ' · Edited' : ''}
         </p>
       ))}
     </div>
