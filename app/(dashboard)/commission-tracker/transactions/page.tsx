@@ -14,7 +14,7 @@ import { BooleanMark, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { filterControl, filterShell, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { Archive, Check, Highlighter, Link2, ListChecks, ListFilter, Loader2, Plus, RefreshCw, RotateCcw, Rows3, Unlink, X, Zap, type LucideIcon } from 'lucide-react';
+import { Archive, Check, Highlighter, Link2, ListChecks, ListFilter, Loader2, Plus, RefreshCw, RotateCcw, Rows3, Undo2, Unlink, X, Zap, type LucideIcon } from 'lucide-react';
 import { HoverNote } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/HoverNote';
 import { useAccess } from '@/components/access-provider';
 import { TrashIcon } from '@/components/ui/trash-icon';
@@ -464,6 +464,8 @@ export default function TransactionsListPage() {
   const [syncResult, setSyncResult] = useState<SyncResultState | null>(() => (saved ? saved.syncResult : null));
   const [syncResultOpen, setSyncResultOpen] = useState(false);
   const [syncResultFocus, setSyncResultFocus] = useState<'added' | 'updated' | null>(null);
+  // Opens the sync dialog straight on the undo confirmation.
+  const [syncUndoAsked, setSyncUndoAsked] = useState(false);
   const [syncChangesOn, setSyncChangesOn] = useState(false);
   const [syncHighlights, setSyncHighlights] = useState<Map<string, Set<string>>>(() => (saved ? saved.syncHighlights : new Map()));
   const [syncErrorsOpen, setSyncErrorsOpen] = useState(false);
@@ -1129,6 +1131,11 @@ export default function TransactionsListPage() {
       : current);
     return undoSummary;
   };
+
+  const canUndoSync = Boolean(
+    canWriteTracker && syncResult?.runId && !syncResult.undoneAt
+    && syncResult.details.some((detail) => detail.outcome === 'create' || detail.outcome === 'update'),
+  );
 
   const fieldTypes = useMemo(
     () => Object.fromEntries(schemaFields.map((field) => [field.field_key, field.field_type])),
@@ -2153,11 +2160,9 @@ export default function TransactionsListPage() {
             focus={syncResultFocus}
             undone={Boolean(syncResult.undoneAt)}
             undoSummary={syncResult.undoSummary ?? null}
-            onUndo={canWriteTracker && syncResult.runId && !syncResult.undoneAt
-              && syncResult.details.some((detail) => detail.outcome === 'create' || detail.outcome === 'update')
-              ? undoLastSync
-              : undefined}
-            onClose={() => setSyncResultOpen(false)}
+            onUndo={canUndoSync ? undoLastSync : undefined}
+            confirmUndo={syncUndoAsked}
+            onClose={() => { setSyncResultOpen(false); setSyncUndoAsked(false); }}
           />
         )}
       </div>
@@ -2272,6 +2277,17 @@ export default function TransactionsListPage() {
           <div className="flex flex-wrap items-center gap-2 shrink-0 w-full md:w-auto md:justify-end">
             {canWriteTracker && tmsConnectorActive && (
             <div className="relative flex flex-wrap items-center gap-2">
+              {canUndoSync && (
+                <button
+                  type="button"
+                  onClick={() => { setSyncResultFocus(null); setSyncUndoAsked(true); setSyncResultOpen(true); }}
+                  disabled={isSyncing || isLoading}
+                  className="h-9 border border-slate-300 bg-white px-3 rounded-lg text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700 inline-flex items-center gap-2 whitespace-nowrap cursor-pointer"
+                >
+                  <Undo2 className="h-3.5 w-3.5 text-rose-500" strokeWidth={1.75} aria-hidden />
+                  <span>Undo sync</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={syncWithTms}
@@ -2461,6 +2477,9 @@ export default function TransactionsListPage() {
                   onShowConnected={() => showTmsConnection('connected')}
                   onShowDisconnected={() => showTmsConnection('disconnected')}
                 />
+                {syncNotice.tone === 'ok' && syncResult?.undoneAt && (
+                  <span className="ml-1 font-medium text-amber-700 dark:text-amber-400">This sync was undone.</span>
+                )}
               </span>
             </>
           )}

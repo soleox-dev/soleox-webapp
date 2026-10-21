@@ -346,6 +346,7 @@ export function SyncResultDialog({
   undone = false,
   undoSummary = null,
   onUndo,
+  confirmUndo = false,
   onClose,
 }: {
   summary: string;
@@ -359,9 +360,11 @@ export function SyncResultDialog({
   undoSummary?: string | null;
   /** Shown only for the latest sync, to someone who can sync. Resolves to the line to show. */
   onUndo?: () => Promise<string>;
+  /** Open on the undo confirmation, as the Undo sync link on the page does. */
+  confirmUndo?: boolean;
   onClose: () => void;
 }) {
-  const [undoStep, setUndoStep] = useState<'idle' | 'confirm' | 'running'>('idle');
+  const [undoStep, setUndoStep] = useState<'idle' | 'confirm' | 'running'>(confirmUndo && onUndo ? 'confirm' : 'idle');
   const [undoError, setUndoError] = useState<string | null>(null);
   const added = details.filter((detail) => detail.outcome === 'create');
   const updated = details.filter((detail) => detail.outcome === 'update' && (detail.changes?.length || 0) > 0);
