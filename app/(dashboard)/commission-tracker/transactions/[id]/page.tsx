@@ -1864,7 +1864,7 @@ export default function Dashboard() {
   return (
     // No scroll anchoring here: the header keeps the room it gives up when it collapses (HeaderCard), and Chrome
     // anchoring on top of that would move the page by the same amount again.
-    <div className={`${pageFrame} relative space-y-6 py-8 max-sm:pt-0 [overflow-anchor:none]`} style={{ '--txn-header-height': `${headerStick}px` } as React.CSSProperties}>
+    <div className={`${pageFrame} relative space-y-6 py-8 max-sm:pt-0`} style={{ '--txn-header-height': `${headerStick}px`, overflowAnchor: 'none' } as React.CSSProperties}>
       {toast && <ToastBanner message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
 
       <HeaderCard
