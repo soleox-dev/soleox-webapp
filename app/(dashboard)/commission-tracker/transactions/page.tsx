@@ -2583,7 +2583,7 @@ export default function TransactionsListPage() {
           {isRefreshing && <span className="ml-2 text-amber-700 dark:text-amber-400">· Updating…</span>}
           {driftCount > 0 && !showingDeleted && (
             <>
-              <span className="mx-2 inline-block h-1.5 w-1.5 rounded-full bg-violet-500 align-middle" aria-hidden />
+              <span className="mx-2 text-slate-400 dark:text-slate-500" aria-hidden>—</span>
               <button
                 type="button"
                 onClick={() => setBoltTone(driftOnly ? [] : ['drift'])}
@@ -2596,7 +2596,7 @@ export default function TransactionsListPage() {
           )}
           {syncNotice && (syncNotice.tone === 'error' || syncChangesOn) && (
             <>
-              <span className="mx-2 inline-block h-1.5 w-1.5 rounded-full bg-brand-500 align-middle" aria-hidden />
+              <span className="mx-2 text-slate-400 dark:text-slate-500" aria-hidden>—</span>
               <span className={syncNotice.tone === 'error' ? 'text-rose-600 dark:text-rose-300' : 'text-slate-600 dark:text-slate-300'}>
                 {syncNotice.tone === 'ok' && syncNotice.finishedAt && lastSyncUndone ? (
                   <>
@@ -3111,7 +3111,7 @@ export default function TransactionsListPage() {
                         >
                           Load Next 100
                         </button>
-                        <span className="text-slate-300 dark:text-slate-600">•</span>
+                        <span className="text-slate-300 dark:text-slate-600" aria-hidden>—</span>
                         <button
                           type="button"
                           onClick={() => setRowDisplayLimit(processedDeals.length)}

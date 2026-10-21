@@ -1053,7 +1053,7 @@ export function CommissionWaterfall({
                           <span className="text-2xs bg-brand-500/20 text-brand-800 dark:text-brand-300 border border-brand-500/30 px-2 py-0.5 rounded-full font-bold">
                             Primary
                           </span>
-                          <HoverNote label="Primary Agent (tied to Transaction Overview • receives remaining balance after secondary agent splits)">
+                          <HoverNote label="Primary Agent (tied to Transaction Overview — receives remaining balance after secondary agent splits)">
                             <span tabIndex={0} role="img" aria-label="Primary Agent explained" className="inline-flex items-center justify-center w-4 h-4 rounded-full text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-help outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -1181,7 +1181,7 @@ export function CommissionWaterfall({
           <div className="border-b border-slate-200 dark:border-slate-700 pb-3 max-sm:border-b-0 max-sm:pb-0">
             <div className="flex items-center gap-1.5">
               <span className={WATERFALL_HEADING}>Post-Split Deductions</span>
-              <HoverNote label="Level 1: Common deductions from Agent Split • Level 2: Other deductions from Net after Level 1 Post-splits (e.g., 5% Brokerage stock options)">
+              <HoverNote label="Level 1: Common deductions from Agent Split — Level 2: Other deductions from Net after Level 1 Post-splits (e.g., 5% Brokerage stock options)">
                 <span tabIndex={0} role="img" aria-label="Post-split levels explained" className="inline-flex items-center justify-center w-4 h-4 rounded-full text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors cursor-help outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"

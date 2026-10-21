@@ -84,7 +84,7 @@ export default function MainMenu() {
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
             <span>Soleox ERP Suite</span>
-            <span>•</span>
+            <span aria-hidden>—</span>
             <span className="text-slate-500 dark:text-slate-400">Main Menu</span>
           </div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Executive Operations Launchpad</h1>

@@ -971,7 +971,7 @@ export default function AgentsPage() {
             Search and manage the agent roster
             {!isLoading && (
               <span className="text-slate-400">
-                {' '}• Showing {processedAgents.length} of {agents.length}
+                {' '}— Showing {processedAgents.length} of {agents.length}
               </span>
             )}
           </p>

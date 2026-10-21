@@ -1478,7 +1478,7 @@ export default function FieldCustomizationsPage() {
                   >
                     {availableCatalogOptions.map((item) => (
                       <option key={item.field_key} value={item.field_key}>
-                        {item.field_label} ({item.field_key} • {item.field_type})
+                        {item.field_label} ({item.field_key} — {item.field_type})
                       </option>
                     ))}
                   </ClearableSelect>
