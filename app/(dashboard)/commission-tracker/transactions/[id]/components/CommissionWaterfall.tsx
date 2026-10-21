@@ -1254,7 +1254,7 @@ export function CommissionWaterfall({
                       <div className="flex items-center gap-2">
                         <span className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
                           <HoverNote label="Percent deductions are calculated from agent split">
-                            <span className="inline-flex items-center whitespace-nowrap rounded-full border border-yellow-600/40 bg-yellow-400/25 px-2 py-0.5 tracking-normal text-yellow-900 dark:border-yellow-300/50 dark:bg-yellow-400/15 dark:text-yellow-200">
+                            <span className="-ml-[9px] inline-flex items-center whitespace-nowrap rounded-full border border-yellow-600/40 bg-yellow-400/25 px-2 py-0.5 tracking-normal text-yellow-900 dark:border-yellow-300/50 dark:bg-yellow-400/15 dark:text-yellow-200">
                               Level 1
                             </span>
                           </HoverNote>
@@ -1456,7 +1456,7 @@ export function CommissionWaterfall({
                       <div className="flex items-center gap-2">
                         <span className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
                           <HoverNote label="Percent deductions are calculated from net after Level 1 post-splits.">
-                            <span className="inline-flex items-center whitespace-nowrap rounded-full border border-slate-400/60 bg-slate-300/50 px-2 py-0.5 tracking-normal text-slate-600 dark:border-slate-300/45 dark:bg-slate-400/20 dark:text-slate-200">
+                            <span className="-ml-[9px] inline-flex items-center whitespace-nowrap rounded-full border border-slate-400/60 bg-slate-300/50 px-2 py-0.5 tracking-normal text-slate-600 dark:border-slate-300/45 dark:bg-slate-400/20 dark:text-slate-200">
                               Level 2
                             </span>
                           </HoverNote>
