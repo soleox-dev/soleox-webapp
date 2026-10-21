@@ -373,6 +373,8 @@ export default function FieldCustomizationsPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingField, setEditingField] = useState<FieldConfig | null>(null);
+  // The key of the field a duplicate was made from, shown in the new key's placeholder as a naming reference.
+  const [duplicateSourceKey, setDuplicateSourceKey] = useState<string | null>(null);
   const [selectionMode, setSelectionMode] = useState<'EXISTING' | 'CUSTOM'>('EXISTING');
   const [selectedCatalogKey, setSelectedCatalogKey] = useState<string>('');
   const [newDropdownOption, setNewDropdownOption] = useState<string>('');
@@ -631,6 +633,7 @@ export default function FieldCustomizationsPage() {
   // from whatever label is typed. A copy of a built-in field is a custom field too: its key is a fixed column.
   const handleOpenDuplicate = (field: FieldConfig) => {
     setEditingField(null);
+    setDuplicateSourceKey(field.field_key);
     setSelectionMode('CUSTOM');
     setSelectedCatalogKey('');
     const formula = field.calculation_formula || '';
@@ -666,6 +669,7 @@ export default function FieldCustomizationsPage() {
 
   const handleOpenAdd = () => {
     setEditingField(null);
+    setDuplicateSourceKey(null);
     const hasAvailable = availableCatalogOptions.length > 0;
     setSelectionMode(hasAvailable ? 'EXISTING' : 'CUSTOM');
     setRuleGroup({ operator: 'OR', conditions: [] });
@@ -752,6 +756,7 @@ export default function FieldCustomizationsPage() {
 
   const handleOpenEdit = (field: FieldConfig) => {
     setEditingField(field);
+    setDuplicateSourceKey(null);
     setSelectionMode(field.storage_type === 'CUSTOM_JSON' ? 'CUSTOM' : 'EXISTING');
 
     const cleanFormula = field.calculation_formula || '';
@@ -1738,7 +1743,8 @@ export default function FieldCustomizationsPage() {
                     disabled={formData.storage_type === 'CORE_COLUMN'}
                     value={formData.field_key || ''}
                     onChange={(e) => setFormData({ ...formData, field_key: e.target.value })}
-                    placeholder="Auto-generated"
+                    placeholder={duplicateSourceKey ? `Copied from ${duplicateSourceKey}` : 'Auto-generated'}
+                    title={duplicateSourceKey ? `Copied from ${duplicateSourceKey}` : undefined}
                     className={`${underlineControl} font-mono`}
                   />
                 </label>
