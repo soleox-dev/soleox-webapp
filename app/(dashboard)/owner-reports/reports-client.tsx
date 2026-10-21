@@ -3006,7 +3006,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
       </div>
       <div className="flex flex-wrap items-stretch gap-6">
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading>Return on investment (ROI)</SectionHeading>
+          <SectionHeading tone="slate">Return on investment (ROI)</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Net income" amount={netIncome} changeAmount={netIncome - priorIncome} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">/</span>
@@ -3016,7 +3016,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
           </div>
         </div>
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading>Net income to total commission ratio (NI/TC)</SectionHeading>
+          <SectionHeading tone="slate">Net income to total commission ratio (NI/TC)</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Net income" amount={netIncome} changeAmount={netIncome - priorIncome} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">/</span>
@@ -3057,6 +3057,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
       >
         <div data-production-heading="" className="relative z-30 shrink-0 bg-slate-100 pb-3 dark:bg-slate-950">
         <SectionHeading
+          tone="slate"
           action={drilldown ? (
             <button
               type="button"
@@ -3064,7 +3065,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
                 setDrilldown(null);
                 setScoresOpen(true);
               }}
-              className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/5 dark:bg-white/10 px-4 text-xs font-semibold normal-case tracking-normal text-inherit transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950"
+              className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/5 dark:bg-white/10 px-4 text-xs font-semibold normal-case tracking-normal text-inherit transition-colors duration-150 hover:bg-slate-300/70 hover:text-slate-900 dark:hover:bg-slate-700 dark:hover:text-white"
             >
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
               {periodLabel === 'Day' ? 'All days' : periodLabel === 'Week' ? 'All weeks' : 'All months'}
@@ -3077,7 +3078,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
               aria-label={scoresOpen ? 'Hide scorecards' : 'Show scorecards'}
               title={scoresOpen ? 'Hide scorecards' : 'Show scorecards'}
               onClick={() => setScoresOpen((open) => !open)}
-              className="all-agents-enter-right inline-flex h-full cursor-pointer items-center justify-center rounded-r-full bg-black/5 dark:bg-white/10 px-4 text-inherit transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950"
+              className="all-agents-enter-right inline-flex h-full cursor-pointer items-center justify-center rounded-r-full bg-black/5 dark:bg-white/10 px-4 text-inherit transition-colors duration-150 hover:bg-slate-300/70 hover:text-slate-900 dark:hover:bg-slate-700 dark:hover:text-white"
             >
               {scoresOpen ? <ChevronUp className="h-4 w-4" strokeWidth={2.5} aria-hidden /> : <ChevronDown className="h-4 w-4" strokeWidth={2.5} aria-hidden />}
             </button>
@@ -5401,9 +5402,10 @@ function CapStickyHeading({ section, labels, asOf, previous, openAgentId, onClos
   return (
     <div className="mt-4">
       <SectionHeading
+        tone="slate"
         note={`${measured} Closed and pending contributions in that year. Click an agent for the transactions.`}
         action={open ? (
-          <button type="button" onClick={onClose} className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/5 dark:bg-white/10 px-4 text-xs font-semibold normal-case tracking-normal text-inherit transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950">
+          <button type="button" onClick={onClose} className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/5 dark:bg-white/10 px-4 text-xs font-semibold normal-case tracking-normal text-inherit transition-colors duration-150 hover:bg-slate-300/70 hover:text-slate-900 dark:hover:bg-slate-700 dark:hover:text-white">
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
             All agents
           </button>
