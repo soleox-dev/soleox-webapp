@@ -333,7 +333,7 @@ function OptionRow({ label, count, checked, onToggle, onOnly }: {
           }}
           className="absolute inset-0 hidden cursor-pointer items-center justify-end group-hover/option:flex"
         >
-          <span className="rounded-full bg-brand-600 px-2 py-0.5 text-[10px] font-bold leading-none tracking-wide text-white shadow-sm hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-400">ONLY</span>
+          <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-bold leading-none tracking-wide text-brand-800 ring-1 ring-brand-200 hover:bg-brand-200 dark:bg-brand-900 dark:text-brand-100 dark:ring-brand-700 dark:hover:bg-brand-800">ONLY</span>
         </button>
       </span>
     </div>
