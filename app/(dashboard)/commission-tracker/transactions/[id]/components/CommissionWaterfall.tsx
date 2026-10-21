@@ -1000,7 +1000,7 @@ export function CommissionWaterfall({
             </div>
             {/* Its amount ends where the agent cards' amounts end (card border, padding, and the amount inset). */}
             <div className="ml-auto flex items-center gap-3">
-              <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-[25px]'}`}>
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium" style={isEditing ? undefined : { paddingRight: 25 }}>
                 Remaining Balance <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
               </span>
             </div>
