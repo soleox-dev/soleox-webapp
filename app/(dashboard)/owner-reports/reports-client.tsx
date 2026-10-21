@@ -3,7 +3,7 @@
 import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
-import { ArrowLeft, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, RotateCcw, X } from 'lucide-react';
+import { ArrowLeft, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, Menu, RotateCcw, X } from 'lucide-react';
 import { widePageFrame } from '@/lib/page-frame';
 import { DESKTOP_QUERY, useFitsScreen, useIsDesktop, useIsTouch } from '@/lib/use-media-query';
 import { swallowNextClick } from '@/lib/swallow-click';
@@ -83,8 +83,8 @@ const BOARD_METRIC_EXCLUDED = new Set(['gci_type', 'transaction_status', 'financ
 
 /** Payment rankings sit above the schema fields. They join payments to the transactions in view. */
 const PAYMENT_METRICS: BoardField[] = [
-  { id: 'payment:agent', label: 'Agent earnings', type: 'PAYMENT' },
-  { id: 'payment:entity', label: 'Entity payments', type: 'PAYMENT' },
+  { id: 'payment:agent', label: 'Agent Earnings', type: 'PAYMENT' },
+  { id: 'payment:entity', label: 'Entity Payments', type: 'PAYMENT' },
 ];
 
 const DEFAULT_DATE_BASES: BoardField[] = [
@@ -595,7 +595,7 @@ export default function OwnerReportsPage() {
       .filter((entity) => (byEntity.get(entity.id)?.size || 0) > 0)
       .map((entity) => ({ value: entity.id, label: entity.name, count: byEntity.get(entity.id)?.size || 0 }))
       .sort((a, b) => a.label.localeCompare(b.label));
-    return [{ value: NET_EARNING, label: 'Net commission income', count: netIds.size }, ...entities];
+    return [{ value: NET_EARNING, label: 'Net Commission Income', count: netIds.size }, ...entities];
   }, [agentPayeePicked, earningEntities, excludeTeamLeads, filtered, payments, postSplits, range, reportId, teamLeadIds]);
 
   useEffect(() => {
@@ -1156,68 +1156,163 @@ function MenuWidth({ choice }: { choice: { number: string; name: string } }) {
   );
 }
 
+/**
+ * The report switcher: a button in the top-left corner of the report header that opens a drawer from the
+ * left edge of the screen. It opens on click only. Esc, the close button, or a click outside closes it
+ * without doing anything else; arrow keys move through the reports and Enter opens one.
+ */
 function OwnerReportNav({ reportId, onSelect }: { reportId: string | null; onSelect: (id: string | null) => void }) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
+  const [shown, setShown] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
   const choice = reportChoice(reportId);
-  const label = choice.number ? `${choice.number} ${choice.name}` : choice.name;
+  const label = choice.number ? `${choice.number} · ${choice.name}` : choice.name;
+
+  // Mounted first, then slid in a moment later, so the drawer animates from the left edge.
+  useEffect(() => {
+    if (!open) {
+      setShown(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setShown(true), 16);
+    return () => window.clearTimeout(timer);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
+    const items = () => [...(drawerRef.current?.querySelectorAll<HTMLButtonElement>('[data-report-item]') ?? [])];
+    const focusTimer = window.setTimeout(() => {
+      const list = items();
+      (list.find((item) => item.getAttribute('aria-current') === 'page') ?? list[0])?.focus();
+    }, 60);
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    const outside = (event: Event) => {
-      const target = event.target;
-      if (target instanceof Node && rootRef.current?.contains(target)) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close();
+        return;
+      }
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+      const list = items();
+      if (list.length === 0) return;
       event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-      setOpen(false);
+      const at = list.indexOf(document.activeElement as HTMLButtonElement);
+      const next = event.key === 'ArrowDown'
+        ? list[(at + 1 + list.length) % list.length]
+        : list[(at - 1 + list.length) % list.length];
+      next.focus();
     };
+    const html = document.documentElement;
+    const previousOverflow = html.style.overflow;
+    html.style.overflow = 'hidden';
     window.addEventListener('keydown', onKey);
-    document.addEventListener('pointerdown', outside, true);
-    document.addEventListener('pointerup', outside, true);
-    document.addEventListener('click', outside, true);
     return () => {
+      window.clearTimeout(focusTimer);
       window.removeEventListener('keydown', onKey);
-      document.removeEventListener('pointerdown', outside, true);
-      document.removeEventListener('pointerup', outside, true);
-      document.removeEventListener('click', outside, true);
+      html.style.overflow = previousOverflow;
     };
   }, [open]);
 
-  const choose = (id: string | null) => {
-    onSelect(id);
+  const close = () => {
     setOpen(false);
+    buttonRef.current?.focus();
   };
+  const choose = (id: string | null) => {
+    setOpen(false);
+    onSelect(id);
+  };
+
+  // A swipe toward the left edge closes the drawer on touch screens.
+  const swipeStart = useRef<number | null>(null);
 
   return (
     <>
-      {open ? <div className="fixed inset-0 z-40 bg-slate-950/30" /> : null}
-      <div ref={rootRef} className="relative min-w-0 max-w-full" onMouseEnter={() => setOpen(true)}>
-        <button
-          type="button"
-          aria-haspopup="menu"
-          aria-expanded={open}
-          aria-label={label}
-          title={label}
-          onClick={() => setOpen(true)}
-          className={`relative z-50 inline-flex h-10 w-max max-w-full cursor-pointer appearance-none items-center gap-2 rounded-xl border bg-white px-3 text-sm font-semibold shadow-sm transition [-webkit-tap-highlight-color:transparent] [outline:none] focus:[outline:none] focus-visible:[outline:none] focus-visible:shadow-[0_1px_2px_rgb(0_0_0/0.05),0_0_0_3px_rgb(16_185_129/0.4)] dark:bg-slate-900 ${
-            open
-              ? 'border-emerald-500 text-slate-900 dark:border-emerald-400 dark:text-white'
-              : 'border-slate-200 text-slate-800 hover:border-emerald-400 dark:border-slate-600 dark:text-slate-100 dark:hover:border-emerald-400'
-          }`}
-        >
-          <span className="shrink-0 tabular-nums">{choice.number || choice.name}</span>
-          <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180 text-emerald-600 dark:text-emerald-300' : ''}`} />
-        </button>
-        {open ? (
-          <div data-owner-menu className="absolute left-0 top-full z-50 mt-2 max-h-[calc(100vh-8rem)] w-80 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-            <ReportMenu reportId={reportId} onSelect={choose} />
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        title="All Owner Reports"
+        onClick={() => setOpen(true)}
+        className="inline-flex h-10 max-w-full cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-brand-400"
+      >
+        <Menu className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" strokeWidth={2} aria-hidden />
+        <span className="truncate tabular-nums">{label}</span>
+      </button>
+      {open ? createPortal(
+        <div className="fixed inset-0 z-[95]" role="presentation">
+          <div
+            className={`absolute inset-0 bg-slate-950/40 transition-opacity duration-200 motion-reduce:transition-none ${shown ? 'opacity-100' : 'opacity-0'}`}
+            onClick={close}
+            aria-hidden
+          />
+          <div
+            ref={drawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            onTouchStart={(event) => { swipeStart.current = event.touches[0]?.clientX ?? null; }}
+            onTouchEnd={(event) => {
+              const start = swipeStart.current;
+              swipeStart.current = null;
+              const end = event.changedTouches[0]?.clientX;
+              if (start != null && end != null && start - end > 60) close();
+            }}
+            className={`absolute inset-y-0 left-0 flex w-80 max-w-[85vw] flex-col border-r border-slate-200 bg-white shadow-2xl transition-transform duration-200 ease-out motion-reduce:transition-none dark:border-slate-700 dark:bg-slate-900 ${shown ? 'translate-x-0' : '-translate-x-full'}`}
+          >
+            <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+              <button type="button" onClick={() => choose(null)} className="min-w-0 cursor-pointer text-left">
+                <p className="text-[11px] font-bold text-brand-600 dark:text-brand-400">Soleox</p>
+                <h2 id={titleId} className="text-base font-extrabold tracking-tight text-slate-900 dark:text-white">Owner Reports</h2>
+              </button>
+              <button
+                type="button"
+                onClick={close}
+                aria-label="Close Reports"
+                title="Close"
+                className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
+              >
+                <X className="h-4 w-4" strokeWidth={2} aria-hidden />
+              </button>
+            </div>
+            <nav aria-label="Owner Reports" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
+              {GROUPS.map((group) => (
+                <div key={group} className="mb-3">
+                  <p className="px-2 pb-1 text-[11px] font-semibold text-slate-400 dark:text-slate-500">{group}</p>
+                  {OWNER_REPORTS.filter((item) => item.group === group).map((item) => {
+                    const number = String(OWNER_REPORTS.findIndex((entry) => entry.id === item.id) + 1).padStart(2, '0');
+                    const active = item.id === reportId;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        data-report-item
+                        aria-current={active ? 'page' : undefined}
+                        onClick={() => choose(item.id)}
+                        className={`flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 ${
+                          active
+                            ? 'bg-brand-500/10 font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300'
+                            : item.ready
+                              ? 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
+                              : 'text-slate-400 hover:bg-slate-50 dark:text-slate-500 dark:hover:bg-slate-800/60'
+                        }`}
+                      >
+                        <span className="w-6 shrink-0 text-xs tabular-nums text-slate-400 dark:text-slate-500">{number}</span>
+                        <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                        {!item.ready ? (
+                          <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">Soon</span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </nav>
           </div>
-        ) : null}
-      </div>
+        </div>,
+        document.body,
+      ) : null}
     </>
   );
 }
@@ -1279,10 +1374,10 @@ function Cover({ launching, onEnter }: { launching: boolean; onEnter: () => void
     return () => window.removeEventListener('keydown', onKey);
   }, [onEnter]);
   const marks = [
-    { label: 'Sales volume', className: 'report-turquoise' },
-    { label: 'Gross commission', className: 'report-pill-emerald' },
+    { label: 'Sales Volume', className: 'report-turquoise' },
+    { label: 'Gross Commission', className: 'report-pill-emerald' },
     { label: 'Units', className: 'report-purple' },
-    { label: 'Team commission', className: 'bg-rose-700 text-white' },
+    { label: 'Team Commission', className:'bg-rose-700 text-white' },
   ];
   return (
     <div className={`report-cover relative min-h-[calc(100vh-1rem)] overflow-hidden px-6 text-center ${launching ? 'report-cover-launch' : ''}`}>
@@ -1800,7 +1895,7 @@ function FilterBar(props: {
       className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-brand-700 transition hover:bg-brand-50 disabled:cursor-default disabled:text-slate-400 disabled:hover:bg-transparent dark:text-brand-300 dark:hover:bg-brand-950 dark:disabled:text-slate-500"
     >
       <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
-      Reset filters
+      Reset Filters
     </button>
   ) : null;
   const setCollapsedSaved = (next: boolean) => {
@@ -1814,7 +1909,7 @@ function FilterBar(props: {
   if (collapsed) {
     const active = [props.groupPicked, props.statusPicked, props.sidePicked, props.agentPicked, props.sourcePicked, props.payeePicked, props.earningsPicked]
       .filter((value) => value != null).length + (props.excludeTeamLeads ? 1 : 0) + (props.cumulative ? 1 : 0) + (props.capShowPaid ? 1 : 0);
-    const span = props.hideDate ? (props.capYearOffset ? 'Previous cap year' : 'Current cap year') : formatFilterSpan(props.range);
+    const span = props.hideDate ? (props.capYearOffset ? 'Previous Cap Year' : 'Current Cap Year') : formatFilterSpan(props.range);
     return (
       <button
         type="button"
@@ -1827,7 +1922,7 @@ function FilterBar(props: {
           {span}{active > 0 ? ` · ${active} ${active === 1 ? 'filter' : 'filters'}` : ''}
         </span>
         <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" strokeWidth={2.25} aria-hidden />
-        <span className="sr-only">Show filters</span>
+        <span className="sr-only">Show Filters</span>
       </button>
     );
   }
@@ -1838,8 +1933,8 @@ function FilterBar(props: {
         type="button"
         onClick={() => setCollapsedSaved(true)}
         aria-expanded
-        aria-label="Hide filters"
-        title="Hide filters"
+        aria-label="Hide Filters"
+        title="Hide Filters"
         className="absolute right-1.5 top-1.5 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
       >
         <ChevronUp className="h-4 w-4" strokeWidth={2.25} aria-hidden />
@@ -1848,12 +1943,12 @@ function FilterBar(props: {
         <>
           {on.onCapYearOffset ? (
             <ChoiceFilter
-              label="Cap year"
+              label="Cap Year"
               note="Current uses today. Previous uses the same day one year ago. Every selected cap applies that day to its own reset date."
               value={String(props.capYearOffset || 0)}
               options={[
-                { value: '0', label: 'Current cap year' },
-                { value: '1', label: 'Previous cap year' },
+                { value: '0', label: 'Current Cap Year' },
+                { value: '1', label: 'Previous Cap Year' },
               ]}
               onChange={(next) => on.onCapYearOffset?.(next === '1' ? 1 : 0)}
             />
@@ -1870,14 +1965,14 @@ function FilterBar(props: {
       ) : null}
       <MultiFilter label="Group" note="Limits every metric to transactions whose primary agent belongs to the selected groups. All includes every agent." options={props.groupChoices} picked={props.groupPicked} fallback={null} onChange={on.onGroups} />
       {props.earningsChoices && on.onEarnings ? (
-        <MultiFilter label="Earnings type" note="Net commission income is each agent’s payment amount. Checking an entity adds the post-split dollars that agent allocated to it." options={props.earningsChoices} picked={props.earningsPicked ?? null} fallback={[NET_EARNING]} onChange={on.onEarnings} />
+        <MultiFilter label="Earnings Type" note="Net commission income is each agent’s payment amount. Checking an entity adds the post-split dollars that agent allocated to it." options={props.earningsChoices} picked={props.earningsPicked ?? null} fallback={[NET_EARNING]} onChange={on.onEarnings} />
       ) : null}
       {props.dateOnly ? null : (
         <>
       <MultiFilter label="Status" options={props.statusChoices} picked={props.statusPicked} fallback={props.statusFallback} onChange={on.onStatus} fold />
       <MultiFilter label="Side" options={props.sideChoices} picked={props.sidePicked} fallback={null} onChange={on.onSide} fold />
-      <MultiFilter label="Primary agent" options={props.agentChoices} picked={props.agentPicked} fallback={null} onChange={on.onAgent} />
-      <MultiFilter label="Lead source" options={props.sourceChoices} picked={props.sourcePicked} fallback={null} onChange={on.onSource} />
+      <MultiFilter label="Primary Agent" options={props.agentChoices} picked={props.agentPicked} fallback={null} onChange={on.onAgent} />
+      <MultiFilter label="Lead Source" options={props.sourceChoices} picked={props.sourcePicked} fallback={null} onChange={on.onSource} />
       {props.payeeChoices && on.onPayees ? (
         <MultiFilter label={props.boardMetric === 'payment:entity' ? 'Entity' : 'Agent'} options={props.payeeChoices} picked={props.payeePicked ?? null} fallback={null} onChange={on.onPayees} />
       ) : null}
@@ -1889,7 +1984,7 @@ function FilterBar(props: {
             onChange={(event) => on.onExcludeTeamLeads?.(event.target.checked)}
             className="h-4 w-4 cursor-pointer accent-emerald-600"
           />
-          {props.teamLeadIds?.size === 1 ? 'Exclude team lead' : 'Exclude team leads'}
+          {props.teamLeadIds?.size === 1 ? 'Exclude Team Lead' : 'Exclude Team Leads'}
         </label>
       ) : null}
       {props.cumulative !== undefined && on.onCumulative ? (
@@ -1911,7 +2006,7 @@ function FilterBar(props: {
             onChange={(event) => on.onCapShowPaid?.(event.target.checked)}
             className="h-4 w-4 cursor-pointer accent-emerald-600"
           />
-          Show all paid transactions
+          Show All Paid Transactions
         </label>
       ) : null}
       {props.hideMetric ? null : (
@@ -2120,8 +2215,8 @@ function TitleCaps({ options, picked, onChange }: {
   const needle = query.trim().toLowerCase();
   const visible = options.filter((option) => option.label.toLowerCase().includes(needle));
   const groups = [
-    { id: 'team' as const, label: 'Team caps', options: visible.filter((option) => option.group === 'team') },
-    { id: 'agent' as const, label: 'Agent caps', options: visible.filter((option) => option.group === 'agent') },
+    { id: 'team' as const, label: 'Team Caps', options: visible.filter((option) => option.group === 'team') },
+    { id: 'agent' as const, label: 'Agent Caps', options: visible.filter((option) => option.group === 'agent') },
   ].filter((group) => group.options.length > 0);
   const choose = (id: string) => {
     onChange(options[0]?.value === id ? null : [id]);
@@ -2417,7 +2512,7 @@ function ChoiceFilter({ label, note, value, options, onChange }: {
   );
 }
 
-function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date range' }: {
+function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date Range' }: {
   preset: RangePreset;
   range: DateRange;
   onPreset: (preset: RangePreset) => void;
@@ -2477,7 +2572,7 @@ function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date range
         <FieldChevron />
       </button>
       {open ? (
-        <div ref={listRef} role="listbox" aria-label="Date range" className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-80 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+        <div ref={listRef} role="listbox" aria-label="Date Range" className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-80 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
           {DATE_PRESETS.length > 8 ? (
             <div className="sticky -top-1 z-10 bg-white px-1 py-1 dark:bg-slate-900">
               <input
@@ -2516,11 +2611,11 @@ function filterPlural(label: string): string {
     Group: 'groups',
     Status: 'statuses',
     Side: 'sides',
-    'Primary agent': 'primary agents',
-    'Lead source': 'lead sources',
-    'Earnings type': 'earnings types',
+    'Primary Agent': 'primary agents',
+    'Lead Source': 'lead sources',
+    'Earnings Type': 'earnings types',
     Entity: 'entities',
-    'Team cap': 'team caps',
+    'Team Cap': 'team caps',
   };
   return nouns[label] || `${label.toLowerCase()}s`;
 }
@@ -2612,7 +2707,7 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
         <div ref={listRef} role="listbox" aria-label={label} aria-multiselectable="true" className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
           <div className="sticky -top-1 z-10 bg-white px-1 py-1 dark:bg-slate-900">
             <div className="flex items-center justify-between gap-2">
-              <button type="button" onClick={() => commit(values)} className="cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-950">Select all</button>
+              <button type="button" onClick={() => commit(values)} className="cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-950">Select All</button>
               <button type="button" onClick={() => onChange(null)} className="cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Reset</button>
             </div>
             {options.length > 8 ? (
@@ -2776,8 +2871,8 @@ function ReportBody(props: {
     const listed = seriesBuckets(taken, (deal) => deal.listDate, range);
     return (
       <div className="space-y-3">
-        <LineChart title="Listings taken" metric="units" current={listed} previous={[]} />
-        <MonthlyTable title="Listings taken by list month" rows={listed} mode="units" />
+        <LineChart title="Listings Taken" metric="units" current={listed} previous={[]} />
+        <MonthlyTable title="Listings Taken by List Month" rows={listed} mode="units" />
       </div>
     );
   }
@@ -2788,9 +2883,9 @@ function ReportBody(props: {
 }
 
 const PRODUCTION_GRAINS: Array<{ id: ProductionGrain; label: string }> = [
-  { id: 'day', label: 'Day-by-day production' },
-  { id: 'week', label: 'Week-by-week production' },
-  { id: 'month', label: 'Month-over-month production' },
+  { id: 'day', label: 'Day-by-Day Production' },
+  { id: 'week', label: 'Week-by-Week Production' },
+  { id: 'month', label: 'Month-over-Month Production' },
 ];
 
 function ProductionGrainTitle({ grain, enabled, onChange }: { grain: ProductionGrain; enabled: boolean; onChange: (grain: ProductionGrain) => void }) {
@@ -2877,19 +2972,19 @@ function ProductionGrainTitle({ grain, enabled, onChange }: { grain: ProductionG
 }
 
 const DRILLDOWN_METRIC_LABELS: Partial<Record<keyof OwnerMonthRow, string>> = {
-  closedUnits: 'Closed units',
-  closedVolume: 'Closed volume',
-  closedCommission: 'Closed total commission',
-  closedNet: 'Closed net commission',
-  listingsTaken: 'Listings taken',
-  listingsPended: 'Listings pended',
-  listingsClosed: 'Listings closed',
-  buyersPended: 'Buyers pended',
-  buyersClosed: 'Buyers closed',
-  pendingUnits: 'Pending units',
-  pendingVolume: 'Pending volume',
-  pendingCommission: 'Pending total commission',
-  pendingNet: 'Pending net commission',
+  closedUnits: 'Closed Units',
+  closedVolume: 'Closed Volume',
+  closedCommission: 'Closed Total Commission',
+  closedNet: 'Closed Net Commission',
+  listingsTaken: 'Listings Taken',
+  listingsPended: 'Listings Pended',
+  listingsClosed: 'Listings Closed',
+  buyersPended: 'Buyers Pended',
+  buyersClosed: 'Buyers Closed',
+  pendingUnits: 'Pending Units',
+  pendingVolume: 'Pending Volume',
+  pendingCommission: 'Pending Total Commission',
+  pendingNet: 'Pending Net Commission',
 };
 
 function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, teamLeadIds, range, preset, names }: {
@@ -3091,7 +3186,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
       <>
       <div className="flex flex-wrap items-stretch gap-6">
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading>Closed net commission income to owner(s)</SectionHeading>
+          <SectionHeading>Closed Net Commission Income to Owner(s)</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Total Commission" amount={totalCommission} changeAmount={totalCommission - priorCommission} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">−</span>
@@ -3101,7 +3196,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
           </div>
         </div>
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading>Closed net income to owner(s)</SectionHeading>
+          <SectionHeading>Closed Net Income to Owner(s)</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Net Commission Income" amount={shownNet} changeAmount={shownNet - shownPriorNet} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">−</span>
@@ -3113,7 +3208,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
       </div>
       <div className="flex flex-wrap items-stretch gap-6">
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading tone="slate">Return on investment (ROI)</SectionHeading>
+          <SectionHeading tone="slate">Return on Investment (ROI)</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Net Income" amount={netIncome} changeAmount={netIncome - priorIncome} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">/</span>
@@ -3123,7 +3218,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
           </div>
         </div>
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading tone="slate">Net income to total commission ratio (NI/TC)</SectionHeading>
+          <SectionHeading tone="slate">Net Income to Total Commission Ratio (NI/TC)</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Net Income" amount={netIncome} changeAmount={netIncome - priorIncome} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">/</span>
@@ -3135,7 +3230,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
       </div>
       <div className="flex flex-wrap items-stretch gap-6">
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading tone="listing">Average listing metrics</SectionHeading>
+          <SectionHeading tone="listing">Average Listing Metrics</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Avg. Sales Price" tone="listing" {...averageFigures(sellerTotals.volume, sellerTotals.units, priorSellerTotals.volume, priorSellerTotals.units)} />
             <span className="invisible text-lg font-semibold" aria-hidden="true">−</span>
@@ -3145,7 +3240,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
           </div>
         </div>
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading tone="buyer">Average buyer metrics</SectionHeading>
+          <SectionHeading tone="buyer">Average Buyer Metrics</SectionHeading>
           <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Avg. Sales Price" tone="buyer" {...averageFigures(buyerTotals.volume, buyerTotals.units, priorBuyerTotals.volume, priorBuyerTotals.units)} />
             <span className="invisible text-lg font-semibold" aria-hidden="true">−</span>
@@ -3175,15 +3270,15 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
               className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/5 dark:bg-white/10 px-4 text-xs font-semibold normal-case tracking-normal text-inherit transition-colors duration-150 hover:bg-slate-300/70 hover:text-slate-900 dark:hover:bg-slate-700 dark:hover:text-white"
             >
               <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
-              {periodLabel === 'Day' ? 'All days' : periodLabel === 'Week' ? 'All weeks' : 'All months'}
+              {periodLabel === 'Day' ? 'All Days' : periodLabel === 'Week' ? 'All Weeks' : 'All Months'}
             </button>
           ) : undefined}
           end={(
             <button
               type="button"
               aria-expanded={scoresOpen}
-              aria-label={scoresOpen ? 'Hide scorecards' : 'Show scorecards'}
-              title={scoresOpen ? 'Hide scorecards' : 'Show scorecards'}
+              aria-label={scoresOpen ? 'Hide Scorecards' : 'Show Scorecards'}
+              title={scoresOpen ? 'Hide Scorecards' : 'Show Scorecards'}
               onClick={() => setScoresOpen((open) => !open)}
               className="all-agents-enter-right inline-flex h-full cursor-pointer items-center justify-center rounded-r-full bg-black/5 dark:bg-white/10 px-4 text-inherit transition-colors duration-150 hover:bg-slate-300/70 hover:text-slate-900 dark:hover:bg-slate-700 dark:hover:text-white"
             >
@@ -3476,12 +3571,12 @@ function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, cumu
   };
   return (
     <div className={pairedReport}>
-      <TrendPanel metric="volume" title="Sales volume" tone="blue" currentClass="text-blue-700 dark:text-blue-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-blue-800 dark:text-blue-200" pendingClass="text-blue-600 dark:text-blue-400" cumulative={cumulative} {...panel} />
-      <TrendPanel metric="gci" title="Gross commission income" tone="emerald" currentClass="text-emerald-600 dark:text-emerald-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-emerald-700 dark:text-emerald-200" pendingClass="text-emerald-500 dark:text-emerald-400" cumulative={cumulative} {...panel} />
+      <TrendPanel metric="volume" title="Sales Volume" tone="blue" currentClass="text-blue-700 dark:text-blue-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-blue-800 dark:text-blue-200" pendingClass="text-blue-600 dark:text-blue-400" cumulative={cumulative} {...panel} />
+      <TrendPanel metric="gci" title="Gross Commission Income" tone="emerald" currentClass="text-emerald-600 dark:text-emerald-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-emerald-700 dark:text-emerald-200" pendingClass="text-emerald-500 dark:text-emerald-400" cumulative={cumulative} {...panel} />
       <TrendPanel metric="units" title="Units" tone="units" currentClass="text-purple-600 dark:text-purple-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-purple-700 dark:text-purple-200" pendingClass="text-purple-500 dark:text-purple-400" cumulative={cumulative} {...panel} />
-      <TrendPanel metric="team" title="Team commission" tone="team" currentClass="text-rose-600 dark:text-rose-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-rose-700 dark:text-rose-200" pendingClass="text-rose-500 dark:text-rose-400" cumulative={cumulative} {...panel} />
-      <TrendPanel metric="price" title="Sales price" tone="price" currentClass="text-amber-500 dark:text-amber-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-amber-700 dark:text-amber-200" pendingClass="text-amber-500 dark:text-amber-400" chart="bars" {...salePanel} />
-      <TrendPanel metric="rate" title="Gross commission percentage" tone="rate" currentClass="text-sky-600 dark:text-sky-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-sky-700 dark:text-sky-200" pendingClass="text-sky-500 dark:text-sky-400" chart="bars" {...salePanel} />
+      <TrendPanel metric="team" title="Team Commission" tone="team" currentClass="text-rose-600 dark:text-rose-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-rose-700 dark:text-rose-200" pendingClass="text-rose-500 dark:text-rose-400" cumulative={cumulative} {...panel} />
+      <TrendPanel metric="price" title="Sales Price" tone="price" currentClass="text-amber-500 dark:text-amber-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-amber-700 dark:text-amber-200" pendingClass="text-amber-500 dark:text-amber-400" chart="bars" {...salePanel} />
+      <TrendPanel metric="rate" title="Gross Commission Percentage" tone="rate" currentClass="text-sky-600 dark:text-sky-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-sky-700 dark:text-sky-200" pendingClass="text-sky-500 dark:text-sky-400" chart="bars" {...salePanel} />
     </div>
   );
 }
@@ -3756,7 +3851,7 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
             <div className="mt-1.5 grid grid-cols-[auto_auto] items-baseline gap-x-6 gap-y-0.5">
               <span className={currentClass}>{monthTitle(point)}:</span>
               <span className={`text-right font-semibold tabular-nums ${currentClass}`}>{formatTrend(value, metric)}</span>
-              <span className={previousClass}>{monthTitle(priorPoint) || 'Prior year'}:</span>
+              <span className={previousClass}>{monthTitle(priorPoint) || 'Prior Year'}:</span>
               <span className={`text-right font-semibold tabular-nums ${previousClass}`}>{formatTrend(prior, metric)}</span>
               <span className={`font-semibold ${changeClass(value, prior)}`}>Diff:</span>
               <span className={`text-right font-semibold tabular-nums ${changeClass(value, prior)}`}>{signedTrend(value - prior, metric)} ({signedChangePercent(value, prior)})</span>
@@ -3879,7 +3974,7 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
             <div className="mt-1.5 grid grid-cols-[auto_auto] items-baseline gap-x-6 gap-y-0.5">
               <span className={currentClass}>{monthTitle(point)}:</span>
               <span className={`text-right font-semibold tabular-nums ${currentClass}`}>{formatTrend(value, metric)}</span>
-              <span className={previousClass}>{monthTitle(priorPoint) || 'Prior year'}:</span>
+              <span className={previousClass}>{monthTitle(priorPoint) || 'Prior Year'}:</span>
               <span className={`text-right font-semibold tabular-nums ${previousClass}`}>{formatTrend(prior, metric)}</span>
               <span className={`font-semibold ${changeClass(value, prior)}`}>Diff:</span>
               <span className={`text-right font-semibold tabular-nums ${changeClass(value, prior)}`}>{signedTrend(value - prior, metric)} ({signedChangePercent(value, prior)})</span>
@@ -3970,14 +4065,14 @@ function LineChart({ title, metric, current, previous }: { title: string; metric
           >
             <p className="font-bold">{point.label}</p>
             <p className="mt-1 text-emerald-400 dark:text-emerald-600">{formatMetric(value, metric)}</p>
-            <p className="text-slate-500">Previous year {formatMetric(prior, metric)}</p>
+            <p className="text-slate-500">Previous Year {formatMetric(prior, metric)}</p>
             <p className="text-slate-500">{prior ? percent(value - prior, prior) : '—'}</p>
           </div>
         ) : null}
       </div>
       <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-5 gap-y-1 text-[11px] text-slate-500">
-        <span className="inline-flex items-baseline gap-1.5"><span className="h-0.5 w-4 self-center rounded-full bg-emerald-400 dark:bg-emerald-600" /> Current period. Average: <span className="text-sm font-bold tabular-nums text-emerald-400 dark:text-emerald-600">{formatMetric(average, metric)}</span></span>
-        {previous.length > 0 ? <span className="inline-flex items-baseline gap-1.5"><span className="h-0.5 w-4 self-center rounded-full bg-[#d9dde2] dark:bg-slate-400" /> Previous year. Average: <span className="text-sm font-bold tabular-nums text-[#d9dde2] dark:text-slate-400">{formatMetric(priorAverage, metric)}</span></span> : null}
+        <span className="inline-flex items-baseline gap-1.5"><span className="h-0.5 w-4 self-center rounded-full bg-emerald-400 dark:bg-emerald-600" /> Current Period. Average:<span className="text-sm font-bold tabular-nums text-emerald-400 dark:text-emerald-600">{formatMetric(average, metric)}</span></span>
+        {previous.length > 0 ? <span className="inline-flex items-baseline gap-1.5"><span className="h-0.5 w-4 self-center rounded-full bg-[#d9dde2] dark:bg-slate-400" /> Previous Year. Average:<span className="text-sm font-bold tabular-nums text-[#d9dde2] dark:text-slate-400">{formatMetric(priorAverage, metric)}</span></span> : null}
       </div>
     </div>
   );
@@ -4056,7 +4151,7 @@ function AgentTable({ rows, caption, paid = false }: { rows: AgentRow[]; caption
             <SortHead column="units" label="Units" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
             <SortHead column="volume" label="Volume" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
             <SortHead column="gci" label="GCI" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
-            <SortHead column="paid" label={paid ? 'Agent paid' : 'Net to company'} sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
+            <SortHead column="paid" label={paid ? 'Agent Paid' : 'Net to Company'} sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
           </tr>
         </thead>
         <tbody>
@@ -4283,8 +4378,8 @@ function ProductionLeaderboard({ deals, range, priorRange, field, names, payment
   const amountScores = useMemo(() => (paymentMode ? paymentScores(currentPayments, priorPayments, 'amount') : null), [currentPayments, paymentMode, priorPayments]);
   const countScores = useMemo(() => (paymentMode ? paymentScores(currentPayments, priorPayments, 'count') : null), [currentPayments, paymentMode, priorPayments]);
   const rowLabel = paymentMode ? (payee === 'entity' ? 'Entity' : 'Agent') : field.label;
-  const leftTitle = paymentMode ? 'Payment amount' : 'Sales volume';
-  const rightTitle = paymentMode ? 'Payment records' : 'Units';
+  const leftTitle = paymentMode ? 'Payment Amount' : 'Sales Volume';
+  const rightTitle = paymentMode ? 'Payment Records' : 'Units';
 
   return (
     <div className={pairedReport}>
@@ -4325,7 +4420,7 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
   const tablePrior = rows.reduce((sum, row) => sum + row.prior, 0);
   const share = (value: number) => (tableTotal ? `${((value / tableTotal) * 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : '—');
   const emptyLabel = statusFilter === 'closed' ? 'closed' : statusFilter === 'pending' ? 'pending' : 'closed or pending';
-  const amountLabel = valueLabel || (metric === 'volume' ? 'Sales volume' : 'Units');
+  const amountLabel = valueLabel || (metric === 'volume' ? 'Sales Volume' : 'Units');
   const { sort, toggle } = useColumnSort();
   const ordered = sortBy(rows.map((row, index) => ({ ...row, rank: index + 1 })), sort, (row, key) => {
     if (key === 'rank') return row.rank;
@@ -4382,7 +4477,7 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
         <tfoot>
           <tr className="border-t border-slate-200 bg-white text-sm font-bold dark:border-slate-700 dark:bg-slate-900">
             <td className="px-3 py-3" />
-            <td className="px-2 py-3">Grand total</td>
+            <td className="px-2 py-3">Grand Total</td>
             <td className="px-2 py-3 tabular-nums">{formatValue(tableTotal, metric === 'volume')}</td>
             <td className={`px-2 py-3 text-right tabular-nums ${changeClass(tableTotal, tablePrior)}`}>{signedChangePercent(tableTotal, tablePrior)}</td>
             <td className="px-3 py-3 text-right tabular-nums">{tableTotal ? '100.00%' : '—'}</td>
@@ -4690,11 +4785,11 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
             className={`pointer-events-none absolute top-3 z-10 w-max whitespace-nowrap rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs shadow-lg transition-opacity dark:border-slate-700 dark:bg-slate-950/95 ${hover !== null ? 'duration-0' : 'duration-300'} ${popupShown ? 'opacity-100' : 'opacity-0'}`}
             style={{ left: `${focusX}%`, transform: focusX > 50 ? 'translateX(calc(-100% - 12px))' : 'translateX(12px)' }}
           >
-            <p className="font-bold">Agent earnings</p>
+            <p className="font-bold">Agent Earnings</p>
             <div className="mt-1.5 grid grid-cols-[auto_auto] items-baseline gap-x-6 gap-y-0.5">
               <span className={lineClass}>{monthTitle(columns[focus])}:</span>
               <span className={`text-right font-semibold tabular-nums ${lineClass}`}>{fullMoney(focusValue)}</span>
-              <span className={previousClass}>{monthTitle(priorColumns[focus]) || 'Prior year'}:</span>
+              <span className={previousClass}>{monthTitle(priorColumns[focus]) || 'Prior Year'}:</span>
               <span className={`text-right font-semibold tabular-nums ${previousClass}`}>{fullMoney(focusPrior)}</span>
               <span className={`font-semibold ${changeClass(focusValue, focusPrior)}`}>Diff:</span>
               <span className={`text-right font-semibold tabular-nums ${changeClass(focusValue, focusPrior)}`}>{signedFull(focusValue - focusPrior)} ({signedChangePercent(focusValue, focusPrior)})</span>
@@ -4951,7 +5046,7 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
         action={pick ? (
           <button type="button" onClick={() => setPick(null)} className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/5 dark:bg-white/10 px-4 text-xs font-semibold normal-case tracking-normal text-inherit transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950">
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
-            All agents
+            All Agents
           </button>
         ) : undefined}
         end={(
@@ -4959,8 +5054,8 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
             key={pick ? 'open' : 'all'}
             type="button"
             aria-expanded={summaryOpen}
-            aria-label={summaryOpen ? 'Hide scorecards and chart' : 'Show scorecards and chart'}
-            title={summaryOpen ? 'Hide scorecards and chart' : 'Show scorecards and chart'}
+            aria-label={summaryOpen ? 'Hide Scorecards and Chart' : 'Show Scorecards and Chart'}
+            title={summaryOpen ? 'Hide Scorecards and Chart' : 'Show Scorecards and Chart'}
             onClick={() => setSummaryOpen((open) => !open)}
             className="all-agents-enter-right inline-flex h-full cursor-pointer items-center justify-center rounded-r-full bg-black/5 dark:bg-white/10 px-4 text-inherit transition-colors duration-150 hover:bg-emerald-200 hover:text-emerald-950"
           >
@@ -4972,7 +5067,7 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
       <div className={`grid transition-[grid-template-columns,gap] duration-500 ease-out motion-reduce:transition-none ${pick ? 'items-stretch gap-4 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.2fr)]' : 'items-start gap-0 lg:grid-cols-1'}`}>
         <div className={`min-w-0 transition-all duration-500 ease-out motion-reduce:transition-none ${pick ? 'flex w-full flex-col justify-between gap-4' : 'lg:mx-auto lg:w-[calc(50%-0.5rem)]'}`}>
           <div className={pick ? 'rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900' : undefined}>
-            {pick ? <p className="mb-3 truncate rounded-full px-4 py-1.5 text-center text-xs font-semibold report-pill-emerald" title={`Entire period (${entirePeriodName})`}>{`Entire period (${entirePeriodName})`}</p> : null}
+            {pick ? <p className="mb-3 truncate rounded-full px-4 py-1.5 text-center text-xs font-semibold report-pill-emerald" title={`Entire Period (${entirePeriodName})`}>{`Entire Period (${entirePeriodName})`}</p> : null}
             <EarningScoreRow sums={scoreSums} prior={scorePrior} statusFilter={statusFilter} onSelect={selectStatus} />
           </div>
           {pick?.periodKey ? (
@@ -5515,7 +5610,7 @@ function CapStickyHeading({ section, labels, asOf, previous, openAgentId, onClos
         action={open ? (
           <button type="button" onClick={onClose} className="all-agents-enter inline-flex h-full cursor-pointer items-center gap-1.5 rounded-l-full bg-black/5 dark:bg-white/10 px-4 text-xs font-semibold normal-case tracking-normal text-inherit transition-colors duration-150 hover:bg-slate-300/70 hover:text-slate-900 dark:hover:bg-slate-700 dark:hover:text-white">
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
-            All agents
+            All Agents
           </button>
         ) : undefined}
       >
@@ -5987,10 +6082,10 @@ function ProductionDrilldownTable({
   names: Map<string, string>;
 }) {
   const dateColLabel = metric === 'listingsTaken'
-    ? 'List date'
+    ? 'List Date'
     : metric === 'listingsPended' || metric === 'buyersPended'
-      ? 'Pending date'
-      : 'Closing date';
+      ? 'Pending Date'
+      : 'Closing Date';
 
   const showNet = metric === 'closedNet' || metric === 'pendingNet';
   const { sort, toggle } = useColumnSort({ key: 'date', direction: 'asc' });
