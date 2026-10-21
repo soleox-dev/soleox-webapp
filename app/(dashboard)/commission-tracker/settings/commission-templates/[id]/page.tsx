@@ -275,24 +275,6 @@ function calculationFormSectionEnds(step: LogicStep, next: LogicStep | undefined
   return calculationFormSection(step) !== calculationFormSection(next);
 }
 
-/**
- * In run order, true when the rule after this one starts another form section's block: the next calculation shown
- * in the form belongs to a different section (Agent 2) than the last one shown before it (Agent 1), with that
- * agent's splits in between.
- */
-function runOrderBlockEnds(steps: LogicStep[], index: number): boolean {
-  const next = steps[index + 1];
-  if (!next) return false;
-  const nextSection = canonicalLogicSection(next.section || '') === 'Calculation' ? calculationFormSection(next) : '';
-  if (!nextSection) return false;
-  for (let earlier = index; earlier >= 0; earlier -= 1) {
-    const step = steps[earlier];
-    const section = canonicalLogicSection(step.section || '') === 'Calculation' ? calculationFormSection(step) : '';
-    if (section) return section !== nextSection;
-  }
-  return false;
-}
-
 export default function CommissionTemplateDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -1952,7 +1934,7 @@ export default function CommissionTemplateDetailPage() {
                         {group.items.map((step, itemIndex) => (
                       <tr
                         key={step.id}
-                        className={`align-top ${(ruleView === 'run' ? runOrderBlockEnds(group.items, itemIndex) : calculationFormSectionEnds(step, group.items[itemIndex + 1])) ? '[&>td]:border-b-2 [&>td]:!border-b-slate-400 dark:[&>td]:!border-b-slate-500' : ''} ${step.id === recentLogicId ? '[&>td]:bg-emerald-50 dark:[&>td]:bg-emerald-500/10' : ''} ${logicDropTarget && 'stepId' in logicDropTarget && logicDropTarget.stepId === step.id ? (logicDropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
+                        className={`align-top ${ruleView === 'section' && calculationFormSectionEnds(step, group.items[itemIndex + 1]) ? '[&>td]:border-b-2 [&>td]:!border-b-slate-400 dark:[&>td]:!border-b-slate-500' : ''} ${step.id === recentLogicId ? '[&>td]:bg-emerald-50 dark:[&>td]:bg-emerald-500/10' : ''} ${logicDropTarget && 'stepId' in logicDropTarget && logicDropTarget.stepId === step.id ? (logicDropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
                         onDragOver={(event) => {
                           if (logicSearch.trim()) return;
                           event.preventDefault();
