@@ -603,7 +603,7 @@ export function CommissionWaterfall({
                 <span className={WATERFALL_HEADING}>Off-the-Top &amp; Pre-Split Deductions</span>
                 <span className="text-xs italic text-slate-400">None</span>
               </div>
-              <div className={`ml-auto flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg ${agentLayout === 'cards' ? 'mr-2 sm:mr-3' : ''}`}>
+              <div className={`ml-auto flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg ${agentLayout === 'cards' && !isEditing ? 'mr-2 sm:mr-3' : ''}`}>
                 <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
                   Total Commission
                 </span>
@@ -635,7 +635,7 @@ export function CommissionWaterfall({
                   </button>
                 )}
               </div>
-              <div className={`ml-auto flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg ${agentLayout === 'cards' ? 'mr-2 sm:mr-3' : ''}`}>
+              <div className={`ml-auto flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-lg ${agentLayout === 'cards' && !isEditing ? 'mr-2 sm:mr-3' : ''}`}>
                 <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
                   Total Commission
                 </span>
@@ -800,7 +800,8 @@ export function CommissionWaterfall({
                   </button>
                 )}
               </div>
-              <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-4'}`}>
+              {/* Right-aligned like Total Commission above it: in card view its amount ends with the agent amounts. */}
+              <span className={`ml-auto text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? 'pr-[13px]' : agentLayout === 'cards' ? 'pr-[21px] sm:pr-[25px]' : 'pr-4'}`}>
                 Remaining Balance <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterOffTop)}</strong>
               </span>
             </div>
@@ -1000,7 +1001,7 @@ export function CommissionWaterfall({
             </div>
             {/* Its amount ends where the agent cards' amounts end (card border, padding, and the amount inset). */}
             <div className="ml-auto flex items-center gap-3">
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium" style={isEditing ? undefined : { paddingRight: 25 }}>
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium" style={{ paddingRight: isEditing ? 13 : 25 }}>
                 Remaining Balance <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
               </span>
             </div>
