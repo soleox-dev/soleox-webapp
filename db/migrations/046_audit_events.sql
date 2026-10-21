@@ -42,3 +42,10 @@ CREATE POLICY "Members can append their own audit events" ON public.audit_events
   );
 
 NOTIFY pgrst, 'reload schema';
+
+-- Data API access. Supabase stops granting it automatically to new tables on 2026-10-30, so a rebuild from
+-- these files (new project, preview branch, db reset) needs it spelled out. Row level security still decides
+-- which rows each user reaches; these grants only let the API reach the table at all.
+-- Append-only for users: they read (as their policy allows) and add events, never change them.
+GRANT SELECT, INSERT ON public.audit_events TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.audit_events TO service_role;

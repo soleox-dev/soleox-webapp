@@ -55,6 +55,7 @@ Soleox REBI (Real Estate Business Intelligence) is a multi-tenant B2B real estat
 
 ### Database Schema & Migrations
 - Schema changes are numbered SQL files in `db/migrations/` (`001_…` through `057_post_split_history.sql`). Add the next number; never edit an applied migration. Seeds live in `db/seeds/`.
+- A migration that creates a table in `public` also grants the Data API access to it in the same file; Supabase stopped granting it automatically for new tables on 2026-10-30, and without the grant supabase-js gets "permission denied". The app reaches the database as `authenticated` (the custom JWT) and the cron and access lookups as `service_role`; `anon` is never used. Grant only what the table's RLS policies allow, for example `GRANT SELECT, INSERT, UPDATE, DELETE ON public.new_table TO authenticated, service_role;`, or `GRANT SELECT` alone for a table only triggers write. Enable RLS on every new table.
 - Primary keys use `public.generate_prefixed_id(prefix)` → `PREFIX_<12 uppercase hex>` (e.g. `TXN_`, `AGT_`, `TCI_`, `ENT_`, `TPL_`, `CTR_`). External system IDs go in `tms_id`, never the primary key. Agent names are stored `First Last`. Full prefix registry and entity conventions: `ARCHITECTURE.md`.
 
 ---

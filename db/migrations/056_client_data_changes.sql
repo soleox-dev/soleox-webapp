@@ -148,3 +148,10 @@ BEGIN
   RETURN NULL;
 END;
 $$;
+
+-- Data API access. Supabase stops granting it automatically to new tables on 2026-10-30, so a rebuild from
+-- these files (new project, preview branch, db reset) needs it spelled out. Row level security still decides
+-- which rows each user reaches; these grants only let the API reach the table at all.
+-- Users only read it; the triggers that log changes write it.
+GRANT SELECT ON public.client_data_changes TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.client_data_changes TO service_role;

@@ -98,3 +98,8 @@ CREATE POLICY "Commission tracker write can manage transaction team caps" ON pub
   WITH CHECK (public.can_write_commission_tracker(client_id));
 
 NOTIFY pgrst, 'reload schema';
+
+-- Data API access. Supabase stops granting it automatically to new tables on 2026-10-30, so a rebuild from
+-- these files (new project, preview branch, db reset) needs it spelled out. Row level security still decides
+-- which rows each user reaches; these grants only let the API reach the table at all.
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.transaction_team_caps TO authenticated, service_role;

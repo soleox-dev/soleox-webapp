@@ -100,3 +100,10 @@ CREATE TRIGGER bump_data_version_clients AFTER UPDATE ON public.clients
   REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.bump_client_data_version_for_client();
 
 NOTIFY pgrst, 'reload schema';
+
+-- Data API access. Supabase stops granting it automatically to new tables on 2026-10-30, so a rebuild from
+-- these files (new project, preview branch, db reset) needs it spelled out. Row level security still decides
+-- which rows each user reaches; these grants only let the API reach the table at all.
+-- Users only read it; the triggers that bump it write it.
+GRANT SELECT ON public.client_data_versions TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.client_data_versions TO service_role;

@@ -106,3 +106,10 @@ CREATE POLICY "Commission tracker write can manage agent allocations" ON public.
   FOR ALL TO public
   USING (public.can_write_commission_tracker(client_id))
   WITH CHECK (public.can_write_commission_tracker(client_id));
+
+-- Data API access. Supabase stops granting it automatically to new tables on 2026-10-30, so a rebuild from
+-- these files (new project, preview branch, db reset) needs it spelled out. Row level security still decides
+-- which rows each user reaches; these grants only let the API reach the table at all.
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.client_team_caps TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.client_sales_volume_assignments TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.transaction_agent_allocations TO authenticated, service_role;
