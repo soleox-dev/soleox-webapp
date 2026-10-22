@@ -94,7 +94,14 @@ export function ColumnHeader({
             filtered ? 'text-brand-700 dark:text-brand-300' : ''
           }`}
         >
-          <span className="truncate">{label}</span>
+          {/* A long header (over about 16 characters) wraps onto two balanced lines about 9rem wide, so a column of
+              narrow values is not stretched by its header. Shorter ones always stay on one line. */}
+          <span className={label.length > 16
+            ? `line-clamp-2 max-w-[9rem] whitespace-normal text-balance leading-tight ${align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'}`
+            : 'truncate'}
+          >
+            {label}
+          </span>
           {filtered ? (
             <span className={`inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-2xs font-bold leading-none text-white ${none ? 'bg-amber-500' : 'bg-brand-600'}`}>
               {none ? 0 : picked.length}
