@@ -151,7 +151,7 @@ export function PlanTestBench({ plan }: { plan: CommissionPlan }) {
                       <td key={agent.agentId} className="py-1.5 pr-4 text-right" title={item?.explanation}>
                         {item ? `−${money(item.amount)}` : '—'}
                         {item?.postCapFraction !== undefined && item.postCapFraction > 0 && (
-                          <span className="ml-1 text-2xs text-slate-400">{Number((item.postCapFraction * 100).toFixed(2))}% Post-Cap</span>
+                          <span className="ml-1 text-2xs text-slate-400">{Number((item.postCapFraction * 100).toFixed(2))}% Past the Cap</span>
                         )}
                       </td>
                     );

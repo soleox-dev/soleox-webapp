@@ -7,6 +7,7 @@ import {
   roundHalfUpCents,
   validatePlan,
   type CommissionPlan,
+  type FormulaPlanLine,
   type PlanAgentInput,
   type PlanAgentResult,
   type OffTheTopItem,
@@ -431,6 +432,15 @@ describe('Formula line', () => {
     expect(line(computePlanDeal(deal(4000)).agents[0], 'team_fee').amount).toBe(80);
   });
 
+  it('share_past_cap is the formula name; post_cap_fraction still works in saved formulas', () => {
+    const named = (formula: string): CommissionPlan => ({ ...plan, lines: [plan.lines[0], { ...(plan.lines[1] as FormulaPlanLine), formula }] });
+    const amount = (formula: string) => line(computePlanDeal({ ...deal(0), agents: [{ ...deal(0).agents[0], plan: named(formula) }] }).agents[0], 'team_fee').amount;
+    expect(amount('100 * share_past_cap')).toBe(100);
+    expect(amount('100 * post_cap_fraction')).toBe(100);
+    expect(amount('100 * share_past_cap_company_dollar')).toBe(100);
+    expect(validatePlan(named('100 * share_past_cap'))).toEqual([]);
+  });
+
   it('keeps to its yearly limit', () => {
     expect(line(computePlanDeal(deal(4000, 100)).agents[0], 'team_fee').amount).toBe(20);
   });
@@ -468,7 +478,7 @@ describe('plan validation', () => {
       ],
     };
     expect(validatePlan(plan)).toEqual([
-      'Fee: the post-cap fraction must come from a capped percentage line above it.',
+      'Fee: the share past the cap must come from a percentage-up-to-a-cap line above it.',
       'Company dollar: the rate must be between 0% and 100%.',
       'Fee again: the key fee is used by another line.',
       'Fee again needs a payee.',

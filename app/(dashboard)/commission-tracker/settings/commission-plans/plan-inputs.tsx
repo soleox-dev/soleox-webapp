@@ -6,7 +6,7 @@ import { OptionMenu } from '@/components/ui/option-menu';
 import type { PlanLine } from '@/lib/commission-engine';
 
 export const LINE_TYPES: { type: PlanLine['type']; label: string; hint: string }[] = [
-  { type: 'capped_percent', label: 'Capped Percentage', hint: 'A rate of the side after bonuses, up to a yearly cap. Gives the post-cap fraction.' },
+  { type: 'capped_percent', label: 'Percentage up to a Yearly Cap', hint: 'A rate of the side after bonuses, up to a yearly cap. Gives the share past the cap.' },
   { type: 'per_deal_fee', label: 'Per-Deal Fee', hint: 'An amount per deal shared by split % and the Fee Share.' },
   { type: 'percent_of_net', label: 'Percentage of Net', hint: 'A rate of the side after chosen lines, for agents who opted in.' },
   { type: 'formula', label: 'Formula', hint: 'Any amount the formula language can express.' },
@@ -25,9 +25,9 @@ export function newLine(type: PlanLine['type'], taken: Set<string>): PlanLine {
     while (taken.has(unique)) unique = `${key}_${suffix++}`;
     return { key: unique, name, payee: '' };
   };
-  if (type === 'capped_percent') return { ...base('company_dollar', 'Company Dollar'), type, rate: 0.2, capAmount: null };
+  if (type === 'capped_percent') return { ...base('brokerage_share', 'Brokerage Share'), type, rate: 0.2, capAmount: null };
   if (type === 'per_deal_fee') return { ...base('fee', 'Fee'), type, amount: 0 };
-  if (type === 'percent_of_net') return { ...base('stock', 'Stock'), type, rate: 0.05, after: [], optIn: true };
+  if (type === 'percent_of_net') return { ...base('opt_in_share', 'Opt-In Share'), type, rate: 0.05, after: [], optIn: true };
   return { ...base('formula_line', 'Formula Line'), type, formula: '' };
 }
 

@@ -13,11 +13,21 @@ const FORMULA_LABELS: Record<string, string> = {
   side_after_bonuses: 'Side After Bonuses',
   split_percent: 'Split %',
   fee_share: 'Fee Share',
-  post_cap_fraction: 'Post-Cap Fraction',
+  share_past_cap: 'Share Past the Cap',
+  post_cap_fraction: 'Share Past the Cap (Old Name)',
 };
 
+const titleCase = (text: string) => text.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+function formulaLabel(name: string): string {
+  if (FORMULA_LABELS[name]) return FORMULA_LABELS[name];
+  if (name.startsWith('share_past_cap_')) return `Share Past the Cap of ${titleCase(name.slice('share_past_cap_'.length))}`;
+  if (name.startsWith('post_cap_fraction_')) return `Share Past the Cap of ${titleCase(name.slice('post_cap_fraction_'.length))} (Old Name)`;
+  return titleCase(name);
+}
+
 function formulaNames(plan: CommissionPlan, index: number): FormulaName[] {
-  return planFormulaNames(plan, index).map((name) => ({ name, label: FORMULA_LABELS[name] || name.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()), kind: 'field' }));
+  return planFormulaNames(plan, index).map((name) => ({ name, label: formulaLabel(name), kind: 'field' }));
 }
 
 /** The plan's lines in order, each with the settings of its rule type. */
@@ -99,7 +109,7 @@ export function PlanEditor({
                     onChange={(points) => setLine(index, { maxPercentOfSide: points === null ? undefined : fromPoints(points) })}
                   />
                   <MenuField
-                    label="Times the Post-Cap Fraction Of"
+                    label="Only on the Part Past the Cap Of"
                     value={line.multiplierFrom || ''}
                     placeholder="Not Multiplied"
                     options={[{ value: '', label: 'Not Multiplied' }, ...capped.map((other) => ({ value: other.key, label: other.name }))]}
@@ -116,14 +126,14 @@ export function PlanEditor({
                   {line.tiers?.length ? (
                     <>
                       <NumberField label="Until Paid This Year" prefix="$" value={line.tiers[0].untilPaid} onChange={(untilPaid) => setLine(index, { tiers: [{ amount: line.tiers![0].amount, untilPaid: untilPaid ?? 0 }] })} />
-                      <label className="flex items-center gap-2 self-end pb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      <label title="Agents marked Team Lead on Agents pay the Amount per Deal from the start, without the first tier." className="flex items-center gap-2 self-end pb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
                         <input
                           type="checkbox"
                           className="h-4 w-4 cursor-pointer accent-brand-600"
                           checked={Boolean(line.skipTiersForRoles?.includes('team_lead'))}
                           onChange={(event) => setLine(index, { skipTiersForRoles: event.target.checked ? ['team_lead'] : undefined })}
                         />
-                        Team Leads Skip the Tier
+                        Skip the Tier
                       </label>
                     </>
                   ) : null}

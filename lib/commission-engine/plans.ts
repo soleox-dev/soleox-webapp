@@ -77,7 +77,7 @@ export interface PercentOfNetLine extends PlanLineBase {
 
 /**
  * Any amount the template formula language can express. Names: gci, side, side_after_bonuses, split_percent,
- * fee_share, post_cap_fraction (the first capped line's), post_cap_fraction_<key>, ytd_<key> (paid this cap
+ * fee_share, share_past_cap (the first capped line's; also post_cap_fraction), share_past_cap_<key> (also post_cap_fraction_<key>), ytd_<key> (paid this cap
  * year before this deal) and line_<key> (an earlier line on this deal).
  */
 export interface FormulaPlanLine extends PlanLineBase {
@@ -130,10 +130,11 @@ const LINE_KEY = /^[a-z][a-z0-9_]*$/;
 export function planFormulaNames(plan: CommissionPlan, index: number): string[] {
   const names = ['gci', 'side', 'side_after_bonuses', 'split_percent', 'fee_share'];
   const earlier = plan.lines.slice(0, index);
-  if (earlier.some((line) => line.type === 'capped_percent')) names.push('post_cap_fraction');
+  // share_past_cap is the name to use; post_cap_fraction, its first name, keeps working in saved formulas.
+  if (earlier.some((line) => line.type === 'capped_percent')) names.push('share_past_cap', 'post_cap_fraction');
   for (const line of earlier) {
     names.push(`line_${line.key}`);
-    if (line.type === 'capped_percent') names.push(`post_cap_fraction_${line.key}`);
+    if (line.type === 'capped_percent') names.push(`share_past_cap_${line.key}`, `post_cap_fraction_${line.key}`);
   }
   for (const line of plan.lines) names.push(`ytd_${line.key}`);
   return names;
@@ -165,7 +166,7 @@ export function validatePlan(plan: CommissionPlan): string[] {
     if (line.type === 'per_deal_fee') {
       if (!(line.amount >= 0)) problems.push(`${label}: the amount cannot be negative.`);
       if (line.multiplierFrom && earlierLine(line.multiplierFrom)?.type !== 'capped_percent') {
-        problems.push(`${label}: the post-cap fraction must come from a capped percentage line above it.`);
+        problems.push(`${label}: the share past the cap must come from a percentage-up-to-a-cap line above it.`);
       }
       let previous = 0;
       for (const tier of line.tiers || []) {
@@ -586,15 +587,15 @@ function cappedPercent(line: CappedPercentLine, ctx: LineContext, ytd: number): 
   const postCapFraction = full > 0 ? 1 - charge / full : left <= 0 ? 1 : 0;
   const capText = `${money(cap)} cap${ownCap !== null ? ' (this agent\'s own cap)' : ''}`;
   if (left <= 0) {
-    return { amount: 0, postCapFraction, explanation: `${line.name}: already capped (${money(ytd)} paid of the ${capText}), so $0.00; post-cap fraction ${pct(postCapFraction)}.` };
+    return { amount: 0, postCapFraction, explanation: `${line.name}: already capped (${money(ytd)} paid of the ${capText}), so $0.00; share past the cap ${pct(postCapFraction)}.` };
   }
   if (full <= left) {
-    return { amount: roundHalfUpCents(charge), postCapFraction, explanation: `${line.name}: ${head}; ${money(left)} left of the ${capText}, so ${money(roundHalfUpCents(charge))}; post-cap fraction 0%.` };
+    return { amount: roundHalfUpCents(charge), postCapFraction, explanation: `${line.name}: ${head}; ${money(left)} left of the ${capText}, so ${money(roundHalfUpCents(charge))}; share past the cap 0%.` };
   }
   return {
     amount: roundHalfUpCents(charge),
     postCapFraction,
-    explanation: `${line.name}: ${head}; ${money(left)} left of the ${capText}, so ${money(roundHalfUpCents(charge))}; post-cap fraction 1 − ${money(charge)} ÷ ${money(full)} = ${pct(postCapFraction)}.`,
+    explanation: `${line.name}: ${head}; ${money(left)} left of the ${capText}, so ${money(roundHalfUpCents(charge))}; share past the cap 1 − ${money(charge)} ÷ ${money(full)} = ${pct(postCapFraction)}.`,
   };
 }
 
@@ -612,7 +613,7 @@ function perDealFee(line: PerDealFeeLine, ctx: LineContext, ytd: number): Calcul
   if (line.multiplierFrom) {
     const source = earlierLine(ctx, line.multiplierFrom, line.name);
     multiplier = source.postCapFraction ?? 0;
-    multiplierText = ` × post-cap fraction ${pct(multiplier)}`;
+    multiplierText = ` × share past the cap ${pct(multiplier)}`;
   }
   const units = ctx.share * feeShare * multiplier;
   const feeShareText = feeShare !== 1 ? ` × Fee Share ${pct(feeShare)}` : '';
@@ -684,10 +685,16 @@ function formulaLine(line: FormulaPlanLine, ctx: LineContext, ytd: number): Calc
   names.set('split_percent', { type: 'percent', value: ctx.share });
   names.set('fee_share', { type: 'percent', value: ctx.feeShare });
   const firstCapped = ctx.earlier.find((item) => item.postCapFraction !== undefined);
-  if (firstCapped) names.set('post_cap_fraction', { type: 'percent', value: firstCapped.postCapFraction! });
+  if (firstCapped) {
+    names.set('share_past_cap', { type: 'percent', value: firstCapped.postCapFraction! });
+    names.set('post_cap_fraction', { type: 'percent', value: firstCapped.postCapFraction! });
+  }
   for (const item of ctx.earlier) {
     names.set(`line_${item.key}`.toLowerCase(), { type: 'number', value: item.amount });
-    if (item.postCapFraction !== undefined) names.set(`post_cap_fraction_${item.key}`.toLowerCase(), { type: 'percent', value: item.postCapFraction });
+    if (item.postCapFraction !== undefined) {
+      names.set(`share_past_cap_${item.key}`.toLowerCase(), { type: 'percent', value: item.postCapFraction });
+      names.set(`post_cap_fraction_${item.key}`.toLowerCase(), { type: 'percent', value: item.postCapFraction });
+    }
   }
   for (const other of ctx.agent.plan.lines) {
     names.set(`ytd_${other.key}`.toLowerCase(), { type: 'number', value: yearToDate(other.key, ctx.agent, ctx.deal, ctx.capYear, ctx.history).total });
@@ -780,7 +787,7 @@ export function computePlanDeal(deal: PlanDealInput, history: PlanHistoryLine[] 
         if (line.type === 'capped_percent') {
           const full = line.rate * Math.max(0, sideAfterBonuses);
           postCapFraction = full > 0 ? Math.min(1, Math.max(0, 1 - amount / full)) : postCapFraction;
-          explanation += ` Post-cap fraction from the typed amount: ${pct(postCapFraction ?? 0)}.`;
+          explanation += ` Share past the cap from the typed amount: ${pct(postCapFraction ?? 0)}.`;
         }
       }
       if (ytd.starting) explanation += ` Year to date includes a starting balance of ${money(ytd.starting)}.`;
