@@ -1869,18 +1869,14 @@ export function CommissionTemplatePanel({
                   {/* Same columns as the parameter sections below, so the blue line under the title lines up with theirs. */}
                   <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-3 py-2 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:gap-x-4">
                     <span className="text-sm font-bold text-brand-600 dark:text-brand-400 @min-[720px]/params:self-stretch @min-[720px]/params:flex @min-[720px]/params:items-center @min-[720px]/params:border-r @min-[720px]/params:border-brand-500/50 @min-[720px]/params:pr-3 @min-[720px]/params:dark:border-brand-400/50">Team Caps</span>
-                    {/* One column per cap, up to four, then more rows. Each cap's info icon lists what its qualifying
-                        formula looked at on this deal. */}
-                    <div className={`grid gap-x-6 gap-y-2 ${[
-                      '',
-                      '',
-                      '@min-[720px]/params:grid-cols-2',
-                      '@min-[720px]/params:grid-cols-3',
-                    ][qualifyingCaps.length] ?? '@min-[720px]/params:grid-cols-4'}`}>
+                    {/* The caps side by side, as far apart as the parameter columns below, wrapping when they run out
+                        of room. Each cap's info icon lists what its qualifying formula looked at on this deal. */}
+                    <div className="flex flex-wrap items-center gap-x-12 gap-y-2">
                     {qualifyingCaps.map((cap) => (
                       <div
                         key={cap.id}
-                        className={`flex min-w-0 items-center justify-between gap-1.5 rounded-full py-1 pl-3 pr-1 transition-colors ${checkedCapIds.includes(cap.id)
+                        // As wide as its name and info icon.
+                        className={`flex min-w-0 max-w-full items-center gap-1.5 rounded-full py-1 pl-3 transition-colors ${(capInfoLines.get(cap.id)?.length ?? 0) > 0 ? 'pr-1' : 'pr-3'} ${checkedCapIds.includes(cap.id)
                           ? 'bg-brand-500/10 dark:bg-brand-500/15'
                           : 'bg-amber-500/15 ring-1 ring-amber-400/40 dark:bg-amber-400/12'}`}
                       >
