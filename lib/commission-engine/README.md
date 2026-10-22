@@ -16,6 +16,7 @@ commission lines, team cap and sales volume allocations, payments, and an explan
 | `drift.ts` | Checks whether resubmitting the template would change payments (`templatePaymentsChanged`). |
 | `plans.ts` | Commission Plans (not wired to any screen yet): `computePlanDeal` runs each agent's plan lines (company dollar, post-cap fee, risk management, broker review, stock, formula lines) with year-to-date totals per cap year; `computePlanDealsInOrder` runs deals in Cap Date order. |
 | `plan-presets.ts` | `loadPlanPresets`: the eXp presets in `presets/exp-plans.json`, checked by `commissionPlanSchema`. Tests: `tests/plans`. |
+| `plan-rows.ts` | Database rows (migration 065) to plan input: `planInForce` (version on the Cap Date), `planAgentFromRow`, `planHistoryFromItems`, `defaultFeeSharePercent`. |
 | `../agent-allocations.ts` | Team cap and sales volume math (`planDealAllocations`, `qualifyingTeamCaps`). |
 
 Browser loading and caching stay outside the engine: `transactions/[id]/components/applyTemplateLogic.ts`

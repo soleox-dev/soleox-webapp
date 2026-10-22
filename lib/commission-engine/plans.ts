@@ -32,10 +32,8 @@ export interface CappedPercentLine extends PlanLineBase {
   type: 'capped_percent';
   /** 0.2 for 20%. */
   rate: number;
-  /** The plan's cap; omitted or null means no cap. */
+  /** The plan's cap; omitted or null means no cap. An agent's capAmounts override it for that agent. */
   capAmount?: number | null;
-  /** An agent field that overrides the plan's cap for that agent. */
-  capAmountField?: string;
 }
 
 /** A tier of a per-deal fee: this amount applies until the line's yearly total reaches untilPaid. */
@@ -67,8 +65,8 @@ export interface PercentOfNetLine extends PlanLineBase {
   rate: number;
   /** Keys of earlier lines taken off the side first. */
   after: string[];
-  /** An agent field that must be yes for the line to apply; without one the line always applies. */
-  optInField?: string;
+  /** The line applies only to agents who opted in to it (the agent's optedIn); otherwise to every agent. */
+  optIn?: boolean;
 }
 
 /**
@@ -89,6 +87,8 @@ export type PlanLine = CappedPercentLine | PerDealFeeLine | PercentOfNetLine | F
 export interface CommissionPlan {
   id: string;
   name: string;
+  /** The version of the plan in force on the deal's Cap Date, when the plan comes from the database. */
+  versionId?: string;
   lines: PlanLine[];
 }
 
@@ -100,7 +100,7 @@ export const commissionPlanSchema: z.ZodType<CommissionPlan> = z.object({
   name: z.string().min(1),
   lines: z.array(
     z.discriminatedUnion('type', [
-      z.object({ ...lineBase, type: z.literal('capped_percent'), rate: z.number(), capAmount: z.number().nullable(), capAmountField: z.string().optional() }),
+      z.object({ ...lineBase, type: z.literal('capped_percent'), rate: z.number(), capAmount: z.number().nullable().optional() }),
       z.object({
         ...lineBase,
         type: z.literal('per_deal_fee'),
@@ -111,7 +111,7 @@ export const commissionPlanSchema: z.ZodType<CommissionPlan> = z.object({
         skipTiersForRoles: z.array(z.string()).optional(),
         appliesFeeShare: z.boolean().optional(),
       }),
-      z.object({ ...lineBase, type: z.literal('percent_of_net'), rate: z.number(), after: z.array(z.string()), optInField: z.string().optional() }),
+      z.object({ ...lineBase, type: z.literal('percent_of_net'), rate: z.number(), after: z.array(z.string()), optIn: z.boolean().optional() }),
       z.object({ ...lineBase, type: z.literal('formula'), formula: z.string().min(1), yearlyLimit: z.number().optional(), countsTowardCap: z.string().optional() }),
     ]),
   ),
@@ -125,8 +125,15 @@ export const commissionPlanSchema: z.ZodType<CommissionPlan> = z.object({
 export interface OffTheTopItem {
   name: string;
   amount: number;
-  /** Agents who pay it from their own sides (shared by their split %); omitted means shared by everyone's split. */
+  /** Agents who pay it from their own sides; omitted means it comes off GCI, shared by everyone's split. */
   paidBy?: string[];
+  /**
+   * How the Paid By agents share it, as agreed with the team lead: by their split % (default), equally, or the
+   * amounts typed in paidAmounts, which must add up to the credit. A rounding cent goes to the first payer.
+   */
+  shareBy?: 'split' | 'equal' | 'amounts';
+  /** Typed share per Paid By agent, for shareBy 'amounts'. */
+  paidAmounts?: Record<string, number>;
 }
 
 /** A bonus moves dollars between sides: a bonus to one agent is a concession from another. */
@@ -154,8 +161,10 @@ export interface PlanAgentInput {
   roles?: string[];
   /** The agent's Cap Year Start (YYYY-MM-DD); every yearly total resets on its anniversary. */
   capYearStart?: string | null;
-  /** Agent fields: stock opt-in, cap overrides. */
-  fields?: Record<string, unknown>;
+  /** Keys of the opt-in lines (percent_of_net with optIn) the agent chose, e.g. stock. */
+  optedIn?: string[];
+  /** Caps that differ from the plan for this agent, by capped line key: a rare exception. */
+  capAmounts?: Record<string, number>;
   startingBalances?: StartingBalances | null;
   /** Typed line amounts by key; a typed amount wins over the plan and counts as paid. */
   overrides?: Record<string, number>;
@@ -214,11 +223,13 @@ export interface PlanAgentResult {
   agentId: string;
   name: string;
   planId: string;
+  planVersionId?: string;
   splitPercent: number;
   /** split % × GCI after shared off-the-top, less any credit the agent pays alone. */
   side: number;
   sideAfterBonuses: number;
-  capYear: { start: string; end: string };
+  /** Null when the agent has no Cap Year Start; a plan with yearly totals is then not calculated. */
+  capYear: { start: string; end: string } | null;
   lines: PlanLineResult[];
   afterPlan: { name: string; amount: number; payee?: string }[];
   /** sideAfterBonuses − plan lines − deductions after the plan. */
@@ -226,12 +237,22 @@ export interface PlanAgentResult {
   explanation: string[];
 }
 
+export interface PlanWarning {
+  code: 'missing_cap_year_start';
+  agentId: string;
+  message: string;
+}
+
 export interface PlanDealResult {
   dealId: string;
   gci: number;
   feeSharePercent: number;
-  offTheTop: { name: string; amount: number; paidBy?: string[] }[];
+  offTheTop: OffTheTopItem[];
   agents: PlanAgentResult[];
+  /** What the user must fix before the deal's plan lines can be trusted, e.g. a missing Cap Year Start. */
+  warnings: PlanWarning[];
+  /** False while any warning stands: some agent's plan lines were not calculated, so the deal cannot be saved. */
+  complete: boolean;
   /** Plan lines and deductions after the plan, by payee. */
   payeeTotals: Record<string, number>;
   /** Off-the-top + plan lines + deductions after the plan + net cash; equals GCI when the splits add to 100%. */
@@ -260,20 +281,6 @@ const money = (value: number) =>
   `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const pct = (fraction: number, digits = 2) => `${Number((fraction * 100).toFixed(digits))}%`;
 
-function isYes(value: unknown): boolean {
-  if (value === true) return true;
-  if (typeof value === 'number') return value !== 0;
-  if (typeof value !== 'string') return false;
-  return ['yes', 'y', 'true', '1'].includes(value.trim().toLowerCase());
-}
-
-function readNumber(value: unknown): number | null {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-  if (typeof value !== 'string' || !value.trim()) return null;
-  const parsed = Number(value.replace(/[$,\s]/g, ''));
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 // ---------------------------------------------------------------------------------------------------------------
 // Cap years
 // ---------------------------------------------------------------------------------------------------------------
@@ -293,11 +300,11 @@ function formatDay(y: number, m: number, d: number): string {
 
 /**
  * The cap year a date falls in: from the latest anniversary of Cap Year Start on or before the date, up to (not
- * including) the next one. With no Cap Year Start, the calendar year. Feb 29 starts on Feb 28 in other years.
+ * including) the next one. Feb 29 starts on Feb 28 in other years.
  */
-export function capYearFor(date: string, capYearStart?: string | null): { start: string; end: string } {
+export function capYearFor(date: string, capYearStart: string): { start: string; end: string } {
   const day = parseDay(date);
-  const anchor = capYearStart ? parseDay(capYearStart) : { y: day.y, m: 1, d: 1 };
+  const anchor = parseDay(capYearStart);
   let start = formatDay(day.y, anchor.m, anchor.d);
   let year = day.y;
   if (start > date.slice(0, 10)) {
@@ -324,9 +331,10 @@ function yearToDate(
   key: string,
   agent: PlanAgentInput,
   deal: PlanDealInput,
-  capYear: { start: string; end: string },
+  capYear: { start: string; end: string } | null,
   history: PlanHistoryLine[],
 ): { total: number; fromDeals: number; starting: number } {
+  if (!capYear) return { total: 0, fromDeals: 0, starting: 0 };
   let fromDeals = 0;
   for (const row of history) {
     if (row.agentId !== agent.id || row.dealId === deal.id) continue;
@@ -374,15 +382,35 @@ function workOutSides(deal: PlanDealInput) {
       if (!agent) throw new Error(`${item.name} is paid by an agent who is not on the deal (${id}).`);
       return agent;
     });
+    const shareBy = item.shareBy || 'split';
     const splitTotal = payers.reduce((sum, agent) => sum + agent.splitPercent, 0);
-    for (const agent of payers) {
-      const share = splitTotal > 0 ? agent.splitPercent / splitTotal : 1 / payers.length;
-      const amount = roundHalfUpCents(item.amount * share);
+    let shares: { agent: PlanAgentInput; amount: number; how: string }[];
+    if (shareBy === 'amounts') {
+      shares = payers.map((agent) => {
+        const typed = item.paidAmounts?.[agent.id];
+        if (typed === undefined || !Number.isFinite(typed)) throw new Error(`${item.name} needs the amount ${agent.name} pays.`);
+        return { agent, amount: roundHalfUpCents(typed), how: 'typed' };
+      });
+      const typedTotal = addCents(...shares.map((share) => share.amount));
+      if (cents(typedTotal) !== cents(item.amount)) {
+        throw new Error(`${item.name}: the amounts typed per agent add up to ${money(typedTotal)}, not ${money(item.amount)}.`);
+      }
+    } else {
+      shares = payers.map((agent) => {
+        const share = shareBy === 'split' && splitTotal > 0 ? agent.splitPercent / splitTotal : 1 / payers.length;
+        const how = shareBy === 'split' && splitTotal > 0 ? `${pct(share, 4)} by split` : `an equal ${pct(share, 4)}`;
+        return { agent, amount: roundHalfUpCents(item.amount * share), how };
+      });
+      // The credit is paid in full: a cent lost or gained in rounding goes to the first payer.
+      const gap = cents(item.amount) - cents(addCents(...shares.map((share) => share.amount)));
+      if (gap !== 0) shares[0].amount = addCents(shares[0].amount, gap / 100);
+    }
+    for (const { agent, amount, how } of shares) {
       side.set(agent.id, addCents(side.get(agent.id)!, -amount));
       notes.get(agent.id)!.push(
         payers.length === 1
           ? `${item.name} ${money(amount)} is paid from this side alone, before the plan: side ${money(side.get(agent.id)!)}.`
-          : `${item.name}: ${pct(share, 4)} of ${money(item.amount)} is ${money(amount)}, paid from this side before the plan: side ${money(side.get(agent.id)!)}.`,
+          : `${item.name}: ${money(amount)} of ${money(item.amount)} (${how}) is paid from this side before the plan: side ${money(side.get(agent.id)!)}.`,
       );
     }
   }
@@ -408,7 +436,7 @@ function workOutSides(deal: PlanDealInput) {
 interface LineContext {
   deal: PlanDealInput;
   agent: PlanAgentInput;
-  capYear: { start: string; end: string };
+  capYear: { start: string; end: string } | null;
   history: PlanHistoryLine[];
   /** split % as a fraction */
   share: number;
@@ -429,8 +457,9 @@ function earlierLine(ctx: LineContext, key: string, forLine: string): PlanLineRe
 function cappedPercent(line: CappedPercentLine, ctx: LineContext, ytd: number): Calculated {
   const base = Math.max(0, ctx.sideAfterBonuses);
   const full = line.rate * base;
-  const fieldCap = line.capAmountField ? readNumber(ctx.agent.fields?.[line.capAmountField]) : null;
-  const cap = fieldCap ?? line.capAmount;
+  const agentCap = ctx.agent.capAmounts?.[line.key];
+  const ownCap = agentCap !== undefined && agentCap !== null && Number.isFinite(agentCap) ? agentCap : null;
+  const cap = ownCap ?? line.capAmount;
   const head = `${pct(line.rate)} of ${money(base)} is ${money(roundHalfUpCents(full))}`;
   if (cap === null || cap === undefined) {
     return { amount: roundHalfUpCents(full), postCapFraction: 0, explanation: `${line.name}: ${head}; no cap.` };
@@ -438,7 +467,7 @@ function cappedPercent(line: CappedPercentLine, ctx: LineContext, ytd: number): 
   const left = Math.max(0, cap - ytd);
   const charge = Math.min(full, left);
   const postCapFraction = full > 0 ? 1 - charge / full : left <= 0 ? 1 : 0;
-  const capText = `${money(cap)} cap${fieldCap !== null ? ` (agent's ${line.capAmountField})` : ''}`;
+  const capText = `${money(cap)} cap${ownCap !== null ? ' (this agent\'s own cap)' : ''}`;
   if (left <= 0) {
     return { amount: 0, postCapFraction, explanation: `${line.name}: already capped (${money(ytd)} paid of the ${capText}), so $0.00; post-cap fraction ${pct(postCapFraction)}.` };
   }
@@ -512,8 +541,8 @@ function perDealFee(line: PerDealFeeLine, ctx: LineContext, ytd: number): Calcul
 }
 
 function percentOfNet(line: PercentOfNetLine, ctx: LineContext): Calculated {
-  if (line.optInField && !isYes(ctx.agent.fields?.[line.optInField])) {
-    return { amount: 0, explanation: `${line.name}: not chosen (${line.optInField} is not Yes), so $0.00.` };
+  if (line.optIn && !(ctx.agent.optedIn || []).includes(line.key)) {
+    return { amount: 0, explanation: `${line.name}: the agent has not opted in, so $0.00.` };
   }
   const taken = line.after.map((key) => earlierLine(ctx, key, line.name));
   const base = addCents(ctx.sideAfterBonuses, ...taken.map((item) => -item.amount));
@@ -552,6 +581,16 @@ function formulaLine(line: FormulaPlanLine, ctx: LineContext, ytd: number): Calc
 // Entry points
 // ---------------------------------------------------------------------------------------------------------------
 
+/** Whether a plan keeps yearly totals (a cap, a yearly limit, tiers, or a formula reading them), so it needs Cap Year Start. */
+export function planNeedsCapYear(plan: CommissionPlan): boolean {
+  return plan.lines.some((line) => {
+    if (line.type === 'capped_percent') return line.capAmount !== null && line.capAmount !== undefined;
+    if (line.type === 'per_deal_fee') return line.yearlyLimit !== undefined || Boolean(line.tiers?.length);
+    if (line.type === 'formula') return line.yearlyLimit !== undefined || Boolean(line.countsTowardCap) || /\bytd_/i.test(line.formula);
+    return false;
+  });
+}
+
 /** Runs every team agent's plan on one deal. `history` holds plan lines paid on earlier deals. */
 export function computePlanDeal(deal: PlanDealInput, history: PlanHistoryLine[] = []): PlanDealResult {
   const feeSharePercent = deal.feeSharePercent ?? 100;
@@ -563,12 +602,24 @@ export function computePlanDeal(deal: PlanDealInput, history: PlanHistoryLine[] 
   };
 
   const agents: PlanAgentResult[] = [];
+  const warnings: PlanWarning[] = [];
   for (const agent of deal.agents) {
     const sideAmount = side.get(agent.id)!;
     const sideAfterBonuses = afterBonuses.get(agent.id)!;
-    const capYear = capYearFor(deal.capDate, agent.capYearStart);
+    const capYear = agent.capYearStart ? capYearFor(deal.capDate, agent.capYearStart) : null;
     const lines: PlanLineResult[] = [];
-    const runsPlan = agent.splitPercent > 0 || sideAfterBonuses > 0;
+    const hasSplit = agent.splitPercent > 0 || sideAfterBonuses > 0;
+    // Without Cap Year Start the yearly totals are unknown; guessing the year could misplace a cap, so stop here.
+    const ownCaps = Object.values(agent.capAmounts || {}).some((value) => value !== null && value !== undefined);
+    const missingCapYear = hasSplit && !capYear && (planNeedsCapYear(agent.plan) || ownCaps);
+    if (missingCapYear) {
+      warnings.push({
+        code: 'missing_cap_year_start',
+        agentId: agent.id,
+        message: `Enter Cap Year Start for ${agent.name} to calculate their ${agent.plan.name} plan.`,
+      });
+    }
+    const runsPlan = hasSplit && !missingCapYear;
     const ctx: LineContext = {
       deal,
       agent,
@@ -622,7 +673,8 @@ export function computePlanDeal(deal: PlanDealInput, history: PlanHistoryLine[] 
     afterPlan.forEach((item) => addPayee(item.payee, item.amount));
     const netCash = addCents(sideAfterBonuses, ...lines.map((line) => -line.amount), ...afterPlan.map((item) => -item.amount));
     const explanation = [...notes.get(agent.id)!];
-    explanation.push(`Cap year ${capYear.start} to ${capYear.end} (Cap Date ${deal.capDate.slice(0, 10)}).`);
+    if (missingCapYear) explanation.push(`${agent.plan.name} not calculated: enter Cap Year Start for ${agent.name}.`);
+    else if (capYear) explanation.push(`Cap year ${capYear.start} to ${capYear.end} (Cap Date ${deal.capDate.slice(0, 10)}).`);
     lines.forEach((line) => explanation.push(line.explanation));
     afterPlan.forEach((item) => explanation.push(`${item.name}: ${money(item.amount)} from the agent's cash after the plan.`));
     explanation.push(`Net cash: ${money(netCash)}.`);
@@ -630,6 +682,7 @@ export function computePlanDeal(deal: PlanDealInput, history: PlanHistoryLine[] 
       agentId: agent.id,
       name: agent.name,
       planId: agent.plan.id,
+      ...(agent.plan.versionId ? { planVersionId: agent.plan.versionId } : {}),
       splitPercent: agent.splitPercent,
       side: sideAmount,
       sideAfterBonuses,
@@ -647,7 +700,7 @@ export function computePlanDeal(deal: PlanDealInput, history: PlanHistoryLine[] 
     ...Object.values(payeeTotals),
     ...agents.map((agent) => agent.netCash),
   );
-  return { dealId: deal.id, gci: deal.gci, feeSharePercent, offTheTop, agents, payeeTotals, accountedFor };
+  return { dealId: deal.id, gci: deal.gci, feeSharePercent, offTheTop, agents, warnings, complete: warnings.length === 0, payeeTotals, accountedFor };
 }
 
 /** The plan lines a calculated deal adds to its agents' year-to-date totals (typed amounts as paid). */

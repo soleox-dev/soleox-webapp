@@ -15,3 +15,4 @@ export * from './deal';
 export * from './drift';
 export * from './plans';
 export * from './plan-presets';
+export * from './plan-rows';

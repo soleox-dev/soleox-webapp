@@ -8,7 +8,9 @@ import {
   type CommissionPlan,
   type PlanAgentInput,
   type PlanAgentResult,
+  type OffTheTopItem,
   type PlanDealInput,
+  type PlanDealResult,
   type PlanLine,
 } from '@/lib/commission-engine';
 
@@ -52,7 +54,7 @@ describe('the verified eXp deal', () => {
       agent({ id: 'winston', name: 'Winston', splitPercent: 85, plan: exp4000, startingBalances: leftToCap(exp4000, 3255), afterPlan: [{ name: 'TC fee', amount: 300, payee: 'TC' }] }),
       agent({ id: 'skylar', name: 'Skylar', splitPercent: 1.5, plan: exp4000, startingBalances: leftToCap(exp4000, 0) }),
       agent({ id: 'kyle', name: 'Kyle', splitPercent: 0.75, plan: exp4000, startingBalances: leftToCap(exp4000, 100) }),
-      agent({ id: 'patrick', name: 'Patrick', splitPercent: 12.75, plan: teamLead, roles: ['team_lead'], fields: { stock: 'Yes' }, startingBalances: leftToCap(teamLead, 1000) }),
+      agent({ id: 'patrick', name: 'Patrick', splitPercent: 12.75, plan: teamLead, roles: ['team_lead'], optedIn: ['stock'], startingBalances: leftToCap(teamLead, 1000) }),
     ],
   };
   const result = computePlanDeal(deal);
@@ -227,6 +229,27 @@ describe('year-to-date totals', () => {
     expect(line(after, 'company_dollar').amount).toBe(2000);
   });
 
+  it('an agent with no Cap Year Start gets a warning instead of a guessed cap year', () => {
+    const result = computePlanDeal({
+      id: 'TXN_NO_CAP_YEAR',
+      gci: 10000,
+      capDate: '2026-06-15',
+      agents: [agent({ id: 'a', name: 'Avery', splitPercent: 50, plan: exp4000, capYearStart: null }), agent({ id: 'b', splitPercent: 50, plan: exp4000 })],
+    });
+    expect(result.complete).toBe(false);
+    expect(result.warnings).toEqual([{ code: 'missing_cap_year_start', agentId: 'a', message: 'Enter Cap Year Start for Avery to calculate their eXp $4,000 plan.' }]);
+    const [a, b] = result.agents;
+    expect([a.capYear, a.lines.length, a.netCash]).toEqual([null, 0, 5000]);
+    expect(line(b, 'company_dollar').amount).toBe(1000);
+  });
+
+  it('a plan with no yearly totals does not need Cap Year Start', () => {
+    const plan: CommissionPlan = { id: 'review', name: 'Review only', lines: [exp4000.lines[3]] };
+    const result = computePlanDeal({ id: 'TXN_REVIEW', gci: 10000, capDate: '2026-06-15', agents: [agent({ id: 'a', splitPercent: 100, plan, capYearStart: null })] });
+    expect(result.complete).toBe(true);
+    expect(line(result.agents[0], 'broker_review').amount).toBe(25);
+  });
+
   it('recalculating a saved deal does not count itself', () => {
     const deal: PlanDealInput = { id: 'TXN_SELF', gci: 10000, capDate: '2026-05-01', savedAt: '2026-05-01T00:00:00Z', agents: [agent({ id: 'a', splitPercent: 100, plan: exp4000 })] };
     const { history } = computePlanDealsInOrder([deal]);
@@ -241,7 +264,7 @@ describe('typed lines', () => {
     capDate: '2026-06-15',
     bonuses: [{ fromAgentId: 'b', toAgentId: 'w', amount: 86.25 }],
     agents: [
-      agent({ id: 'w', splitPercent: 85, plan: exp4000, fields: { stock: 'Yes' }, startingBalances: leftToCap(exp4000, 3255), overrides }),
+      agent({ id: 'w', splitPercent: 85, plan: exp4000, optedIn: ['stock'], startingBalances: leftToCap(exp4000, 3255), overrides }),
       agent({ id: 'b', splitPercent: 15, plan: exp16000 }),
     ],
   });
@@ -275,6 +298,37 @@ describe('off the top', () => {
     expect(amounts(result.agents, 'company_dollar')).toEqual([900, 1000]);
     expect(amounts(result.agents, 'risk_management')).toEqual([30, 30]);
     expect(result.accountedFor).toBe(10000);
+  });
+
+  const creditDeal = (credit: Partial<OffTheTopItem>): PlanDealInput => ({
+    id: 'TXN_SHARED_CREDIT',
+    gci: 10000,
+    capDate: '2026-06-15',
+    offTheTop: [{ name: 'Client credit', amount: 500, paidBy: ['a', 'b'], ...credit }],
+    agents: [
+      agent({ id: 'a', splitPercent: 60, plan: exp16000 }),
+      agent({ id: 'b', splitPercent: 20, plan: exp16000 }),
+      agent({ id: 'c', splitPercent: 20, plan: exp16000 }),
+    ],
+  });
+  /** What each agent paid of the credit: their share of the $10,000 GCI less their side. */
+  const credits = (result: PlanDealResult) => result.agents.map((item) => Math.round((item.splitPercent * 100 - item.side) * 100) / 100);
+
+  it('a credit paid by several agents is shared by their split %, equally, or as typed', () => {
+    expect(credits(computePlanDeal(creditDeal({})))).toEqual([375, 125, 0]);
+    expect(credits(computePlanDeal(creditDeal({ shareBy: 'equal' })))).toEqual([250, 250, 0]);
+    expect(credits(computePlanDeal(creditDeal({ shareBy: 'amounts', paidAmounts: { a: 450, b: 50 } })))).toEqual([450, 50, 0]);
+  });
+
+  it('a shared credit is paid in full: the rounding cent goes to the first payer', () => {
+    const result = computePlanDeal(creditDeal({ amount: 100, paidBy: ['a', 'b', 'c'], shareBy: 'equal' }));
+    expect(credits(result)).toEqual([33.34, 33.33, 33.33]);
+    expect(result.accountedFor).toBe(10000);
+  });
+
+  it('typed amounts must add up to the credit', () => {
+    expect(() => computePlanDeal(creditDeal({ shareBy: 'amounts', paidAmounts: { a: 400, b: 50 } }))).toThrow('add up to $450.00, not $500.00');
+    expect(() => computePlanDeal(creditDeal({ shareBy: 'amounts', paidAmounts: { a: 500 } }))).toThrow('needs the amount b pays');
   });
 
   it('a referral shared by split % comes off GCI', () => {
