@@ -321,24 +321,18 @@ thead th.sticky[class*="left-"] {
   color: var(--color-slate-600);
 }
 
+/* Leaderboards follow the calm report colors: grey headers, and rows that fade from a light grey at the top rank. */
 .leader-head-volume,
-.leader-head-volume th {
-  background: #d7f6fa;
-  color: #121823;
-}
-
+.leader-head-volume th,
 .leader-head-units,
 .leader-head-units th {
-  background: #f3e8ff;
-  color: #121823;
+  background: var(--color-slate-200);
+  color: var(--color-slate-700);
 }
 
-.leader-row-volume {
-  background: color-mix(in srgb, #ffffff var(--rank-fade), color-mix(in srgb, #ffffff 45%, #5ebfd0));
-}
-
+.leader-row-volume,
 .leader-row-units {
-  background: color-mix(in srgb, #ffffff var(--rank-fade), color-mix(in srgb, #ffffff 45%, #d8b4fe));
+  background: color-mix(in srgb, #ffffff var(--rank-fade), var(--color-slate-100));
 }
 
 .dark .report-table thead.report-head th,
@@ -348,23 +342,16 @@ thead th.sticky[class*="left-"] {
 }
 
 .dark .leader-head-volume,
-.dark .leader-head-volume th {
-  background: #1b2230;
-  color: #e2e8f0;
-}
-
+.dark .leader-head-volume th,
 .dark .leader-head-units,
 .dark .leader-head-units th {
-  background: #2e1064;
-  color: #f3e8ff;
+  background: var(--color-slate-800);
+  color: var(--color-slate-300);
 }
 
-.dark .leader-row-volume {
-  background: color-mix(in srgb, #121823 var(--rank-fade), #334155);
-}
-
+.dark .leader-row-volume,
 .dark .leader-row-units {
-  background: color-mix(in srgb, #121823 var(--rank-fade), #3b2a5a);
+  background: color-mix(in srgb, #121823 var(--rank-fade), #2a3242);
 }
 
 /* Enable class-based dark mode for Tailwind v4 */

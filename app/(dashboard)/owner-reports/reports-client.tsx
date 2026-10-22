@@ -1388,10 +1388,10 @@ function Cover({ launching, onEnter }: { launching: boolean; onEnter: () => void
     return () => window.removeEventListener('keydown', onKey);
   }, [onEnter]);
   const marks = [
-    { label: 'Sales Volume', className: 'report-turquoise' },
+    { label: 'Sales Volume', className: 'report-pill-slate' },
     { label: 'Gross Commission', className: 'report-pill-emerald' },
-    { label: 'Units', className: 'report-purple' },
-    { label: 'Team Commission', className:'bg-rose-700 text-white' },
+    { label: 'Units', className: 'report-pill-slate' },
+    { label: 'Team Commission', className: 'report-pill-slate' },
   ];
   return (
     <div className={`report-cover relative min-h-[calc(100vh-1rem)] overflow-hidden px-6 text-center ${launching ? 'report-cover-launch' : ''}`}>
@@ -4115,15 +4115,15 @@ function LineChart({ title, metric, current, previous }: { title: string; metric
             setHover(nearest);
           }}
         >
-          {average > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(average)} y2={yAt(average)} stroke="currentColor" strokeDasharray="14 8" className="text-emerald-400 dark:text-emerald-600" /> : null}
-          {priorAverage > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(priorAverage)} y2={yAt(priorAverage)} stroke="currentColor" strokeDasharray="14 8" className="text-[#d9dde2] dark:text-slate-400" /> : null}
-          {previous.length > 0 ? <path d={pathFor(previousValues)} fill="none" stroke="currentColor" strokeWidth="2" className="text-[#d9dde2] dark:text-slate-400" /> : null}
-          <path d={pathFor(currentValues)} fill="none" stroke="currentColor" strokeWidth="2.5" className="text-emerald-400 dark:text-emerald-600" />
+          {average > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(average)} y2={yAt(average)} stroke="currentColor" strokeDasharray="14 8" className={TREND_CURRENT} /> : null}
+          {priorAverage > 0 ? <line x1={pad.left} x2={width - pad.right} y1={yAt(priorAverage)} y2={yAt(priorAverage)} stroke="currentColor" strokeDasharray="14 8" className={TREND_PRIOR} /> : null}
+          {previous.length > 0 ? <path d={pathFor(previousValues)} fill="none" stroke="currentColor" strokeWidth="2" className={TREND_PRIOR} /> : null}
+          <path d={pathFor(currentValues)} fill="none" stroke="currentColor" strokeWidth="2.5" className={TREND_CURRENT} />
           <PeakShine d={pathFor(currentValues)} points={currentValues.map((value, index) => ({ x: xAt(index), y: yAt(value) }))} values={currentValues} width={width} height={height} />
           {current.map((row, index) => (
-            <circle key={row.key} cx={xAt(index)} cy={yAt(currentValues[index])} r={hover === index ? 4.5 : 2.5} fill="currentColor" className="text-emerald-400 dark:text-emerald-600" />
+            <circle key={row.key} cx={xAt(index)} cy={yAt(currentValues[index])} r={hover === index ? 4.5 : 2.5} fill="currentColor" className={TREND_CURRENT} />
           ))}
-          {hover !== null ? <line x1={xAt(hover)} x2={xAt(hover)} y1={pad.top} y2={height - pad.bottom} stroke="currentColor" strokeOpacity="0.35" className="text-emerald-400 dark:text-emerald-600" /> : null}
+          {hover !== null ? <line x1={xAt(hover)} x2={xAt(hover)} y1={pad.top} y2={height - pad.bottom} stroke="currentColor" strokeOpacity="0.35" className={TREND_CURRENT} /> : null}
           {current.map((row, index) => (
             <text key={`${row.key}-label`} x={xAt(index)} y={height - 8} textAnchor={isDesktop ? 'middle' : index === 0 ? 'start' : index === current.length - 1 ? 'end' : 'middle'} className="fill-slate-400" fontSize={isDesktop ? 10 : 12}>
               {current.length > (isDesktop ? 16 : 7) && index % 2 ? '' : row.label}
@@ -4485,9 +4485,9 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
   const closedValue = scores ? scores.closed : statusTotal(current, 'closed', metric);
   const priorClosed = scores ? scores.priorClosed : statusTotal(prior, 'closed', metric);
   const pendingValue = scores ? scores.pending : statusTotal(current, 'pending', metric);
-  const accent = tone === 'volume' ? 'text-teal-700 dark:text-teal-200' : 'text-purple-700 dark:text-purple-200';
-  const pendingTone = tone === 'volume' ? 'text-teal-500 dark:text-teal-400' : 'text-purple-500 dark:text-purple-400';
-  const bar = tone === 'volume' ? 'bg-teal-500/75 dark:bg-teal-400/55' : 'bg-purple-500/75 dark:bg-purple-400/55';
+  const accent = TREND_CLOSED;
+  const pendingTone = TREND_PENDING;
+  const bar = 'bg-emerald-500/70 dark:bg-emerald-400/50';
   const tableTotal = rows.reduce((sum, row) => sum + row.value, 0);
   const tablePrior = rows.reduce((sum, row) => sum + row.prior, 0);
   const share = (value: number) => (tableTotal ? `${((value / tableTotal) * 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : '—');
@@ -4578,10 +4578,13 @@ function BoardScore({ tone, label, amount, compactAmount, dollar, compactDollar,
   onSelect: () => void;
 }) {
   const deltaClass = dollar ? changeClass(current, prior) : '';
-  const selectedClass = tone === 'volume'
-    ? 'border-teal-500 bg-[#d7f6fa] ring-2 ring-teal-400 dark:border-teal-300 dark:bg-teal-950/80 dark:ring-teal-400'
-    : 'border-purple-400 bg-[#f3e8ff] ring-2 ring-purple-300 dark:border-purple-300 dark:bg-purple-950/80 dark:ring-purple-400';
-  const focusClass = tone === 'volume' ? 'focus-visible:ring-teal-400' : 'focus-visible:ring-purple-400';
+  // Selected: Total neutral, Closed emerald, Pending amber (report color roles). Both boards look alike.
+  const selectedClass = label === 'Pending'
+    ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-400 dark:border-amber-400 dark:bg-amber-950/60 dark:ring-amber-400'
+    : label === 'Closed'
+      ? 'border-emerald-600 bg-emerald-50 ring-2 ring-emerald-500 dark:border-emerald-300 dark:bg-emerald-950/70 dark:ring-emerald-400'
+      : 'border-slate-900 bg-slate-50 ring-2 ring-slate-900 dark:border-white dark:bg-slate-800/80 dark:ring-white';
+  const focusClass = tone === 'volume' || tone === 'units' ? 'focus-visible:ring-emerald-400' : '';
   const isDesktop = useIsDesktop();
   return (
     <button
@@ -5608,26 +5611,9 @@ function CapStickyHeading({ section, labels, asOf, previous, openAgentId, onClos
   );
 }
 
-function SectionHeading({ children, tone = 'emerald', note, action, end }: { children: React.ReactNode; tone?: 'emerald' | 'listing' | 'buyer' | 'volume' | 'blue' | 'units' | 'slate' | 'rate' | 'price' | 'team'; note?: string; action?: React.ReactNode; end?: React.ReactNode }) {
-  const fill = tone === 'listing'
-    ? 'report-pill-listing'
-    : tone === 'buyer'
-      ? 'report-pill-buyer'
-      : tone === 'volume'
-        ? 'report-turquoise'
-        : tone === 'blue'
-          ? 'report-blue'
-        : tone === 'units'
-          ? 'report-purple'
-          : tone === 'slate'
-            ? 'report-pill-slate'
-            : tone === 'rate'
-              ? 'report-pill-listing'
-              : tone === 'price'
-                ? 'report-pill-buyer'
-                : tone === 'team'
-                  ? 'report-pill-rose'
-                  : 'report-pill-emerald';
+function SectionHeading({ children, note, action, end }: { children: React.ReactNode; tone?: 'emerald' | 'listing' | 'buyer' | 'volume' | 'blue' | 'units' | 'slate' | 'rate' | 'price' | 'team'; note?: string; action?: React.ReactNode; end?: React.ReactNode }) {
+  // Every section pill is neutral grey (report-requirements.mdc, Colors); `tone` is kept so callers need not change.
+  const fill = 'report-pill-slate';
   return (
     <h3 className="relative w-full">
       <div className={`rounded-full text-center text-sm font-semibold ${fill} ${action || end ? 'grid grid-cols-[1fr_auto_1fr] items-stretch overflow-hidden' : 'px-4 py-2 max-md:px-3 max-md:py-1'}`}>
@@ -5668,12 +5654,8 @@ function Score({ label, amount, changeAmount, value, change, tone = 'plain', pul
   const changeClass = `mt-0.5 text-xs font-semibold tabular-nums whitespace-nowrap ${flat ? 'text-slate-400' : down ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`;
   const shell = tone === 'result'
     ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/50'
-    : tone === 'listing'
-      ? 'border-slate-200 border-t-2 border-t-sky-500 bg-white dark:border-slate-800 dark:border-t-sky-400 dark:bg-slate-900'
-      : tone === 'buyer'
-        ? 'border-slate-200 border-t-2 border-t-amber-500 bg-white dark:border-slate-800 dark:border-t-amber-400 dark:bg-slate-900'
-        : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900';
-  const amountClass = tone === 'result' ? 'text-emerald-800 dark:text-emerald-200' : tone === 'listing' ? 'text-sky-800 dark:text-sky-200' : tone === 'buyer' ? 'text-amber-800 dark:text-amber-200' : '';
+    : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900';
+  const amountClass = tone === 'result' ? 'text-emerald-800 dark:text-emerald-200' : '';
   return (
     <div key={pulse} data-score-card className={`relative flex h-full min-w-0 w-full flex-col justify-center rounded-xl border px-1.5 py-3 text-center md:px-3 ${noteOpen ? 'z-30' : ''} ${shell} ${pulse > 0 ? 'scorecard-pulse' : ''}`}>
       {note ? <ScoreNote label={label} text={note} onOpenChange={setNoteOpen} /> : null}

@@ -216,6 +216,11 @@ function Score({ label, value, tone = '', sub, note }: { label: string; value: s
   );
 }
 
+/** Emerald above zero, rose below, grey at zero. */
+function signTone(value: number): string {
+  return value > 0 ? 'text-emerald-600 dark:text-emerald-400' : value < 0 ? 'text-rose-600 dark:text-rose-400' : '';
+}
+
 const scoreBand = 'grid gap-y-3 rounded-xl border border-slate-200 bg-white px-2 py-3 dark:border-slate-800 dark:bg-slate-900';
 
 const STATUS_TONES = {
@@ -324,14 +329,15 @@ export function ListingsReport({ deals, names }: { deals: ReportDeal[]; names: M
   return (
     <div className={fitReport}>
       <div className={`${scoreBand} shrink-0 grid-cols-2 md:grid-cols-4 xl:grid-cols-8`}>
-        <Score label="Listings" value={deals.length.toLocaleString()} tone="text-pink-600 dark:text-pink-400" />
-        <Score label="List Volume" value={fullMoney(listVolume)} tone="text-teal-600 dark:text-teal-400" />
-        <Score label="Avg. List Price" value={listed.length ? fullMoney(listVolume / listed.length) : '—'} tone="text-purple-600 dark:text-purple-400" />
-        <Score label="Sales Volume" value={fullMoney(salesVolume)} tone="text-teal-600 dark:text-teal-400" />
-        <Score label="Avg. Sales Price" value={sold.length ? fullMoney(salesVolume / sold.length) : '—'} tone="text-purple-600 dark:text-purple-400" />
-        <Score label="Avg. Sold vs. Asking" value={priced.length ? signedMoney(overUnder / priced.length) : '—'} tone="text-emerald-600 dark:text-emerald-400" note />
-        <Score label="Total Sold vs. Asking" value={signedMoney(overUnder)} tone="text-emerald-600 dark:text-emerald-400" note />
-        <Score label="Average DOM" value={avgDom == null ? '—' : Math.round(avgDom).toLocaleString()} tone="text-blue-600 dark:text-blue-400" />
+        {/* Neutral figures; only over or under asking takes a color (report color roles). */}
+        <Score label="Listings" value={deals.length.toLocaleString()} />
+        <Score label="List Volume" value={fullMoney(listVolume)} />
+        <Score label="Avg. List Price" value={listed.length ? fullMoney(listVolume / listed.length) : '—'} />
+        <Score label="Sales Volume" value={fullMoney(salesVolume)} />
+        <Score label="Avg. Sales Price" value={sold.length ? fullMoney(salesVolume / sold.length) : '—'} />
+        <Score label="Avg. Sold vs. Asking" value={priced.length ? signedMoney(overUnder / priced.length) : '—'} tone={signTone(overUnder)} note />
+        <Score label="Total Sold vs. Asking" value={signedMoney(overUnder)} tone={signTone(overUnder)} note />
+        <Score label="Average DOM" value={avgDom == null ? '—' : Math.round(avgDom).toLocaleString()} />
       </div>
       <DealListTable
         deals={deals}
