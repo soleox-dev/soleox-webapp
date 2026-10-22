@@ -1,5 +1,5 @@
-import { applyTemplateLogic, type AppliedTemplateRules, type NamedParty, type TemplateLogicStep } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/applyTemplateLogic';
-import { readTeamCapSelection, TEAM_CAP_SELECTION_KEY, type DealAllocationContext } from '@/lib/agent-allocations';
+import { applyTemplateLogic, loadFormulaLookups, type AppliedTemplateRules, type NamedParty, type TemplateLogicStep } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/applyTemplateLogic';
+import { allocationLookupTables, readTeamCapSelection, TEAM_CAP_SELECTION_KEY, type DealAllocationContext } from '@/lib/agent-allocations';
 import {
   isPrimaryAgent,
   resolvePrimaryAgentId,
@@ -301,6 +301,15 @@ function volumeFrom(row: {
   };
 }
 
+/** The tables the catalog's qualifying formulas look up (agents for XLOOKUP), or null when they need none. */
+export async function loadAllocationLookups(
+  clientId: string,
+  catalog: { teamCaps: DealAllocationContext['teamCaps']; salesVolume: DealAllocationContext['salesVolume'] },
+): Promise<FormulaLookups | null> {
+  const tables = allocationLookupTables(catalog.teamCaps, catalog.salesVolume);
+  return tables.length > 0 ? loadFormulaLookups(clientId, tables) : null;
+}
+
 export async function loadAllocationCatalog(clientId: string): Promise<{
   teamCaps: DealAllocationContext['teamCaps'];
   salesVolume: DealAllocationContext['salesVolume'];
@@ -363,6 +372,7 @@ export function allocationForReplay({
   transactionId,
   agents,
   fieldTypes,
+  lookups = null,
 }: {
   catalog: { teamCaps: DealAllocationContext['teamCaps']; salesVolume: DealAllocationContext['salesVolume'] };
   history: AllocationHistoryRow[];
@@ -371,6 +381,8 @@ export function allocationForReplay({
   transactionId: string;
   agents: KnownAgentInfo[];
   fieldTypes: Record<string, string>;
+  /** From loadAllocationLookups: without it a qualifying formula that looks up another table does not qualify. */
+  lookups?: FormulaLookups | null;
 }): DealAllocationContext {
   const closing = deal.closing_date == null ? '' : String(deal.closing_date);
   const unitsRaw = deal.units;
@@ -391,5 +403,6 @@ export function allocationForReplay({
     salesPrice: Math.abs(Number(deal.sales_price) || 0),
     units,
     fieldTypes,
+    lookups,
   };
 }

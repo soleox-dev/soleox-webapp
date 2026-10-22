@@ -1,4 +1,4 @@
-import { evaluateFormula, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
+import { evaluateFormula, type FormulaLookups, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 
 export interface TransactionSortRule {
   fieldKey: string;
@@ -321,18 +321,24 @@ export function dealMatchesSyncView(
 }
 
 /** A blank formula includes every transaction. Anything other than true is left out. */
+/**
+ * Whether a deal passes a filter formula. `lookups` lets XLOOKUP read other tables (agents). A formula that cannot
+ * be calculated lets every deal through, so a broken view still shows deals; with `strict` it lets none through,
+ * for rules that move money (team caps, sales volume).
+ */
 export function dealMatchesDefaultView(
   deal: Record<string, unknown>,
   filterFormula: string,
   fieldTypes: Record<string, string> = {},
+  options: { lookups?: FormulaLookups | null; strict?: boolean } = {},
 ): boolean {
   const formula = filterFormula.trim();
   if (!formula) return true;
   const result = evaluateFormula(formula, (name) => {
     const key = name.toLowerCase() === 'status' ? 'transaction_status' : name;
     return toFormulaValue(readDealField(deal, name), fieldTypes[key]);
-  });
-  if (!result || result.type === 'error') return true;
+  }, [], [], options.lookups ?? undefined);
+  if (!result || result.type === 'error') return !options.strict;
   return result.type === 'boolean' && result.value;
 }
 

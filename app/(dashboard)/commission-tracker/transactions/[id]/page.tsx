@@ -858,6 +858,7 @@ export default function Dashboard() {
       allocationInput?.teamCaps ?? [],
       allocationDeal,
       allocationFieldTypes,
+      allocationInput?.lookups,
     ).map((cap) => cap.id);
     const current = selectedTeamCapIds == null ? qualifyingIds : selectedTeamCapIds;
     if (!current.includes(removedId) && selectedTeamCapIds != null) return;

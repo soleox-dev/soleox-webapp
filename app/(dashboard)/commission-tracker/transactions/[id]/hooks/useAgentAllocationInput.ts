@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { DealAllocationContext } from '@/lib/agent-allocations';
+import { allocationLookupTables, type DealAllocationContext } from '@/lib/agent-allocations';
+import type { FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
+import { loadFormulaLookups } from '../components/applyTemplateLogic';
 import { buildAgentCapCells, type AgentCapDefinition, type AgentCapHistoryRow } from '@/lib/agent-cap-progress';
 import type { AgentConfig, KnownAgentInfo } from '../types';
 import { readTransactionField } from '../types';
@@ -99,6 +101,8 @@ export function useAgentAllocationInput({
   const [agentCaps, setAgentCaps] = useState<AgentCapDefinition[]>([]);
   const [postSplitHistory, setPostSplitHistory] = useState<AgentCapHistoryRow[]>([]);
   const [salesVolume, setSalesVolume] = useState<DealAllocationContext['salesVolume']>(null);
+  // Tables the qualifying formulas look up (agents for XLOOKUP); a formula that needs one only qualifies with it.
+  const [allocationLookups, setAllocationLookups] = useState<FormulaLookups | null>(null);
   const [history, setHistory] = useState<DealAllocationContext['history']>([]);
   const [overrides, setOverrides] = useState<DealAllocationContext['overrides']>([]);
   const loadedOverridesRef = useRef<DealAllocationContext['overrides']>([]);
@@ -166,12 +170,19 @@ export function useAgentAllocationInput({
         if (capsResponse && (!capsResponse.ok || capsBody.success === false)) return;
         if (allocationsResponse && (!allocationsResponse.ok || allocationsBody.success === false)) return;
         const nextAgentCaps = agentCapsFrom(Array.isArray(config.agentCaps) ? config.agentCaps : []);
-        const nextHistory = await postSplitPromise;
+        const nextTeamCaps = (Array.isArray(config.teamCaps) ? config.teamCaps : []).map(teamCapFrom).filter((cap: { id: string }) => cap.id);
+        const nextVolume = volumeFrom(config.salesVolume);
+        const lookupTables = allocationLookupTables(nextTeamCaps, nextVolume);
+        const [nextHistory, nextLookups] = await Promise.all([
+          postSplitPromise,
+          lookupTables.length > 0 ? loadFormulaLookups(clientId, lookupTables).catch(() => null) : Promise.resolve(null),
+        ]);
         if (cancelled) return;
         setAgentCaps(nextAgentCaps);
         setPostSplitHistory(nextHistory);
-        setTeamCaps((Array.isArray(config.teamCaps) ? config.teamCaps : []).map(teamCapFrom).filter((cap: { id: string }) => cap.id));
-        setSalesVolume(volumeFrom(config.salesVolume));
+        setTeamCaps(nextTeamCaps);
+        setSalesVolume(nextVolume);
+        setAllocationLookups(nextLookups);
         setHistory(Array.isArray(historyBody.history) ? historyBody.history : []);
         const capRows = Array.isArray(capsBody.teamCaps) ? capsBody.teamCaps : [];
         const allocationRows = Array.isArray(allocationsBody.allocations) ? allocationsBody.allocations : [];
@@ -233,8 +244,9 @@ export function useAgentAllocationInput({
       salesPrice,
       units,
       fieldTypes,
+      lookups: allocationLookups,
     };
-  }, [ready, teamCaps, salesVolume, agents, knownAgents, history, overrides, deal, dealDate, salesPrice, units, fieldTypes]);
+  }, [ready, teamCaps, salesVolume, allocationLookups, agents, knownAgents, history, overrides, deal, dealDate, salesPrice, units, fieldTypes]);
 
   const setTeamCapOverride = (agentId: string, teamCapId: string, amount: number | null) => {
     setOverrides((current) => {

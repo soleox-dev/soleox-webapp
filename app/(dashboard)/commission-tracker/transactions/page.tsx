@@ -31,7 +31,7 @@ import {
   type TransactionSortRule,
   type TransactionView,
 } from '@/lib/transaction-default-view';
-import { allocationForReplay, loadAllocationCatalog, loadAllocationHistory, loadAllocationOverrides, payoutSignature, replayedPaymentSignature, savedPayouts } from '@/lib/template-payment-drift';
+import { allocationForReplay, loadAllocationCatalog, loadAllocationLookups, loadAllocationHistory, loadAllocationOverrides, payoutSignature, replayedPaymentSignature, savedPayouts } from '@/lib/template-payment-drift';
 import { clearCommissionModuleCache, formulaDataNeeds, invalidateCommissionLedger, loadCommissionLedger, loadFormulaLookups, templateFormulaSources, type TemplateLogicStep } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/applyTemplateLogic';
 import type { StoredCommissionItem } from '@/app/(dashboard)/commission-tracker/transactions/[id]/commissionItemState';
 import type { CommissionEntityOption, FieldSetting, KnownAgentInfo, VisibilityRulesConfig } from '@/app/(dashboard)/commission-tracker/transactions/[id]/types';
@@ -1385,6 +1385,8 @@ export default function TransactionsListPage() {
         loadAllocationHistory(clientId, agents.map((agent) => agent.id)).catch(() => []),
       ]);
       if (cancelled) return;
+      const allocationLookups = await loadAllocationLookups(clientId, catalog).catch(() => null);
+      if (cancelled) return;
 
       // Prioritize candidate deals currently in view so the top of the table resolves first
       const viewedIds = new Set(viewedDealsRef.current.map((d) => String(d.id || '')));
@@ -1432,6 +1434,7 @@ export default function TransactionsListPage() {
             transactionId,
             agents,
             fieldTypes,
+            lookups: allocationLookups,
           });
           const submitted = submittedTemplates.get(transactionId) || [];
           let changed = false;

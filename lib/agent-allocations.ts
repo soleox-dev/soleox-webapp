@@ -1,4 +1,5 @@
 import { dealMatchesDefaultView } from '@/lib/transaction-default-view';
+import { formulaDataNeeds, type FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 
 export type TeamCapAgentInput = {
   agentId: string;
@@ -174,12 +175,26 @@ export function writeTeamCapSelection(parameters: Record<string, string>, ids: s
   return { ...parameters, [TEAM_CAP_SELECTION_KEY]: JSON.stringify(ids) };
 }
 
+/**
+ * The caps that apply to a deal. `lookups` holds the tables their formulas look up (agents for XLOOKUP); see
+ * allocationLookupTables. A formula that cannot be calculated, such as one whose lookup table is missing, does
+ * not qualify: a cap never moves money on a guess.
+ */
 export function qualifyingTeamCaps(
   caps: TeamCapRule[],
   deal: Record<string, unknown> | null,
   fieldTypes: Record<string, string>,
+  lookups?: FormulaLookups | null,
 ): TeamCapRule[] {
-  return caps.filter((cap) => cap.enabled && cap.splitPercentFieldKey && cap.recipientAgentId && qualifies(deal, cap.qualifyingFormula, fieldTypes));
+  return caps.filter((cap) => cap.enabled && cap.splitPercentFieldKey && cap.recipientAgentId && qualifies(deal, cap.qualifyingFormula, fieldTypes, lookups));
+}
+
+/** The lookup tables the team cap and sales volume qualifying formulas read, for loadFormulaLookups. */
+export function allocationLookupTables(
+  teamCaps: { qualifyingFormula?: string | null }[],
+  salesVolume?: { qualifyingFormula?: string | null } | null,
+): string[] {
+  return formulaDataNeeds([...teamCaps.map((cap) => cap.qualifyingFormula ?? ''), salesVolume?.qualifyingFormula ?? '']).lookupTables;
 }
 
 export type DealAllocationContext = {
@@ -193,6 +208,8 @@ export type DealAllocationContext = {
     assignment: 'agent_share' | 'primary_agent';
   } | null;
   fieldTypes: Record<string, string>;
+  /** Tables the qualifying formulas look up (allocationLookupTables). Without them such a formula does not qualify. */
+  lookups?: FormulaLookups | null;
   profiles: { agentId: string; fields: Record<string, string> }[];
   history: { agentId: string; amount: number; periodStart: string | null; teamCapId: string | null }[];
   overrides: { agentId: string; kind: 'team_cap' | 'sales_volume'; amount: number; teamCapId: string | null }[];
@@ -236,8 +253,13 @@ function dealField(deal: Record<string, unknown> | null, key: string): string {
   return '';
 }
 
-function qualifies(deal: Record<string, unknown> | null, formula: string | null, fieldTypes: Record<string, string>): boolean {
-  return dealMatchesDefaultView(deal || {}, formula || '', fieldTypes);
+function qualifies(
+  deal: Record<string, unknown> | null,
+  formula: string | null,
+  fieldTypes: Record<string, string>,
+  lookups?: FormulaLookups | null,
+): boolean {
+  return dealMatchesDefaultView(deal || {}, formula || '', fieldTypes, { lookups, strict: true });
 }
 
 function parseNumber(raw: string | undefined): number | null {
@@ -285,7 +307,7 @@ export function planDealAllocations(
   const profiles = new Map(context.profiles.map((profile) => [profile.agentId, profile]));
 
   const recorded = context.selectedTeamCapIds;
-  const matchingCaps = qualifyingTeamCaps(context.teamCaps, context.deal, context.fieldTypes)
+  const matchingCaps = qualifyingTeamCaps(context.teamCaps, context.deal, context.fieldTypes, context.lookups)
     .filter((cap) => !recorded || recorded.includes(cap.id));
   const payableCaps = matchingCaps.flatMap((cap) => {
     const recipientId = cap.recipientAgentId;
@@ -362,7 +384,7 @@ export function planDealAllocations(
   }
 
   const volume = context.salesVolume;
-  if (volume?.enabled && qualifies(context.deal, volume.qualifyingFormula, context.fieldTypes)) {
+  if (volume?.enabled && qualifies(context.deal, volume.qualifyingFormula, context.fieldTypes, context.lookups)) {
     const anchor = roundCurrency(Math.max(0, context.salesPrice) * (volume.anchor === 'sales_price_x_units' ? Math.max(0, context.units) : 1));
     const results = assignSalesVolume(anchor, volume.assignment, shares.map((share) => ({
       agentId: share.agentId,

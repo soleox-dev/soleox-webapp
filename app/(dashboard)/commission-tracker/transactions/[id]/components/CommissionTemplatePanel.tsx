@@ -5,10 +5,10 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Info, Loader2, Lock, Plus, RefreshCw, RotateCcw, Trash2, X, Zap, type LucideIcon } from 'lucide-react';
 import { evaluateFormula, formulaValueToInput, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { normalizeAgentName } from '@/lib/id';
-import { qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection, type TeamCapRule } from '@/lib/agent-allocations';
+import { allocationLookupTables, qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection, type TeamCapRule } from '@/lib/agent-allocations';
 import { dealFieldValue, formulaFieldNames, templateBoltTone, type TemplateBoltTone } from '@/lib/transaction-default-view';
 import { formatPercent } from '@/lib/fields';
-import { allocationForReplay, loadAllocationCatalog, loadAllocationHistory, loadAllocationOverrides, payoutSignature, replayedPaymentSignature, savedPayouts } from '@/lib/template-payment-drift';
+import { allocationForReplay, loadAllocationCatalog, loadAllocationLookups, loadAllocationHistory, loadAllocationOverrides, payoutSignature, replayedPaymentSignature, savedPayouts } from '@/lib/template-payment-drift';
 import { applyTemplateLogic, clearCommissionModuleCache, formulaDataNeeds, loadCommissionLedger, loadFormulaLookups, loadTemplateBundle, peekCommissionLedger, peekFormulaLookups, peekTemplateBundle, templateFormulaSources, type AppliedCalculation, type AppliedTemplateRules, type TemplateLogicStep, type TemplateParameterRecord } from './applyTemplateLogic';
 import { isConfiguredOrExistingField, type FormulaLedgerRow, type FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import type { StoredCommissionItem } from '../commissionItemState';
@@ -1189,6 +1189,8 @@ export function CommissionTemplatePanel({
         loadAllocationOverrides(clientId, transactionId),
       ]);
       if (cancelled) return;
+      const allocationLookups = await loadAllocationLookups(clientId, catalog).catch(() => null);
+      if (cancelled) return;
       const allocation = allocationForReplay({
         catalog,
         history,
@@ -1197,6 +1199,7 @@ export function CommissionTemplatePanel({
         transactionId,
         agents: knownAgents,
         fieldTypes,
+        lookups: allocationLookups,
       });
       let changed = false;
       for (const row of submittedRows) {
@@ -1362,9 +1365,24 @@ export function CommissionTemplatePanel({
   const flashScrollId = useRef<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [collapsedLogicSections, setCollapsedLogicSections] = useState<Record<string, boolean>>({});
+  // Tables the caps' qualifying formulas look things up in (agents for XLOOKUP), plus field settings for labels.
+  const [capLookups, setCapLookups] = useState<FormulaLookups | null>(null);
+  const capLookupTables = useMemo(() => allocationLookupTables(teamCaps).join(','), [teamCaps]);
+  useEffect(() => {
+    const tables = [...new Set([...capLookupTables.split(',').filter(Boolean), 'client_field_configurations'])];
+    const cached = peekFormulaLookups(clientId, tables);
+    setCapLookups(cached);
+    let cancelled = false;
+    loadFormulaLookups(clientId, tables)
+      .then((loaded) => { if (!cancelled) setCapLookups(loaded); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [clientId, capLookupTables]);
+  // A cap whose formula looks up another table waits for it; until then it does not qualify.
+  const capLookupsReady = !capLookupTables || Boolean(capLookups);
   const qualifyingCaps = useMemo(
-    () => qualifyingTeamCaps(teamCaps, deal, fieldTypes),
-    [teamCaps, deal, fieldTypes],
+    () => qualifyingTeamCaps(teamCaps, deal, fieldTypes, capLookups),
+    [teamCaps, deal, fieldTypes, capLookups],
   );
 
   useEffect(() => {
@@ -1410,30 +1428,14 @@ export function CommissionTemplatePanel({
       capChoiceSet.current = false;
       return;
     }
-    if (!capsLoaded || !schemaReady || capChoiceSet.current) return;
+    if (!capsLoaded || !schemaReady || !capLookupsReady || capChoiceSet.current) return;
     const qualifyingIds = qualifyingCaps.map((cap) => cap.id);
     const stored = draftTemplateId === submittedTemplateId ? readTeamCapSelection(submittedParameters) : null;
     setCheckedCapIds(stored == null ? qualifyingIds : stored.filter((id) => qualifyingIds.includes(id)));
     capChoiceSet.current = true;
-  }, [popupOpen, capsLoaded, schemaReady, qualifyingCaps, draftTemplateId, submittedTemplateId, submittedParameters]);
+  }, [popupOpen, capsLoaded, schemaReady, capLookupsReady, qualifyingCaps, draftTemplateId, submittedTemplateId, submittedParameters]);
 
   // The deal fields each cap's qualifying formula reads, with their values, for the line beside the cap.
-  // Tables the caps' qualifying formulas look things up in (agents for XLOOKUP), plus field settings for labels.
-  const [capLookups, setCapLookups] = useState<FormulaLookups | null>(null);
-  const capLookupTables = useMemo(
-    () => formulaDataNeeds(qualifyingCaps.map((cap) => cap.qualifyingFormula ?? '')).lookupTables.join(','),
-    [qualifyingCaps],
-  );
-  useEffect(() => {
-    const tables = [...new Set([...capLookupTables.split(',').filter(Boolean), 'client_field_configurations'])];
-    const cached = peekFormulaLookups(clientId, tables);
-    if (cached) setCapLookups(cached);
-    let cancelled = false;
-    loadFormulaLookups(clientId, tables)
-      .then((loaded) => { if (!cancelled) setCapLookups(loaded); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [clientId, capLookupTables]);
 
   // What each cap's qualifying formula looks at on this deal, for its info list. An agent field shows the agent's
   // name. An XLOOKUP shows the value looked up and what it found, labelled with the found column's name:
