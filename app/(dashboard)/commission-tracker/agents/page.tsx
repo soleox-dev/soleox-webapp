@@ -1604,6 +1604,7 @@ export default function AgentsPage() {
                                   onChange={(e) => setFormData({ ...formData, [cfg.field_key]: e.target.value || null })}
                                   className={`${underlineControl} overview-field-select cursor-pointer`}
                                 >
+                                  <option value="">No plan</option>
                                   {options.map((plan) => (
                                     <option key={plan.id} value={plan.id}>
                                       {plan.name}
