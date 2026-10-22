@@ -144,7 +144,7 @@ export function PlanEditor({
                       checked={line.appliesFeeShare !== false}
                       onChange={(event) => setLine(index, { appliesFeeShare: event.target.checked ? undefined : false })}
                     />
-                    Times the Deal&apos;s Fee Share
+                    Times the deal&apos;s Fee Share
                   </label>
                 </>
               )}
