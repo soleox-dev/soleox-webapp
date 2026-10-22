@@ -19,6 +19,7 @@ import { BooleanCheckbox, BooleanField, isBooleanChecked } from '@/components/ui
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
 import { parameterValidationMessage } from '@/lib/parameter-validation';
 import { swallowNextClick } from '@/lib/swallow-click';
+import { evaluateArithmetic, isArithmeticExpression, mayBeArithmetic, percentPointsFromArithmetic } from '@/lib/arithmetic';
 
 interface TemplateOption {
   id: string;
@@ -556,6 +557,19 @@ function NumericParameterInput({
   const [focused, setFocused] = useState(false);
   const [draft, setDraft] = useState(core ?? value);
 
+  // A calculation ("60/70", "1500*2") is held as typed and worked out on Enter or when the field is left. In a
+  // percent field a division under 1 is a ratio: 60/70 is 85.71%. Returns the result as a plain number, or null.
+  const commitExpression = (): string | null => {
+    if (!isArithmeticExpression(draft)) return null;
+    const result = kind === 'PERCENT' ? percentPointsFromArithmetic(draft) : evaluateArithmetic(draft);
+    if (result === null) return null;
+    const rounded = kind === 'CURRENCY' ? Math.round(result * 100) / 100 : Number(result.toFixed(kind === 'PERCENT' ? 3 : 6));
+    const nextCore = String(rounded);
+    const next = formatCommitted(kind, nextCore);
+    if (next !== value) onChange(next);
+    return nextCore;
+  };
+
   useEffect(() => {
     if (!focused) setDraft(core ?? value);
   }, [focused, core, value]);
@@ -574,9 +588,20 @@ function NumericParameterInput({
         setDraft(core ?? value);
         setFocused(true);
       }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' || readOnly || !isArithmeticExpression(draft)) return;
+        event.preventDefault();
+        const computed = commitExpression();
+        setDraft(computed ?? core ?? value);
+      }}
       onBlur={() => {
         setFocused(false);
         if (readOnly) return;
+        if (isArithmeticExpression(draft)) {
+          const computed = commitExpression();
+          setDraft(computed ?? core ?? value);
+          return;
+        }
         const nextCore = numericCore(draft);
         if (nextCore === null) {
           setDraft(core ?? value);
@@ -587,6 +612,10 @@ function NumericParameterInput({
       }}
       onChange={(event) => {
         if (readOnly) return;
+        if (isArithmeticExpression(event.target.value) && mayBeArithmetic(event.target.value)) {
+          setDraft(event.target.value);
+          return;
+        }
         let raw = event.target.value.replace(/[$,%\s]/g, '');
         if (kind === 'CURRENCY' && raw.includes('.')) {
           const [integer, decimals] = raw.split('.');
