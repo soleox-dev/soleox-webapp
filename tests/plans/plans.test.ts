@@ -131,6 +131,50 @@ describe('post-cap fee bucket', () => {
   });
 });
 
+describe('several tiers', () => {
+  // $250 for the first $5,000 paid this year, $125 for the next $2,500, then $75.
+  const tiered = (tiers: { amount: number; untilPaid: number }[]): CommissionPlan => ({
+    ...exp16000,
+    lines: exp16000.lines.map((item) => (item.key === 'post_cap_fee' ? { ...item, tiers } : item)),
+  });
+  const fee = (plan: CommissionPlan, paid: number) => {
+    const deal: PlanDealInput = {
+      id: 'TXN_TIERS',
+      gci: 100000,
+      capDate: '2026-06-15',
+      agents: [agent({ id: 'a', splitPercent: 100, plan, startingBalances: leftToCap(plan, 0, { post_cap_fee: paid }) })],
+    };
+    return line(computePlanDeal(deal).agents[0], 'post_cap_fee');
+  };
+  const two = tiered([{ amount: 250, untilPaid: 5000 }, { amount: 125, untilPaid: 7500 }]);
+
+  it('charges each tier in turn', () => {
+    expect(fee(two, 0).amount).toBe(250);
+    expect(fee(two, 6000).amount).toBe(125);
+    expect(fee(two, 7500).amount).toBe(75);
+  });
+
+  it('blends the deal that finishes one tier into the next', () => {
+    // $40 left at $250 covers 16% of the deal; the other 84% is charged at $125: $105.
+    expect(fee(two, 4960).amount).toBe(145);
+  });
+
+  it('a deal can cross two tiers at once', () => {
+    // $40 at $250 (16%), then the $10 left at $125 (8%), then the other 76% at $75 ($57).
+    const narrow = tiered([{ amount: 250, untilPaid: 5000 }, { amount: 125, untilPaid: 5010 }]);
+    const crossing = fee(narrow, 4960);
+    expect(crossing.amount).toBe(107);
+    expect(crossing.explanation).toContain('only $40.00 is left before $5,000.00');
+    expect(crossing.explanation).toContain('only $10.00 is left before $5,010.00');
+  });
+
+  it('a team lead on a plan that skips the tiers pays $75 from the start', () => {
+    const skipping = { ...two, lines: two.lines.map((item) => (item.key === 'post_cap_fee' ? { ...item, skipTiersForRoles: ['team_lead'] } : item)) };
+    const deal: PlanDealInput = { id: 'TXN_TL', gci: 100000, capDate: '2026-06-15', agents: [agent({ id: 'a', splitPercent: 100, plan: skipping, roles: ['team_lead'], startingBalances: leftToCap(skipping, 0) })] };
+    expect(line(computePlanDeal(deal).agents[0], 'post_cap_fee').amount).toBe(75);
+  });
+});
+
 describe('post-cap fee limit', () => {
   it('is never more than 20% of the split: an agent alone on a $300 split pays $60, not $75', () => {
     const deal: PlanDealInput = {

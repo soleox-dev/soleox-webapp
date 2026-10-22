@@ -4,7 +4,7 @@ import React from 'react';
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { FormulaEditor, type FormulaName } from '../commission-templates/FormulaEditor';
-import { planFormulaNames, type CommissionPlan, type PlanLine } from '@/lib/commission-engine';
+import { planFormulaNames, type CommissionPlan, type FeeTier, type PlanLine } from '@/lib/commission-engine';
 import { LINE_TYPES, MenuField, NumberField, TextField, fromPoints, lineTypeLabel, newLine, toPoints } from './plan-inputs';
 
 const FORMULA_LABELS: Record<string, string> = {
@@ -28,6 +28,44 @@ function formulaLabel(name: string): string {
 
 function formulaNames(plan: CommissionPlan, index: number): FormulaName[] {
   return planFormulaNames(plan, index).map((name) => ({ name, label: formulaLabel(name), kind: 'field' }));
+}
+
+/**
+ * A per-deal fee's tiers, in order: each charges its Amount per Deal For the Next dollars of this fee paid in the
+ * cap year. They are stored as running yearly totals (untilPaid), as the engine reads them.
+ */
+function TierList({ tiers, onChange }: { tiers: FeeTier[]; onChange: (tiers: FeeTier[]) => void }) {
+  const widths = tiers.map((tier, i) => tier.untilPaid - (i === 0 ? 0 : tiers[i - 1].untilPaid));
+  const rebuild = (amounts: number[], next: number[]) => {
+    let total = 0;
+    return amounts.map((amount, i) => {
+      total += next[i];
+      return { amount, untilPaid: total };
+    });
+  };
+  const amounts = tiers.map((tier) => tier.amount);
+  return (
+    <div className="space-y-2 sm:col-span-3">
+      <div className="text-2xs font-bold text-slate-500 dark:text-slate-400">Tiers</div>
+      {tiers.length === 0 && <p className="text-xs text-slate-400">No tiers: every deal is charged the Amount per Deal.</p>}
+      {tiers.map((tier, i) => (
+        <div key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-3">
+          <NumberField label={`Tier ${i + 1}: Amount per Deal`} prefix="$" value={tier.amount} onChange={(amount) => onChange(rebuild(amounts.map((value, j) => (j === i ? amount ?? 0 : value)), widths))} />
+          <NumberField label="For the Next" prefix="$" value={widths[i]} onChange={(width) => onChange(rebuild(amounts, widths.map((value, j) => (j === i ? width ?? 0 : value))))} />
+          <button type="button" onClick={() => onChange(rebuild(amounts.filter((_, j) => j !== i), widths.filter((_, j) => j !== i)))} className="mb-1 cursor-pointer rounded p-1 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600" aria-label={`Remove Tier ${i + 1}`} title={`Remove Tier ${i + 1}`}>
+            <TrashIcon />
+          </button>
+        </div>
+      ))}
+      <button type="button" onClick={() => onChange(rebuild([...amounts, 0], [...widths, 0]))} className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-brand-500/10 hover:text-brand-700 dark:text-slate-400 dark:hover:bg-brand-500/15 dark:hover:text-brand-400">
+        <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+        Add Tier
+      </button>
+      {tiers.length > 0 && (
+        <p className="text-2xs text-slate-500 dark:text-slate-400">Charged in order, by what the agent has paid on this fee in the cap year; a deal that finishes a tier is charged the rest at the next one. After the last tier, the Amount per Deal After the Tiers applies.</p>
+      )}
+    </div>
+  );
 }
 
 /** The plan's lines in order, each with the settings of its rule type. */
@@ -98,7 +136,7 @@ export function PlanEditor({
 
               {line.type === 'per_deal_fee' && (
                 <>
-                  <NumberField label="Amount per Deal" prefix="$" value={line.amount} onChange={(amount) => setLine(index, { amount: amount ?? 0 })} />
+                  <NumberField label={line.tiers?.length ? 'Amount per Deal After the Tiers' : 'Amount per Deal'} prefix="$" value={line.amount} onChange={(amount) => setLine(index, { amount: amount ?? 0 })} />
                   <NumberField label="Yearly Limit" prefix="$" allowEmpty placeholder="No Limit" value={line.yearlyLimit ?? null} onChange={(limit) => setLine(index, { yearlyLimit: limit ?? undefined })} />
                   <NumberField
                     label="No More Than (of the Split)"
@@ -115,27 +153,20 @@ export function PlanEditor({
                     options={[{ value: '', label: 'Not Multiplied' }, ...capped.map((other) => ({ value: other.key, label: other.name }))]}
                     onChange={(key) => setLine(index, { multiplierFrom: key || undefined })}
                   />
-                  <NumberField
-                    label="First Tier Amount"
-                    prefix="$"
-                    allowEmpty
-                    placeholder="No Tier"
-                    value={line.tiers?.[0]?.amount ?? null}
-                    onChange={(amount) => setLine(index, { tiers: amount === null ? undefined : [{ amount, untilPaid: line.tiers?.[0]?.untilPaid ?? 0 }] })}
+                  <TierList
+                    tiers={line.tiers || []}
+                    onChange={(tiers) => setLine(index, tiers.length ? { tiers } : { tiers: undefined, skipTiersForRoles: undefined })}
                   />
                   {line.tiers?.length ? (
-                    <>
-                      <NumberField label="Until Paid This Year" prefix="$" value={line.tiers[0].untilPaid} onChange={(untilPaid) => setLine(index, { tiers: [{ amount: line.tiers![0].amount, untilPaid: untilPaid ?? 0 }] })} />
-                      <label title="Agents marked Team Lead on Agents pay the Amount per Deal from the start, without the first tier." className="flex items-center gap-2 self-end pb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 cursor-pointer accent-brand-600"
-                          checked={Boolean(line.skipTiersForRoles?.includes('team_lead'))}
-                          onChange={(event) => setLine(index, { skipTiersForRoles: event.target.checked ? ['team_lead'] : undefined })}
-                        />
-                        Skip the Tier
-                      </label>
-                    </>
+                    <label title="Agents marked Team Lead on Agents pay the Amount per Deal After the Tiers from the start." className="flex items-center gap-2 self-end pb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 cursor-pointer accent-brand-600"
+                        checked={Boolean(line.skipTiersForRoles?.includes('team_lead'))}
+                        onChange={(event) => setLine(index, { skipTiersForRoles: event.target.checked ? ['team_lead'] : undefined })}
+                      />
+                      Skip the Tiers
+                    </label>
                   ) : null}
                   <label className="flex items-center gap-2 self-end pb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
                     <input
