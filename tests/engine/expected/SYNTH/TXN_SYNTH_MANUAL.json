@@ -1,0 +1,1156 @@
+{
+  "pageSaved": {
+    "waterfall": {
+      "grossCommission": 30000,
+      "totalCommission": 30000,
+      "commissionAfterOffTop": 30000,
+      "commissionAfterPreSplit": 29750,
+      "offTheTopItems": [],
+      "preSplitItems": [
+        {
+          "id": "TCI_MANUAL000027",
+          "name": "TC Fee",
+          "entity": "TC Fee",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 250,
+          "amount": 250
+        }
+      ],
+      "agentSplitItems": [
+        {
+          "agentId": "AGT_000000000003",
+          "agentName": "Fn003 Ln003",
+          "splitType": "PERCENT",
+          "splitVal": 0.6638655,
+          "percent": 0.6638655,
+          "amount": 20825,
+          "isPrimary": true,
+          "grossAmount": 19750,
+          "displayPercent": 0.7,
+          "capAdjusted": true
+        },
+        {
+          "agentId": "AGT_000000000005",
+          "agentName": "Fn005 Ln005",
+          "splitType": "AMOUNT",
+          "splitVal": 10000,
+          "percent": 0.3361345,
+          "amount": 8925,
+          "overAllocated": false,
+          "isPrimary": false,
+          "manualSplit": false,
+          "grossAmount": 10000,
+          "displayPercent": 0.3,
+          "capAdjusted": true
+        },
+        {
+          "agentId": "AGT_000000000001",
+          "agentName": "Fn001 Ln001",
+          "splitType": "PERCENT",
+          "splitVal": 0,
+          "percent": 0,
+          "amount": 0,
+          "overAllocated": false,
+          "isPrimary": false,
+          "manualSplit": false
+        }
+      ],
+      "allocationLines": [
+        {
+          "id": "AGT_000000000003:CTC_000000000001:team_cap",
+          "agent_id": "AGT_000000000003",
+          "kind": "team_cap",
+          "amount": 3950,
+          "calculated_amount": 3950,
+          "is_override": false,
+          "period_start": "2026-03-01",
+          "team_cap_id": "CTC_000000000001",
+          "cap_name": "Fn001 Team Cap",
+          "tracked": true,
+          "cap_amount": 6000,
+          "prior_amount": 1000,
+          "team_percent": 20
+        },
+        {
+          "id": "AGT_000000000005:CTC_000000000001:team_cap",
+          "agent_id": "AGT_000000000005",
+          "kind": "team_cap",
+          "amount": 0,
+          "calculated_amount": 0,
+          "is_override": false,
+          "period_start": "2026-03-01",
+          "team_cap_id": "CTC_000000000001",
+          "cap_name": "Fn001 Team Cap",
+          "tracked": true,
+          "cap_amount": 1500,
+          "prior_amount": 1500,
+          "team_percent": 20
+        }
+      ],
+      "postSplitItems": [
+        {
+          "id": "tpl_TPR_006",
+          "agentId": "AGT_000000000003",
+          "agentName": "Fn003 Ln003",
+          "entity": "Company Comm",
+          "ruleName": "A1 Company Comm",
+          "note": "",
+          "type": "PERCENT",
+          "value": 0.057623,
+          "amount": 1200,
+          "level": 1
+        },
+        {
+          "id": "tpl_TPR_007",
+          "agentId": "AGT_000000000005",
+          "agentName": "Fn005 Ln005",
+          "entity": "Company Comm",
+          "ruleName": "A2 Company Comm",
+          "note": "",
+          "type": "PERCENT",
+          "value": 0.2,
+          "amount": 1785,
+          "level": 1
+        }
+      ],
+      "postSplit2Items": [],
+      "agentNetAfterLevel1": {
+        "Fn003 Ln003": 19625,
+        "Fn005 Ln005": 7140,
+        "Fn001 Ln001": 0
+      },
+      "netPayouts": {
+        "Fn003 Ln003": 19625,
+        "Fn005 Ln005": 7140,
+        "Fn001 Ln001": 0,
+        "TC Fee": 250,
+        "Company Comm": 2985
+      },
+      "agentSplitTotal": 29750,
+      "agentSplitExcess": 0,
+      "idleAgentIds": [
+        "AGT_000000000001"
+      ],
+      "capMovedMoney": true
+    },
+    "save": {
+      "commissionItems": [
+        {
+          "step_number": 11,
+          "rule_name": "TC Fee",
+          "section": "PRE_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 250,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_00000000000C",
+          "agent_id": null,
+          "final_amount": 250
+        },
+        {
+          "step_number": 1,
+          "rule_name": "Fn003 Ln003 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.6638655,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_000000000003",
+          "final_amount": 20825,
+          "custom_attributes": {}
+        },
+        {
+          "step_number": 2,
+          "rule_name": "Fn005 Ln005 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 10000,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_000000000005",
+          "final_amount": 8925,
+          "custom_attributes": {}
+        },
+        {
+          "step_number": 31,
+          "rule_name": "Company Comm",
+          "section": "POST_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.057623,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_00000000000A",
+          "agent_id": "AGT_000000000003",
+          "final_amount": 1200
+        },
+        {
+          "step_number": 32,
+          "rule_name": "Company Comm",
+          "section": "POST_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.2,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_00000000000A",
+          "agent_id": "AGT_000000000005",
+          "final_amount": 1785
+        }
+      ],
+      "payments": [
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_000000000003",
+          "payee_entity_id": null,
+          "amount_paid": 19625,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn003 Ln003 (Agent) - Primary: Fn003 Ln003",
+          "payment_date": "2026-06-15"
+        },
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_000000000005",
+          "payee_entity_id": null,
+          "amount_paid": 7140,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn005 Ln005 (Agent) - Primary: Fn003 Ln003",
+          "payment_date": "2026-06-15"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_00000000000C",
+          "amount_paid": 250,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "TC Fee (Entity) - Primary: Fn003 Ln003",
+          "payment_date": "2026-06-15"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_00000000000A",
+          "amount_paid": 2985,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Company Comm (Entity) - Primary: Fn003 Ln003",
+          "payment_date": "2026-06-15"
+        }
+      ],
+      "allocationRows": [
+        {
+          "agentId": "AGT_000000000003",
+          "kind": "team_cap",
+          "amount": 3950,
+          "calculatedAmount": 3950,
+          "isOverride": false,
+          "periodStart": "2026-03-01",
+          "teamCapId": "CTC_000000000001"
+        },
+        {
+          "agentId": "AGT_000000000005",
+          "kind": "team_cap",
+          "amount": 0,
+          "calculatedAmount": 0,
+          "isOverride": false,
+          "periodStart": "2026-03-01",
+          "teamCapId": "CTC_000000000001"
+        }
+      ]
+    },
+    "capRecipientShortfalls": [
+      {
+        "recipientId": "AGT_000000000001",
+        "name": "Fn001 Ln001",
+        "receives": 3950,
+        "has": 0
+      }
+    ],
+    "saveBlocked": true,
+    "saveBlockedReason": "Fn001 Ln001's agent split is $0.00, less than the $3,950.00 team caps move to them."
+  },
+  "pageBeforeReplay": {
+    "waterfall": {
+      "grossCommission": 30000,
+      "totalCommission": 30000,
+      "commissionAfterOffTop": 30000,
+      "commissionAfterPreSplit": 29750,
+      "offTheTopItems": [],
+      "preSplitItems": [
+        {
+          "id": "TCI_MANUAL000027",
+          "name": "TC Fee",
+          "entity": "TC Fee",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 250,
+          "amount": 250
+        }
+      ],
+      "agentSplitItems": [
+        {
+          "agentId": "AGT_000000000003",
+          "agentName": "Fn003 Ln003",
+          "splitType": "PERCENT",
+          "splitVal": 0.6638655,
+          "percent": 0.6638655,
+          "amount": 19337.5,
+          "isPrimary": true,
+          "grossAmount": 19750,
+          "displayPercent": 0.65,
+          "capAdjusted": true
+        },
+        {
+          "agentId": "AGT_000000000005",
+          "agentName": "Fn005 Ln005",
+          "splitType": "AMOUNT",
+          "splitVal": 10000,
+          "percent": 0.3361345,
+          "amount": 10000,
+          "overAllocated": false,
+          "isPrimary": false,
+          "manualSplit": false
+        },
+        {
+          "agentId": "AGT_000000000001",
+          "agentName": "Fn001 Ln001",
+          "splitType": "PERCENT",
+          "splitVal": 0,
+          "percent": 0,
+          "amount": 412.5,
+          "overAllocated": false,
+          "isPrimary": false,
+          "manualSplit": false,
+          "grossAmount": 0,
+          "displayPercent": 0.0138655,
+          "capAdjusted": true
+        }
+      ],
+      "allocationLines": [
+        {
+          "id": "AGT_000000000003:CTC_000000000001:team_cap",
+          "agent_id": "AGT_000000000003",
+          "kind": "team_cap",
+          "amount": 3950,
+          "calculated_amount": 3950,
+          "is_override": false,
+          "period_start": "2026-03-01",
+          "team_cap_id": "CTC_000000000001",
+          "cap_name": "Fn001 Team Cap",
+          "tracked": true,
+          "cap_amount": 6000,
+          "prior_amount": 1000,
+          "team_percent": 20
+        },
+        {
+          "id": "AGT_000000000005:CTC_000000000001:team_cap",
+          "agent_id": "AGT_000000000005",
+          "kind": "team_cap",
+          "amount": 0,
+          "calculated_amount": 0,
+          "is_override": false,
+          "period_start": "2026-03-01",
+          "team_cap_id": "CTC_000000000001",
+          "cap_name": "Fn001 Team Cap",
+          "tracked": true,
+          "cap_amount": 1500,
+          "prior_amount": 1500,
+          "team_percent": 20
+        }
+      ],
+      "postSplitItems": [],
+      "postSplit2Items": [],
+      "agentNetAfterLevel1": {
+        "Fn003 Ln003": 19337.5,
+        "Fn005 Ln005": 10000,
+        "Fn001 Ln001": 412.5
+      },
+      "netPayouts": {
+        "Fn003 Ln003": 19337.5,
+        "Fn005 Ln005": 10000,
+        "Fn001 Ln001": 412.5,
+        "TC Fee": 250
+      },
+      "agentSplitTotal": 29750,
+      "agentSplitExcess": 0,
+      "idleAgentIds": [],
+      "capMovedMoney": true
+    },
+    "save": {
+      "commissionItems": [
+        {
+          "step_number": 11,
+          "rule_name": "TC Fee",
+          "section": "PRE_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 250,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_00000000000C",
+          "agent_id": null,
+          "final_amount": 250
+        },
+        {
+          "step_number": 1,
+          "rule_name": "Fn003 Ln003 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.6638655,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_000000000003",
+          "final_amount": 19337.5,
+          "custom_attributes": {}
+        },
+        {
+          "step_number": 2,
+          "rule_name": "Fn005 Ln005 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 10000,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_000000000005",
+          "final_amount": 10000,
+          "custom_attributes": {}
+        },
+        {
+          "step_number": 3,
+          "rule_name": "Fn001 Ln001 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_000000000001",
+          "final_amount": 412.5,
+          "custom_attributes": {}
+        }
+      ],
+      "payments": [
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_000000000003",
+          "payee_entity_id": null,
+          "amount_paid": 19337.5,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn003 Ln003 (Agent) - Primary: Fn003 Ln003",
+          "payment_date": "2026-06-15"
+        },
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_000000000005",
+          "payee_entity_id": null,
+          "amount_paid": 10000,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn005 Ln005 (Agent) - Primary: Fn003 Ln003",
+          "payment_date": "2026-06-15"
+        },
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_000000000001",
+          "payee_entity_id": null,
+          "amount_paid": 412.5,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn001 Ln001 (Agent) - Primary: Fn003 Ln003",
+          "payment_date": "2026-06-15"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_00000000000C",
+          "amount_paid": 250,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "TC Fee (Entity) - Primary: Fn003 Ln003",
+          "payment_date": "2026-06-15"
+        }
+      ],
+      "allocationRows": [
+        {
+          "agentId": "AGT_000000000003",
+          "kind": "team_cap",
+          "amount": 3950,
+          "calculatedAmount": 3950,
+          "isOverride": false,
+          "periodStart": "2026-03-01",
+          "teamCapId": "CTC_000000000001"
+        },
+        {
+          "agentId": "AGT_000000000005",
+          "kind": "team_cap",
+          "amount": 0,
+          "calculatedAmount": 0,
+          "isOverride": false,
+          "periodStart": "2026-03-01",
+          "teamCapId": "CTC_000000000001"
+        }
+      ]
+    },
+    "capRecipientShortfalls": [
+      {
+        "recipientId": "AGT_000000000001",
+        "name": "Fn001 Ln001",
+        "receives": 3950,
+        "has": 412.5
+      }
+    ],
+    "saveBlocked": true,
+    "saveBlockedReason": "Fn001 Ln001's agent split is $412.50, less than the $3,950.00 team caps move to them."
+  },
+  "pageTypedSplit": {
+    "agentId": "AGT_000000000005",
+    "splitVal": 9000,
+    "waterfall": {
+      "grossCommission": 30000,
+      "totalCommission": 30000,
+      "commissionAfterOffTop": 30000,
+      "commissionAfterPreSplit": 29750,
+      "offTheTopItems": [],
+      "preSplitItems": [
+        {
+          "id": "TCI_MANUAL000027",
+          "name": "TC Fee",
+          "entity": "TC Fee",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 250,
+          "amount": 250
+        }
+      ],
+      "agentSplitItems": [
+        {
+          "agentId": "AGT_000000000003",
+          "agentName": "Fn003 Ln003",
+          "splitType": "PERCENT",
+          "splitVal": 0.697479,
+          "percent": 0.697479,
+          "amount": 20750,
+          "isPrimary": true
+        },
+        {
+          "agentId": "AGT_000000000005",
+          "agentName": "Fn005 Ln005",
+          "splitType": "AMOUNT",
+          "splitVal": 9000,
+          "percent": 0.302521,
+          "amount": 9000,
+          "overAllocated": false,
+          "isPrimary": false,
+          "manualSplit": true
+        },
+        {
+          "agentId": "AGT_000000000001",
+          "agentName": "Fn001 Ln001",
+          "splitType": "PERCENT",
+          "splitVal": 0,
+          "percent": 0,
+          "amount": 0,
+          "overAllocated": false,
+          "isPrimary": false,
+          "manualSplit": false
+        }
+      ],
+      "allocationLines": [
+        {
+          "id": "AGT_000000000003:CTC_000000000001:team_cap",
+          "agent_id": "AGT_000000000003",
+          "kind": "team_cap",
+          "amount": 4150,
+          "calculated_amount": 4150,
+          "is_override": false,
+          "period_start": "2026-03-01",
+          "team_cap_id": "CTC_000000000001",
+          "cap_name": "Fn001 Team Cap",
+          "tracked": true,
+          "cap_amount": 6000,
+          "prior_amount": 1000,
+          "team_percent": 20
+        },
+        {
+          "id": "AGT_000000000005:CTC_000000000001:team_cap",
+          "agent_id": "AGT_000000000005",
+          "kind": "team_cap",
+          "amount": 0,
+          "calculated_amount": 0,
+          "is_override": false,
+          "period_start": "2026-03-01",
+          "team_cap_id": "CTC_000000000001",
+          "cap_name": "Fn001 Team Cap",
+          "tracked": true,
+          "cap_amount": 1500,
+          "prior_amount": 1500,
+          "team_percent": 20
+        }
+      ],
+      "postSplitItems": [
+        {
+          "id": "tpl_TPR_006",
+          "agentId": "AGT_000000000003",
+          "agentName": "Fn003 Ln003",
+          "entity": "Company Comm",
+          "ruleName": "A1 Company Comm",
+          "note": "",
+          "type": "PERCENT",
+          "value": 0.057623,
+          "amount": 1195.68,
+          "level": 1
+        },
+        {
+          "id": "tpl_TPR_007",
+          "agentId": "AGT_000000000005",
+          "agentName": "Fn005 Ln005",
+          "entity": "Company Comm",
+          "ruleName": "A2 Company Comm",
+          "note": "",
+          "type": "PERCENT",
+          "value": 0.2,
+          "amount": 1800,
+          "level": 1
+        }
+      ],
+      "postSplit2Items": [],
+      "agentNetAfterLevel1": {
+        "Fn003 Ln003": 19554.32,
+        "Fn005 Ln005": 7200,
+        "Fn001 Ln001": 0
+      },
+      "netPayouts": {
+        "Fn003 Ln003": 19554.32,
+        "Fn005 Ln005": 7200,
+        "Fn001 Ln001": 0,
+        "TC Fee": 250,
+        "Company Comm": 2995.68
+      },
+      "agentSplitTotal": 29750,
+      "agentSplitExcess": 0,
+      "idleAgentIds": [
+        "AGT_000000000001"
+      ],
+      "capMovedMoney": true
+    },
+    "save": {
+      "commissionItems": [
+        {
+          "step_number": 11,
+          "rule_name": "TC Fee",
+          "section": "PRE_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 250,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_00000000000C",
+          "agent_id": null,
+          "final_amount": 250
+        },
+        {
+          "step_number": 1,
+          "rule_name": "Fn003 Ln003 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.697479,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_000000000003",
+          "final_amount": 20750,
+          "custom_attributes": {}
+        },
+        {
+          "step_number": 2,
+          "rule_name": "Fn005 Ln005 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 9000,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_000000000005",
+          "final_amount": 9000,
+          "custom_attributes": {
+            "manual_split": true
+          }
+        },
+        {
+          "step_number": 31,
+          "rule_name": "Company Comm",
+          "section": "POST_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.057623,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_00000000000A",
+          "agent_id": "AGT_000000000003",
+          "final_amount": 1195.68
+        },
+        {
+          "step_number": 32,
+          "rule_name": "Company Comm",
+          "section": "POST_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.2,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_00000000000A",
+          "agent_id": "AGT_000000000005",
+          "final_amount": 1800
+        }
+      ],
+      "payments": [
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_000000000003",
+          "payee_entity_id": null,
+          "amount_paid": 19554.32,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn003 Ln003 (Agent) - Primary: Fn003 Ln003",
+          "payment_date": "2026-06-15"
+        },
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_000000000005",
+          "payee_entity_id": null,
+          "amount_paid": 7200,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn005 Ln005 (Agent) - Primary: Fn003 Ln003",
+          "payment_date": "2026-06-15"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_00000000000C",
+          "amount_paid": 250,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "TC Fee (Entity) - Primary: Fn003 Ln003",
+          "payment_date": "2026-06-15"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_00000000000A",
+          "amount_paid": 2995.68,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Company Comm (Entity) - Primary: Fn003 Ln003",
+          "payment_date": "2026-06-15"
+        }
+      ],
+      "allocationRows": [
+        {
+          "agentId": "AGT_000000000003",
+          "kind": "team_cap",
+          "amount": 4150,
+          "calculatedAmount": 4150,
+          "isOverride": false,
+          "periodStart": "2026-03-01",
+          "teamCapId": "CTC_000000000001"
+        },
+        {
+          "agentId": "AGT_000000000005",
+          "kind": "team_cap",
+          "amount": 0,
+          "calculatedAmount": 0,
+          "isOverride": false,
+          "periodStart": "2026-03-01",
+          "teamCapId": "CTC_000000000001"
+        }
+      ]
+    },
+    "capRecipientShortfalls": [
+      {
+        "recipientId": "AGT_000000000001",
+        "name": "Fn001 Ln001",
+        "receives": 4150,
+        "has": 0
+      }
+    ],
+    "saveBlocked": true,
+    "saveBlockedReason": "Fn001 Ln001's agent split is $0.00, less than the $4,150.00 team caps move to them."
+  },
+  "popupResubmit": {
+    "applied": {
+      "offTheTopRules": [],
+      "preSplitRules": [
+        {
+          "id": "tpl_TPR_002",
+          "name": "TC Fee",
+          "entity": "TC Fee",
+          "type": "AMOUNT",
+          "value": 250
+        }
+      ],
+      "postSplitRulesByAgent": {
+        "Fn003 Ln003": [
+          {
+            "id": "tpl_TPR_006",
+            "name": "A1 Company Comm",
+            "entity": "Company Comm",
+            "type": "PERCENT",
+            "value": 0.057623,
+            "fromTeamCapBaseline": false
+          }
+        ],
+        "Fn005 Ln005": [
+          {
+            "id": "tpl_TPR_007",
+            "name": "A2 Company Comm",
+            "entity": "Company Comm",
+            "type": "PERCENT",
+            "value": 0.2,
+            "fromTeamCapBaseline": false
+          }
+        ]
+      },
+      "postSplit2RulesByAgent": {},
+      "agentSplits": [
+        {
+          "name": "Fn003 Ln003",
+          "splitType": "PERCENT",
+          "splitVal": 0.7,
+          "amount": 20825,
+          "remainder": false
+        },
+        {
+          "name": "Fn005 Ln005",
+          "splitType": "PERCENT",
+          "splitVal": 0.3,
+          "amount": 8925,
+          "remainder": true
+        }
+      ],
+      "calculations": []
+    },
+    "teamCapIds": [
+      "CTC_000000000001"
+    ],
+    "teamCapRecipients": [
+      {
+        "id": "AGT_000000000001",
+        "name": "Fn001 Ln001",
+        "isTeamLead": true
+      }
+    ],
+    "waterfall": {
+      "grossCommission": 30000,
+      "totalCommission": 30000,
+      "commissionAfterOffTop": 30000,
+      "commissionAfterPreSplit": 29750,
+      "offTheTopItems": [],
+      "preSplitItems": [
+        {
+          "id": "tpl_TPR_002",
+          "name": "TC Fee",
+          "entity": "TC Fee",
+          "type": "AMOUNT",
+          "value": 250,
+          "amount": 250
+        }
+      ],
+      "agentSplitItems": [
+        {
+          "agentId": "AGT_000000000003",
+          "agentName": "Fn003 Ln003",
+          "splitType": "PERCENT",
+          "splitVal": 0.7,
+          "percent": 0.7,
+          "amount": 20825,
+          "isPrimary": true
+        },
+        {
+          "agentId": "AGT_000000000005",
+          "agentName": "Fn005 Ln005",
+          "splitType": "PERCENT",
+          "splitVal": 0.3,
+          "percent": 0.3,
+          "amount": 8925,
+          "overAllocated": false,
+          "isPrimary": false,
+          "manualSplit": false
+        },
+        {
+          "agentId": "AGT_000000000001",
+          "agentName": "Fn001 Ln001",
+          "splitType": "PERCENT",
+          "splitVal": 0,
+          "percent": 0,
+          "amount": 0,
+          "overAllocated": false,
+          "isPrimary": false,
+          "manualSplit": false
+        }
+      ],
+      "allocationLines": [
+        {
+          "id": "AGT_000000000003:CTC_000000000001:team_cap",
+          "agent_id": "AGT_000000000003",
+          "kind": "team_cap",
+          "amount": 4165,
+          "calculated_amount": 4165,
+          "is_override": false,
+          "period_start": "2026-03-01",
+          "team_cap_id": "CTC_000000000001",
+          "cap_name": "Fn001 Team Cap",
+          "tracked": true,
+          "cap_amount": 6000,
+          "prior_amount": 1000,
+          "team_percent": 20
+        },
+        {
+          "id": "AGT_000000000005:CTC_000000000001:team_cap",
+          "agent_id": "AGT_000000000005",
+          "kind": "team_cap",
+          "amount": 0,
+          "calculated_amount": 0,
+          "is_override": false,
+          "period_start": "2026-03-01",
+          "team_cap_id": "CTC_000000000001",
+          "cap_name": "Fn001 Team Cap",
+          "tracked": true,
+          "cap_amount": 1500,
+          "prior_amount": 1500,
+          "team_percent": 20
+        }
+      ],
+      "postSplitItems": [
+        {
+          "id": "tpl_TPR_006",
+          "agentId": "AGT_000000000003",
+          "agentName": "Fn003 Ln003",
+          "entity": "Company Comm",
+          "ruleName": "A1 Company Comm",
+          "note": "",
+          "type": "PERCENT",
+          "value": 0.057623,
+          "amount": 1200,
+          "level": 1
+        },
+        {
+          "id": "tpl_TPR_007",
+          "agentId": "AGT_000000000005",
+          "agentName": "Fn005 Ln005",
+          "entity": "Company Comm",
+          "ruleName": "A2 Company Comm",
+          "note": "",
+          "type": "PERCENT",
+          "value": 0.2,
+          "amount": 1785,
+          "level": 1
+        }
+      ],
+      "postSplit2Items": [],
+      "agentNetAfterLevel1": {
+        "Fn003 Ln003": 19625,
+        "Fn005 Ln005": 7140,
+        "Fn001 Ln001": 0
+      },
+      "netPayouts": {
+        "Fn003 Ln003": 19625,
+        "Fn005 Ln005": 7140,
+        "Fn001 Ln001": 0,
+        "TC Fee": 250,
+        "Company Comm": 2985
+      },
+      "agentSplitTotal": 29750,
+      "agentSplitExcess": 0,
+      "idleAgentIds": [
+        "AGT_000000000001"
+      ],
+      "capMovedMoney": true
+    },
+    "save": {
+      "commissionItems": [
+        {
+          "step_number": 11,
+          "rule_name": "TC Fee",
+          "section": "PRE_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 250,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_00000000000C",
+          "agent_id": null,
+          "final_amount": 250
+        },
+        {
+          "step_number": 1,
+          "rule_name": "Fn003 Ln003 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.7,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_000000000003",
+          "final_amount": 20825,
+          "custom_attributes": {}
+        },
+        {
+          "step_number": 2,
+          "rule_name": "Fn005 Ln005 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.3,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_000000000005",
+          "final_amount": 8925,
+          "custom_attributes": {}
+        },
+        {
+          "step_number": 31,
+          "rule_name": "Company Comm",
+          "section": "POST_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.057623,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_00000000000A",
+          "agent_id": "AGT_000000000003",
+          "final_amount": 1200
+        },
+        {
+          "step_number": 32,
+          "rule_name": "Company Comm",
+          "section": "POST_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.2,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_00000000000A",
+          "agent_id": "AGT_000000000005",
+          "final_amount": 1785
+        }
+      ],
+      "payments": [
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_000000000003",
+          "payee_entity_id": null,
+          "amount_paid": 19625,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn003 Ln003 (Agent) - Primary: Fn003 Ln003",
+          "payment_date": "2026-06-15"
+        },
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_000000000005",
+          "payee_entity_id": null,
+          "amount_paid": 7140,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn005 Ln005 (Agent) - Primary: Fn003 Ln003",
+          "payment_date": "2026-06-15"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_00000000000C",
+          "amount_paid": 250,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "TC Fee (Entity) - Primary: Fn003 Ln003",
+          "payment_date": "2026-06-15"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_00000000000A",
+          "amount_paid": 2985,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Company Comm (Entity) - Primary: Fn003 Ln003",
+          "payment_date": "2026-06-15"
+        }
+      ],
+      "allocationRows": [
+        {
+          "agentId": "AGT_000000000003",
+          "kind": "team_cap",
+          "amount": 4165,
+          "calculatedAmount": 4165,
+          "isOverride": false,
+          "periodStart": "2026-03-01",
+          "teamCapId": "CTC_000000000001"
+        },
+        {
+          "agentId": "AGT_000000000005",
+          "kind": "team_cap",
+          "amount": 0,
+          "calculatedAmount": 0,
+          "isOverride": false,
+          "periodStart": "2026-03-01",
+          "teamCapId": "CTC_000000000001"
+        }
+      ]
+    },
+    "capRecipientShortfalls": [
+      {
+        "recipientId": "AGT_000000000001",
+        "name": "Fn001 Ln001",
+        "receives": 4165,
+        "has": 0
+      }
+    ],
+    "saveBlocked": true,
+    "saveBlockedReason": "Fn001 Ln001's agent split is $0.00, less than the $4,165.00 team caps move to them."
+  },
+  "driftPanel": {
+    "saved": "fn001 ln001:412.50|fn003 ln003:19337.50|fn005 ln005:10000.00|tc fee:250.00",
+    "replayed": [
+      "company comm:2985.00|fn003 ln003:19625.00|fn005 ln005:7140.00|tc fee:250.00"
+    ],
+    "changed": true
+  },
+  "driftList": {
+    "saved": "fn001 ln001:412.50|fn003 ln003:19337.50|fn005 ln005:10000.00|tc fee:250.00",
+    "replayed": [
+      "company comm:2985.00|fn003 ln003:19625.00|fn005 ln005:7140.00|tc fee:250.00"
+    ],
+    "changed": true
+  },
+  "driftPanelSavedManualSplit": {
+    "saved": "fn001 ln001:412.50|fn003 ln003:19337.50|fn005 ln005:10000.00|tc fee:250.00",
+    "replayed": [
+      "company comm:2985.00|fn003 ln003:19625.00|fn005 ln005:7140.00|tc fee:250.00"
+    ],
+    "changed": true
+  },
+  "driftListSavedManualSplit": {
+    "saved": "fn001 ln001:412.50|fn003 ln003:19337.50|fn005 ln005:10000.00|tc fee:250.00",
+    "replayed": [
+      "company comm:2985.00|fn003 ln003:19625.00|fn005 ln005:7140.00|tc fee:250.00"
+    ],
+    "changed": true
+  }
+}

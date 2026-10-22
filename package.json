@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "NODE_OPTIONS='--max-old-space-size=12288' next dev -H 127.0.0.1 -p 3000",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "",
@@ -22,7 +22,8 @@
     "tailwindcss": "^4.3.3",
     "ts-node": "^10.9.2",
     "tsx": "^4.23.4",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",

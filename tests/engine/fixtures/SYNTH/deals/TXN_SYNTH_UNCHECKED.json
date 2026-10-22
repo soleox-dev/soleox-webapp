@@ -1,0 +1,104 @@
+{
+  "deal": {
+    "id": "TXN_SYNTH_UNCHECKED",
+    "client_id": "SYNTH",
+    "tms_id": null,
+    "transaction_status": "Closed",
+    "transaction_side": "Buyer",
+    "property_address": "KED Example Street",
+    "client_name": "Client",
+    "lead_source": "#Agent Lead",
+    "sales_price": 1000000,
+    "gci_perc": 0.03,
+    "gci_amount": 30000,
+    "total_commission": 30000,
+    "closing_date": "2026-06-15",
+    "agent_id": "AGT_000000000004",
+    "custom_attributes": {},
+    "archived": false
+  },
+  "items": [
+    {
+      "id": "TCI_HECKED000012",
+      "client_id": "SYNTH",
+      "transaction_id": "TXN_SYNTH_UNCHECKED",
+      "submission_id": null,
+      "step_number": 1,
+      "section": "AGENT_SPLIT",
+      "split_type": "PERCENT",
+      "split_value": 0.9,
+      "payee_type": "AGENT",
+      "payee_entity_id": null,
+      "agent_id": "AGT_000000000004",
+      "final_amount": 26775,
+      "archived": false,
+      "custom_attributes": {}
+    },
+    {
+      "id": "TCI_HECKED000013",
+      "client_id": "SYNTH",
+      "transaction_id": "TXN_SYNTH_UNCHECKED",
+      "submission_id": null,
+      "step_number": 2,
+      "section": "AGENT_SPLIT",
+      "split_type": "PERCENT",
+      "split_value": 0.1,
+      "payee_type": "AGENT",
+      "payee_entity_id": null,
+      "agent_id": "AGT_000000000002",
+      "final_amount": 2975,
+      "archived": false,
+      "custom_attributes": {}
+    },
+    {
+      "id": "TCI_HECKED000014",
+      "client_id": "SYNTH",
+      "transaction_id": "TXN_SYNTH_UNCHECKED",
+      "submission_id": null,
+      "step_number": 3,
+      "section": "PRE_SPLIT",
+      "split_type": "AMOUNT",
+      "split_value": 250,
+      "payee_type": "ENTITY",
+      "payee_entity_id": "ENT_00000000000C",
+      "agent_id": null,
+      "final_amount": 250,
+      "archived": false,
+      "custom_attributes": {}
+    }
+  ],
+  "submissions": [
+    {
+      "id": "CTS_NCHECKED",
+      "client_id": "SYNTH",
+      "transaction_id": "TXN_SYNTH_UNCHECKED",
+      "template_id": "TPL_SYNTH0000001",
+      "submitted_parameters": {
+        "agent_1": "AGT_000000000004",
+        "a1_split_percent": "100%",
+        "agent_2": "",
+        "a2_split_percent": "",
+        "team_lead": "",
+        "referral_amount": "",
+        "a1_cap_reset": "2026-03-01",
+        "stock_option": "No",
+        "__team_cap_ids": "[\"CTC_000000000002\"]"
+      },
+      "status": "SUBMITTED",
+      "archived": false
+    }
+  ],
+  "teamCapRows": [
+    {
+      "id": "TTC_1",
+      "agent_id": "AGT_000000000004",
+      "amount": 2000,
+      "calculated_amount": 2975,
+      "is_override": true,
+      "period_start": null,
+      "team_cap_id": "CTC_000000000002"
+    }
+  ],
+  "allocationRows": [],
+  "ledger": []
+}

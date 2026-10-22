@@ -1,0 +1,321 @@
+{
+  "pageSaved": {
+    "waterfall": {
+      "grossCommission": 30000,
+      "totalCommission": 30000,
+      "commissionAfterOffTop": 30000,
+      "commissionAfterPreSplit": 30000,
+      "offTheTopItems": [],
+      "preSplitItems": [],
+      "agentSplitItems": [
+        {
+          "agentId": "AGT_000000000004",
+          "agentName": "Fn004 Ln004",
+          "splitType": "PERCENT",
+          "splitVal": 0.7,
+          "percent": 0.7,
+          "amount": 21000,
+          "isPrimary": true
+        },
+        {
+          "agentId": "AGT_000000000005",
+          "agentName": "Fn005 Ln005",
+          "splitType": "AMOUNT",
+          "splitVal": 9000,
+          "percent": 0.3,
+          "amount": 9000,
+          "overAllocated": false,
+          "isPrimary": false,
+          "manualSplit": false
+        }
+      ],
+      "allocationLines": [],
+      "postSplitItems": [],
+      "postSplit2Items": [],
+      "agentNetAfterLevel1": {
+        "Fn004 Ln004": 21000,
+        "Fn005 Ln005": 9000
+      },
+      "netPayouts": {
+        "Fn004 Ln004": 21000,
+        "Fn005 Ln005": 9000
+      },
+      "agentSplitTotal": 30000,
+      "agentSplitExcess": 0,
+      "idleAgentIds": [],
+      "capMovedMoney": false
+    },
+    "save": {
+      "commissionItems": [
+        {
+          "step_number": 1,
+          "rule_name": "Fn004 Ln004 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.7,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_000000000004",
+          "final_amount": 21000,
+          "custom_attributes": {}
+        },
+        {
+          "step_number": 2,
+          "rule_name": "Fn005 Ln005 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 9000,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_000000000005",
+          "final_amount": 9000,
+          "custom_attributes": {}
+        }
+      ],
+      "payments": [
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_000000000004",
+          "payee_entity_id": null,
+          "amount_paid": 21000,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn004 Ln004 (Agent) - Primary: Fn004 Ln004",
+          "payment_date": "TODAY"
+        },
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_000000000005",
+          "payee_entity_id": null,
+          "amount_paid": 9000,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn005 Ln005 (Agent) - Primary: Fn004 Ln004",
+          "payment_date": "TODAY"
+        }
+      ],
+      "allocationRows": []
+    },
+    "capRecipientShortfalls": [],
+    "saveBlocked": false,
+    "saveBlockedReason": ""
+  },
+  "pageBeforeReplay": {
+    "waterfall": {
+      "grossCommission": 30000,
+      "totalCommission": 30000,
+      "commissionAfterOffTop": 30000,
+      "commissionAfterPreSplit": 30000,
+      "offTheTopItems": [],
+      "preSplitItems": [],
+      "agentSplitItems": [
+        {
+          "agentId": "AGT_000000000004",
+          "agentName": "Fn004 Ln004",
+          "splitType": "PERCENT",
+          "splitVal": 0.7,
+          "percent": 0.7,
+          "amount": 21000,
+          "isPrimary": true
+        },
+        {
+          "agentId": "AGT_000000000005",
+          "agentName": "Fn005 Ln005",
+          "splitType": "AMOUNT",
+          "splitVal": 9000,
+          "percent": 0.3,
+          "amount": 9000,
+          "overAllocated": false,
+          "isPrimary": false,
+          "manualSplit": false
+        }
+      ],
+      "allocationLines": [],
+      "postSplitItems": [],
+      "postSplit2Items": [],
+      "agentNetAfterLevel1": {
+        "Fn004 Ln004": 21000,
+        "Fn005 Ln005": 9000
+      },
+      "netPayouts": {
+        "Fn004 Ln004": 21000,
+        "Fn005 Ln005": 9000
+      },
+      "agentSplitTotal": 30000,
+      "agentSplitExcess": 0,
+      "idleAgentIds": [],
+      "capMovedMoney": false
+    },
+    "save": {
+      "commissionItems": [
+        {
+          "step_number": 1,
+          "rule_name": "Fn004 Ln004 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.7,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_000000000004",
+          "final_amount": 21000,
+          "custom_attributes": {}
+        },
+        {
+          "step_number": 2,
+          "rule_name": "Fn005 Ln005 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 9000,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_000000000005",
+          "final_amount": 9000,
+          "custom_attributes": {}
+        }
+      ],
+      "payments": [
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_000000000004",
+          "payee_entity_id": null,
+          "amount_paid": 21000,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn004 Ln004 (Agent) - Primary: Fn004 Ln004",
+          "payment_date": "TODAY"
+        },
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_000000000005",
+          "payee_entity_id": null,
+          "amount_paid": 9000,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn005 Ln005 (Agent) - Primary: Fn004 Ln004",
+          "payment_date": "TODAY"
+        }
+      ],
+      "allocationRows": []
+    },
+    "capRecipientShortfalls": [],
+    "saveBlocked": false,
+    "saveBlockedReason": ""
+  },
+  "pageTypedSplit": {
+    "agentId": "AGT_000000000005",
+    "splitVal": 8100,
+    "waterfall": {
+      "grossCommission": 30000,
+      "totalCommission": 30000,
+      "commissionAfterOffTop": 30000,
+      "commissionAfterPreSplit": 30000,
+      "offTheTopItems": [],
+      "preSplitItems": [],
+      "agentSplitItems": [
+        {
+          "agentId": "AGT_000000000004",
+          "agentName": "Fn004 Ln004",
+          "splitType": "PERCENT",
+          "splitVal": 0.73,
+          "percent": 0.73,
+          "amount": 21900,
+          "isPrimary": true
+        },
+        {
+          "agentId": "AGT_000000000005",
+          "agentName": "Fn005 Ln005",
+          "splitType": "AMOUNT",
+          "splitVal": 8100,
+          "percent": 0.27,
+          "amount": 8100,
+          "overAllocated": false,
+          "isPrimary": false,
+          "manualSplit": true
+        }
+      ],
+      "allocationLines": [],
+      "postSplitItems": [],
+      "postSplit2Items": [],
+      "agentNetAfterLevel1": {
+        "Fn004 Ln004": 21900,
+        "Fn005 Ln005": 8100
+      },
+      "netPayouts": {
+        "Fn004 Ln004": 21900,
+        "Fn005 Ln005": 8100
+      },
+      "agentSplitTotal": 30000,
+      "agentSplitExcess": 0,
+      "idleAgentIds": [],
+      "capMovedMoney": false
+    },
+    "save": {
+      "commissionItems": [
+        {
+          "step_number": 1,
+          "rule_name": "Fn004 Ln004 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.73,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_000000000004",
+          "final_amount": 21900,
+          "custom_attributes": {}
+        },
+        {
+          "step_number": 2,
+          "rule_name": "Fn005 Ln005 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 8100,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_000000000005",
+          "final_amount": 8100,
+          "custom_attributes": {
+            "manual_split": true
+          }
+        }
+      ],
+      "payments": [
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_000000000004",
+          "payee_entity_id": null,
+          "amount_paid": 21900,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn004 Ln004 (Agent) - Primary: Fn004 Ln004",
+          "payment_date": "TODAY"
+        },
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_000000000005",
+          "payee_entity_id": null,
+          "amount_paid": 8100,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn005 Ln005 (Agent) - Primary: Fn004 Ln004",
+          "payment_date": "TODAY"
+        }
+      ],
+      "allocationRows": []
+    },
+    "capRecipientShortfalls": [],
+    "saveBlocked": false,
+    "saveBlockedReason": ""
+  }
+}
