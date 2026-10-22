@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AgentConfig, DynamicRule, CommissionEntityOption, KnownAgentInfo } from '../types';
-import { isPrimaryAgent } from '../commissionItemState';
+import { isPrimaryAgent } from '@/lib/commission-engine/stored-lines';
 import { HoverNote } from './HoverNote';
 import { SplitPair } from './SplitPair';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';

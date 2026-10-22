@@ -1,29 +1,7 @@
-import { AgentConfig, CommissionEntityOption, DynamicRule, KnownAgentInfo } from './types';
+/** Reads the waterfall back from saved commission lines (transaction_commission_items). */
+import type { AgentConfig, CommissionEntityOption, DynamicRule, KnownAgentInfo, StoredCommissionItem, WaterfallState } from './model';
 
-/** A commission line as stored in transaction_commission_items. */
-export interface StoredCommissionItem {
-  id: string;
-  step_number?: number | string | null;
-  rule_name?: string | null;
-  section?: string | null;
-  split_type?: string | null;
-  split_value?: number | string | null;
-  note?: string | null;
-  payee_type?: string | null;
-  payee_entity_id?: string | null;
-  agent_id?: string | null;
-  calculated_amount?: number | string | null;
-  final_amount?: number | string | null;
-  custom_attributes?: Record<string, unknown> | null;
-}
-
-export interface WaterfallState {
-  agents: AgentConfig[];
-  offTheTopRules: DynamicRule[];
-  preSplitRules: DynamicRule[];
-  postSplitRulesByAgent: Record<string, DynamicRule[]>;
-  postSplit2RulesByAgent: Record<string, DynamicRule[]>;
-}
+export type { StoredCommissionItem, WaterfallState } from './model';
 
 function sectionOf(item: { section?: string | null }): string {
   return String(item.section || '').trim().toUpperCase();

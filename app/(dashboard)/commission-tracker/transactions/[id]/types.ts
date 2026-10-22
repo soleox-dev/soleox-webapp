@@ -1,23 +1,15 @@
 import React from 'react';
 
-export function readTransactionField(deal: any, fieldKey: string): any {
-  if (!deal) return undefined;
-  const direct = deal[fieldKey];
-  if (direct !== undefined && direct !== null && direct !== '') return direct;
-  let attributes = deal.custom_attributes;
-  if (typeof attributes === 'string') {
-    try {
-      attributes = JSON.parse(attributes);
-    } catch {
-      attributes = undefined;
-    }
-  }
-  if (attributes && typeof attributes === 'object') {
-    const custom = attributes[fieldKey];
-    if (custom !== undefined && custom !== null && custom !== '') return custom;
-  }
-  return direct;
-}
+// The engine's shapes and helpers live in lib/commission-engine; the transaction screens import them from here too.
+export {
+  readTransactionField,
+  roundCurrency,
+  evaluateFormula,
+  type AgentConfig,
+  type CommissionEntityOption,
+  type DynamicRule,
+  type KnownAgentInfo,
+} from '@/lib/commission-engine/model';
 
 export interface VisibilityCondition {
   id?: string;
@@ -42,50 +34,6 @@ export interface SchemaField {
   dropdown_options?: string[];
   visibility_rules?: VisibilityRulesConfig | VisibilityCondition[] | string;
   calculation_formula?: string;
-}
-
-export interface KnownAgentInfo {
-  id: string;
-  name: string;
-  email?: string;
-  isTeamLead: boolean;
-  clientId?: string;
-  fields?: Record<string, string>;
-}
-
-export interface CommissionEntityOption {
-  id: string;
-  name: string;
-  type?: string;
-  waterfallSortOrder?: number | null;
-}
-
-export interface AgentConfig {
-  id: string;
-  name: string;
-  isTeamLead: boolean;
-  splitType: 'PERCENT' | 'AMOUNT';
-  splitVal: number;
-  /**
-   * The split was typed by hand in the waterfall: it wins over the submitted template's formula for this agent
-   * (shown as EDITED) until the template is submitted again. Saved as custom_attributes.manual_split.
-   */
-  manualSplit?: boolean;
-  brokerCapLimit: number;
-  brokerCapPaidYTD: number;
-  riskCapLimit: number;
-  riskPaidYTD: number;
-}
-
-export interface DynamicRule {
-  id: string;
-  name?: string;
-  entity: string;
-  note?: string;
-  type: 'PERCENT' | 'AMOUNT';
-  value: number;
-  /** This rule's formula reads a team cap amount, so the waterfall recalculates it after the cap. */
-  fromTeamCapBaseline?: boolean;
 }
 
 /** A required field counts only while its visibility rules leave it on the form. */
@@ -161,10 +109,6 @@ export const CORE_REQUIRED_FIELDS = new Set([
   'transaction_side',
 ]);
 
-export const roundCurrency = (num: number): number => {
-  return Math.round((num + Number.EPSILON) * 100) / 100;
-};
-
 import { formatPercentPoints } from '@/lib/percent';
 
 export {
@@ -179,40 +123,4 @@ export {
 export const formatPercentageClean = (points: number): string => {
   if (points === null || points === undefined || Number.isNaN(points)) return '';
   return formatPercentPoints(points);
-};
-
-export const evaluateFormula = (formulaStr: string, contextValues: Record<string, any>): number => {
-  if (!formulaStr || !formulaStr.trim()) return 0;
-  try {
-    let sanitizedFormula = formulaStr.trim();
-    const sortedKeys = Object.keys(contextValues).sort((a, b) => b.length - a.length);
-
-    for (const key of sortedKeys) {
-      const val = contextValues[key];
-      const regex = new RegExp(`\\b${key}\\b`, 'g');
-
-      if (typeof val === 'number') {
-        sanitizedFormula = sanitizedFormula.replace(regex, String(val));
-      } else if (typeof val === 'string') {
-        sanitizedFormula = sanitizedFormula.replace(regex, `'${val.replace(/'/g, "\\'")}'`);
-      } else if (typeof val === 'boolean') {
-        sanitizedFormula = sanitizedFormula.replace(regex, String(val));
-      } else {
-        sanitizedFormula = sanitizedFormula.replace(regex, '0');
-      }
-    }
-
-    // Default any remaining unmapped identifiers to 0 to prevent ReferenceErrors
-    sanitizedFormula = sanitizedFormula.replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g, (match) => {
-      if (['true', 'false', 'null', 'undefined', 'Math', 'return', 'Infinity', 'NaN'].includes(match)) return match;
-      return '0';
-    });
-
-    const result = new Function(`"use strict"; return (${sanitizedFormula})`)();
-    const numResult = Number(result);
-    return isNaN(numResult) ? 0 : roundCurrency(numResult);
-  } catch (err) {
-    console.warn(`Formula evaluation failed for "${formulaStr}":`, err);
-    return 0;
-  }
 };

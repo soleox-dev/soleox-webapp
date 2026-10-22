@@ -1,18 +1,23 @@
-import { useMemo } from 'react';
+/**
+ * The commission waterfall for one deal: Total Commission, off-the-top and pre-split deductions, agent splits (the
+ * primary agent takes the remainder), team caps and sales volume, the submitted template's replay once a cap moved
+ * money, post-splits at both levels, and what each payee is paid. See lib/commission-engine/README.md for which
+ * value wins when saved lines, a typed split and the template disagree.
+ */
 import {
-  AgentConfig,
-  DynamicRule,
-  FieldSetting,
   roundCurrency,
   roundPercentRate,
   evaluateFormula,
-} from '../types';
+  type AgentConfig,
+  type DynamicRule,
+  type EngineField,
+} from './model';
 import { normalizeAgentName } from '@/lib/id';
 import { planDealAllocations, type DealAllocationContext, type DealAllocationLine } from '@/lib/agent-allocations';
-import { applyTemplateLogic, type AppliedAgentSplit, type NamedParty, type TeamCapCreditMap, type TemplateLogicStep } from '../components/applyTemplateLogic';
+import { applyTemplateLogic, type AppliedAgentSplit, type NamedParty, type TeamCapCreditMap, type TemplateLogicStep } from './template';
 import type { FormulaLedgerRow, FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 
-interface UseTransactionWaterfallProps {
+export interface WaterfallInput {
   salesPrice: number;
   gciPerc: number;
   offTheTopRules: DynamicRule[];
@@ -21,7 +26,7 @@ interface UseTransactionWaterfallProps {
   postSplit2RulesByAgent?: Record<string, DynamicRule[]>;
   agents: AgentConfig[];
   primaryAgentId?: string | null;
-  overviewFields: FieldSetting[];
+  overviewFields: EngineField[];
   selectedDeal: any;
   overviewFormValues: Record<string, any>;
   clientType: string;
@@ -59,7 +64,7 @@ export function computeTransactionWaterfall({
   allocation = null,
   templateReplay = null,
   storedAgentSplits = null,
-}: UseTransactionWaterfallProps) {
+}: WaterfallInput) {
     const grossComm = roundCurrency(salesPrice * gciPerc);
 
     const currentContext = {
@@ -76,18 +81,23 @@ export function computeTransactionWaterfall({
     
     // Baseline for waterfall starts strictly from Total Commission
     let baselineTotalComm = 0;
+    let totalSource: TotalCommissionSource = 'gross';
     if (totCommSetting?.calculation_formula && totCommSetting.calculation_formula.trim().length > 0) {
       baselineTotalComm = evaluateFormula(totCommSetting.calculation_formula, currentContext);
+      totalSource = 'formula';
     } else if (overviewFormValues?.total_commission !== undefined && overviewFormValues?.total_commission !== null && overviewFormValues?.total_commission !== '') {
       baselineTotalComm = Number(overviewFormValues.total_commission) || 0;
+      totalSource = 'form';
     } else if (selectedDeal?.total_commission !== undefined && selectedDeal?.total_commission !== null && selectedDeal?.total_commission !== '') {
       baselineTotalComm = Number(selectedDeal.total_commission) || 0;
+      totalSource = 'deal';
     } else {
       baselineTotalComm = grossComm;
     }
 
     if (isNaN(baselineTotalComm) || baselineTotalComm <= 0) {
       baselineTotalComm = grossComm;
+      totalSource = 'gross';
     }
     baselineTotalComm = roundCurrency(baselineTotalComm);
 
@@ -293,6 +303,23 @@ export function computeTransactionWaterfall({
       return paysPostSplit ? [] : [ag.id];
     });
 
+    const explanation = explainWaterfall({
+      totalCommission: baselineTotalComm,
+      totalSource,
+      grossCommission: grossComm,
+      offTheTop: offTopCalculated,
+      preSplits: preSplitCalculated,
+      afterOffTheTop: netOffTopComm,
+      netToSplit,
+      splits: splitCalculated,
+      allocationLines,
+      postSplits: postSplitCalculated,
+      postSplits2: postSplit2Calculated,
+      level1Rules,
+      level2Rules,
+      netPayouts,
+    });
+
     const agentSplitTotal = roundCurrency(splitCalculated.reduce((sum, item) => sum + (Number(item?.amount) || 0), 0));
     const agentSplitExcess = roundCurrency(Math.max(0, agentSplitTotal - netToSplit));
 
@@ -315,28 +342,12 @@ export function computeTransactionWaterfall({
       displayPostSplitRulesByAgent: level1Rules,
       displayPostSplit2RulesByAgent: level2Rules,
       capMovedMoney,
+      /** Where each number comes from, for the waterfall's hover notes and for debugging a payout. */
+      explanation,
     };
 }
 
-export function useTransactionWaterfall(props: UseTransactionWaterfallProps) {
-  return useMemo(() => computeTransactionWaterfall(props), [
-    props.salesPrice,
-    props.gciPerc,
-    props.offTheTopRules,
-    props.preSplitRules,
-    props.postSplitRulesByAgent,
-    props.postSplit2RulesByAgent,
-    props.agents,
-    props.primaryAgentId,
-    props.overviewFields,
-    props.selectedDeal,
-    props.overviewFormValues,
-    props.clientType,
-    props.allocation,
-    props.templateReplay,
-    props.storedAgentSplits,
-  ]);
-}
+export type WaterfallResult = ReturnType<typeof computeTransactionWaterfall>;
 
 function rulesForAgent(rules: Record<string, DynamicRule[]>, agentName: string): DynamicRule[] {
   return rules[agentName]
@@ -417,11 +428,15 @@ function mergeTeamCapRules(
       // The replay's post-splits use the agent split after the team cap is taken
       // or added. Saved rows and the rows just submitted both follow that amount.
       // A line with no replayed counterpart keeps the amount on the deal.
-      return { ...rule, type: fresh[index].type, value: fresh[index].value };
+      const replayed = { ...rule, type: fresh[index].type, value: fresh[index].value };
+      ruleSources.set(replayed, 'template-replay');
+      return replayed;
     });
     if (!capFormulasOnly) {
       fresh.forEach((item, index) => {
-        if (!used.has(index)) merged.push(item);
+        if (used.has(index)) return;
+        ruleSources.set(item, 'template-replay');
+        merged.push(item);
       });
     }
     if (merged.length > 0) next[label] = merged;
@@ -468,6 +483,7 @@ function applyFormulaAgentSplits(splits: WaterfallSplit[], replayed: AppliedAgen
     item.displayPercent = netToSplit > 0 ? roundPercentRate(nextAmount / netToSplit) : 0;
     item.capAdjusted = true;
     item.amount = nextAmount;
+    splitSources.set(item, 'template');
   });
 }
 
@@ -484,6 +500,7 @@ function balancePrimaryAfterManualSplits(splits: WaterfallSplit[], netToSplit: n
   primary.displayPercent = netToSplit > 0 ? roundPercentRate(nextAmount / netToSplit) : 0;
   primary.capAdjusted = true;
   primary.amount = nextAmount;
+  splitSources.set(primary, 'remainder-after-typed');
 }
 
 // The saved split after team caps, the same shape the replay gives, until the replay is ready.
@@ -499,6 +516,7 @@ function applyStoredAgentSplits(splits: WaterfallSplit[], stored: { agentId: str
     item.displayPercent = netToSplit > 0 ? roundPercentRate(nextAmount / netToSplit) : 0;
     item.capAdjusted = true;
     item.amount = nextAmount;
+    splitSources.set(item, 'saved-after-caps');
   });
 }
 
@@ -544,6 +562,7 @@ function assignEngineCapReceipts(
     item.displayPercent = netToSplit > 0 ? roundPercentRate(received / netToSplit) : 0;
     item.capAdjusted = true;
     item.amount = received;
+    splitSources.set(item, 'cap-receipt');
   });
 }
 
@@ -568,7 +587,7 @@ function repriceTeamCapBaselines({
   splits: WaterfallSplit[];
   netToSplit: number;
   afterOffTheTop: number;
-  replay: UseTransactionWaterfallProps['templateReplay'];
+  replay: WaterfallInput['templateReplay'];
   deal: Record<string, unknown>;
   totalCommission: number;
 }): { level1: Record<string, DynamicRule[]>; level2: Record<string, DynamicRule[]> } {
@@ -606,4 +625,135 @@ function repriceTeamCapBaselines({
   } catch {
     return { level1, level2 };
   }
+}
+// ---------------------------------------------------------------------------------------------------------
+// Explanation: where each number comes from
+// ---------------------------------------------------------------------------------------------------------
+
+type TotalCommissionSource = 'formula' | 'form' | 'deal' | 'gross';
+
+/**
+ * Why an agent split has its amount.
+ * - split: the agent's split type and value (percent of the pool after pre-splits, or dollars).
+ * - remainder: the primary agent gets what the other splits leave of the pool.
+ * - typed: typed by hand in the waterfall (manualSplit); the template replay does not replace it.
+ * - remainder-after-typed: with a typed split, the primary agent gets what the splits as they stand leave.
+ * - template: the submitted template replayed after a team cap moved money.
+ * - cap-receipt: a team cap recipient the template does not list receives the cap total.
+ * - saved-after-caps: the saved split after team caps, shown until the template replay has loaded.
+ */
+export type SplitSource = 'split' | 'remainder' | 'typed' | 'remainder-after-typed' | 'template' | 'cap-receipt' | 'saved-after-caps';
+
+/** A post-split from the deal's lines (rule), or one whose value the template replay set after a team cap. */
+export type RuleSource = 'rule' | 'template-replay';
+
+export type ExplainedNumber = {
+  /** Stable key: total, off_the_top:<rule id>, pre_split:<id>, agent_split:<agent id>, team_cap:<line id>, … */
+  key: string;
+  label: string;
+  amount: number;
+  source: SplitSource | RuleSource | TotalCommissionSource | 'allocation' | 'override' | 'payout';
+  detail: string;
+};
+
+const splitSources = new WeakMap<object, SplitSource>();
+const ruleSources = new WeakMap<object, RuleSource>();
+
+function percentText(rate: number): string {
+  return `${roundCurrency(rate * 100 * 1000) / 1000}%`;
+}
+
+function dollars(amount: number): string {
+  return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function explainWaterfall({
+  totalCommission,
+  totalSource,
+  grossCommission,
+  offTheTop,
+  preSplits,
+  afterOffTheTop,
+  netToSplit,
+  splits,
+  allocationLines,
+  postSplits,
+  postSplits2,
+  level1Rules,
+  level2Rules,
+  netPayouts,
+}: {
+  totalCommission: number;
+  totalSource: TotalCommissionSource;
+  grossCommission: number;
+  offTheTop: { id: string; entity: string; type: string; value: number; amount: number }[];
+  preSplits: { id: string; entity: string; type: string; value: number; amount: number }[];
+  afterOffTheTop: number;
+  netToSplit: number;
+  splits: any[];
+  allocationLines: DealAllocationLine[];
+  postSplits: any[];
+  postSplits2: any[];
+  level1Rules: Record<string, DynamicRule[]>;
+  level2Rules: Record<string, DynamicRule[]>;
+  netPayouts: Record<string, number>;
+}): ExplainedNumber[] {
+  const out: ExplainedNumber[] = [];
+  const totalDetail: Record<TotalCommissionSource, string> = {
+    formula: 'Total Commission formula from Settings.',
+    form: 'Total Commission typed on the deal.',
+    deal: "The deal's saved Total Commission.",
+    gross: `Gross commission (sales price × GCI %), ${dollars(grossCommission)}.`,
+  };
+  out.push({ key: 'total', label: 'Total Commission', amount: totalCommission, source: totalSource, detail: totalDetail[totalSource] });
+  const ruleDetail = (rule: { type: string; value: number }, base: string) => (
+    rule.type === 'PERCENT' ? `${percentText(rule.value)} of ${base}.` : 'Fixed amount.'
+  );
+  offTheTop.forEach((rule) => out.push({ key: `off_the_top:${rule.id}`, label: rule.entity, amount: rule.amount, source: 'rule', detail: ruleDetail(rule, `Total Commission (${dollars(totalCommission)})`) }));
+  preSplits.forEach((rule) => out.push({ key: `pre_split:${rule.id}`, label: rule.entity, amount: rule.amount, source: 'rule', detail: ruleDetail(rule, `commission after off-the-top (${dollars(afterOffTheTop)})`) }));
+  splits.filter(Boolean).forEach((item) => {
+    const marked = splitSources.get(item);
+    const source: SplitSource = marked ?? (item.manualSplit ? 'typed' : item.isPrimary ? 'remainder' : 'split');
+    const detail: Record<SplitSource, string> = {
+      split: item.splitType === 'PERCENT'
+        ? `${percentText(item.percent)} of the pool after pre-splits (${dollars(netToSplit)})${item.overAllocated ? ', cut to what was left' : ''}.`
+        : `Fixed amount${item.overAllocated ? ', cut to what was left' : ''}.`,
+      remainder: `Primary agent: what the other splits leave of ${dollars(netToSplit)}.`,
+      typed: 'Typed by hand; the template does not replace it until it is submitted again.',
+      'remainder-after-typed': 'Primary agent: what the splits leave after a split typed by hand.',
+      template: `The submitted template after team caps (was ${dollars(Number(item.grossAmount) || 0)}).`,
+      'cap-receipt': 'Team cap money this agent receives; the template does not list them.',
+      'saved-after-caps': 'The saved split after team caps, until the template replay loads.',
+    };
+    out.push({ key: `agent_split:${item.agentId}`, label: `${item.agentName} Split`, amount: Number(item.amount) || 0, source, detail: detail[source] });
+  });
+  allocationLines.forEach((line) => {
+    const kind = line.kind === 'team_cap' ? (line.cap_name || 'Team Cap') : 'Sales Volume';
+    let detail: string;
+    if (line.is_override) detail = `Typed on the deal (calculated ${dollars(line.calculated_amount)}).`;
+    else if (line.kind === 'sales_volume') detail = 'Sales volume credited to this agent.';
+    else if (!line.tracked) detail = 'Paid to the team lead; no yearly cap is tracked.';
+    else if (line.cap_amount != null) detail = `${line.team_percent ?? 0}% of the split, up to what is left of the ${dollars(Number(line.cap_amount))} yearly cap (${dollars(Number(line.prior_amount) || 0)} already counted).`;
+    else detail = `${line.team_percent ?? 0}% of the split.`;
+    out.push({ key: `${line.kind}:${line.id}`, label: kind, amount: line.amount, source: line.is_override ? 'override' : 'allocation', detail });
+  });
+  const ruleSource = (rules: Record<string, DynamicRule[]>, id: string): RuleSource => {
+    for (const list of Object.values(rules)) {
+      const rule = list.find((item) => item.id === id);
+      if (rule) return ruleSources.get(rule) ?? 'rule';
+    }
+    return 'rule';
+  };
+  postSplits.forEach((item) => {
+    const source = ruleSource(level1Rules, item.id);
+    out.push({ key: `post_split:${item.agentId}:${item.id}`, label: item.entity, amount: item.amount, source, detail: `${source === 'template-replay' ? 'Template replay after team caps: ' : ''}${ruleDetail(item, `${item.agentName}'s split`)}` });
+  });
+  postSplits2.forEach((item) => {
+    const source = ruleSource(level2Rules, item.id);
+    out.push({ key: `post_split_l2:${item.agentId}:${item.id}`, label: item.entity, amount: item.amount, source, detail: `${source === 'template-replay' ? 'Template replay after team caps: ' : ''}${ruleDetail(item, `${item.agentName}'s net after level 1`)}` });
+  });
+  Object.entries(netPayouts).forEach(([payee, amount]) => {
+    out.push({ key: `payout:${payee}`, label: payee, amount, source: 'payout', detail: 'Net after post-splits for an agent; the sum of its lines for an entity.' });
+  });
+  return out;
 }

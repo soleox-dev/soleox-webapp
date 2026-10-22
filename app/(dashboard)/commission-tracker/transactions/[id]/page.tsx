@@ -7,7 +7,6 @@ import { AgentConfig, DynamicRule, ToastNotification, roundCurrency, roundPercen
 
 // Custom Hooks
 import { useTransactionData } from './hooks/useTransactionData';
-import { useTransactionWaterfall } from './hooks/useTransactionWaterfall';
 import { sameAllocationOverrides, useAgentAllocationInput } from './hooks/useAgentAllocationInput';
 import { useSubmittedTemplateReplay } from './hooks/useSubmittedTemplateReplay';
 import { useOverviewForm } from './hooks/useOverviewForm';
@@ -29,10 +28,14 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ToastBanner } from '@/components/ui/ToastBanner';
 import { AllocateCommissionModal } from './components/AllocateCommissionModal';
 import { toPercentPoints } from '@/lib/percent';
-import { clearCommissionModuleCache, type AppliedTemplateRules } from './components/applyTemplateLogic';
+import { clearCommissionModuleCache } from './components/applyTemplateLogic';
+import { type AppliedTemplateRules } from '@/lib/commission-engine/template';
 import type { TemplateSubmissionDraft } from './components/CommissionTemplatePanel';
 import { qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection } from '@/lib/agent-allocations';
-import { isPrimaryAgent, resolvePrimaryAgentId, waterfallFromCommissionItems } from './commissionItemState';
+import { isPrimaryAgent, resolvePrimaryAgentId, waterfallFromCommissionItems } from '@/lib/commission-engine/stored-lines';
+import { computeDealCommission, storedAgentSplitsFrom } from '@/lib/commission-engine/deal';
+import { waterfallAfterTemplate } from '@/lib/commission-engine/submit';
+import { capShortfallMessage as shortfallText } from '@/lib/commission-engine/save';
 import { generatePrefixedId } from '@/lib/id';
 import { transactionDealLabel, transactionSearchLabel } from '@/lib/transaction-label';
 import { useAccess } from '@/components/access-provider';
@@ -532,68 +535,16 @@ export default function Dashboard() {
 
   const handleApplyTemplateRules = (applied: AppliedTemplateRules, submission?: TemplateSubmissionDraft) => {
     releaseTeamCapClear();
-    const nextOff = applied.offTheTopRules ?? [];
-    const nextPre = applied.preSplitRules ?? [];
-    const nextPost = applied.postSplitRulesByAgent ?? {};
-    const nextPost2 = applied.postSplit2RulesByAgent ?? {};
-    const templateSplits = applied.agentSplits ?? [];
-    const namesMatch = (left: string, right: string) => left.trim().toLowerCase() === right.trim().toLowerCase();
-    const orderedSplits = templateSplits;
-    const primary = agents[0]?.name?.trim() ? agents[0] : null;
-    const seen = new Set<string>();
-    const agentNames = (orderedSplits.length > 0
-      ? [...orderedSplits.map((split) => split.name), ...Object.keys(nextPost), ...Object.keys(nextPost2)]
-      : [
-          ...(primary ? [primary.name] : []),
-          ...Object.keys(nextPost),
-          ...Object.keys(nextPost2),
-        ]
-    ).filter((name) => {
-      const key = name.trim().toLowerCase();
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
+    const {
+      offTheTopRules: nextOff,
+      preSplitRules: nextPre,
+      postSplitRulesByAgent: nextPost,
+      postSplit2RulesByAgent: nextPost2,
+      agents: nextAgents,
+    } = waterfallAfterTemplate(applied, agents, knownAgents, primaryAgentId, {
+      // The cap recipients the submission checked join the waterfall even when the template does not list them.
+      teamCapRecipients: submission?.team_cap_ids == null ? null : (submission.team_cap_recipients ?? []),
     });
-
-    const templateAgents: AgentConfig[] = agentNames.map((name) => {
-      const known = knownAgents.find((agent) => namesMatch(agent.name, name));
-      const previous = agents.find((agent) => namesMatch(agent.name, name));
-      const split = orderedSplits.find((item) => namesMatch(item.name, name));
-      const keptPrimary = orderedSplits.length === 0 && primary && namesMatch(primary.name, name) ? primary : null;
-      return {
-        id: known?.id || previous?.id || `AGT_${name.trim()}`,
-        name: known?.name || previous?.name || name.trim(),
-        isTeamLead: known?.isTeamLead ?? previous?.isTeamLead ?? false,
-        splitType: split?.splitType ?? keptPrimary?.splitType ?? 'PERCENT',
-        splitVal: split?.splitVal ?? keptPrimary?.splitVal ?? 0,
-        brokerCapLimit: 0,
-        brokerCapPaidYTD: 0,
-        riskCapLimit: 0,
-        riskPaidYTD: 0,
-      };
-    });
-    const primaryIndex = templateAgents.findIndex((agent) => isPrimaryAgent(agent, primaryAgentId));
-    const orderedAgents = primaryIndex > 0
-      ? [templateAgents[primaryIndex], ...templateAgents.filter((_, index) => index !== primaryIndex)]
-      : templateAgents;
-    const chosenCapIds = submission?.team_cap_ids ?? null;
-    const nextAgents = chosenCapIds == null ? orderedAgents : [
-      ...orderedAgents,
-      ...(submission?.team_cap_recipients ?? []).flatMap((recipient) => {
-        if (orderedAgents.some((agent) => agent.id === recipient.id)) return [];
-        return [{
-          id: recipient.id,
-          name: recipient.name,
-          isTeamLead: Boolean(recipient.isTeamLead),
-          splitType: 'PERCENT' as const,
-          splitVal: 0,
-          brokerCapLimit: 0,
-          brokerCapPaidYTD: 0,
-          riskCapLimit: 0,
-          riskPaidYTD: 0,
-        }];
-      }),
-    ];
 
     const changed =
       JSON.stringify(nextOff) !== JSON.stringify(offTheTopRules) ||
@@ -885,32 +836,52 @@ export default function Dashboard() {
     && Boolean(selectedDeal?.id) && commissionItemsDealId === selectedDeal?.id;
   const storedAgentSplits = useMemo(() => {
     if (!showingSavedWaterfall) return null;
-    return (Array.isArray(commissionItems) ? commissionItems : [])
-      .filter((item) => item?.section === 'AGENT_SPLIT' && item.agent_id && item.final_amount != null)
-      .map((item) => ({ agentId: String(item.agent_id), amount: Number(item.final_amount) || 0 }));
+    return storedAgentSplitsFrom(commissionItems);
   }, [showingSavedWaterfall, commissionItems]);
 
-  const dealResult = useTransactionWaterfall({
-    salesPrice: overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.sales_price) || salesPrice) : salesPrice,
-    gciPerc: overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.gci_perc) || gciPerc) : gciPerc,
-    offTheTopRules,
-    preSplitRules,
-    postSplitRulesByAgent,
-    postSplit2RulesByAgent,
-    agents,
-    primaryAgentId,
-    overviewFields,
-    selectedDeal,
-    overviewFormValues: overviewForm.overviewFormValues,
+  // The whole commission has to be allocated only when a commission template applies. A deal
+  // that qualifies for none, such as a cancelled one, is not expected to have payments.
+  // The template button can judge the deal as soon as it is in the cached list, before this
+  // transaction's commission lines finish loading and selectedDeal is set.
+  const templateDeal = useMemo(
+    () => selectedDeal ?? (routeId && !isNewTransaction ? savedDeals.find((deal) => deal.id === routeId) ?? null : null),
+    [selectedDeal, routeId, isNewTransaction, savedDeals],
+  );
+  const qualificationDeal = useMemo(
+    () => (selectedDeal ? { ...selectedDeal, ...(overviewForm.isEditingOverview ? overviewForm.overviewFormValues : {}) } : null),
+    [selectedDeal, overviewForm.isEditingOverview, overviewForm.overviewFormValues],
+  );
+  const templateQualifies = useTemplateQualification(selectedDeal?.client_id, qualificationDeal);
+  const editedSalesPrice = overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.sales_price) || salesPrice) : salesPrice;
+  const editedGciPerc = overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.gci_perc) || gciPerc) : gciPerc;
+  const closingForPayments = overviewForm.overviewFormValues.closing_date ?? closingDate ?? null;
+  const paymentDate = closingForPayments ? String(closingForPayments).substring(0, 10) : new Date().toISOString().substring(0, 10);
+  const dealResult = useMemo(() => computeDealCommission({
+    deal: selectedDeal,
+    form: overviewForm.overviewFormValues,
+    salesPrice: editedSalesPrice,
+    gciPerc: editedGciPerc,
     clientType,
+    fields: overviewFields,
+    waterfall: { agents, offTheTopRules, preSplitRules, postSplitRulesByAgent, postSplit2RulesByAgent },
+    primaryAgentId,
     allocation: allocationForWaterfall,
-    templateReplay,
+    template: templateReplay,
     storedAgentSplits,
-  });
+  }, {
+    knownAgents,
+    knownEntities,
+    primaryAgentFallback: typeof primaryAgent === 'string' ? primaryAgent : '',
+    paymentDate,
+    templateQualifies,
+  }), [
+    selectedDeal, overviewForm.overviewFormValues, editedSalesPrice, editedGciPerc, clientType, overviewFields,
+    agents, offTheTopRules, preSplitRules, postSplitRulesByAgent, postSplit2RulesByAgent, primaryAgentId,
+    allocationForWaterfall, templateReplay, storedAgentSplits, knownAgents, knownEntities, primaryAgent, paymentDate, templateQualifies,
+  ]);
   // Agents with a $0 split and no post-split to pay, such as a team cap recipient the cap does not pay on this deal.
   // They stay in the list while the waterfall is being edited, so a split can still be given to them.
   const idleAgentIds = new Set<string>(dealResult.idleAgentIds || []);
-  const isIdleAgentItem = (item: { agentId?: string | null }) => Boolean(item.agentId && idleAgentIds.has(item.agentId));
   const waterfallAgents = isEditingWaterfall ? agents : agents.filter((agent) => !idleAgentIds.has(agent.id));
   // True until the deal, its submitted template, and its caps and allocations have loaded. The
   // waterfall computed before then is not final, so allocation auto-save waits for it.
@@ -932,17 +903,7 @@ export default function Dashboard() {
     teamCapId: string | null;
   };
 
-  const allocationSaveKey = JSON.stringify((dealResult.allocationLines || [])
-    .filter((line: { tracked?: boolean }) => line.tracked !== false)
-    .map((line: { agent_id: string; kind: string; amount: number; calculated_amount: number; is_override: boolean; period_start: string | null; team_cap_id?: string | null }) => ({
-      agentId: line.agent_id,
-      kind: line.kind,
-      amount: line.amount,
-      calculatedAmount: line.calculated_amount,
-      isOverride: line.is_override,
-      periodStart: line.period_start,
-      teamCapId: line.team_cap_id || null,
-    })));
+  const allocationSaveKey = JSON.stringify(dealResult.save.allocationRows);
   const savedAllocationKey = useRef('');
   const allocationSaveKeyRef = useRef(allocationSaveKey);
   const allocationSaveTransactionRef = useRef('');
@@ -1102,55 +1063,15 @@ export default function Dashboard() {
   ]);
 
   const agentSplitExcess = Number(dealResult.agentSplitExcess) || 0;
-  const agentSplitsExceedCommission = agentSplitExcess > 0.009;
-  const commissionTotal = roundCurrency(Number(dealResult.totalCommission) || 0);
-  const totalPayments = roundCurrency(
-    Object.values(dealResult.netPayouts || {}).reduce((sum: number, amount) => sum + (Number(amount) || 0), 0),
-  );
-  // The whole commission has to be allocated only when a commission template applies. A deal
-  // that qualifies for none, such as a cancelled one, is not expected to have payments.
-  // The template button can judge the deal as soon as it is in the cached list, before this
-  // transaction's commission lines finish loading and selectedDeal is set.
-  const templateDeal = useMemo(
-    () => selectedDeal ?? (routeId && !isNewTransaction ? savedDeals.find((deal) => deal.id === routeId) ?? null : null),
-    [selectedDeal, routeId, isNewTransaction, savedDeals],
-  );
-  const qualificationDeal = useMemo(
-    () => (selectedDeal ? { ...selectedDeal, ...(overviewForm.isEditingOverview ? overviewForm.overviewFormValues : {}) } : null),
-    [selectedDeal, overviewForm.isEditingOverview, overviewForm.overviewFormValues],
-  );
-  const templateQualifies = useTemplateQualification(selectedDeal?.client_id, qualificationDeal);
-  const paymentsShortOfCommission = templateQualifies !== false
-    && commissionTotal > 0.009 && roundCurrency(commissionTotal - totalPayments) > 0.009;
-  // An agent who receives team cap money must have at least that much in Agent Splits: if two agents each pay $500
-  // into a team cap, its recipient needs $1,000 or more. Money paid into a cap by the recipient themself is not counted.
-  const capRecipientShortfalls = (() => {
-    const caps = allocationInput?.teamCaps ?? [];
-    const owed = new Map<string, number>();
-    for (const line of (dealResult.allocationLines || []) as { kind: string; agent_id: string; amount: number; team_cap_id?: string | null }[]) {
-      if (line.kind !== 'team_cap') continue;
-      const recipientId = caps.find((cap) => cap.id === line.team_cap_id)?.recipientAgentId;
-      if (!recipientId || recipientId === line.agent_id) continue;
-      owed.set(recipientId, roundCurrency((owed.get(recipientId) || 0) + (Number(line.amount) || 0)));
-    }
-    return [...owed].flatMap(([recipientId, receives]) => {
-      const split = (dealResult.agentSplitItems || []).find((item: { agentId?: string }) => item.agentId === recipientId);
-      const has = roundCurrency(Number(split?.amount) || 0);
-      if (receives - has <= 0.009) return [];
-      const name = split?.agentName || knownAgents.find((agent) => agent.id === recipientId)?.name || 'A team cap recipient';
-      return [{ recipientId, name: String(name), receives, has }];
-    });
-  })();
+  const {
+    agentSplitsExceedCommission,
+    paymentsShortOfCommission,
+    capRecipientShortfalls,
+    blocked: saveBlocked,
+    reason: saveBlockedReason,
+  } = dealResult.save.blockers;
   const capRecipientsShort = capRecipientShortfalls.length > 0;
-  const capShortfallMessage = capRecipientShortfalls
-    .map(({ name, receives, has }) => `${name}'s agent split is $${has.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}, less than the $${receives.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} team caps move to them.`)
-    .join(' ');
-  const saveBlocked = agentSplitsExceedCommission || paymentsShortOfCommission || capRecipientsShort;
-  const saveBlockedReason = [
-    agentSplitsExceedCommission ? 'Agent splits are more than the remaining balance.' : '',
-    paymentsShortOfCommission ? 'The entire commission has to be allocated among agents and entities.' : '',
-    capShortfallMessage,
-  ].filter(Boolean).join(' ');
+  const capShortfallMessage = shortfallText(capRecipientShortfalls);
 
   const persistDealAllocations = (transactionId: string): Promise<boolean> => {
     const featuresOn = Boolean(allocationInput?.teamCaps.some((cap) => cap.enabled) || allocationInput?.salesVolume?.enabled);
@@ -1266,162 +1187,9 @@ export default function Dashboard() {
       }
     });
 
-    // Build granular commission items from waterfall result
-    const commissionItems = [
-      ...dealResult.offTheTopItems.map((item: any, idx: number) => {
-        const matchedEntity = knownEntities.find((e) => e.name === item.entity || e.id === item.entity);
-        const splitType = item.type || 'PERCENT';
-        const cleanVal = item.value !== undefined && item.value !== null
-          ? (splitType === 'PERCENT'
-              ? roundPercentRate(Number(item.value))
-              : roundCurrency(Number(item.value)))
-          : null;
-        return {
-          step_number: idx + 1,
-          rule_name: item.entity || item.ruleName || 'Off-the-Top Deduction',
-          section: 'OFF_THE_TOP',
-          split_type: splitType,
-          split_value: cleanVal,
-          note: item.note || null,
-          payee_type: 'ENTITY',
-          payee_entity_id: matchedEntity?.id || null,
-          agent_id: null,
-          final_amount: item.amount,
-        };
-      }),
-      ...(dealResult.preSplitItems || []).map((item: any, idx: number) => {
-        const matchedEntity = knownEntities.find((e) => e.name === item.entity || e.id === item.entity);
-        const splitType = item.type || 'PERCENT';
-        const cleanVal = item.value !== undefined && item.value !== null
-          ? (splitType === 'PERCENT'
-              ? roundPercentRate(Number(item.value))
-              : roundCurrency(Number(item.value)))
-          : null;
-        return {
-          step_number: 10 + idx + 1,
-          rule_name: item.entity || item.ruleName || 'Pre-Split Deduction',
-          section: 'PRE_SPLIT',
-          split_type: splitType,
-          split_value: cleanVal,
-          note: item.note || null,
-          payee_type: 'ENTITY',
-          payee_entity_id: matchedEntity?.id || null,
-          agent_id: null,
-          final_amount: item.amount,
-        };
-      }),
-      ...dealResult.agentSplitItems.filter((item: any) => !isIdleAgentItem(item)).map((item: any, idx: number) => {
-        const matchedAgent = knownAgents.find((a) => a.id === item.agentId || a.name === item.agentName);
-        const splitType = item.splitType || 'PERCENT';
-        let cleanSplitVal: number | null = null;
-
-        if (splitType === 'PERCENT') {
-          const raw = item.percent !== undefined && item.percent !== null
-            ? item.percent
-            : (item.splitVal !== undefined && item.splitVal !== null ? item.splitVal : null);
-          cleanSplitVal = raw !== null ? roundPercentRate(Number(raw)) : null;
-        } else {
-          cleanSplitVal = item.splitVal !== undefined && item.splitVal !== null
-            ? roundCurrency(Number(item.splitVal))
-            : (item.amount !== undefined ? roundCurrency(Number(item.amount)) : null);
-        }
-
-        return {
-          step_number: idx + 1,
-          rule_name: `${item.agentName} Split`,
-          section: 'AGENT_SPLIT',
-          split_type: splitType,
-          split_value: cleanSplitVal,
-          note: null,
-          payee_type: 'AGENT',
-          payee_entity_id: null,
-          agent_id: matchedAgent?.id || item.agentId || null,
-          final_amount: item.amount,
-          // A split typed by hand keeps winning over the template's formula after reload.
-          custom_attributes: item.manualSplit ? { manual_split: true } : {},
-        };
-      }),
-      ...dealResult.postSplitItems.filter((item: any) => !isIdleAgentItem(item)).map((item: any, idx: number) => {
-        const matchedEntity = knownEntities.find((e) => e.name === item.entity || e.id === item.entity);
-        const matchedAgent = knownAgents.find((a) => a.id === item.agentId || a.name === item.agentName);
-        const splitType = item.type || 'PERCENT';
-        const cleanVal = item.value !== undefined && item.value !== null
-          ? (splitType === 'PERCENT'
-              ? roundPercentRate(Number(item.value))
-              : roundCurrency(Number(item.value)))
-          : null;
-        return {
-          step_number: 30 + idx + 1,
-          rule_name: item.entity || item.ruleName || 'Post-Split Deduction',
-          section: 'POST_SPLIT',
-          split_type: splitType,
-          split_value: cleanVal,
-          note: item.note || null,
-          payee_type: item.entity === 'Broker' || item.entity === 'Brokerage' ? 'BROKERAGE' : 'ENTITY',
-          payee_entity_id: matchedEntity?.id || null,
-          agent_id: matchedAgent?.id || item.agentId || null,
-          final_amount: item.amount,
-        };
-      }),
-      ...(dealResult.postSplit2Items || []).filter((item: any) => !isIdleAgentItem(item)).map((item: any, idx: number) => {
-        const matchedEntity = knownEntities.find((e) => e.name === item.entity || e.id === item.entity);
-        const matchedAgent = knownAgents.find((a) => a.id === item.agentId || a.name === item.agentName);
-        const splitType = item.type || 'PERCENT';
-        const cleanVal = item.value !== undefined && item.value !== null
-          ? (splitType === 'PERCENT'
-              ? roundPercentRate(Number(item.value))
-              : roundCurrency(Number(item.value)))
-          : null;
-        return {
-          step_number: 50 + idx + 1,
-          rule_name: item.entity || item.ruleName || 'Post-Split L2 Deduction',
-          section: 'POST_SPLIT_L2',
-          split_type: splitType,
-          split_value: cleanVal,
-          note: item.note || null,
-          payee_type: 'ENTITY',
-          payee_entity_id: matchedEntity?.id || null,
-          agent_id: matchedAgent?.id || item.agentId || null,
-          final_amount: item.amount,
-        };
-      }),
-    ];
-
-    // Build Final Disbursements & Payment Authorizations
-    const currentAgentDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => agents.some((a) => a.name === e && !idleAgentIds.has(a.id))) as [string, number][];
-    const currentEntityDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => !agents.some((a) => a.name === e)) as [string, number][];
-    const primaryAgentName = agents.find((agent) => isPrimaryAgent(agent, primaryAgentId))?.name || (typeof primaryAgent === 'string' ? primaryAgent : '') || 'Primary Agent';
-
-    const paymentItems = [
-      ...currentAgentDisbursements.map(([agentName, amount]) => {
-        const matchedAgent = knownAgents.find((a) => a.name === agentName || a.id === agentName);
-        return {
-          payee_type: 'AGENT',
-          agent_id: matchedAgent?.id || null,
-          payee_entity_id: null,
-          amount_paid: amount,
-          payment_method: 'ACH',
-          payment_status: 'Ready to Pay',
-          disbursement_type: 'AGENT_NET',
-          notes: `${matchedAgent?.name || agentName} (Agent) - Primary: ${primaryAgentName}`,
-          payment_date: coreDbFields.closing_date ? String(coreDbFields.closing_date).substring(0, 10) : new Date().toISOString().substring(0, 10),
-        };
-      }),
-      ...currentEntityDisbursements.map(([entityName, amount]) => {
-        const matchedEntity = knownEntities.find((e) => e.name === entityName || e.id === entityName);
-        return {
-          payee_type: entityName.toLowerCase().includes('broker') ? 'BROKERAGE' : 'ENTITY',
-          agent_id: null,
-          payee_entity_id: matchedEntity?.id || null,
-          amount_paid: amount,
-          payment_method: 'Escrow Wire',
-          payment_status: 'Pending Escrow Wire',
-          disbursement_type: 'THIRD_PARTY_DISBURSEMENT',
-          notes: `${matchedEntity?.name || entityName} (Entity) - Primary: ${primaryAgentName}`,
-          payment_date: coreDbFields.closing_date ? String(coreDbFields.closing_date).substring(0, 10) : new Date().toISOString().substring(0, 10),
-        };
-      }),
-    ];
+    // Commission lines and payments from the waterfall (lib/commission-engine/save.ts)
+    const commissionItems = dealResult.save.commissionItems;
+    const paymentItems = dealResult.save.payments;
 
     if (teamCapsClearedRef.current) stageClearedTeamCaps();
     else if (selectedTeamCapIds && !sameTeamCapSelection(selectedTeamCapIds, savedTeamCapIdsRef.current)) stageTeamCapSelection(selectedTeamCapIds);

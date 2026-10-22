@@ -8,44 +8,46 @@ import {
   configuredTeamCaps,
   qualifyingTeamCaps,
   readTeamCapSelection,
-  TEAM_CAP_SELECTION_KEY,
   writeTeamCapSelection,
   allocationLookupTables,
   type DealAllocationContext,
 } from '@/lib/agent-allocations';
-import {
-  allocationForReplay,
-  payoutSignature,
-  replayedPaymentSignature,
-  savedPayouts,
-} from '@/lib/template-payment-drift';
 import { transactionQualifiesForTemplate } from '@/lib/transaction-default-view';
 import { formulaLookupSource } from '@/lib/formula-lookup-tables';
-import { computeTransactionWaterfall } from '@/app/(dashboard)/commission-tracker/transactions/[id]/hooks/useTransactionWaterfall';
 import {
+  allocationCatalogFromConfig,
+  allocationForReplay,
   applyTemplateLogic,
+  buildAllocationContext,
+  computeDealCommission,
+  dealUnitsField,
   formulaDataNeeds,
   formulaLookupRow,
-  templateFormulaSources,
-  type AppliedTemplateRules,
-  type NamedParty,
-  type TemplateLogicStep,
-} from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/applyTemplateLogic';
-import {
+  formulaParameters,
   isPrimaryAgent,
+  labelLedgerRows,
+  overridesFromStoredRows,
+  parameterRecord,
+  payoutSignature,
+  replayedPaymentSignature,
   resolvePrimaryAgentId,
-  waterfallFromCommissionItems,
-  type StoredCommissionItem,
-} from '@/app/(dashboard)/commission-tracker/transactions/[id]/commissionItemState';
-import {
-  readTransactionField,
   roundCurrency,
   roundPercentRate,
+  savedPayouts,
+  storedAgentSplitsFrom,
+  templatePaymentsChanged,
+  templateFormulaSources,
+  waterfallAfterTemplate,
+  waterfallFromCommissionItems,
   type AgentConfig,
+  type AppliedTemplateRules,
   type CommissionEntityOption,
-  type FieldSetting,
   type KnownAgentInfo,
-} from '@/app/(dashboard)/commission-tracker/transactions/[id]/types';
+  type NamedParty,
+  type StoredCommissionItem,
+  type TemplateLogicStep,
+} from '@/lib/commission-engine';
+import type { FieldSetting } from '@/app/(dashboard)/commission-tracker/transactions/[id]/types';
 import type { FormulaLedgerRow, FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import type { ApiRow, ClientFixture, DealFixture } from './fixtures';
 
@@ -159,71 +161,20 @@ function lookupsFor(client: ClientFixture, tables: readonly string[]): FormulaLo
   return { clientId: client.clientId, tables: result };
 }
 
-/** applyTemplateLogic labelLedger */
+/** loadCommissionLedger: the raw ledger lines, labelled with entity names. */
 function ledgerFor(fx: DealFixture, entities: { id: string; name: string }[]): FormulaLedgerRow[] {
-  const names = new Map(entities.map((entity) => [entity.id, entity.name]));
-  const text = (value: unknown) => (value === null || value === undefined ? '' : String(value));
-  return fx.ledger.map(([finalAmount, agentId, entityId, section, transactionId, closingDate, status]) => {
-    const closing = text(closingDate).trim();
-    return {
-      fields: {
-        'transaction_commission_items.final_amount': text(finalAmount),
-        'transaction_commission_items.agent_id': text(agentId),
-        'transaction_commission_items.payee_entity_id': text(entityId),
-        'transaction_commission_items.section': text(section),
-        'commission_entities.entity_name': names.get(text(entityId)) || '',
-        'transactions.closing_date': closing.length >= 10 ? closing.slice(0, 10) : closing,
-        'transactions.transaction_status': text(status),
-        'transactions.id': text(transactionId),
-      },
-    };
-  });
+  const items = fx.ledger.map(([final_amount, agent_id, payee_entity_id, section, transaction_id, closing_date, transaction_status]) => (
+    { final_amount, agent_id, payee_entity_id, section, transaction_id, closing_date, transaction_status }
+  ));
+  return labelLedgerRows(items, entities);
 }
 
-function parameterRecord(value: unknown): Record<string, string> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-  const record: Record<string, string> = {};
-  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
-    record[key] = raw === undefined || raw === null ? '' : String(raw);
-  }
-  return record;
-}
-
-function stripParameters(value: unknown): Record<string, string> {
-  const { [TEAM_CAP_SELECTION_KEY]: omitted, ...parameters } = parameterRecord(value);
-  void omitted;
-  return parameters;
-}
-
-function teamCapFromRow(row: ApiRow) {
-  return {
-    id: String(row.id || ''),
-    name: String(row.name || 'Team Cap'),
-    key: row.key ? String(row.key) : null,
-    enabled: Boolean(row.enabled),
-    qualifyingFormula: row.qualifying_formula || null,
-    splitPercentFieldKey: row.split_percent_field_key || null,
-    capAmountFieldKey: row.cap_amount_field_key || null,
-    resetDateFieldKey: row.reset_date_field_key || null,
-    recipientAgentId: row.recipient_agent_id || null,
-  };
-}
-
-function volumeFromRow(row: ApiRow | null): DealAllocationContext['salesVolume'] {
-  if (!row) return null;
-  return {
-    enabled: Boolean(row.enabled),
-    qualifyingFormula: row.qualifying_formula || null,
-    anchor: row.anchor === 'sales_price_x_units' ? 'sales_price_x_units' : 'sales_price',
-    assignment: row.assignment === 'primary_agent' ? 'primary_agent' : 'agent_share',
-  };
+function catalogOf(client: ClientFixture) {
+  return allocationCatalogFromConfig(client.allocationConfig);
 }
 
 function storedOverrides(fx: DealFixture): DealAllocationContext['overrides'] {
-  return [
-    ...fx.teamCapRows.flatMap((row) => (!row.is_override || !row.agent_id ? [] : [{ agentId: row.agent_id, kind: 'team_cap' as const, amount: Number(row.amount) || 0, teamCapId: row.team_cap_id || null }])),
-    ...fx.allocationRows.flatMap((row) => (!row.is_override || !row.agent_id ? [] : [{ agentId: row.agent_id, kind: 'sales_volume' as const, amount: Number(row.amount) || 0, teamCapId: null }])),
-  ];
+  return overridesFromStoredRows(fx.teamCapRows, fx.allocationRows);
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -298,7 +249,7 @@ function templateReplayFor(ctx: Ctx, base: ReturnType<typeof pageBase>, pending:
   const needs = formulaDataNeeds(templateFormulaSources(steps, bundle.parameters));
   return {
     steps,
-    parameters: pending ? stripParameters(pending.submitted_parameters) : stripParameters(base.submitted?.submitted_parameters),
+    parameters: formulaParameters(pending ? pending.submitted_parameters : base.submitted?.submitted_parameters),
     parameterTypes: Object.fromEntries(bundle.parameters.map((parameter) => [String(parameter.parameter_key || ''), parameter.data_type || ''])),
     entities: base.knownEntities as NamedParty[],
     rosterAgents: base.knownAgents as NamedParty[],
@@ -309,8 +260,7 @@ function templateReplayFor(ctx: Ctx, base: ReturnType<typeof pageBase>, pending:
 
 function allocationInputFor(ctx: Ctx, base: ReturnType<typeof pageBase>, agents: AgentConfig[]): DealAllocationContext {
   // useAgentAllocationInput
-  const teamCaps = (ctx.client.allocationConfig.teamCaps || []).map(teamCapFromRow).filter((cap) => cap.id);
-  const salesVolume = volumeFromRow(ctx.client.allocationConfig.salesVolume);
+  const { teamCaps, salesVolume } = catalogOf(ctx.client);
   const tables = allocationLookupTables(teamCaps, salesVolume);
   let lookups: FormulaLookups | null = null;
   if (tables.length > 0) {
@@ -320,27 +270,19 @@ function allocationInputFor(ctx: Ctx, base: ReturnType<typeof pageBase>, agents:
       lookups = null;
     }
   }
-  const unitsRaw = readTransactionField(base.deal, 'units');
-  const units = unitsRaw === undefined || unitsRaw === null || String(unitsRaw).trim() === '' ? 1 : Math.max(0, Number(unitsRaw) || 0);
-  return {
-    teamCaps,
-    salesVolume,
-    profiles: agents.map((agent) => ({
-      agentId: agent.id,
-      fields: base.knownAgents.find((known) => known.id === agent.id)?.fields || {},
-    })),
+  return buildAllocationContext({
+    catalog: { teamCaps, salesVolume },
+    agents: agents.map((agent) => ({ id: agent.id, fields: base.knownAgents.find((known) => known.id === agent.id)?.fields || {} })),
     // GET /api/transaction-team-caps?history=1&exclude_transaction_id=…
-    history: ctx.client.teamCapHistory
-      .filter((row) => row.transactionId !== ctx.dealId)
-      .map(({ agentId, amount, periodStart, teamCapId }) => ({ agentId, amount, periodStart, teamCapId })),
+    history: ctx.client.teamCapHistory.filter((row) => row.transactionId !== ctx.dealId),
     overrides: storedOverrides(ctx.fx),
     deal: { ...(base.deal || {}) },
     dealDate: String(base.closingDate || '').substring(0, 10) || null,
     salesPrice: base.salesPrice,
-    units,
+    units: dealUnitsField(base.deal),
     fieldTypes: Object.fromEntries(base.overviewFields.map((field) => [field.key, field.type])),
     lookups,
-  };
+  });
 }
 
 /** Transaction Detail: everything the page computes from one state of the waterfall. */
@@ -352,116 +294,7 @@ function pageView(ctx: Ctx, state: PageState) {
   const allocationInput = allocationInputFor(ctx, base, agents);
   const allocationForWaterfall = { ...allocationInput, selectedTeamCapIds: state.selectedTeamCapIds };
   const templateReplay = templateReplayFor(ctx, base, state.pending);
-  const storedAgentSplits = state.showingSaved
-    ? base.commissionItems
-      .filter((item) => item?.section === 'AGENT_SPLIT' && item.agent_id && item.final_amount != null)
-      .map((item) => ({ agentId: String(item.agent_id), amount: Number(item.final_amount) || 0 }))
-    : null;
-
-  const run = (replay: typeof templateReplay) => computeTransactionWaterfall({
-    salesPrice: base.salesPrice,
-    gciPerc: base.gciPerc,
-    offTheTopRules: state.offTheTopRules,
-    preSplitRules: state.preSplitRules,
-    postSplitRulesByAgent: state.postSplitRulesByAgent,
-    postSplit2RulesByAgent: state.postSplit2RulesByAgent,
-    agents,
-    primaryAgentId,
-    overviewFields: base.overviewFields,
-    selectedDeal: deal,
-    overviewFormValues: {},
-    clientType: base.clientType,
-    allocation: allocationForWaterfall,
-    templateReplay: replay,
-    storedAgentSplits,
-  });
-  const dealResult = run(templateReplay);
-
-  const idleAgentIds = new Set<string>(dealResult.idleAgentIds || []);
-  const isIdleAgentItem = (item: { agentId?: string | null }) => Boolean(item.agentId && idleAgentIds.has(item.agentId));
-
-  // handleSave: commission_items and payments
-  const commissionItems = [
-    ...dealResult.offTheTopItems.map((item: any, idx: number) => {
-      const matchedEntity = knownEntities.find((e) => e.name === item.entity || e.id === item.entity);
-      const splitType = item.type || 'PERCENT';
-      const cleanVal = item.value !== undefined && item.value !== null
-        ? (splitType === 'PERCENT' ? roundPercentRate(Number(item.value)) : roundCurrency(Number(item.value)))
-        : null;
-      return { step_number: idx + 1, rule_name: item.entity || item.ruleName || 'Off-the-Top Deduction', section: 'OFF_THE_TOP', split_type: splitType, split_value: cleanVal, note: item.note || null, payee_type: 'ENTITY', payee_entity_id: matchedEntity?.id || null, agent_id: null, final_amount: item.amount };
-    }),
-    ...(dealResult.preSplitItems || []).map((item: any, idx: number) => {
-      const matchedEntity = knownEntities.find((e) => e.name === item.entity || e.id === item.entity);
-      const splitType = item.type || 'PERCENT';
-      const cleanVal = item.value !== undefined && item.value !== null
-        ? (splitType === 'PERCENT' ? roundPercentRate(Number(item.value)) : roundCurrency(Number(item.value)))
-        : null;
-      return { step_number: 10 + idx + 1, rule_name: item.entity || item.ruleName || 'Pre-Split Deduction', section: 'PRE_SPLIT', split_type: splitType, split_value: cleanVal, note: item.note || null, payee_type: 'ENTITY', payee_entity_id: matchedEntity?.id || null, agent_id: null, final_amount: item.amount };
-    }),
-    ...dealResult.agentSplitItems.filter((item: any) => !isIdleAgentItem(item)).map((item: any, idx: number) => {
-      const matchedAgent = knownAgents.find((a) => a.id === item.agentId || a.name === item.agentName);
-      const splitType = item.splitType || 'PERCENT';
-      let cleanSplitVal: number | null = null;
-      if (splitType === 'PERCENT') {
-        const raw = item.percent !== undefined && item.percent !== null ? item.percent : (item.splitVal !== undefined && item.splitVal !== null ? item.splitVal : null);
-        cleanSplitVal = raw !== null ? roundPercentRate(Number(raw)) : null;
-      } else {
-        cleanSplitVal = item.splitVal !== undefined && item.splitVal !== null ? roundCurrency(Number(item.splitVal)) : (item.amount !== undefined ? roundCurrency(Number(item.amount)) : null);
-      }
-      return { step_number: idx + 1, rule_name: `${item.agentName} Split`, section: 'AGENT_SPLIT', split_type: splitType, split_value: cleanSplitVal, note: null, payee_type: 'AGENT', payee_entity_id: null, agent_id: matchedAgent?.id || item.agentId || null, final_amount: item.amount, custom_attributes: item.manualSplit ? { manual_split: true } : {} };
-    }),
-    ...dealResult.postSplitItems.filter((item: any) => !isIdleAgentItem(item)).map((item: any, idx: number) => {
-      const matchedEntity = knownEntities.find((e) => e.name === item.entity || e.id === item.entity);
-      const matchedAgent = knownAgents.find((a) => a.id === item.agentId || a.name === item.agentName);
-      const splitType = item.type || 'PERCENT';
-      const cleanVal = item.value !== undefined && item.value !== null
-        ? (splitType === 'PERCENT' ? roundPercentRate(Number(item.value)) : roundCurrency(Number(item.value)))
-        : null;
-      return { step_number: 30 + idx + 1, rule_name: item.entity || item.ruleName || 'Post-Split Deduction', section: 'POST_SPLIT', split_type: splitType, split_value: cleanVal, note: item.note || null, payee_type: item.entity === 'Broker' || item.entity === 'Brokerage' ? 'BROKERAGE' : 'ENTITY', payee_entity_id: matchedEntity?.id || null, agent_id: matchedAgent?.id || item.agentId || null, final_amount: item.amount };
-    }),
-    ...(dealResult.postSplit2Items || []).filter((item: any) => !isIdleAgentItem(item)).map((item: any, idx: number) => {
-      const matchedEntity = knownEntities.find((e) => e.name === item.entity || e.id === item.entity);
-      const matchedAgent = knownAgents.find((a) => a.id === item.agentId || a.name === item.agentName);
-      const splitType = item.type || 'PERCENT';
-      const cleanVal = item.value !== undefined && item.value !== null
-        ? (splitType === 'PERCENT' ? roundPercentRate(Number(item.value)) : roundCurrency(Number(item.value)))
-        : null;
-      return { step_number: 50 + idx + 1, rule_name: item.entity || item.ruleName || 'Post-Split L2 Deduction', section: 'POST_SPLIT_L2', split_type: splitType, split_value: cleanVal, note: item.note || null, payee_type: 'ENTITY', payee_entity_id: matchedEntity?.id || null, agent_id: matchedAgent?.id || item.agentId || null, final_amount: item.amount };
-    }),
-  ];
-  const closingForPayments = base.closingDate || 'TODAY';
-  const currentAgentDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => agents.some((a) => a.name === e && !idleAgentIds.has(a.id))) as [string, number][];
-  const currentEntityDisbursements = Object.entries(dealResult.netPayouts).filter(([e]) => !agents.some((a) => a.name === e)) as [string, number][];
-  const primaryAgentName = agents.find((agent) => isPrimaryAgent(agent, primaryAgentId))?.name || (typeof base.primaryAgent === 'string' ? base.primaryAgent : '') || 'Primary Agent';
-  const payments = [
-    ...currentAgentDisbursements.map(([agentName, amount]) => {
-      const matchedAgent = knownAgents.find((a) => a.name === agentName || a.id === agentName);
-      return { payee_type: 'AGENT', agent_id: matchedAgent?.id || null, payee_entity_id: null, amount_paid: amount, payment_method: 'ACH', payment_status: 'Ready to Pay', disbursement_type: 'AGENT_NET', notes: `${matchedAgent?.name || agentName} (Agent) - Primary: ${primaryAgentName}`, payment_date: closingForPayments };
-    }),
-    ...currentEntityDisbursements.map(([entityName, amount]) => {
-      const matchedEntity = knownEntities.find((e) => e.name === entityName || e.id === entityName);
-      return { payee_type: entityName.toLowerCase().includes('broker') ? 'BROKERAGE' : 'ENTITY', agent_id: null, payee_entity_id: matchedEntity?.id || null, amount_paid: amount, payment_method: 'Escrow Wire', payment_status: 'Pending Escrow Wire', disbursement_type: 'THIRD_PARTY_DISBURSEMENT', notes: `${matchedEntity?.name || entityName} (Entity) - Primary: ${primaryAgentName}`, payment_date: closingForPayments };
-    }),
-  ];
-
-  // allocationSaveKey
-  const allocationRows = (dealResult.allocationLines || [])
-    .filter((line) => line.tracked !== false)
-    .map((line) => ({
-      agentId: line.agent_id,
-      kind: line.kind,
-      amount: line.amount,
-      calculatedAmount: line.calculated_amount,
-      isOverride: line.is_override,
-      periodStart: line.period_start,
-      teamCapId: line.team_cap_id || null,
-    }));
-
-  // Save blockers
-  const agentSplitExcess = Number(dealResult.agentSplitExcess) || 0;
-  const agentSplitsExceedCommission = agentSplitExcess > 0.009;
-  const commissionTotal = roundCurrency(Number(dealResult.totalCommission) || 0);
-  const totalPayments = roundCurrency(Object.values(dealResult.netPayouts || {}).reduce((sum: number, amount) => sum + (Number(amount) || 0), 0));
+  const storedAgentSplits = state.showingSaved ? storedAgentSplitsFrom(base.commissionItems) : null;
   const qualificationFieldTypes = Object.fromEntries((ctx.client.schema.catalog || []).flatMap((field) => {
     const key = String(field.field_key || '').trim();
     return key ? [[key, String(field.field_type || 'TEXT')]] : [];
@@ -469,39 +302,36 @@ function pageView(ctx: Ctx, state: PageState) {
   const templateQualifies = ctx.client.templates.some((template) => (
     template.is_active !== false && transactionQualifiesForTemplate({ ...deal }, template.eligibility_formula || '', qualificationFieldTypes)
   ));
-  const paymentsShortOfCommission = templateQualifies !== false && commissionTotal > 0.009 && roundCurrency(commissionTotal - totalPayments) > 0.009;
-  const caps = allocationInput.teamCaps ?? [];
-  const owed = new Map<string, number>();
-  for (const line of (dealResult.allocationLines || [])) {
-    if (line.kind !== 'team_cap') continue;
-    const recipientId = caps.find((cap) => cap.id === line.team_cap_id)?.recipientAgentId;
-    if (!recipientId || recipientId === line.agent_id) continue;
-    owed.set(recipientId, roundCurrency((owed.get(recipientId) || 0) + (Number(line.amount) || 0)));
-  }
-  const capRecipientShortfalls = [...owed].flatMap(([recipientId, receives]) => {
-    const split = (dealResult.agentSplitItems || []).find((item: { agentId?: string }) => item?.agentId === recipientId);
-    const has = roundCurrency(Number(split?.amount) || 0);
-    if (receives - has <= 0.009) return [];
-    const name = split?.agentName || knownAgents.find((agent) => agent.id === recipientId)?.name || 'A team cap recipient';
-    return [{ recipientId, name: String(name), receives, has }];
+
+  const dealResult = computeDealCommission({
+    deal,
+    form: {},
+    salesPrice: base.salesPrice,
+    gciPerc: base.gciPerc,
+    clientType: base.clientType,
+    fields: base.overviewFields,
+    waterfall: state,
+    primaryAgentId,
+    allocation: allocationForWaterfall,
+    template: templateReplay,
+    storedAgentSplits,
+  }, {
+    knownAgents,
+    knownEntities,
+    primaryAgentFallback: typeof base.primaryAgent === 'string' ? base.primaryAgent : '',
+    paymentDate: base.closingDate || 'TODAY',
+    templateQualifies,
   });
-  const capShortfallMessage = capRecipientShortfalls
-    .map(({ name, receives, has }) => `${name}'s agent split is $${has.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}, less than the $${receives.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} team caps move to them.`)
-    .join(' ');
-  const saveBlockedReason = [
-    agentSplitsExceedCommission ? 'Agent splits are more than the remaining balance.' : '',
-    paymentsShortOfCommission ? 'The entire commission has to be allocated among agents and entities.' : '',
-    capShortfallMessage,
-  ].filter(Boolean).join(' ');
+  const idleAgentIds = new Set<string>(dealResult.idleAgentIds || []);
 
   return {
     dealResult,
-    commissionItems,
-    payments,
-    allocationRows,
-    capRecipientShortfalls,
-    saveBlocked: agentSplitsExceedCommission || paymentsShortOfCommission || capRecipientShortfalls.length > 0,
-    saveBlockedReason,
+    commissionItems: dealResult.save.commissionItems,
+    payments: dealResult.save.payments,
+    allocationRows: dealResult.save.allocationRows,
+    capRecipientShortfalls: dealResult.save.blockers.capRecipientShortfalls,
+    saveBlocked: dealResult.save.blockers.blocked,
+    saveBlockedReason: dealResult.save.blockers.reason,
     waterfallAgents: agents.filter((agent) => !idleAgentIds.has(agent.id)),
     totalCommissionForPanel: dealResult.totalCommission || dealResult.grossCommission || 0,
     allocationInput,
@@ -510,61 +340,13 @@ function pageView(ctx: Ctx, state: PageState) {
 
 /** page.tsx handleApplyTemplateRules */
 function applyTemplateToPage(base: ReturnType<typeof pageBase>, state: PageState, applied: AppliedTemplateRules, submission: PendingSubmission): PageState {
-  const agents = state.agents;
-  const knownAgents = base.knownAgents;
-  const nextOff = applied.offTheTopRules ?? [];
-  const nextPre = applied.preSplitRules ?? [];
-  const nextPost = applied.postSplitRulesByAgent ?? {};
-  const nextPost2 = applied.postSplit2RulesByAgent ?? {};
-  const orderedSplits = applied.agentSplits ?? [];
-  const namesMatch = (left: string, right: string) => left.trim().toLowerCase() === right.trim().toLowerCase();
-  const primary = agents[0]?.name?.trim() ? agents[0] : null;
-  const seen = new Set<string>();
-  const agentNames = (orderedSplits.length > 0
-    ? [...orderedSplits.map((split) => split.name), ...Object.keys(nextPost), ...Object.keys(nextPost2)]
-    : [...(primary ? [primary.name] : []), ...Object.keys(nextPost), ...Object.keys(nextPost2)]
-  ).filter((name) => {
-    const key = name.trim().toLowerCase();
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
+  // page.tsx handleApplyTemplateRules
+  const primaryAgentId = resolvePrimaryAgentId(base.deal.agent_id || base.primaryAgent, base.commissionItems, base.knownAgents);
+  const next = waterfallAfterTemplate(applied, state.agents, base.knownAgents, primaryAgentId, {
+    teamCapRecipients: submission.team_cap_ids == null ? null : (submission.team_cap_recipients ?? []),
   });
-  const templateAgents: AgentConfig[] = agentNames.map((name) => {
-    const known = knownAgents.find((agent) => namesMatch(agent.name, name));
-    const previous = agents.find((agent) => namesMatch(agent.name, name));
-    const split = orderedSplits.find((item) => namesMatch(item.name, name));
-    const keptPrimary = orderedSplits.length === 0 && primary && namesMatch(primary.name, name) ? primary : null;
-    return {
-      id: known?.id || previous?.id || `AGT_${name.trim()}`,
-      name: known?.name || previous?.name || name.trim(),
-      isTeamLead: known?.isTeamLead ?? previous?.isTeamLead ?? false,
-      splitType: split?.splitType ?? keptPrimary?.splitType ?? 'PERCENT',
-      splitVal: split?.splitVal ?? keptPrimary?.splitVal ?? 0,
-      brokerCapLimit: 0,
-      brokerCapPaidYTD: 0,
-      riskCapLimit: 0,
-      riskPaidYTD: 0,
-    };
-  });
-  const primaryAgentId = resolvePrimaryAgentId(base.deal.agent_id || base.primaryAgent, base.commissionItems, knownAgents);
-  const primaryIndex = templateAgents.findIndex((agent) => isPrimaryAgent(agent, primaryAgentId));
-  const orderedAgents = primaryIndex > 0
-    ? [templateAgents[primaryIndex], ...templateAgents.filter((_, index) => index !== primaryIndex)]
-    : templateAgents;
-  const chosenCapIds = submission.team_cap_ids ?? null;
-  const nextAgents = chosenCapIds == null ? orderedAgents : [
-    ...orderedAgents,
-    ...(submission.team_cap_recipients ?? []).flatMap((recipient) => {
-      if (orderedAgents.some((agent) => agent.id === recipient.id)) return [];
-      return [{ id: recipient.id, name: recipient.name, isTeamLead: Boolean(recipient.isTeamLead), splitType: 'PERCENT' as const, splitVal: 0, brokerCapLimit: 0, brokerCapPaidYTD: 0, riskCapLimit: 0, riskPaidYTD: 0 }];
-    }),
-  ];
   return {
-    agents: nextAgents,
-    offTheTopRules: nextOff,
-    preSplitRules: nextPre,
-    postSplitRulesByAgent: nextPost,
-    postSplit2RulesByAgent: nextPost2,
+    ...next,
     selectedTeamCapIds: submission.team_cap_ids ? submission.team_cap_ids : state.selectedTeamCapIds,
     pending: submission,
     showingSaved: false,
@@ -588,10 +370,7 @@ function popupResubmit(ctx: Ctx, saved: PageState, savedView: ReturnType<typeof 
       : '';
   }
   // Popup team cap boxes: the stored choice, else the caps that qualify.
-  const teamCaps = (ctx.client.allocationConfig.teamCaps || []).flatMap((row) => {
-    const id = String(row.id || '').trim();
-    return id ? [teamCapFromRow(row)] : [];
-  });
+  const teamCaps = catalogOf(ctx.client).teamCaps;
   const shownCaps = configuredTeamCaps(teamCaps);
   const panelFieldTypes = Object.fromEntries((ctx.client.schema.catalog || []).flatMap((field) => {
     const key = String(field.field_key || '').trim();
@@ -652,10 +431,7 @@ function driftCheck(ctx: Ctx, items: ApiRow[], knownAgents: DriftAgents, entitie
   const ledger = needs.needsLedger ? ledgerFor(fx, entities) : [];
   const lookups = needs.lookupTables.length > 0 ? lookupsFor(client, needs.lookupTables) : { clientId: client.clientId, tables: {} };
   const saved = payoutSignature(savedPayouts(items as StoredCommissionItem[], knownAgents, entities));
-  const catalog = {
-    teamCaps: (client.allocationConfig.teamCaps || []).flatMap((row) => (String(row.id || '') ? [teamCapFromRow(row)] : [])),
-    salesVolume: volumeFromRow(client.allocationConfig.salesVolume),
-  };
+  const catalog = catalogOf(client);
   const agentIds = new Set(knownAgents.map((agent) => agent.id));
   const history = client.teamCapHistory.filter((row) => agentIds.has(row.agentId));
   const capTables = allocationLookupTables(catalog.teamCaps, catalog.salesVolume);
@@ -695,7 +471,22 @@ function driftCheck(ctx: Ctx, items: ApiRow[], knownAgents: DriftAgents, entitie
       return `ERROR: ${error instanceof Error ? error.message : String(error)}`;
     }
   });
-  return { saved, replayed, changed: replayed.some((signature) => !signature.startsWith('ERROR: ') && signature !== saved) };
+  // What the template button and the list show.
+  const changed = templatePaymentsChanged({
+    deal: fx.deal,
+    submissions: rows.map((row) => {
+      const bundle = bundles.find((item) => item.templateId === row.templateId)!;
+      return { steps: bundle.steps, parameters: row.parameters, parameterTypes: bundle.parameterTypes };
+    }),
+    items: items as StoredCommissionItem[],
+    agents: knownAgents,
+    entities,
+    overviewFields,
+    ledger,
+    lookups,
+    allocation,
+  });
+  return { saved, replayed, changed };
 }
 
 /** CommissionTemplatePanel payment check (the template button on Transaction Detail). */
