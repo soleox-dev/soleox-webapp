@@ -48,6 +48,7 @@ interface TemplateParameter {
   notes?: string | null;
   is_required?: boolean | null;
   is_user_editable?: boolean | null;
+  divider_below?: boolean | null;
   sort_order?: number | null;
   section?: string | null;
   dropdown_options?: string[] | null;
@@ -234,6 +235,7 @@ const emptyParameter = {
   data_type: 'CURRENCY' as ParameterType,
   is_required: false,
   is_user_editable: true,
+  divider_below: false,
   autofill_formula: '',
   validation_rule: '',
   notes: '',
@@ -542,6 +544,7 @@ export default function CommissionTemplateDetailPage() {
             data_type: parameterForm.data_type,
             is_required: parameterForm.is_required,
             is_user_editable: parameterForm.is_user_editable,
+            divider_below: parameterForm.divider_below,
             autofill_formula: normalizedFormula.trim() || null,
             validation_rule: normalizedValidation.trim() || null,
             notes: parameterForm.notes.trim() || null,
@@ -579,6 +582,7 @@ export default function CommissionTemplateDetailPage() {
           data_type: parameter.data_type || 'CURRENCY',
           is_required: Boolean(parameter.is_required),
           is_user_editable: parameter.is_user_editable !== false,
+          divider_below: Boolean(parameter.divider_below),
           autofill_formula: parameter.autofill_formula || null,
           validation_rule: parameter.validation_rule || null,
           notes: parameter.notes || null,
@@ -1116,6 +1120,7 @@ export default function CommissionTemplateDetailPage() {
       data_type: canonicalParameterType(parameter.data_type),
       is_required: Boolean(parameter.is_required),
       is_user_editable: parameter.is_user_editable !== false,
+      divider_below: Boolean(parameter.divider_below),
       autofill_formula: parameter.autofill_formula || '',
       validation_rule: parameter.validation_rule || '',
       notes: parameter.notes || '',
@@ -1674,7 +1679,7 @@ export default function CommissionTemplateDetailPage() {
                         {group.items.map((parameter, itemIndex) => (
                       <tr
                         key={parameter.id}
-                        className={`align-top ${parameter.id === recentParameterId ? '[&>td]:bg-emerald-50 dark:[&>td]:bg-emerald-500/10' : itemIndex % 2 === 1 ? 'md:[&>td]:bg-slate-50 dark:md:[&>td]:bg-[color-mix(in_srgb,var(--color-slate-900)_30%,var(--color-slate-800))]' : ''} ${dropTarget && 'parameterId' in dropTarget && dropTarget.parameterId === parameter.id ? (dropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
+                        className={`align-top ${parameter.divider_below ? '[&>td]:!border-b-brand-500 dark:[&>td]:!border-b-brand-400' : ''} ${parameter.id === recentParameterId ? '[&>td]:bg-emerald-50 dark:[&>td]:bg-emerald-500/10' : itemIndex % 2 === 1 ? 'md:[&>td]:bg-slate-50 dark:md:[&>td]:bg-[color-mix(in_srgb,var(--color-slate-900)_30%,var(--color-slate-800))]' : ''} ${dropTarget && 'parameterId' in dropTarget && dropTarget.parameterId === parameter.id ? (dropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
                         onDragOver={(event) => {
                           if (parameterSearch.trim() || reorderDrag.current !== 'parameter') return;
                           event.preventDefault();
@@ -2445,6 +2450,13 @@ export default function CommissionTemplateDetailPage() {
               <label className="flex h-6 items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
                 <input type="checkbox" checked={parameterForm.is_user_editable} onChange={(event) => setParameterForm({ ...parameterForm, is_user_editable: event.target.checked })} />
                 User can change this value on the transaction
+              </label>
+            </div>
+            <div className={`${fieldColumn} grid grid-cols-[7.75rem_minmax(0,1fr)] items-start gap-x-3`}>
+              <p className="flex h-6 items-center text-xs font-bold leading-4 text-slate-900 dark:text-white">Divider</p>
+              <label className="flex h-6 items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
+                <input type="checkbox" checked={parameterForm.divider_below} onChange={(event) => setParameterForm({ ...parameterForm, divider_below: event.target.checked })} />
+                Add Horizontal Divider Below This Parameter
               </label>
             </div>
             </div>

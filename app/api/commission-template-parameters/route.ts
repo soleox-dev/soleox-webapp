@@ -72,6 +72,7 @@ export async function POST(request: Request) {
       sort_order: param.sort_order !== undefined ? Number(param.sort_order) : 0,
       is_required: param.is_required !== undefined ? Boolean(param.is_required) : false,
       is_user_editable: param.is_user_editable !== undefined ? Boolean(param.is_user_editable) : true,
+      divider_below: Boolean(param.divider_below),
       archived: Boolean(param.archived),
       created_by: param.created_by || user,
       updated_at: new Date().toISOString(),
