@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowLeft, Search } from 'lucide-react';
+import { ArrowLeft, Search, TriangleAlert } from 'lucide-react';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { SectionLinks, type TransactionSectionId, type TransactionSectionLink } from './SectionLinks';
 import { swallowNextClick } from '@/lib/swallow-click';
@@ -264,6 +264,13 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
             </div>
           )}
 
+          {/* Why Save is locked, in words, while there is something to save. */}
+          {hasUnsavedChanges && saveBlocked && saveBlockedReason && (
+            <p role="status" className={`flex items-start gap-1.5 text-xs font-medium leading-4 text-rose-600 dark:text-rose-400 ${compact ? 'mt-1 px-2.5 pb-0.5' : 'mt-3'}`}>
+              <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+              <span><span className="font-bold">Can&rsquo;t save yet.</span> {saveBlockedReason}</span>
+            </p>
+          )}
           {children && searchOpen && (
             <div
               ref={searchRef}
