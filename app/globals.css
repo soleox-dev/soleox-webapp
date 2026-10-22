@@ -936,3 +936,37 @@ html.modal-open body {
     background-color: color-mix(in srgb, var(--color-slate-800) 70%, var(--color-slate-900));
   }
 }
+
+/* Owner Reports filters: the panel slides in from the right, the phone sheet rises from the bottom. */
+@keyframes report-filters-panel-in {
+  from { transform: translateX(100%); }
+}
+
+@keyframes report-filters-sheet-in {
+  from { transform: translateY(100%); }
+}
+
+@keyframes report-filters-fade-in {
+  from { opacity: 0; }
+}
+
+.report-filters-panel {
+  animation: report-filters-panel-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.report-filters-sheet {
+  animation: report-filters-sheet-in 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 120ms ease-out;
+}
+
+.report-filters-fade {
+  animation: report-filters-fade-in 200ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .report-filters-panel,
+  .report-filters-sheet,
+  .report-filters-fade {
+    animation: none;
+  }
+}

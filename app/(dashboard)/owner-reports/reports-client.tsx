@@ -3,7 +3,7 @@
 import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
-import { ArrowLeft, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, Menu, RotateCcw, X } from 'lucide-react';
+import { ArrowLeft, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, Menu, RotateCcw, SlidersHorizontal, X } from 'lucide-react';
 import { widePageFrame } from '@/lib/page-frame';
 import { DESKTOP_QUERY, useFitsScreen, useIsDesktop, useIsTouch } from '@/lib/use-media-query';
 import { swallowNextClick } from '@/lib/swallow-click';
@@ -1715,6 +1715,7 @@ function ReportView(props: {
           payeeChoices={(props.reportId === 'net-commission-income' || (props.reportId === 'lead-source-leaderboard' && (props.boardMetric === 'payment:agent' || props.boardMetric === 'payment:entity'))) ? props.payeeChoices : undefined}
           cumulative={props.reportId === 'team-performance' ? cumulative : undefined}
           onCumulative={setCumulative}
+          resultCount={props.reportId === 'team-caps' ? undefined : props.deals.filter((deal) => !deal.archived && dealInReport(deal, props.range, props.reportId, props.boardDate)).length}
           canReset={props.filtersDirty || cumulative}
           onReset={() => {
             props.onResetFilters();
@@ -1791,8 +1792,6 @@ function ReportView(props: {
 type FilterChoice = { value: string; label: string; count: number };
 type CapMenuChoice = FilterChoice & { group: 'team' | 'agent' };
 
-const FILTERS_COLLAPSED_KEY = 'soleox-report-filters-collapsed';
-
 /**
  * A tap outside an open dropdown only closes it, except on another control in the filters card:
  * there it also opens that filter or ticks that checkbox.
@@ -1802,6 +1801,30 @@ function swallowOutsideFilters(target: EventTarget | null) {
   swallowNextClick();
 }
 
+/** Inside the filter panel or sheet, dropdowns open in place below their field instead of floating over the page. */
+const FiltersInPanel = React.createContext(false);
+
+const panelList = 'relative mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100';
+
+/** Date presets offered as chips on the phone sheet; the rest stay in the Date Range dropdown. */
+const SHEET_PRESETS: RangePreset[] = ['this-week', 'this-month', 'last-month', 'this-quarter', 'last-quarter', 'ytd', 'this-year', 'last-year', 'custom'];
+
+type FilterChip = { key: string; label: string; text: string; clear: () => void };
+
+/** What a multi-select filter shows on its chip: up to two names, else a count. */
+function pickSummary(label: string, options: FilterChoice[], picked: string[], fold: boolean): string {
+  const names = options
+    .filter((option) => picked.some((item) => (fold ? item.toLowerCase() === option.value.toLowerCase() : item === option.value)))
+    .map((option) => option.label);
+  if (names.length === 0) return 'None';
+  return names.length <= 2 ? names.join(', ') : `${names.length} ${filterPlural(label)}`;
+}
+
+/**
+ * Report filters. A slim bar always shows the date range and a chip for each filter in use (× clears it); the
+ * Filters button opens every filter in a panel from the right on a computer, or a sheet from the bottom on a phone.
+ * Changes apply as they are made; on a phone the sheet's main button shows how many transactions match.
+ */
 function FilterBar(props: {
   preset: RangePreset;
   range: DateRange;
@@ -1850,64 +1873,53 @@ function FilterBar(props: {
   onCapShowPaid?: (value: boolean) => void;
   canReset?: boolean;
   onReset?: () => void;
+  /** Transactions the report shows with the current filters, for the phone sheet's button. */
+  resultCount?: number;
 }) {
-  // The filters card collapses to one line to give the report more room. On wider screens the choice is
-  // remembered per browser; on a phone it always starts collapsed and folds up again on the first tap
-  // outside it after a filter changes.
-  const [collapsed, setCollapsed] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [collapseWhenIdle, setCollapseWhenIdle] = useState(false);
-  useEffect(() => {
-    if (!window.matchMedia(DESKTOP_QUERY).matches) {
-      setCollapsed(true);
-      return;
-    }
-    try {
-      setCollapsed(window.localStorage.getItem(FILTERS_COLLAPSED_KEY) === '1');
-    } catch {
-      // Storage can be unavailable; the card stays open.
-    }
-  }, []);
+  const isDesktop = useIsDesktop();
+  const [open, setOpen] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragFrom = useRef<number | null>(null);
 
-  // After a change on a phone, the card folds on the next tap outside it. That tap only folds the card, so
-  // nothing under the finger moves into its place. Taps on other filters inside the card keep working.
+  // Escape closes the panel, unless a dropdown inside it is open (that Escape closes the dropdown).
   useEffect(() => {
-    if (!collapseWhenIdle) return;
-    const onPress = (event: Event) => {
-      if (event.target instanceof Node && cardRef.current?.contains(event.target)) return;
-      swallowNextClick();
-      setCollapseWhenIdle(false);
-      setCollapsed(true);
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (document.querySelector('[data-report-filters-panel] [aria-expanded="true"]')) return;
+      setOpen(false);
     };
-    document.addEventListener('pointerdown', onPress, true);
-    return () => document.removeEventListener('pointerdown', onPress, true);
-  }, [collapseWhenIdle]);
-  const afterChange = <T,>(handler: ((value: T) => void) | undefined) => handler && ((value: T) => {
-    handler(value);
-    if (!window.matchMedia(DESKTOP_QUERY).matches) setCollapseWhenIdle(true);
-  });
-  const on = {
-    onPreset: afterChange(props.onPreset),
-    onRange: afterChange(props.onRange),
-    onGroups: afterChange(props.onGroups),
-    onStatus: afterChange(props.onStatus),
-    onSide: afterChange(props.onSide),
-    onAgent: afterChange(props.onAgent),
-    onSource: afterChange(props.onSource),
-    onMetric: afterChange(props.onMetric),
-    onBoardMetric: afterChange(props.onBoardMetric),
-    onPayees: afterChange(props.onPayees),
-    onEarnings: afterChange(props.onEarnings),
-    onExcludeTeamLeads: afterChange(props.onExcludeTeamLeads),
-    onCumulative: afterChange(props.onCumulative),
-    onCapYearOffset: afterChange(props.onCapYearOffset),
-    onCapShowPaid: afterChange(props.onCapShowPaid),
-    onReset: afterChange<void>(props.onReset ? () => props.onReset?.() : undefined),
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const chips: FilterChip[] = [];
+  const addPick = (key: string, label: string, options: FilterChoice[] | undefined, picked: string[] | null | undefined, fold: boolean, onChange: ((value: string[] | null) => void) | undefined) => {
+    if (picked == null || !options || !onChange) return;
+    chips.push({ key, label, text: pickSummary(label, options, picked, fold), clear: () => onChange(null) });
   };
-  const resetButton = on.onReset ? (
+  addPick('group', 'Group', props.groupChoices, props.groupPicked, false, props.onGroups);
+  addPick('earnings', 'Earnings Type', props.earningsChoices, props.earningsPicked, false, props.onEarnings);
+  if (!props.dateOnly) {
+    addPick('status', 'Status', props.statusChoices, props.statusPicked, true, props.onStatus);
+    addPick('side', 'Side', props.sideChoices, props.sidePicked, true, props.onSide);
+    addPick('agent', 'Primary Agent', props.agentChoices, props.agentPicked, false, props.onAgent);
+    addPick('source', 'Lead Source', props.sourceChoices, props.sourcePicked, false, props.onSource);
+    addPick('payee', props.boardMetric === 'payment:entity' ? 'Entity' : 'Agent', props.payeeChoices, props.payeePicked, false, props.onPayees);
+    if (props.excludeTeamLeads && props.onExcludeTeamLeads) chips.push({ key: 'leads', label: props.teamLeadIds?.size === 1 ? 'Exclude Team Lead' : 'Exclude Team Leads', text: '', clear: () => props.onExcludeTeamLeads?.(false) });
+    if (props.cumulative && props.onCumulative) chips.push({ key: 'cumulative', label: 'Cumulative', text: '', clear: () => props.onCumulative?.(false) });
+    if (props.capShowPaid && props.onCapShowPaid) chips.push({ key: 'paid', label: 'Show All Paid Transactions', text: '', clear: () => props.onCapShowPaid?.(false) });
+  }
+
+  const resetButton = props.onReset ? (
     <button
       type="button"
-      onClick={() => on.onReset?.()}
+      onClick={() => props.onReset?.()}
       disabled={!props.canReset}
       title="Put every filter on this report back to its default"
       className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-brand-700 transition hover:bg-brand-50 disabled:cursor-default disabled:text-slate-400 disabled:hover:bg-transparent dark:text-brand-300 dark:hover:bg-brand-950 dark:disabled:text-slate-500"
@@ -1916,133 +1928,238 @@ function FilterBar(props: {
       Reset Filters
     </button>
   ) : null;
-  const setCollapsedSaved = (next: boolean) => {
-    setCollapsed(next);
-    try {
-      window.localStorage.setItem(FILTERS_COLLAPSED_KEY, next ? '1' : '0');
-    } catch {
-      // Ignore: the choice just is not remembered.
-    }
-  };
-  if (collapsed) {
-    const active = [props.groupPicked, props.statusPicked, props.sidePicked, props.agentPicked, props.sourcePicked, props.payeePicked, props.earningsPicked]
-      .filter((value) => value != null).length + (props.excludeTeamLeads ? 1 : 0) + (props.cumulative ? 1 : 0) + (props.capShowPaid ? 1 : 0);
-    const span = props.hideDate ? (props.capYearOffset ? 'Previous Cap Year' : 'Current Cap Year') : formatFilterSpan(props.range);
-    return (
-      <button
-        type="button"
-        onClick={() => setCollapsedSaved(false)}
-        aria-expanded={false}
-        className="relative z-30 flex w-full cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left dark:border-slate-800 dark:bg-slate-900"
-      >
-        <span className="text-xs font-medium text-slate-400">Filters</span>
-        <span className="min-w-0 flex-1 truncate text-xs font-medium tabular-nums text-slate-700 dark:text-slate-200">
-          {span}{active > 0 ? ` · ${active} ${active === 1 ? 'filter' : 'filters'}` : ''}
-        </span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" strokeWidth={2.25} aria-hidden />
-        <span className="sr-only">Show Filters</span>
-      </button>
-    );
-  }
-  return (
-    // Below md the card is a fixed two-column grid, so a filter whose text grows truncates instead of reflowing.
-    <div ref={cardRef} data-report-filters className="relative z-30 flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 pr-10 max-md:grid max-md:grid-cols-2 max-md:gap-x-3">
-      <button
-        type="button"
-        onClick={() => setCollapsedSaved(true)}
-        aria-expanded
-        aria-label="Hide Filters"
-        title="Hide Filters"
-        className="absolute right-1.5 top-1.5 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-      >
-        <ChevronUp className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-      </button>
-      {props.hideDate ? (
-        <>
-          {on.onCapYearOffset ? (
-            <ChoiceFilter
-              label="Cap Year"
-              note="Current uses today. Previous uses the same day one year ago. Every selected cap applies that day to its own reset date."
-              value={String(props.capYearOffset || 0)}
-              options={[
-                { value: '0', label: 'Current Cap Year' },
-                { value: '1', label: 'Previous Cap Year' },
-              ]}
-              onChange={(next) => on.onCapYearOffset?.(next === '1' ? 1 : 0)}
-            />
-          ) : null}
-        </>
-      ) : (
-        <DateRangeFilter preset={props.preset} range={props.range} onPreset={on.onPreset} onRange={on.onRange} label={props.dateRangeLabel} />
-      )}
-      {props.preset === 'custom' && !props.hideDate ? (
-        <>
-          <CustomDateField label="From" value={props.range.start} onChange={(start) => on.onRange({ ...props.range, start })} />
-          <CustomDateField label="To" value={props.range.end} onChange={(end) => on.onRange({ ...props.range, end })} />
-        </>
-      ) : null}
-      <MultiFilter label="Group" note="Limits every metric to transactions whose primary agent belongs to the selected groups. All includes every agent." options={props.groupChoices} picked={props.groupPicked} fallback={null} onChange={on.onGroups} />
-      {props.earningsChoices && on.onEarnings ? (
-        <MultiFilter label="Earnings Type" note="Net commission income is each agent’s payment amount. Checking an entity adds the post-split dollars that agent allocated to it." options={props.earningsChoices} picked={props.earningsPicked ?? null} fallback={[NET_EARNING]} onChange={on.onEarnings} />
+
+  const capYear = props.onCapYearOffset ? (
+    <ChoiceFilter
+      label="Cap Year"
+      note="Current uses today. Previous uses the same day one year ago. Every selected cap applies that day to its own reset date."
+      value={String(props.capYearOffset || 0)}
+      options={[
+        { value: '0', label: 'Current Cap Year' },
+        { value: '1', label: 'Previous Cap Year' },
+      ]}
+      onChange={(next) => props.onCapYearOffset?.(next === '1' ? 1 : 0)}
+    />
+  ) : null;
+  const customDates = props.preset === 'custom' && !props.hideDate ? (
+    <div className="flex flex-wrap gap-3">
+      <CustomDateField label="From" value={props.range.start} onChange={(start) => props.onRange({ ...props.range, start })} />
+      <CustomDateField label="To" value={props.range.end} onChange={(end) => props.onRange({ ...props.range, end })} />
+    </div>
+  ) : null;
+  const checkbox = (checked: boolean, onChange: (value: boolean) => void, label: string, title?: string) => (
+    <label title={title} className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="h-4 w-4 cursor-pointer accent-emerald-600" />
+      {label}
+    </label>
+  );
+
+  // Every filter, stacked, for the panel and the sheet.
+  const controls = (
+    <>
+      <MultiFilter label="Group" note="Limits every metric to transactions whose primary agent belongs to the selected groups. All includes every agent." options={props.groupChoices} picked={props.groupPicked} fallback={null} onChange={props.onGroups} />
+      {props.earningsChoices && props.onEarnings ? (
+        <MultiFilter label="Earnings Type" note="Net commission income is each agent’s payment amount. Checking an entity adds the post-split dollars that agent allocated to it." options={props.earningsChoices} picked={props.earningsPicked ?? null} fallback={[NET_EARNING]} onChange={props.onEarnings} />
       ) : null}
       {props.dateOnly ? null : (
         <>
-      <MultiFilter label="Status" options={props.statusChoices} picked={props.statusPicked} fallback={props.statusFallback} onChange={on.onStatus} fold />
-      <MultiFilter label="Side" options={props.sideChoices} picked={props.sidePicked} fallback={null} onChange={on.onSide} fold />
-      <MultiFilter label="Primary Agent" options={props.agentChoices} picked={props.agentPicked} fallback={null} onChange={on.onAgent} />
-      <MultiFilter label="Lead Source" options={props.sourceChoices} picked={props.sourcePicked} fallback={null} onChange={on.onSource} />
-      {props.payeeChoices && on.onPayees ? (
-        <MultiFilter label={props.boardMetric === 'payment:entity' ? 'Entity' : 'Agent'} options={props.payeeChoices} picked={props.payeePicked ?? null} fallback={null} onChange={on.onPayees} />
-      ) : null}
-      {props.excludeTeamLeads !== undefined && on.onExcludeTeamLeads ? (
-        <label className="mb-1 flex h-5 cursor-pointer items-center gap-2 self-end text-xs font-medium normal-case tracking-normal max-md:col-span-2 max-md:mb-0 max-md:text-sm max-md:whitespace-nowrap text-slate-700 dark:text-slate-200">
-          <input
-            type="checkbox"
-            checked={Boolean(props.excludeTeamLeads)}
-            onChange={(event) => on.onExcludeTeamLeads?.(event.target.checked)}
-            className="h-4 w-4 cursor-pointer accent-emerald-600"
-          />
-          {props.teamLeadIds?.size === 1 ? 'Exclude Team Lead' : 'Exclude Team Leads'}
-        </label>
-      ) : null}
-      {props.cumulative !== undefined && on.onCumulative ? (
-        <label className="mb-1 flex h-5 cursor-pointer items-center gap-2 self-end text-xs font-medium normal-case tracking-normal max-md:col-span-2 max-md:mb-0 max-md:text-sm max-md:whitespace-nowrap text-slate-700 dark:text-slate-200">
-          <input
-            type="checkbox"
-            checked={props.cumulative}
-            onChange={(event) => on.onCumulative?.(event.target.checked)}
-            className="h-4 w-4 cursor-pointer accent-emerald-600"
-          />
-          Cumulative
-        </label>
-      ) : null}
-      {props.capShowPaid !== undefined && on.onCapShowPaid ? (
-        <label title="Lists every transaction in the agent’s cap year where the agent was paid. Rows that add nothing to this cap are grey." className="mb-1 flex h-5 cursor-pointer items-center gap-2 self-end text-xs font-medium normal-case tracking-normal max-md:col-span-2 max-md:mb-0 max-md:text-sm max-md:whitespace-nowrap text-slate-700 dark:text-slate-200">
-          <input
-            type="checkbox"
-            checked={props.capShowPaid}
-            onChange={(event) => on.onCapShowPaid?.(event.target.checked)}
-            className="h-4 w-4 cursor-pointer accent-emerald-600"
-          />
-          Show All Paid Transactions
-        </label>
-      ) : null}
-      {props.hideMetric ? null : (
-      <ChoiceFilter
-        label="Metric"
-        value={props.boardMetrics ? props.boardMetric : props.metric}
-        options={(props.boardMetrics ?? METRICS.map((item) => ({ id: item.id, label: item.label }))).map((item) => ({ value: item.id, label: item.label }))}
-        onChange={(next) => {
-          if (props.boardMetrics && on.onBoardMetric) on.onBoardMetric(next);
-          else on.onMetric(next as MetricId);
-        }}
-      />
-      )}
+          <MultiFilter label="Status" options={props.statusChoices} picked={props.statusPicked} fallback={props.statusFallback} onChange={props.onStatus} fold />
+          <MultiFilter label="Side" options={props.sideChoices} picked={props.sidePicked} fallback={null} onChange={props.onSide} fold />
+          <MultiFilter label="Primary Agent" options={props.agentChoices} picked={props.agentPicked} fallback={null} onChange={props.onAgent} />
+          <MultiFilter label="Lead Source" options={props.sourceChoices} picked={props.sourcePicked} fallback={null} onChange={props.onSource} />
+          {props.payeeChoices && props.onPayees ? (
+            <MultiFilter label={props.boardMetric === 'payment:entity' ? 'Entity' : 'Agent'} options={props.payeeChoices} picked={props.payeePicked ?? null} fallback={null} onChange={props.onPayees} />
+          ) : null}
+          {props.hideMetric ? null : (
+            <ChoiceFilter
+              label="Metric"
+              value={props.boardMetrics ? props.boardMetric ?? '' : props.metric}
+              options={(props.boardMetrics ?? METRICS.map((item) => ({ id: item.id, label: item.label }))).map((item) => ({ value: item.id, label: item.label }))}
+              onChange={(next) => {
+                if (props.boardMetrics && props.onBoardMetric) props.onBoardMetric(next);
+                else props.onMetric(next as MetricId);
+              }}
+            />
+          )}
+          {props.excludeTeamLeads !== undefined && props.onExcludeTeamLeads
+            ? checkbox(Boolean(props.excludeTeamLeads), props.onExcludeTeamLeads, props.teamLeadIds?.size === 1 ? 'Exclude Team Lead' : 'Exclude Team Leads')
+            : null}
+          {props.cumulative !== undefined && props.onCumulative ? checkbox(props.cumulative, props.onCumulative, 'Cumulative') : null}
+          {props.capShowPaid !== undefined && props.onCapShowPaid
+            ? checkbox(props.capShowPaid, props.onCapShowPaid, 'Show All Paid Transactions', 'Lists every transaction in the agent’s cap year where the agent was paid. Rows that add nothing to this cap are grey.')
+            : null}
         </>
       )}
-      {/* Last in the card: on a phone it takes its own row. */}
-      {resetButton ? <div className="flex items-end max-md:col-span-2 max-md:justify-end md:ml-auto">{resetButton}</div> : null}
+    </>
+  );
+
+  const countBadge = chips.length > 0 ? (
+    <span className="inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-brand-600 px-1 text-2xs font-semibold tabular-nums text-white">{chips.length}</span>
+  ) : null;
+  const span = props.hideDate ? (props.capYearOffset ? 'Previous Cap Year' : 'Current Cap Year') : formatFilterSpan(props.range);
+  const resultLabel = props.resultCount == null
+    ? 'Show Results'
+    : `Show ${props.resultCount.toLocaleString()} ${props.resultCount === 1 ? 'Transaction' : 'Transactions'}`;
+
+  const bar = isDesktop ? (
+    <div data-report-filters className="relative z-30 flex flex-wrap items-end gap-x-4 gap-y-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 self-end rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-xs transition hover:border-brand-300 hover:text-brand-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-brand-700 dark:hover:text-brand-300"
+      >
+        <SlidersHorizontal className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+        Filters
+        {countBadge}
+      </button>
+      {props.hideDate ? capYear : <DateRangeFilter preset={props.preset} range={props.range} onPreset={props.onPreset} onRange={props.onRange} label={props.dateRangeLabel} />}
+      {customDates}
+      {chips.length > 0 ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 self-end pb-0.5">
+          {chips.map((chip) => (
+            <span key={chip.key} className="inline-flex max-w-[18rem] items-center gap-1 rounded-full bg-brand-50 py-0.5 pl-2.5 pr-1 text-xs text-brand-800 ring-1 ring-brand-200 dark:bg-brand-950/60 dark:text-brand-200 dark:ring-brand-800">
+              <span className="truncate">
+                <span className="font-semibold">{chip.label}</span>{chip.text ? `: ${chip.text}` : ''}
+              </span>
+              <button
+                type="button"
+                onClick={chip.clear}
+                aria-label={`Clear ${chip.label}`}
+                title={`Clear ${chip.label}`}
+                className="inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full text-brand-500 transition hover:bg-brand-100 hover:text-brand-800 dark:hover:bg-brand-900 dark:hover:text-brand-100"
+              >
+                <X className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {resetButton ? <div className="ml-auto self-end">{resetButton}</div> : null}
     </div>
+  ) : (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      aria-haspopup="dialog"
+      className="relative z-30 flex w-full cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left dark:border-slate-800 dark:bg-slate-900"
+    >
+      <SlidersHorizontal className="h-4 w-4 shrink-0 text-slate-500" strokeWidth={2.25} aria-hidden />
+      <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Filters</span>
+      <span className="min-w-0 flex-1 truncate text-xs tabular-nums text-slate-500 dark:text-slate-400">{span}</span>
+      {countBadge}
+      <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" strokeWidth={2.25} aria-hidden />
+    </button>
+  );
+
+  const close = () => setOpen(false);
+  const header = (
+    <div className="flex shrink-0 items-center justify-between gap-3 px-5 pb-3 pt-4">
+      <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">Filters</p>
+      <button
+        type="button"
+        onClick={close}
+        aria-label="Close Filters"
+        className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+      >
+        <X className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+      </button>
+    </div>
+  );
+
+  const panel = !open || typeof document === 'undefined' ? null : createPortal(
+    <FiltersInPanel.Provider value>
+      <div className="fixed inset-0 z-[80] bg-slate-950/30 report-filters-fade" onClick={close} aria-hidden />
+      {isDesktop ? (
+        <aside
+          role="dialog"
+          aria-label="Filters"
+          data-report-filters
+          data-report-filters-panel
+          className="report-filters-panel fixed inset-y-0 right-0 z-[81] flex w-[22rem] max-w-[92vw] flex-col border-l border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
+        >
+          {header}
+          <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-5 pb-5 pt-1">
+            {props.hideDate ? capYear : <DateRangeFilter preset={props.preset} range={props.range} onPreset={props.onPreset} onRange={props.onRange} label={props.dateRangeLabel} />}
+            {customDates}
+            {controls}
+          </div>
+          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-200 px-5 py-3 dark:border-slate-800">
+            {resetButton ?? <span />}
+            <button type="button" onClick={close} className="h-9 cursor-pointer rounded-lg bg-brand-600 px-4 text-xs font-semibold text-white transition hover:bg-brand-700">Done</button>
+          </div>
+        </aside>
+      ) : (
+        <div
+          ref={sheetRef}
+          role="dialog"
+          aria-label="Filters"
+          data-report-filters
+          data-report-filters-panel
+          className="report-filters-sheet fixed inset-x-0 bottom-0 z-[81] flex max-h-[85dvh] flex-col rounded-t-2xl bg-white shadow-2xl dark:bg-slate-900"
+        >
+          {/* Drag the top of the sheet down to close it. */}
+          <div
+            className="shrink-0 touch-none"
+            onTouchStart={(event) => { dragFrom.current = event.touches[0].clientY; }}
+            onTouchMove={(event) => {
+              if (dragFrom.current == null || !sheetRef.current) return;
+              const drop = Math.max(0, event.touches[0].clientY - dragFrom.current);
+              sheetRef.current.style.transform = `translateY(${drop}px)`;
+            }}
+            onTouchEnd={(event) => {
+              const drop = dragFrom.current == null ? 0 : event.changedTouches[0].clientY - dragFrom.current;
+              dragFrom.current = null;
+              if (sheetRef.current) sheetRef.current.style.transform = '';
+              if (drop > 80) close();
+            }}
+          >
+            <div className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-slate-300 dark:bg-slate-600" aria-hidden />
+            {header}
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-5 pb-5">
+            {props.hideDate ? capYear : (
+              <div>
+                <p className="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">{props.dateRangeLabel ?? 'Date Range'}</p>
+                <div className="flex flex-wrap gap-2">
+                  {SHEET_PRESETS.map((id) => {
+                    const item = DATE_PRESETS.find((preset) => preset.id === id);
+                    if (!item) return null;
+                    const active = props.preset === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => (id === 'custom' ? props.onRange(props.range) : props.onPreset(id))}
+                        className={`h-9 cursor-pointer rounded-full px-3.5 text-sm font-medium transition ${active ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'}`}
+                      >
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {props.preset !== 'custom' ? <p className="mt-2 text-xs tabular-nums text-slate-500 dark:text-slate-400">{formatFilterSpan(props.range)}</p> : null}
+              </div>
+            )}
+            {customDates}
+            {controls}
+          </div>
+          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-200 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 dark:border-slate-800">
+            {resetButton ?? <span />}
+            <button type="button" onClick={close} className="h-10 cursor-pointer rounded-xl bg-brand-600 px-5 text-sm font-semibold text-white transition hover:bg-brand-700">{resultLabel}</button>
+          </div>
+        </div>
+      )}
+    </FiltersInPanel.Provider>,
+    document.body,
+  );
+
+  return (
+    <>
+      {bar}
+      {panel}
+    </>
   );
 }
 
@@ -2457,9 +2574,10 @@ function ChoiceFilter({ label, note, value, options, onChange }: {
   options: { value: string; label: string }[];
   onChange: (value: string) => void;
 }) {
+  const inPanel = React.useContext(FiltersInPanel);
   const [open, setOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
-  useViewportClamp(listRef, open);
+  useViewportClamp(listRef, open && !inPanel);
   const [query, setQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
   const selected = options.find((option) => option.value === value);
@@ -2500,13 +2618,13 @@ function ChoiceFilter({ label, note, value, options, onChange }: {
         aria-haspopup="listbox"
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => setOpen((current) => !current)}
-        className={`${underlineShell} w-max max-w-full min-w-[9rem] cursor-pointer !pr-7 text-left max-md:w-full max-md:min-w-0`}
+        className={`${underlineShell} w-max max-w-full min-w-[9rem] cursor-pointer !pr-7 text-left max-md:w-full max-md:min-w-0 ${inPanel ? '!w-full' : ''}`}
       >
         <span className={`${underlineControl} !inline-flex !w-auto items-center normal-case tracking-normal max-md:text-sm`}>{selected?.label || ''}</span>
         <FieldChevron />
       </button>
       {open ? (
-        <div ref={listRef} role="listbox" aria-label={label} className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+        <div ref={listRef} role="listbox" aria-label={label} className={inPanel ? panelList : 'absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100'}>
           {options.length > 8 ? (
             <div className="sticky -top-1 z-10 bg-white px-1 py-1 dark:bg-slate-900">
               <input
@@ -2542,9 +2660,10 @@ function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date Range
   onRange: (range: DateRange) => void;
   label?: string;
 }) {
+  const inPanel = React.useContext(FiltersInPanel);
   const [open, setOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
-  useViewportClamp(listRef, open);
+  useViewportClamp(listRef, open && !inPanel);
   const [query, setQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
   const selected = DATE_PRESETS.find((item) => item.id === preset) || DATE_PRESETS[0];
@@ -2586,7 +2705,7 @@ function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date Range
         aria-haspopup="listbox"
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => setOpen((value) => !value)}
-        className={`${underlineShell} w-max max-w-full cursor-pointer !pr-7 text-left max-md:w-full`}
+        className={`${underlineShell} w-max max-w-full cursor-pointer !pr-7 text-left max-md:w-full ${inPanel ? '!w-full' : ''}`}
       >
         <span className={`${underlineControl} !inline-flex !w-auto items-center gap-2 normal-case tracking-normal max-md:!w-full max-md:whitespace-nowrap max-md:text-sm`}>
           <span className="max-md:shrink-0">{selected.label}</span>
@@ -2595,7 +2714,7 @@ function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date Range
         <FieldChevron />
       </button>
       {open ? (
-        <div ref={listRef} role="listbox" aria-label="Date Range" className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-80 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+        <div ref={listRef} role="listbox" aria-label="Date Range" className={inPanel ? panelList : 'absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-80 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100'}>
           {DATE_PRESETS.length > 8 ? (
             <div className="sticky -top-1 z-10 bg-white px-1 py-1 dark:bg-slate-900">
               <input
@@ -2657,9 +2776,10 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
   onChange: (value: string[] | null) => void;
   fold?: boolean;
 }) {
+  const inPanel = React.useContext(FiltersInPanel);
   const [open, setOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
-  useViewportClamp(listRef, open);
+  useViewportClamp(listRef, open && !inPanel);
   const [query, setQuery] = useState('');
   // Touch has no hover, so tapping the right side of an option reveals its ONLY button.
   const touch = useIsTouch();
@@ -2720,14 +2840,14 @@ function MultiFilter({ label, note, options, picked, fallback, onChange, fold = 
         aria-haspopup="listbox"
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => setOpen((value) => !value)}
-        className={`${underlineShell} min-w-[9rem] max-w-[24rem] cursor-pointer !pr-7 text-left max-md:min-w-0 max-md:max-w-full ${options.length > 0 && selectedLabels.length === 0 ? '!border-b-amber-500 !bg-amber-50 dark:!border-b-amber-400 dark:!bg-amber-950' : ''}`}
+        className={`${underlineShell} min-w-[9rem] max-w-[24rem] cursor-pointer !pr-7 text-left max-md:min-w-0 max-md:max-w-full ${inPanel ? '!w-full !max-w-none' : ''} ${options.length > 0 && selectedLabels.length === 0 ? '!border-b-amber-500 !bg-amber-50 dark:!border-b-amber-400 dark:!bg-amber-950' : ''}`}
         title={summary}
       >
         <span className={`${underlineControl} block truncate normal-case tracking-normal max-md:text-sm ${options.length > 0 && selectedLabels.length === 0 ? '!text-amber-900 dark:!text-amber-100' : ''}`}>{summary}</span>
         <FieldChevron />
       </button>
       {open ? (
-        <div ref={listRef} role="listbox" aria-label={label} aria-multiselectable="true" className="absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+        <div ref={listRef} role="listbox" aria-label={label} aria-multiselectable="true" className={inPanel ? panelList : 'absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100'}>
           <div className="sticky -top-1 z-10 bg-white px-1 py-1 dark:bg-slate-900">
             <div className="flex items-center justify-between gap-2">
               <button type="button" onClick={() => commit(values)} className="cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-950">Select All</button>
