@@ -17,3 +17,4 @@ export * from './plans';
 export * from './plan-presets';
 export * from './plan-rows';
 export * from './plan-template';
+export * from './plan-waterfall';

@@ -70,6 +70,7 @@ function entityLabel(item: StoredCommissionItem, entities: CommissionEntityOptio
 function toRule(item: StoredCommissionItem, entities: CommissionEntityOption[]): DynamicRule {
   const label = entityLabel(item, entities);
   const parts = ruleParts(item);
+  const attributes = item.custom_attributes || {};
   return {
     id: item.id,
     name: label,
@@ -77,6 +78,10 @@ function toRule(item: StoredCommissionItem, entities: CommissionEntityOption[]):
     note: item.note || '',
     type: parts.type,
     value: parts.value,
+    ...(item.plan_line_key ? { planLineKey: item.plan_line_key, ...(item.commission_plan_version_id ? { planVersionId: item.commission_plan_version_id } : {}) } : {}),
+    ...(attributes.plan_typed === true ? { planTyped: true } : {}),
+    ...(attributes.plan_waived === true ? { planWaived: true } : {}),
+    ...(attributes.before_plan === true ? { beforePlan: true } : {}),
   };
 }
 
@@ -187,7 +192,12 @@ export function waterfallFromCommissionItems(
     const allocation = allocationOf(item);
     const config = agentConfig(item, knownAgents, allocation.splitType, allocation.splitVal);
     if (agents.some((agent) => agent.id === config.id)) return;
-    addAgent(item.custom_attributes?.manual_split === true ? { ...config, manualSplit: true } : config);
+    const bonusNet = Number(item.custom_attributes?.bonus_net) || 0;
+    addAgent({
+      ...config,
+      ...(item.custom_attributes?.manual_split === true ? { manualSplit: true } : {}),
+      ...(bonusNet ? { bonusNet } : {}),
+    });
   });
 
   const groupPostSplits = (section: string): Record<string, DynamicRule[]> => {

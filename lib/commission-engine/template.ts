@@ -434,7 +434,7 @@ export function applyTemplateLogic({
         if (!shares[index]) return;
         const pool = recorded(agentAmounts, agentName);
         postSplitRulesByAgent[agentName] = [
-          { id: `tpl_credit_${credit.name}_${index}`, name: credit.name, entity: credit.entity, type: 'AMOUNT', value: appliedSplitValue('AMOUNT', shares[index], pool) },
+          { id: `tpl_credit_${credit.name}_${index}`, name: credit.name, entity: credit.entity, type: 'AMOUNT', value: appliedSplitValue('AMOUNT', shares[index], pool), beforePlan: true },
           ...(postSplitRulesByAgent[agentName] || []),
         ];
         postSums[agentName] = roundCurrency((postSums[agentName] || 0) + shares[index]);

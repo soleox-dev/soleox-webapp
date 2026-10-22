@@ -17,8 +17,25 @@ function cleanRuleValue(item: { type?: string; value?: number | null }): { split
   return { splitType, value };
 }
 
+/** A Commission Plan line's key and version, and its markers, on a saved post-split. Nothing for other lines. */
+function planColumns(item: { planLineKey?: string; planVersionId?: string; planTyped?: boolean; planWaived?: boolean; beforePlan?: boolean }) {
+  const attributes = {
+    ...(item.planTyped ? { plan_typed: true } : {}),
+    ...(item.planWaived ? { plan_waived: true } : {}),
+    ...(item.beforePlan ? { before_plan: true } : {}),
+  };
+  return {
+    ...(item.planLineKey ? { plan_line_key: item.planLineKey, commission_plan_version_id: item.planVersionId || null } : {}),
+    ...(Object.keys(attributes).length ? { custom_attributes: attributes } : {}),
+  };
+}
+
 /** transaction_commission_items rows for the save payload. Agents taking no part in the deal (idleAgentIds) are left out. */
-export function commissionLinesForSave(result: WaterfallResult, { knownAgents, knownEntities }: Directory) {
+export function commissionLinesForSave(
+  result: WaterfallResult,
+  { knownAgents, knownEntities, agents = [] }: Directory & { agents?: AgentConfig[] },
+) {
+  const bonusFor = (agentId: string | undefined) => agents.find((agent) => agent.id === agentId)?.bonusNet || 0;
   const idle = new Set(result.idleAgentIds || []);
   const isIdle = (item: { agentId?: string | null }) => Boolean(item.agentId && idle.has(item.agentId));
   const entityFor = (item: { entity?: string }) => knownEntities.find((e) => e.name === item.entity || e.id === item.entity);
@@ -78,8 +95,12 @@ export function commissionLinesForSave(result: WaterfallResult, { knownAgents, k
         payee_entity_id: null,
         agent_id: agentFor(item)?.id || item.agentId || null,
         final_amount: item.amount,
-        // A split typed by hand keeps winning over the template's formula after reload.
-        custom_attributes: item.manualSplit ? { manual_split: true } : {},
+        // A split typed by hand keeps winning over the template's formula after reload. Bonus dollars are kept so
+        // Commission Plans can share fees by the split without them.
+        custom_attributes: {
+          ...(item.manualSplit ? { manual_split: true } : {}),
+          ...(bonusFor(item.agentId) ? { bonus_net: bonusFor(item.agentId) } : {}),
+        },
       };
     }),
     ...result.postSplitItems.filter((item: any) => !isIdle(item)).map((item: any, idx: number) => {
@@ -95,6 +116,7 @@ export function commissionLinesForSave(result: WaterfallResult, { knownAgents, k
         payee_entity_id: entityFor(item)?.id || null,
         agent_id: agentFor(item)?.id || item.agentId || null,
         final_amount: item.amount,
+        ...planColumns(item),
       };
     }),
     ...(result.postSplit2Items || []).filter((item: any) => !isIdle(item)).map((item: any, idx: number) => {
@@ -110,6 +132,7 @@ export function commissionLinesForSave(result: WaterfallResult, { knownAgents, k
         payee_entity_id: entityFor(item)?.id || null,
         agent_id: agentFor(item)?.id || item.agentId || null,
         final_amount: item.amount,
+        ...planColumns(item),
       };
     }),
   ];
