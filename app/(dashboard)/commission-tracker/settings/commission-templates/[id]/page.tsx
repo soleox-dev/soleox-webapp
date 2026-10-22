@@ -276,6 +276,11 @@ function calculationFormSectionEnds(step: LogicStep, next: LogicStep | undefined
   return calculationFormSection(step) !== calculationFormSection(next);
 }
 
+/** A calculation shown in the form with "Add horizontal divider below this rule" checked; By Section draws that line. */
+function calculationDividerBelow(step: LogicStep): boolean {
+  return canonicalLogicSection(step.section || '') === 'Calculation' && Boolean(step.show_in_popup) && Boolean(step.divider_below);
+}
+
 export default function CommissionTemplateDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -1971,7 +1976,7 @@ export default function CommissionTemplateDetailPage() {
                         } : undefined}
                         onMouseDown={selectingRules ? (event) => { if (event.shiftKey) event.preventDefault(); } : undefined}
                         draggable={selectingRules ? false : undefined}
-                        className={`align-top ${selectingRules ? 'cursor-pointer select-none' : ''} ${selectingRules && selectedRuleIds.has(step.id) ? '[&>td]:!bg-[color-mix(in_srgb,var(--color-brand-500)_15%,var(--color-white))] dark:[&>td]:!bg-[color-mix(in_srgb,var(--color-brand-500)_20%,var(--color-slate-800))]' : ''} ${ruleView === 'section' && calculationFormSectionEnds(step, group.items[itemIndex + 1]) ? '[&>td]:border-b-2 [&>td]:!border-b-slate-400 dark:[&>td]:!border-b-slate-500' : ''} ${step.id === recentLogicId ? '[&>td]:bg-emerald-50 dark:[&>td]:bg-emerald-500/10' : ''} ${logicDropTarget && 'stepId' in logicDropTarget && logicDropTarget.stepId === step.id ? (logicDropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
+                        className={`align-top ${selectingRules ? 'cursor-pointer select-none' : ''} ${selectingRules && selectedRuleIds.has(step.id) ? '[&>td]:!bg-[color-mix(in_srgb,var(--color-brand-500)_15%,var(--color-white))] dark:[&>td]:!bg-[color-mix(in_srgb,var(--color-brand-500)_20%,var(--color-slate-800))]' : ''} ${ruleView === 'section' && (calculationFormSectionEnds(step, group.items[itemIndex + 1]) || calculationDividerBelow(step)) ? '[&>td]:border-b-2 [&>td]:!border-b-slate-400 dark:[&>td]:!border-b-slate-500' : ''} ${step.id === recentLogicId ? '[&>td]:bg-emerald-50 dark:[&>td]:bg-emerald-500/10' : ''} ${logicDropTarget && 'stepId' in logicDropTarget && logicDropTarget.stepId === step.id ? (logicDropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
                         onDragOver={(event) => {
                           if (logicSearch.trim()) return;
                           event.preventDefault();
