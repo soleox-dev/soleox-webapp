@@ -372,14 +372,13 @@ function LabeledParameter({
       <RotateCcw className="h-3 w-3" strokeWidth={1.75} aria-hidden />
     </button>
   );
+  // Drawn over the right end of the dropdown, which it lets clicks through to, so clicking the arrow opens it.
   const chevron = showChevron && (
-    <svg
-      viewBox="0 0 10 6"
+    <ChevronDown
       aria-hidden
-      className="pointer-events-none absolute right-0 top-1/2 h-1.5 w-2.5 -translate-y-1/2 text-slate-500 dark:text-slate-400"
-    >
-      <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+      strokeWidth={2}
+      className="pointer-events-none absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500 dark:text-slate-400"
+    />
   );
   const labelTone = invalid
     ? 'text-rose-600 dark:text-rose-400'
@@ -400,7 +399,7 @@ function LabeledParameter({
         </label>
         {resetButton}
       </div>
-      <div className={`relative flex w-[48%] max-w-[13rem] shrink-0 items-center justify-end [&_input]:text-right [&_input]:placeholder:text-slate-400 dark:[&_input]:placeholder:text-slate-500 [&_select]:[text-align-last:right] ${showChevron ? 'pr-4' : ''}`}>
+      <div className={`relative flex w-[48%] max-w-[13rem] shrink-0 items-center justify-end [&_input]:text-right [&_input]:placeholder:text-slate-400 dark:[&_input]:placeholder:text-slate-500 [&_select]:[text-align-last:right] ${showChevron ? '[&_input]:pr-5 [&_button]:pr-5' : ''}`}>
         {children ?? (
           <span className={`parameter-recalc-value truncate text-xs leading-4 font-medium ${invalid ? 'text-rose-600 dark:text-rose-400' : locked ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'}`}>
             {mirror || '—'}
