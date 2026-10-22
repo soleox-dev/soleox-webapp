@@ -14,7 +14,8 @@ import { DragHandle, moveItem, useDragReorder } from '@/components/ui/reorder-co
 import { normalizeFormula, validateFormula } from '../formula-validator';
 import { interpretValidationRule } from '@/lib/parameter-validation';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
-import { Copy, Rows3 } from 'lucide-react';
+import { Copy, ListChecks, Rows3 } from 'lucide-react';
+import { HoverNote } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/HoverNote';
 import { copyKey } from '@/lib/id';
 import { useRegisterSave } from '@/components/save-leave-guard';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -1737,31 +1738,37 @@ export default function CommissionTemplateDetailPage() {
                     </button>
                   ))}
                 </div>
-                <button
-                  type="button"
-                  aria-pressed={selectingRules}
-                  onClick={() => {
-                    setSelectingRules((current) => !current);
-                    setSelectedRuleIds(new Set());
-                    lastToggledRuleId.current = null;
-                  }}
-                  className={`whitespace-nowrap rounded-lg border px-2.5 py-1 text-xs font-bold transition cursor-pointer ${selectingRules
-                    ? 'border-brand-500/50 bg-brand-500/15 text-brand-700 dark:text-brand-300'
-                    : 'border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700'}`}
-                >
-                  {selectingRules ? 'Done' : 'Select'}
-                </button>
-                {selectingRules && (
+                {/* The same bulk actions button as on Transactions and Agents. */}
+                <HoverNote label="Select rules to rename at once">
                   <button
                     type="button"
-                    disabled={selectedRuleIds.size === 0}
+                    aria-label="Select rules to rename at once"
+                    aria-pressed={selectingRules}
+                    onClick={() => {
+                      setSelectingRules((current) => !current);
+                      setSelectedRuleIds(new Set());
+                      lastToggledRuleId.current = null;
+                      setBulkRenameOpen(false);
+                    }}
+                    className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition cursor-pointer ${
+                      selectingRules
+                        ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
+                        : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <ListChecks className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                  </button>
+                </HoverNote>
+                {selectingRules && selectedRuleIds.size > 0 && (
+                  <button
+                    type="button"
                     onClick={() => {
                       setBulkRenameError(null);
                       setBulkRenameOpen(true);
                     }}
-                    className="whitespace-nowrap rounded-lg bg-brand-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-brand-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                    className="h-9 px-3 rounded-lg text-xs font-bold border border-emerald-500/40 bg-emerald-500 text-white hover:bg-emerald-600 transition inline-flex items-center whitespace-nowrap cursor-pointer"
                   >
-                    Rename Selected{selectedRuleIds.size > 0 ? ` (${selectedRuleIds.size})` : ''}
+                    Rename {selectedRuleIds.size}
                   </button>
                 )}
                 <div className={`relative w-full sm:w-64 ${underlineShell}`}>
@@ -1954,7 +1961,17 @@ export default function CommissionTemplateDetailPage() {
                         {group.items.map((step, itemIndex) => (
                       <tr
                         key={step.id}
-                        className={`align-top ${ruleView === 'section' && calculationFormSectionEnds(step, group.items[itemIndex + 1]) ? '[&>td]:border-b-2 [&>td]:!border-b-slate-400 dark:[&>td]:!border-b-slate-500' : ''} ${step.id === recentLogicId ? '[&>td]:bg-emerald-50 dark:[&>td]:bg-emerald-500/10' : ''} ${logicDropTarget && 'stepId' in logicDropTarget && logicDropTarget.stepId === step.id ? (logicDropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
+                        aria-selected={selectingRules ? selectedRuleIds.has(step.id) : undefined}
+                        // In select mode a click anywhere on the row only selects it (Shift-click for a range); its buttons,
+                        // formulas and drag handle do nothing then.
+                        onClickCapture={selectingRules ? (event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          toggleRuleSelected(step.id, event.shiftKey, shownRuleIds);
+                        } : undefined}
+                        onMouseDown={selectingRules ? (event) => { if (event.shiftKey) event.preventDefault(); } : undefined}
+                        draggable={selectingRules ? false : undefined}
+                        className={`align-top ${selectingRules ? 'cursor-pointer select-none' : ''} ${selectingRules && selectedRuleIds.has(step.id) ? '[&>td]:!bg-[color-mix(in_srgb,var(--color-brand-500)_15%,var(--color-white))] dark:[&>td]:!bg-[color-mix(in_srgb,var(--color-brand-500)_20%,var(--color-slate-800))]' : ''} ${ruleView === 'section' && calculationFormSectionEnds(step, group.items[itemIndex + 1]) ? '[&>td]:border-b-2 [&>td]:!border-b-slate-400 dark:[&>td]:!border-b-slate-500' : ''} ${step.id === recentLogicId ? '[&>td]:bg-emerald-50 dark:[&>td]:bg-emerald-500/10' : ''} ${logicDropTarget && 'stepId' in logicDropTarget && logicDropTarget.stepId === step.id ? (logicDropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
                         onDragOver={(event) => {
                           if (logicSearch.trim()) return;
                           event.preventDefault();
@@ -1980,9 +1997,7 @@ export default function CommissionTemplateDetailPage() {
                                 aria-label={`Select ${step.rule_name}`}
                                 checked={selectedRuleIds.has(step.id)}
                                 onChange={() => {}}
-                                onMouseDown={(event) => { if (event.shiftKey) event.preventDefault(); }}
-                                onClick={(event) => toggleRuleSelected(step.id, event.shiftKey, shownRuleIds)}
-                                title="Shift-click to select a range"
+                                tabIndex={-1}
                                 className="block h-3.5 w-3.5 accent-brand-600 cursor-pointer"
                               />
                               {step.step_number}
