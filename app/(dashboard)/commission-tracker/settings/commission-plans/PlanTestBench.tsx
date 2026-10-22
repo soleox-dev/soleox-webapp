@@ -84,7 +84,8 @@ export function PlanTestBench({ plan }: { plan: CommissionPlan }) {
 
       <div className="space-y-2">
         {agents.map((agent) => (
-          <div key={agent.id} className="grid grid-cols-2 items-end gap-3 rounded-lg bg-slate-50 p-3 sm:grid-cols-6 dark:bg-slate-900/50">
+          // Columns wrap as the row narrows, each wide enough for a full "… Paid This Year" label.
+          <div key={agent.id} className="grid grid-cols-[repeat(auto-fill,minmax(13.5rem,1fr))] items-end gap-3 rounded-lg bg-slate-50 p-3 dark:bg-slate-900/50">
             <TextField label="Agent" value={agent.name} onChange={(name) => setAgent(agent.id, { name })} />
             <NumberField label="Split" suffix="%" value={agent.splitPercent} onChange={(value) => setAgent(agent.id, { splitPercent: value ?? 0 })} />
             {yearly.map((line) => (
