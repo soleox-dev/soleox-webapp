@@ -19,6 +19,7 @@ const NATIVE_AGENT_COLUMNS = new Set([
   'is_team_lead',
   'agent_onboard_date',
   'agent_offboard_date',
+  'commission_plan_id',
   'custom_attributes',
   'archived',
   'created_at',
@@ -62,7 +63,8 @@ export async function GET(request: Request) {
         console.warn('JSON parse error on agent row:', e);
       }
 
-      return { ...row, ...customAttrs };
+      // The Commission Plan is a column; a stray copy in the custom fields (saved before it was a column) never wins.
+      return { ...row, ...customAttrs, commission_plan_id: row.commission_plan_id ?? null };
     });
 
     // Deduplicate agents by normalized agent_name (keeps the most recent / non-archived record)
