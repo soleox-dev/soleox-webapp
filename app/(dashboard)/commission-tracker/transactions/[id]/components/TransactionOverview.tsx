@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import {
   FieldSetting,
   formatPercentageClean,
@@ -24,7 +24,7 @@ import { useEditOnDoublePress } from './useEditOnDoublePress';
 import { useSectionEditKeys } from './useSectionEditKeys';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { BooleanCheckbox, BooleanField, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronUp, Ellipsis } from 'lucide-react';
 import { UndoableDateInput } from '@/components/ui/UndoableDateInput';
 import { useAccess } from '@/components/access-provider';
 
@@ -51,6 +51,49 @@ interface TransactionOverviewProps {
 /** Key Terms uses the same emerald as the amounts in them, tinted like the blue pills of the
     other sections, so they read as their own sub-section. */
 const STRIP_PILL = 'flex items-center gap-2 rounded-full bg-emerald-500/15 px-3.5 py-1.5 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-400';
+
+/**
+ * A long value of an optional field, kept to one line to save room. When it does not fit, a "…" button opens the
+ * rest (wrapped in balanced lines) and a chevron folds it back up. Short values look like any other.
+ */
+function FoldedValue({ text, className }: { text: string; className: string }) {
+  const [open, setOpen] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const textRef = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    const node = textRef.current;
+    if (!node || open) return;
+    const measure = () => setOverflows(node.scrollWidth > node.clientWidth + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [text, open]);
+
+  return (
+    <span className="flex min-w-0 items-start justify-end gap-1">
+      <span ref={textRef} className={`min-w-0 ${open ? 'whitespace-normal break-words text-balance' : 'truncate'} ${className}`}>
+        {text}
+      </span>
+      {(overflows || open) && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            setOpen((current) => !current);
+          }}
+          aria-expanded={open}
+          aria-label={open ? 'Show less' : 'Show all'}
+          title={open ? 'Show less' : 'Show all'}
+          className="mt-0.5 inline-flex h-4 w-5 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-600 transition hover:bg-brand-500/20 hover:text-brand-700 dark:bg-slate-700 dark:text-slate-300 dark:hover:text-brand-300 cursor-pointer"
+        >
+          {open ? <ChevronUp aria-hidden className="h-3 w-3" strokeWidth={2.25} /> : <Ellipsis aria-hidden className="h-3 w-3" strokeWidth={2.25} />}
+        </button>
+      )}
+    </span>
+  );
+}
 
 export function TransactionOverview({
   isEditing,
@@ -383,17 +426,22 @@ export function TransactionOverview({
                                 />
                               )
                             ) : (
-                              <span
-                                className={`text-xs leading-5 whitespace-normal break-words text-balance ${
+                              (() => {
+                                const tone = `text-xs leading-5 ${
                                   showWarning
                                     ? 'text-amber-600 dark:text-amber-400 font-semibold'
                                     : fieldData.text === '—'
                                     ? 'text-slate-400 dark:text-slate-500'
                                     : 'text-slate-900 dark:text-white font-medium'
-                                }`}
-                              >
-                                {fieldData.text}
-                              </span>
+                                }`;
+                                // Optional fields keep long text to one line, opened with "…"; required ones show it all.
+                                if (!field.is_required && !strip) return <FoldedValue text={fieldData.text} className={tone} />;
+                                return (
+                                  <span className={`${tone} whitespace-normal break-words text-balance`}>
+                                    {fieldData.text}
+                                  </span>
+                                );
+                              })()
                             );
 
                     if (!strip) {
