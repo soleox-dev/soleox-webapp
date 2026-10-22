@@ -90,7 +90,7 @@ export function PlanTestBench({ plan }: { plan: CommissionPlan }) {
             {yearly.map((line) => (
               <NumberField
                 key={line.key}
-                label={`${line.name} paid this year`}
+                label={`${line.name} Paid This Year`}
                 prefix="$"
                 value={agent.paid[line.key] ?? 0}
                 onChange={(value) => setAgent(agent.id, { paid: { ...agent.paid, [line.key]: value ?? 0 } })}
@@ -99,15 +99,15 @@ export function PlanTestBench({ plan }: { plan: CommissionPlan }) {
             <div className="flex items-center gap-3 pb-1">
               <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
                 <input type="checkbox" className="h-4 w-4 cursor-pointer accent-brand-600" checked={agent.teamLead} onChange={(event) => setAgent(agent.id, { teamLead: event.target.checked })} />
-                Team lead
+                Team Lead
               </label>
               {hasOptIn && (
                 <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
                   <input type="checkbox" className="h-4 w-4 cursor-pointer accent-brand-600" checked={agent.optedIn} onChange={(event) => setAgent(agent.id, { optedIn: event.target.checked })} />
-                  Opted in
+                  Opted In
                 </label>
               )}
-              <button type="button" disabled={agents.length === 1} onClick={() => setAgents((current) => current.filter((item) => item.id !== agent.id))} className="ml-auto cursor-pointer rounded p-1 text-rose-500 hover:bg-rose-500/10 disabled:cursor-default disabled:opacity-30" aria-label={`Remove ${agent.name}`} title="Remove agent">
+              <button type="button" disabled={agents.length === 1} onClick={() => setAgents((current) => current.filter((item) => item.id !== agent.id))} className="ml-auto cursor-pointer rounded p-1 text-rose-500 hover:bg-rose-500/10 disabled:cursor-default disabled:opacity-30" aria-label={`Remove ${agent.name}`} title="Remove Agent">
                 <TrashIcon />
               </button>
             </div>
@@ -137,7 +137,7 @@ export function PlanTestBench({ plan }: { plan: CommissionPlan }) {
             </thead>
             <tbody className="tabular-nums">
               <tr className="border-b border-slate-100 dark:border-slate-700/60">
-                <td className="py-1.5 pr-4 text-slate-500">Side after bonuses</td>
+                <td className="py-1.5 pr-4 text-slate-500">Side After Bonuses</td>
                 {result.agents.map((agent) => (
                   <td key={agent.agentId} className="py-1.5 pr-4 text-right">{money(agent.sideAfterBonuses)}</td>
                 ))}
@@ -151,7 +151,7 @@ export function PlanTestBench({ plan }: { plan: CommissionPlan }) {
                       <td key={agent.agentId} className="py-1.5 pr-4 text-right" title={item?.explanation}>
                         {item ? `−${money(item.amount)}` : '—'}
                         {item?.postCapFraction !== undefined && item.postCapFraction > 0 && (
-                          <span className="ml-1 text-2xs text-slate-400">{Number((item.postCapFraction * 100).toFixed(2))}% post-cap</span>
+                          <span className="ml-1 text-2xs text-slate-400">{Number((item.postCapFraction * 100).toFixed(2))}% Post-Cap</span>
                         )}
                       </td>
                     );
@@ -176,7 +176,7 @@ export function PlanTestBench({ plan }: { plan: CommissionPlan }) {
           <div className="mt-3 flex flex-wrap gap-2">
             {result.agents.map((agent) => (
               <button key={agent.agentId} type="button" onClick={() => setOpenAgent(openAgent === agent.agentId ? null : agent.agentId)} className={`cursor-pointer rounded-md px-2 py-1 text-2xs font-semibold transition ${openAgent === agent.agentId ? 'bg-brand-500/10 text-brand-700 dark:text-brand-400' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700/50'}`}>
-                How {agent.name}&apos;s lines were worked out
+                How {agent.name}&apos;s Lines Were Worked Out
               </button>
             ))}
           </div>

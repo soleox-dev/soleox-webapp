@@ -63,11 +63,11 @@ export function PlanSettingsForm({
   return (
     <div className="space-y-6">
       <section className="space-y-3">
-        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Cap year</h3>
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Cap Year</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <MenuField label="Cap Date (orders deals for caps)" value={settings.capDateFieldKey} options={options(transactionDates, DATE_TYPES, settings.capDateFieldKey, 'Closing Date').filter((option) => option.value !== '')} onChange={(value) => onChange({ ...settings, capDateFieldKey: value || 'closing_date' })} />
-          <MenuField label="Cap Year Start (agent field)" value={settings.capYearStartFieldKey} options={options(agentFields, DATE_TYPES, settings.capYearStartFieldKey, 'Not set')} onChange={(value) => onChange({ ...settings, capYearStartFieldKey: value })} />
-          <MenuField label="Starting Balances For (agent field)" value={settings.startingBalancesForFieldKey} options={options(agentFields, DATE_TYPES, settings.startingBalancesForFieldKey, 'Not set')} onChange={(value) => onChange({ ...settings, startingBalancesForFieldKey: value })} />
+          <MenuField label="Cap Date (Orders Deals for Caps)" value={settings.capDateFieldKey} options={options(transactionDates, DATE_TYPES, settings.capDateFieldKey, 'Closing Date').filter((option) => option.value !== '')} onChange={(value) => onChange({ ...settings, capDateFieldKey: value || 'closing_date' })} />
+          <MenuField label="Cap Year Start (Agent Field)" value={settings.capYearStartFieldKey} options={options(agentFields, DATE_TYPES, settings.capYearStartFieldKey, 'Not Set')} onChange={(value) => onChange({ ...settings, capYearStartFieldKey: value })} />
+          <MenuField label="Starting Balances For (Agent Field)" value={settings.startingBalancesForFieldKey} options={options(agentFields, DATE_TYPES, settings.startingBalancesForFieldKey, 'Not Set')} onChange={(value) => onChange({ ...settings, startingBalancesForFieldKey: value })} />
         </div>
         <p className="max-w-3xl text-2xs text-slate-500 dark:text-slate-400">
           Deals count toward each agent&apos;s cap year in Cap Date order, ties by when the deal was first saved. An agent without Cap Year Start is not calculated; the deal asks for it.
@@ -75,7 +75,7 @@ export function PlanSettingsForm({
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Starting balances</h3>
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Starting Balances</h3>
         <p className="max-w-3xl text-2xs text-slate-500 dark:text-slate-400">What each agent had paid in the cap year before their deals were in the app. They count only in the cap year Starting Balances For falls in.</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {yearly.length === 0 && <span className="text-xs text-slate-400">No plan line keeps a yearly total yet.</span>}
@@ -86,13 +86,13 @@ export function PlanSettingsForm({
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Opt-ins and agent caps</h3>
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Opt-Ins and Agent Caps</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {optIns.map((line) => (
-            <MenuField key={`opt-${line.key}`} label={`${line.name} (yes/no agent field)`} value={settings.optInFieldKeys[line.key] || ''} options={options(agentFields, YES_NO_TYPES, settings.optInFieldKeys[line.key] || '', 'Nobody opts in')} onChange={(value) => setMap('optInFieldKeys', line.key, value)} />
+            <MenuField key={`opt-${line.key}`} label={`${line.name} (Yes/No Agent Field)`} value={settings.optInFieldKeys[line.key] || ''} options={options(agentFields, YES_NO_TYPES, settings.optInFieldKeys[line.key] || '', 'Nobody Opts In')} onChange={(value) => setMap('optInFieldKeys', line.key, value)} />
           ))}
           {capped.map((line) => (
-            <MenuField key={`cap-${line.key}`} label={`${line.name} cap override (agent field)`} value={settings.capAmountFieldKeys[line.key] || ''} options={options(agentFields, AMOUNT_TYPES, settings.capAmountFieldKeys[line.key] || '', 'Plan cap for everyone')} onChange={(value) => setMap('capAmountFieldKeys', line.key, value)} />
+            <MenuField key={`cap-${line.key}`} label={`${line.name} Cap Override (Agent Field)`} value={settings.capAmountFieldKeys[line.key] || ''} options={options(agentFields, AMOUNT_TYPES, settings.capAmountFieldKeys[line.key] || '', 'Plan Cap for Everyone')} onChange={(value) => setMap('capAmountFieldKeys', line.key, value)} />
           ))}
           {optIns.length === 0 && capped.length === 0 && <span className="text-xs text-slate-400">Add a plan first.</span>}
         </div>
