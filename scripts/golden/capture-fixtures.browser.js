@@ -82,12 +82,34 @@
 
   // ---- Which agents and ledger rows the fixtures need ----
   const AGT = /\bAGT_[0-9A-F]{12}\b/g;
+  const nameKey = (value) => {
+    const text = String(value ?? '').trim().toLowerCase();
+    if (!text) return '';
+    if (text.includes(',')) { const [last, first] = text.split(',').map((part) => part.trim()); return `${first} ${last}`.trim(); }
+    return text;
+  };
+  const agentsByName = new Map();
+  (agentsBody.agents || []).forEach((agent) => [agent.agent_name, `${agent.first_name || ''} ${agent.last_name || ''}`].forEach((name) => {
+    const key = nameKey(name);
+    if (!key) return;
+    const list = agentsByName.get(key) || [];
+    if (!list.includes(agent.id)) list.push(agent.id);
+    agentsByName.set(key, list);
+  }));
   const capRecipients = new Set((allocationConfig.teamCaps || []).map((cap) => cap.recipient_agent_id).filter(Boolean));
   const dealAgentIds = (entry) => {
     const ids = new Set(capRecipients);
     if (entry.deal.agent_id) ids.add(entry.deal.agent_id);
     entry.items.forEach((item) => item.agent_id && ids.add(item.agent_id));
-    entry.submissions.forEach((s) => JSON.stringify(s.submitted_parameters || {}).match(AGT)?.forEach((m) => ids.add(m)));
+    entry.submissions.forEach((s) => {
+      JSON.stringify(s.submitted_parameters || {}).match(AGT)?.forEach((m) => ids.add(m));
+      // Older submissions store the agent's name instead of the id. Every agent with that name is kept, since a lookup
+      // by name picks the active, newest one.
+      Object.values(s.submitted_parameters || {}).forEach((value) => {
+        const key = nameKey(value);
+        if (key) (agentsByName.get(key) || []).forEach((id) => ids.add(id));
+      });
+    });
     return ids;
   };
   const kept = new Set();
