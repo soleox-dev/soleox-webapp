@@ -1869,9 +1869,9 @@ export function CommissionTemplatePanel({
                   {/* Same columns as the parameter sections below, so the blue line under the title lines up with theirs. */}
                   <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-3 py-2 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:gap-x-4">
                     <span className="text-sm font-bold text-brand-600 dark:text-brand-400 @min-[720px]/params:self-stretch @min-[720px]/params:flex @min-[720px]/params:items-center @min-[720px]/params:border-r @min-[720px]/params:border-brand-500/50 @min-[720px]/params:pr-3 @min-[720px]/params:dark:border-brand-400/50">Team Caps</span>
-                    {/* The caps side by side, as far apart as the parameter columns below, wrapping when they run out
-                        of room. Each cap's info icon lists what its qualifying formula looked at on this deal. */}
-                    <div className="flex flex-wrap items-center gap-x-12 gap-y-2">
+                    {/* The caps side by side, wrapping when they run out of room. Each cap's info icon lists what its
+                        qualifying formula looked at on this deal. */}
+                    <div className="flex flex-wrap items-center gap-2">
                     {qualifyingCaps.map((cap) => (
                       <div
                         key={cap.id}
