@@ -1929,9 +1929,9 @@ export function CommissionTemplatePanel({
                           disabled={!canCollapse}
                           aria-expanded={canCollapse ? !isCollapsed : undefined}
                           title={canCollapse ? (isCollapsed ? 'Expand section' : 'Collapse section') : undefined}
-                          className={`flex min-w-0 flex-1 items-center gap-2 rounded-full py-1 pl-3 text-left disabled:cursor-default ${canCollapse ? 'pr-1 cursor-pointer transition hover:brightness-95 dark:hover:brightness-125' : 'pr-3'}`}
+                          className={`flex min-w-0 flex-1 items-center gap-2 rounded-full py-1.5 pl-3.5 text-left disabled:cursor-default ${canCollapse ? 'pr-1 cursor-pointer transition hover:brightness-95 dark:hover:brightness-125' : 'pr-3.5'}`}
                         >
-                          <span className={`min-w-0 flex-1 truncate text-xs font-bold ${isUnsectioned ? 'text-amber-700 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}>
+                          <span className={`min-w-0 flex-1 truncate text-sm font-bold ${isUnsectioned ? 'text-amber-700 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}>
                             {group.name}
                           </span>
                           {canCollapse && (
