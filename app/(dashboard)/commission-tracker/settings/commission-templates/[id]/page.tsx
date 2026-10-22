@@ -859,6 +859,31 @@ export default function CommissionTemplateDetailPage() {
     }
   };
 
+  // Turns the divider below on or off for the selected rules that can show one: calculations shown in the form.
+  const applyBulkDivider = async (dividerBelow: boolean) => {
+    const ids = logicSteps
+      .filter((step) => selectedRuleIds.has(step.id) && canonicalLogicSection(step.section || '') === 'Calculation' && step.show_in_popup)
+      .map((step) => step.id);
+    if (ids.length === 0) return;
+    setBulkRenameSaving(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/commission-template-logic', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template_id: templateId, ids, divider_below: dividerBelow }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || 'The dividers could not be changed.');
+      const changed = new Set(ids);
+      setLogicSteps((current) => current.map((step) => (changed.has(step.id) ? { ...step, divider_below: dividerBelow } : step)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'The dividers could not be changed.');
+    } finally {
+      setBulkRenameSaving(false);
+    }
+  };
+
   // In run order a rule keeps its section and moves to the dropped place in the order the engine runs rules.
   const dropLogicInRunOrder = async (sourceId: string, target: { stepId: string; placement: 'before' | 'after' }) => {
     if (isReordering || target.stepId === sourceId) return;
@@ -1776,6 +1801,34 @@ export default function CommissionTemplateDetailPage() {
                     Rename {selectedRuleIds.size}
                   </button>
                 )}
+                {selectingRules && (() => {
+                  // Only calculations shown in the form can have a divider below them.
+                  const eligible = logicSteps.filter((step) => selectedRuleIds.has(step.id)
+                    && canonicalLogicSection(step.section || '') === 'Calculation' && step.show_in_popup);
+                  if (eligible.length === 0) return null;
+                  const withDivider = eligible.filter((step) => step.divider_below).length;
+                  const skipped = selectedRuleIds.size - eligible.length;
+                  const note = skipped > 0 ? ` ${skipped} selected ${skipped === 1 ? 'rule is' : 'rules are'} not shown in the form and ${skipped === 1 ? 'is' : 'are'} left as is.` : '';
+                  const dividerButton = 'h-9 px-3 rounded-lg text-xs font-bold border border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200 transition inline-flex items-center whitespace-nowrap cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-700';
+                  return (
+                    <>
+                      {withDivider < eligible.length && (
+                        <HoverNote label={`Add the horizontal divider below ${eligible.length - withDivider} ${eligible.length - withDivider === 1 ? 'rule' : 'rules'}.${note}`}>
+                          <button type="button" disabled={bulkRenameSaving} onClick={() => void applyBulkDivider(true)} className={dividerButton}>
+                            Add Divider
+                          </button>
+                        </HoverNote>
+                      )}
+                      {withDivider > 0 && (
+                        <HoverNote label={`Remove the horizontal divider below ${withDivider} ${withDivider === 1 ? 'rule' : 'rules'}.${note}`}>
+                          <button type="button" disabled={bulkRenameSaving} onClick={() => void applyBulkDivider(false)} className={dividerButton}>
+                            Remove Divider
+                          </button>
+                        </HoverNote>
+                      )}
+                    </>
+                  );
+                })()}
                 <div className={`relative w-full sm:w-64 ${underlineShell}`}>
                   <input
                     type="text"

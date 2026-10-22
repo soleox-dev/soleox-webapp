@@ -143,8 +143,8 @@ export async function POST(request: Request) {
   }
 }
 
-// PATCH: Rename several rules at once (Settings > Templates > Rules > Rename Selected). Only names change;
-// keys, formulas and order stay as they are.
+// PATCH: Change several rules at once from the rules list's select mode: rename them (only names change; keys,
+// formulas and order stay as they are), or turn their divider below on or off.
 export async function PATCH(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -153,6 +153,32 @@ export async function PATCH(request: Request) {
     }
     const body = await request.json().catch(() => ({}));
     const templateId = String(body.template_id || '').trim();
+
+    // Turning "Add horizontal divider below this rule" on or off for several rules.
+    if (typeof body.divider_below === 'boolean') {
+      const ids: string[] = (Array.isArray(body.ids) ? body.ids : []).map((id: unknown) => String(id || '').trim()).filter(Boolean);
+      if (!templateId || ids.length === 0) {
+        return NextResponse.json({ error: 'Choose the rules to change.' }, { status: 400 });
+      }
+      const { clientId, supabase } = await requireSessionClient();
+      const { error } = await supabase
+        .from('commission_template_rules')
+        .update({ divider_below: body.divider_below, updated_at: new Date().toISOString(), updated_by: session.user.email })
+        .in('id', ids)
+        .eq('template_id', templateId)
+        .eq('client_id', clientId);
+      if (error) throw error;
+      await recordAudit(supabase, {
+        clientId,
+        actorEmail: session.user.email,
+        action: 'update',
+        entity: 'template',
+        entityId: templateId,
+        summary: `${body.divider_below ? 'Added' : 'Removed'} the divider below ${ids.length} template ${ids.length === 1 ? 'rule' : 'rules'}`,
+      });
+      return NextResponse.json({ success: true, updated: ids.length });
+    }
+
     const names: { id: string; rule_name: string }[] = (Array.isArray(body.names) ? body.names : [])
       .map((row: { id?: unknown; rule_name?: unknown }) => ({ id: String(row?.id || '').trim(), rule_name: String(row?.rule_name || '').trim() }))
       .filter((row: { id: string }) => row.id);
