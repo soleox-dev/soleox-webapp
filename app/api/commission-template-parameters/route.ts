@@ -163,6 +163,73 @@ export async function POST(request: Request) {
   }
 }
 
+// PATCH: Change several parameters at once from the Parameters list's select mode: rename them (only names
+// change; keys, formulas and order stay as they are), or turn their divider below on or off.
+export async function PATCH(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const body = await request.json().catch(() => ({}));
+    const templateId = String(body.template_id || '').trim();
+    const { clientId, supabase } = await requireSessionClient();
+    const updatedAt = new Date().toISOString();
+
+    if (typeof body.divider_below === 'boolean') {
+      const ids: string[] = (Array.isArray(body.ids) ? body.ids : []).map((id: unknown) => String(id || '').trim()).filter(Boolean);
+      if (!templateId || ids.length === 0) {
+        return NextResponse.json({ error: 'Choose the parameters to change.' }, { status: 400 });
+      }
+      const { error } = await supabase
+        .from('commission_template_parameters')
+        .update({ divider_below: body.divider_below, updated_at: updatedAt, updated_by: session.user.email })
+        .in('id', ids)
+        .eq('template_id', templateId)
+        .eq('client_id', clientId);
+      if (error) throw error;
+      await recordAudit(supabase, {
+        clientId,
+        actorEmail: session.user.email,
+        action: 'update',
+        entity: 'template',
+        entityId: templateId,
+        summary: `${body.divider_below ? 'Added' : 'Removed'} the divider below ${ids.length} template ${ids.length === 1 ? 'parameter' : 'parameters'}`,
+      });
+      return NextResponse.json({ success: true, updated: ids.length });
+    }
+
+    const names: { id: string; parameter_name: string }[] = (Array.isArray(body.names) ? body.names : [])
+      .map((row: { id?: unknown; parameter_name?: unknown }) => ({ id: String(row?.id || '').trim(), parameter_name: String(row?.parameter_name || '').trim() }))
+      .filter((row: { id: string }) => row.id);
+    if (!templateId || names.length === 0) {
+      return NextResponse.json({ error: 'Choose the parameters to rename.' }, { status: 400 });
+    }
+    if (names.some((row) => !row.parameter_name)) {
+      return NextResponse.json({ error: 'A parameter name cannot be empty.' }, { status: 400 });
+    }
+    const results = await Promise.all(names.map((row) => supabase
+      .from('commission_template_parameters')
+      .update({ parameter_name: row.parameter_name, updated_at: updatedAt, updated_by: session.user!.email })
+      .eq('id', row.id)
+      .eq('template_id', templateId)
+      .eq('client_id', clientId)));
+    const failed = results.find((result) => result.error);
+    if (failed?.error) throw failed.error;
+    await recordAudit(supabase, {
+      clientId,
+      actorEmail: session.user.email,
+      action: 'update',
+      entity: 'template',
+      entityId: templateId,
+      summary: `Renamed ${names.length} template ${names.length === 1 ? 'parameter' : 'parameters'}`,
+    });
+    return NextResponse.json({ success: true, renamed: names.length });
+  } catch (error: any) {
+    return apiError(error, 'The parameters could not be changed.');
+  }
+}
+
 // DELETE: Archive template parameter
 export async function DELETE(request: Request) {
   try {

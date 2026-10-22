@@ -29,28 +29,34 @@ export function renamedRule(name: string, action: BulkRenameAction, text: string
   return next.trim();
 }
 
-/** The Rename Selected popup on a template's rules list: one action at a time, previewed before it is applied. */
+/**
+ * The Rename popup on a template's Rules or Parameters list: one action at a time, previewed before it is
+ * applied.
+ */
 export function BulkRuleRename({
-  rules,
+  items,
+  noun,
   saving,
   error,
   onApply,
   onClose,
 }: {
-  rules: { id: string; rule_name: string }[];
+  items: { id: string; name: string }[];
+  /** "Rule" or "Parameter", for the title and buttons. */
+  noun: 'Rule' | 'Parameter';
   saving: boolean;
   error: string | null;
-  onApply: (names: { id: string; rule_name: string }[]) => void;
+  onApply: (names: { id: string; name: string }[]) => void;
   onClose: () => void;
 }) {
   const [action, setAction] = useState<BulkRenameAction>('remove_start');
   const [text, setText] = useState('');
   const [replacement, setReplacement] = useState('');
 
-  const preview = useMemo(() => rules.map((rule) => {
-    const next = renamedRule(rule.rule_name, action, text, replacement);
-    return { ...rule, next, changed: next !== rule.rule_name, empty: !next };
-  }), [rules, action, text, replacement]);
+  const preview = useMemo(() => items.map((item) => {
+    const next = renamedRule(item.name, action, text, replacement);
+    return { ...item, next, changed: next !== item.name, empty: !next };
+  }), [items, action, text, replacement]);
   const changes = preview.filter((row) => row.changed && !row.empty);
   const emptied = preview.some((row) => row.empty);
   const adding = action === 'add_start' || action === 'add_end';
@@ -59,19 +65,19 @@ export function BulkRuleRename({
     <div className="app-modal fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-center items-center p-4" onClick={() => { if (!saving) onClose(); }}>
       <form
         role="dialog"
-        aria-label="Rename Selected Rules"
+        aria-label={`Rename Selected ${noun}s`}
         onClick={(event) => event.stopPropagation()}
         onSubmit={(event) => {
           event.preventDefault();
-          if (changes.length > 0 && !emptied && !saving) onApply(changes.map(({ id, next }) => ({ id, rule_name: next })));
+          if (changes.length > 0 && !emptied && !saving) onApply(changes.map(({ id, next }) => ({ id, name: next })));
         }}
         className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-800"
       >
         <div className="shrink-0 space-y-4 px-6 pt-6 pb-4">
           <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Rename Selected Rules</h3>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Rename Selected {noun}s</h3>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Only the names change. Keys, formulas, and the run order stay as they are.
+              Only the names change. Keys, formulas, and the order stay as they are.
             </p>
           </div>
           <div role="radiogroup" aria-label="Action" className="flex flex-wrap gap-1.5">
@@ -119,12 +125,12 @@ export function BulkRuleRename({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto border-y border-slate-200 px-6 py-3 dark:border-slate-700">
           <p className="mb-2 text-xs font-bold text-slate-700 dark:text-slate-200">
-            Preview <span className="font-normal text-slate-500 dark:text-slate-400">— {changes.length} of {rules.length} {rules.length === 1 ? 'rule' : 'rules'} change</span>
+            Preview <span className="font-normal text-slate-500 dark:text-slate-400">— {changes.length} of {items.length} {noun.toLowerCase()}{items.length === 1 ? '' : 's'} change</span>
           </p>
           <ul className="space-y-1 text-xs">
             {preview.map((row) => (
               <li key={row.id} className={`grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-baseline gap-2 ${row.changed ? '' : 'opacity-50'}`}>
-                <span className="truncate text-slate-600 dark:text-slate-300" title={row.rule_name}>{row.rule_name}</span>
+                <span className="truncate text-slate-600 dark:text-slate-300" title={row.name}>{row.name}</span>
                 <span aria-hidden className="text-slate-400">→</span>
                 <span
                   className={`truncate font-semibold ${row.empty ? 'text-rose-600 dark:text-rose-400' : row.changed ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}
@@ -137,7 +143,7 @@ export function BulkRuleRename({
           </ul>
         </div>
         <div className="shrink-0 space-y-2 px-6 py-4">
-          {emptied && <p className="text-xs text-rose-600 dark:text-rose-400">A rule cannot be left without a name. Change the text, or unselect that rule.</p>}
+          {emptied && <p className="text-xs text-rose-600 dark:text-rose-400">A {noun.toLowerCase()} cannot be left without a name. Change the text, or unselect it.</p>}
           {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
           <div className="flex justify-end gap-2">
             <button
@@ -153,7 +159,7 @@ export function BulkRuleRename({
               disabled={saving || changes.length === 0 || emptied}
               className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-bold text-white hover:bg-brand-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {saving ? 'Renaming…' : `Rename ${changes.length} ${changes.length === 1 ? 'Rule' : 'Rules'}`}
+              {saving ? 'Renaming…' : `Rename ${changes.length} ${noun}${changes.length === 1 ? '' : 's'}`}
             </button>
           </div>
         </div>

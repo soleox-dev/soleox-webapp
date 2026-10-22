@@ -338,6 +338,13 @@ export default function CommissionTemplateDetailPage() {
   const [bulkRenameOpen, setBulkRenameOpen] = useState(false);
   const [bulkRenameSaving, setBulkRenameSaving] = useState(false);
   const [bulkRenameError, setBulkRenameError] = useState<string | null>(null);
+  // The same select mode on the Parameters list.
+  const [selectingParameters, setSelectingParameters] = useState(false);
+  const [selectedParameterIds, setSelectedParameterIds] = useState<Set<string>>(() => new Set());
+  const lastToggledParameterId = useRef<string | null>(null);
+  const [bulkParameterRenameOpen, setBulkParameterRenameOpen] = useState(false);
+  const [bulkParameterSaving, setBulkParameterSaving] = useState(false);
+  const [bulkParameterError, setBulkParameterError] = useState<string | null>(null);
   const [parameterSearch, setParameterSearch] = useState('');
   const [logicSearch, setLogicSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -904,6 +911,69 @@ export default function CommissionTemplateDetailPage() {
     }
   };
 
+  // Shift-click sets every parameter shown between the last one clicked and this one to this one's new state.
+  const toggleParameterSelected = (id: string, shiftKey: boolean, shownIds: string[]) => {
+    const from = lastToggledParameterId.current ? shownIds.indexOf(lastToggledParameterId.current) : -1;
+    const to = shownIds.indexOf(id);
+    const range = shiftKey && from >= 0 && to >= 0
+      ? shownIds.slice(Math.min(from, to), Math.max(from, to) + 1)
+      : [id];
+    setSelectedParameterIds((current) => {
+      const next = new Set(current);
+      const select = !current.has(id);
+      for (const rangeId of range) {
+        if (select) next.add(rangeId);
+        else next.delete(rangeId);
+      }
+      return next;
+    });
+    lastToggledParameterId.current = id;
+  };
+
+  // One PATCH for the selected parameters: new names, or their divider below on or off. The selection stays.
+  const patchParameters = async (body: Record<string, unknown>, apply: (parameter: TemplateParameter) => TemplateParameter) => {
+    setBulkParameterSaving(true);
+    setBulkParameterError(null);
+    setError(null);
+    try {
+      const response = await fetch('/api/commission-template-parameters', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template_id: templateId, ...body }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || 'The parameters could not be changed.');
+      setParameters((current) => current.map(apply));
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'The parameters could not be changed.';
+      setBulkParameterError(message);
+      if (!bulkParameterRenameOpen) setError(message);
+      return false;
+    } finally {
+      setBulkParameterSaving(false);
+    }
+  };
+
+  const applyBulkParameterRename = async (names: { id: string; name: string }[]) => {
+    const byId = new Map(names.map((row) => [row.id, row.name]));
+    const saved = await patchParameters(
+      { names: names.map(({ id, name }) => ({ id, parameter_name: name })) },
+      (parameter) => (byId.has(parameter.id) ? { ...parameter, parameter_name: byId.get(parameter.id)! } : parameter),
+    );
+    if (saved) setBulkParameterRenameOpen(false);
+  };
+
+  const applyBulkParameterDivider = async (dividerBelow: boolean) => {
+    const ids = [...selectedParameterIds];
+    if (ids.length === 0) return;
+    const changed = new Set(ids);
+    await patchParameters(
+      { ids, divider_below: dividerBelow },
+      (parameter) => (changed.has(parameter.id) ? { ...parameter, divider_below: dividerBelow } : parameter),
+    );
+  };
+
   // In run order a rule keeps its section and moves to the dropped place in the order the engine runs rules.
   const dropLogicInRunOrder = async (sourceId: string, target: { stepId: string; placement: 'before' | 'after' }) => {
     if (isReordering || target.stepId === sourceId) return;
@@ -1256,6 +1326,10 @@ export default function CommissionTemplateDetailPage() {
       );
     });
   }, [parameters, parameterSearch]);
+  const shownParameterIds = useMemo(
+    () => parameterGroups(filteredParameters).flatMap((group) => group.items.map((parameter) => parameter.id)),
+    [filteredParameters],
+  );
 
   const filteredLogicSteps = useMemo(() => {
     const query = logicSearch.trim().toLowerCase();
@@ -1522,6 +1596,59 @@ export default function CommissionTemplateDetailPage() {
                 </span>
               </button>
               <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0">
+                <HoverNote label="Select parameters to rename at once">
+                  <button
+                    type="button"
+                    aria-label="Select parameters to rename at once"
+                    aria-pressed={selectingParameters}
+                    onClick={() => {
+                      setSelectingParameters((current) => !current);
+                      setSelectedParameterIds(new Set());
+                      lastToggledParameterId.current = null;
+                      setBulkParameterRenameOpen(false);
+                    }}
+                    className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition cursor-pointer ${
+                      selectingParameters
+                        ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
+                        : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <ListChecks className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                  </button>
+                </HoverNote>
+                {selectingParameters && selectedParameterIds.size > 0 && (() => {
+                  const selected = parameters.filter((parameter) => selectedParameterIds.has(parameter.id));
+                  const withDivider = selected.filter((parameter) => parameter.divider_below).length;
+                  const dividerButton = 'h-9 px-3 rounded-lg text-xs font-bold border border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200 transition inline-flex items-center whitespace-nowrap cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-700';
+                  return (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBulkParameterError(null);
+                          setBulkParameterRenameOpen(true);
+                        }}
+                        className="h-9 px-3 rounded-lg text-xs font-bold border border-emerald-500/40 bg-emerald-500 text-white hover:bg-emerald-600 transition inline-flex items-center whitespace-nowrap cursor-pointer"
+                      >
+                        Rename {selectedParameterIds.size}
+                      </button>
+                      {withDivider < selected.length && (
+                        <HoverNote label={`Add the horizontal divider below ${selected.length - withDivider} ${selected.length - withDivider === 1 ? 'parameter' : 'parameters'}.`}>
+                          <button type="button" disabled={bulkParameterSaving} onClick={() => void applyBulkParameterDivider(true)} className={dividerButton}>
+                            Add Divider
+                          </button>
+                        </HoverNote>
+                      )}
+                      {withDivider > 0 && (
+                        <HoverNote label={`Remove the horizontal divider below ${withDivider} ${withDivider === 1 ? 'parameter' : 'parameters'}.`}>
+                          <button type="button" disabled={bulkParameterSaving} onClick={() => void applyBulkParameterDivider(false)} className={dividerButton}>
+                            Remove Divider
+                          </button>
+                        </HoverNote>
+                      )}
+                    </>
+                  );
+                })()}
                 <div className={`relative w-full sm:w-64 ${underlineShell}`}>
                   <input
                     type="text"
@@ -1579,7 +1706,31 @@ export default function CommissionTemplateDetailPage() {
                 <table className={`pin-col-2 w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700 ${compactRows ? '[&_th]:!px-3 [&_th]:!py-1.5 [&_td]:!px-3 [&_td]:!py-1 [&_tbody_td]:!align-middle' : ''}`}>
                   <thead className="text-2xs [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-200 dark:[&>tr>th]:bg-slate-700 text-slate-600 dark:text-slate-300 [&>tr>th:last-child]:z-30">
                     <tr>
-                      <th className="px-4 py-3">#</th>
+                      <th className="px-4 py-3">
+                        {selectingParameters ? (
+                          <span className="flex items-center gap-2">
+                            {/* Selects or clears every parameter the search shows. */}
+                            <input
+                              type="checkbox"
+                              aria-label="Select all shown parameters"
+                              checked={filteredParameters.length > 0 && filteredParameters.every((parameter) => selectedParameterIds.has(parameter.id))}
+                              onChange={(event) => {
+                                const checked = event.target.checked;
+                                setSelectedParameterIds((current) => {
+                                  const next = new Set(current);
+                                  for (const parameter of filteredParameters) {
+                                    if (checked) next.add(parameter.id);
+                                    else next.delete(parameter.id);
+                                  }
+                                  return next;
+                                });
+                              }}
+                              className="block h-3.5 w-3.5 accent-brand-600 cursor-pointer"
+                            />
+                            #
+                          </span>
+                        ) : '#'}
+                      </th>
                       <th className="px-4 py-3">Parameter</th>
                       <th className="px-4 py-3">Key</th>
                       <th className="px-4 py-3">Type</th>
@@ -1679,7 +1830,15 @@ export default function CommissionTemplateDetailPage() {
                         {group.items.map((parameter, itemIndex) => (
                       <tr
                         key={parameter.id}
-                        className={`align-top ${parameter.divider_below ? '[&>td]:!border-b-brand-500 dark:[&>td]:!border-b-brand-400' : ''} ${parameter.id === recentParameterId ? '[&>td]:bg-emerald-50 dark:[&>td]:bg-emerald-500/10' : itemIndex % 2 === 1 ? 'md:[&>td]:bg-slate-50 dark:md:[&>td]:bg-[color-mix(in_srgb,var(--color-slate-900)_30%,var(--color-slate-800))]' : ''} ${dropTarget && 'parameterId' in dropTarget && dropTarget.parameterId === parameter.id ? (dropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
+                        aria-selected={selectingParameters ? selectedParameterIds.has(parameter.id) : undefined}
+                        // In select mode a click anywhere on the row only selects it (Shift-click for a range).
+                        onClickCapture={selectingParameters ? (event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          toggleParameterSelected(parameter.id, event.shiftKey, shownParameterIds);
+                        } : undefined}
+                        onMouseDown={selectingParameters ? (event) => { if (event.shiftKey) event.preventDefault(); } : undefined}
+                        className={`align-top ${selectingParameters ? 'cursor-pointer select-none' : ''} ${selectingParameters && selectedParameterIds.has(parameter.id) ? '[&>td]:!bg-[color-mix(in_srgb,var(--color-brand-500)_15%,var(--color-white))] dark:[&>td]:!bg-[color-mix(in_srgb,var(--color-brand-500)_20%,var(--color-slate-800))]' : ''} ${parameter.divider_below ? '[&>td]:!border-b-brand-500 dark:[&>td]:!border-b-brand-400' : ''} ${parameter.id === recentParameterId ? '[&>td]:bg-emerald-50 dark:[&>td]:bg-emerald-500/10' : itemIndex % 2 === 1 && !(selectingParameters && selectedParameterIds.has(parameter.id)) ? 'md:[&>td]:bg-slate-50 dark:md:[&>td]:bg-[color-mix(in_srgb,var(--color-slate-900)_30%,var(--color-slate-800))]' : ''} ${dropTarget && 'parameterId' in dropTarget && dropTarget.parameterId === parameter.id ? (dropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
                         onDragOver={(event) => {
                           if (parameterSearch.trim() || reorderDrag.current !== 'parameter') return;
                           event.preventDefault();
@@ -1697,7 +1856,22 @@ export default function CommissionTemplateDetailPage() {
                           if (sourceId) void dropParameter(sourceId, { parameterId: parameter.id, placement });
                         }}
                       >
-                        <td className="px-4 py-3 text-slate-500">{parameter.sort_order ?? '—'}</td>
+                        <td className="px-4 py-3 text-slate-500">
+                          {selectingParameters ? (
+                            <span className="flex items-center gap-2">
+                              {/* The row's click selects; the box only shows it. */}
+                              <input
+                                type="checkbox"
+                                aria-label={`Select ${parameter.parameter_name}`}
+                                checked={selectedParameterIds.has(parameter.id)}
+                                onChange={() => {}}
+                                tabIndex={-1}
+                                className="pointer-events-none block h-3.5 w-3.5 accent-brand-600"
+                              />
+                              {parameter.sort_order ?? '—'}
+                            </span>
+                          ) : parameter.sort_order ?? '—'}
+                        </td>
                         <td className="px-4 py-3">
                           <p className="font-bold text-slate-900 dark:text-white">{parameter.parameter_name}</p>
                           {!compactRows && parameter.is_user_editable === false && (
@@ -2532,12 +2706,23 @@ export default function CommissionTemplateDetailPage() {
         />
       )}
       {confirmDialog}
+      {bulkParameterRenameOpen && (
+        <BulkRuleRename
+          items={parameterGroups(parameters).flatMap((group) => group.items).filter((parameter) => selectedParameterIds.has(parameter.id)).map((parameter) => ({ id: parameter.id, name: parameter.parameter_name }))}
+          noun="Parameter"
+          saving={bulkParameterSaving}
+          error={bulkParameterError}
+          onApply={(names) => void applyBulkParameterRename(names)}
+          onClose={() => setBulkParameterRenameOpen(false)}
+        />
+      )}
       {bulkRenameOpen && (
         <BulkRuleRename
-          rules={[...logicSteps].sort((a, b) => a.step_number - b.step_number).filter((step) => selectedRuleIds.has(step.id))}
+          items={[...logicSteps].sort((a, b) => a.step_number - b.step_number).filter((step) => selectedRuleIds.has(step.id)).map((step) => ({ id: step.id, name: step.rule_name }))}
+          noun="Rule"
           saving={bulkRenameSaving}
           error={bulkRenameError}
-          onApply={(names) => void applyBulkRename(names)}
+          onApply={(names) => void applyBulkRename(names.map(({ id, name }) => ({ id, rule_name: name })))}
           onClose={() => setBulkRenameOpen(false)}
         />
       )}
