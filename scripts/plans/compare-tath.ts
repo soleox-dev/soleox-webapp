@@ -149,7 +149,6 @@ export function compareTath() {
           if (typed !== null) overrides[lineKey] = typed;
         }
       }
-      if (text(params.broker_nm620_fee_waived) === 'Yes') overrides.broker_review = 0;
       const stockOption = slot ? text(params[`${slot}_stock_option`]) : '';
       const stock = stockOption === 'Yes' || (stockOption !== 'No' && money(attr(row, 'custom_stock')) !== null);
       const planKey = proposedPlanKey(row);
@@ -172,7 +171,17 @@ export function compareTath() {
       .map((line) => ({ ...line, agentId: [...idByName].find(([, id]) => id === line.agentId)?.[0] || line.agentId }));
     const feeShare = money(params.broker_units_percent);
     const result = computePlanDeal(
-      { id: dealId, gci: pool, capDate: closingDate, savedAt: text(deal.created_at) || null, feeSharePercent: feeShare !== null ? feeShare * 100 : 100, agents, sides },
+      {
+        id: dealId,
+        gci: pool,
+        capDate: closingDate,
+        savedAt: text(deal.created_at) || null,
+        feeSharePercent: feeShare !== null ? feeShare * 100 : 100,
+        // TATH's "Broker Nm620 fee waived" is the deal waiving broker review.
+        waivedLines: text(params.broker_nm620_fee_waived) === 'Yes' ? ['broker_review'] : [],
+        agents,
+        sides,
+      },
       history,
     );
     warnings.push(...result.warnings.map((warning) => warning.message));

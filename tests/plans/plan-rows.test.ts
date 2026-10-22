@@ -19,13 +19,17 @@ const presets = loadPlanPresets();
 describe('migration 065', () => {
   const sql = fs.readFileSync(path.join(process.cwd(), 'db/migrations/065_commission_plans.sql'), 'utf8');
 
-  it('seeds the four eXp presets with the same lines as presets/exp-plans.json', () => {
+  it('seeds the four eXp presets with the same lines as presets/exp-plans.json (after 067)', () => {
     const seeded: Record<string, unknown> = {};
     const insert = /WHERE p\.client_id IS NULL AND p\.preset_key = '([^']+)'/g;
     const lines = /DATE '2000-01-01', '((?:[^']|'')*)'::jsonb/g;
     const keys = [...sql.matchAll(insert)].map((match) => match[1]);
     const bodies = [...sql.matchAll(lines)].map((match) => JSON.parse(match[1].replace(/''/g, "'")));
-    keys.forEach((key, index) => (seeded[key] = bodies[index]));
+    // 067 adds the post-cap fee's 20% split limit to the seeded presets.
+    const after067 = (lines: Record<string, unknown>[]) =>
+      lines.map((line) => (line.key === 'post_cap_fee' && line.type === 'per_deal_fee' ? { ...line, maxPercentOfSide: 0.2 } : line));
+    expect(fs.readFileSync(path.join(process.cwd(), 'db/migrations/067_post_cap_fee_split_limit.sql'), 'utf8')).toContain(`'{"maxPercentOfSide": 0.2}'`);
+    keys.forEach((key, index) => (seeded[key] = after067(bodies[index])));
     expect(Object.keys(seeded).sort()).toEqual(Object.keys(presets).sort());
     for (const [key, plan] of Object.entries(presets)) expect(seeded[key]).toEqual(plan.lines);
   });

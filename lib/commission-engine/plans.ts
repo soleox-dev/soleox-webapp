@@ -58,6 +58,11 @@ export interface PerDealFeeLine extends PlanLineBase {
   skipTiersForRoles?: string[];
   /** Multiply by the deal's Fee Share (default true). */
   appliesFeeShare?: boolean;
+  /**
+   * The fee is never more than this rate of the agent's split before bonuses (0.2: eXp's post-cap fee is at most
+   * 20% of the split). Applied before the yearly limit.
+   */
+  maxPercentOfSide?: number;
 }
 
 /** A rate of the agent's side after bonuses less chosen earlier lines, opt-in per agent. */
@@ -111,6 +116,7 @@ export const commissionPlanSchema: z.ZodType<CommissionPlan> = z.object({
         tiers: z.array(z.object({ amount: z.number(), untilPaid: z.number() })).optional(),
         skipTiersForRoles: z.array(z.string()).optional(),
         appliesFeeShare: z.boolean().optional(),
+        maxPercentOfSide: z.number().optional(),
       }),
       z.object({ ...lineBase, type: z.literal('percent_of_net'), rate: z.number(), after: z.array(z.string()), optIn: z.boolean().optional() }),
       z.object({ ...lineBase, type: z.literal('formula'), formula: z.string().min(1), yearlyLimit: z.number().optional(), countsTowardCap: z.string().optional() }),
@@ -169,6 +175,9 @@ export function validatePlan(plan: CommissionPlan): string[] {
         }
         previous = tier.untilPaid;
       }
+    }
+    if (line.type === 'per_deal_fee' && line.maxPercentOfSide !== undefined && !(line.maxPercentOfSide >= 0 && line.maxPercentOfSide <= 1)) {
+      problems.push(`${label}: the most it can be must be between 0% and 100% of the split.`);
     }
     if ((line.type === 'per_deal_fee' || line.type === 'formula') && line.yearlyLimit !== undefined && !(line.yearlyLimit >= 0)) {
       problems.push(`${label}: the yearly limit cannot be negative.`);
@@ -255,6 +264,12 @@ export interface PlanDealInput {
   savedAt?: string | null;
   /** 100 by default; 50 for a double end booked as one transaction, 80 for an eXp agent referral. */
   feeSharePercent?: number;
+  /**
+   * Plan lines this deal does not charge, by key, for every agent (some rentals and outgoing referrals pay no
+   * broker review or risk management). A waived line is $0 and adds nothing to year-to-date totals; a typed
+   * amount still wins.
+   */
+  waivedLines?: string[];
   offTheTop?: OffTheTopItem[];
   bonuses?: PlanBonus[];
   agents: PlanAgentInput[];
@@ -297,6 +312,8 @@ export interface PlanLineResult {
   amount: number;
   calculated: number;
   edited: boolean;
+  /** The deal waives this line: $0, with the plan's amount kept in calculated. */
+  waived?: boolean;
   /** For a capped_percent line: the part of the side the cap no longer covers, unrounded. */
   postCapFraction?: number;
   /** Paid on this line in the cap year before this deal, starting balance included. */
@@ -634,9 +651,17 @@ function perDealFee(line: PerDealFeeLine, ctx: LineContext, ytd: number): Calcul
     raw += atAmount;
     steps.push(`${money(line.amount)} ${factors}${part < 1 ? ` × the other ${pct(part)}` : ''} is ${money(roundHalfUpCents(atAmount))}`);
   }
-  const amount = roundHalfUpCents(raw);
+  let amount = roundHalfUpCents(raw);
+  let limitText = '';
+  if (line.maxPercentOfSide !== undefined && line.maxPercentOfSide !== null) {
+    const most = roundHalfUpCents(line.maxPercentOfSide * Math.max(0, ctx.side));
+    if (amount > most) {
+      limitText = ` That is more than ${pct(line.maxPercentOfSide)} of the ${money(ctx.side)} split, so ${money(most)}.`;
+      amount = most;
+    }
+  }
   const skipText = skipped ? ` (${skipped.replace(/_/g, ' ')} skips the ${money(line.tiers?.[0]?.amount ?? 0)} tier)` : '';
-  const text = `${line.name}${skipText}: ${steps.join('; ')}${steps.length > 1 ? `; total ${money(amount)}` : ''}.`;
+  const text = `${line.name}${skipText}: ${steps.join('; ')}${steps.length > 1 ? `; total ${money(roundHalfUpCents(raw))}` : ''}.${limitText}`;
   return limitToYear(amount, line.yearlyLimit, ytd, line.name, text);
 }
 
@@ -742,8 +767,14 @@ export function computePlanDeal(deal: PlanDealInput, history: PlanHistoryLine[] 
 
       const typed = agent.overrides?.[line.key];
       const edited = typed !== undefined && typed !== null && Number.isFinite(typed);
-      const amount = edited ? roundHalfUpCents(typed) : calculated.amount;
+      const waived = !edited && Boolean(deal.waivedLines?.includes(line.key));
+      const amount = edited ? roundHalfUpCents(typed) : waived ? 0 : calculated.amount;
       let { postCapFraction, explanation } = calculated;
+      if (waived) {
+        explanation = `${line.name}: waived on this deal, so $0.00 (the plan calculates ${money(calculated.amount)}).`;
+        // A waived company dollar leaves the whole side past the cap, as a typed $0 would.
+        if (line.type === 'capped_percent' && line.rate * Math.max(0, sideAfterBonuses) > 0) postCapFraction = 1;
+      }
       if (edited) {
         explanation = `${line.name}: typed ${money(amount)} (EDITED; the plan calculates ${money(calculated.amount)}). ${explanation}`;
         if (line.type === 'capped_percent') {
@@ -761,6 +792,7 @@ export function computePlanDeal(deal: PlanDealInput, history: PlanHistoryLine[] 
         amount,
         calculated: calculated.amount,
         edited,
+        ...(waived ? { waived } : {}),
         ...(postCapFraction !== undefined ? { postCapFraction } : {}),
         ytdBefore: ytd.total,
         ...(line.type === 'formula' && line.countsTowardCap ? { countsTowardCap: line.countsTowardCap } : {}),

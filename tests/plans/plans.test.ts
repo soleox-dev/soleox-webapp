@@ -130,6 +130,61 @@ describe('post-cap fee bucket', () => {
   });
 });
 
+describe('post-cap fee limit', () => {
+  it('is never more than 20% of the split: an agent alone on a $300 split pays $60, not $75', () => {
+    const deal: PlanDealInput = {
+      id: 'TXN_SMALL',
+      gci: 300,
+      capDate: '2026-06-15',
+      agents: [agent({ id: 'a', splitPercent: 100, plan: exp4000, startingBalances: leftToCap(exp4000, 0) })],
+    };
+    const fee = line(computePlanDeal(deal).agents[0], 'post_cap_fee');
+    expect(fee.amount).toBe(60);
+    expect(fee.explanation).toContain('more than 20% of the $300.00 split, so $60.00');
+  });
+
+  it('uses the split before bonuses; a 50% Fee Share brings the fee under the limit', () => {
+    const deal: PlanDealInput = {
+      id: 'TXN_SMALL_BONUS',
+      gci: 300,
+      capDate: '2026-06-15',
+      bonuses: [{ fromAgentId: 'b', toAgentId: 'a', amount: 100 }],
+      agents: [
+        agent({ id: 'a', splitPercent: 50, plan: exp4000, startingBalances: leftToCap(exp4000, 0) }),
+        agent({ id: 'b', splitPercent: 50, plan: exp4000, startingBalances: leftToCap(exp4000, 0) }),
+      ],
+    };
+    // $75 × 50% = $37.50 each, but 20% of the $150 split before bonuses is $30.
+    expect(computePlanDeal(deal).agents.map((item) => line(item, 'post_cap_fee').amount)).toEqual([30, 30]);
+    expect(computePlanDeal({ ...deal, feeSharePercent: 50 }).agents.map((item) => line(item, 'post_cap_fee').amount)).toEqual([18.75, 18.75]);
+  });
+});
+
+describe('waived lines', () => {
+  it('a deal can waive broker review and risk management: $0, not typed, and not counted toward the year', () => {
+    const base: PlanDealInput = {
+      id: 'TXN_RENTAL',
+      gci: 2000,
+      capDate: '2026-03-01',
+      waivedLines: ['broker_review', 'risk_management'],
+      agents: [agent({ id: 'a', splitPercent: 100, plan: exp4000 })],
+    };
+    const [a] = computePlanDeal(base).agents;
+    expect([line(a, 'broker_review').amount, line(a, 'broker_review').calculated, line(a, 'broker_review').waived, line(a, 'broker_review').edited]).toEqual([0, 25, true, false]);
+    expect(line(a, 'risk_management').explanation).toBe('Risk management: waived on this deal, so $0.00 (the plan calculates $60.00).');
+    expect(line(a, 'company_dollar').amount).toBe(400);
+    const next: PlanDealInput = { ...base, id: 'TXN_NEXT', capDate: '2026-04-01', waivedLines: undefined };
+    const { results } = computePlanDealsInOrder([base, next]);
+    expect(line(results.TXN_NEXT.agents[0], 'risk_management').ytdBefore).toBe(0);
+  });
+
+  it('a typed amount still wins over a waiver', () => {
+    const deal: PlanDealInput = { id: 'TXN_W', gci: 2000, capDate: '2026-03-01', waivedLines: ['broker_review'], agents: [agent({ id: 'a', splitPercent: 100, plan: exp4000, overrides: { broker_review: 12.5 } })] };
+    expect(line(computePlanDeal(deal).agents[0], 'broker_review')).toMatchObject({ amount: 12.5, edited: true });
+    expect(line(computePlanDeal(deal).agents[0], 'broker_review').waived).toBeUndefined();
+  });
+});
+
 describe('risk management limit', () => {
   it('an agent at $749.99 pays $0.01', () => {
     const deal: PlanDealInput = {
