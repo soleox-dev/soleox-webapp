@@ -4,7 +4,7 @@
     "name": "eXp $4,000",
     "lines": [
       { "key": "company_dollar", "name": "Company dollar", "type": "capped_percent", "payee": "eXp", "rate": 0.2, "capAmount": 4000 },
-      { "key": "post_cap_fee", "name": "Post-cap fee", "type": "per_deal_fee", "payee": "eXp", "amount": 75, "multiplierFrom": "company_dollar" },
+      { "key": "post_cap_fee", "name": "Post-cap fee", "type": "per_deal_fee", "payee": "eXp", "amount": 75, "multiplierFrom": "company_dollar", "maxPercentOfSide": 0.2 },
       { "key": "risk_management", "name": "Risk management", "type": "per_deal_fee", "payee": "eXp", "amount": 60, "yearlyLimit": 750 },
       { "key": "broker_review", "name": "Broker review", "type": "per_deal_fee", "payee": "eXp", "amount": 25 },
       { "key": "stock", "name": "Stock", "type": "percent_of_net", "payee": "eXp Stock", "rate": 0.05, "after": ["company_dollar", "post_cap_fee", "risk_management", "broker_review"], "optIn": true }
@@ -15,7 +15,7 @@
     "name": "eXp $8,000",
     "lines": [
       { "key": "company_dollar", "name": "Company dollar", "type": "capped_percent", "payee": "eXp", "rate": 0.2, "capAmount": 8000 },
-      { "key": "post_cap_fee", "name": "Post-cap fee", "type": "per_deal_fee", "payee": "eXp", "amount": 75, "multiplierFrom": "company_dollar", "tiers": [{ "amount": 250, "untilPaid": 5000 }] },
+      { "key": "post_cap_fee", "name": "Post-cap fee", "type": "per_deal_fee", "payee": "eXp", "amount": 75, "multiplierFrom": "company_dollar", "maxPercentOfSide": 0.2, "tiers": [{ "amount": 250, "untilPaid": 5000 }] },
       { "key": "risk_management", "name": "Risk management", "type": "per_deal_fee", "payee": "eXp", "amount": 60, "yearlyLimit": 750 },
       { "key": "broker_review", "name": "Broker review", "type": "per_deal_fee", "payee": "eXp", "amount": 25 },
       { "key": "stock", "name": "Stock", "type": "percent_of_net", "payee": "eXp Stock", "rate": 0.05, "after": ["company_dollar", "post_cap_fee", "risk_management", "broker_review"], "optIn": true }
@@ -26,7 +26,7 @@
     "name": "eXp $16,000",
     "lines": [
       { "key": "company_dollar", "name": "Company dollar", "type": "capped_percent", "payee": "eXp", "rate": 0.2, "capAmount": 16000 },
-      { "key": "post_cap_fee", "name": "Post-cap fee", "type": "per_deal_fee", "payee": "eXp", "amount": 75, "multiplierFrom": "company_dollar", "tiers": [{ "amount": 250, "untilPaid": 5000 }] },
+      { "key": "post_cap_fee", "name": "Post-cap fee", "type": "per_deal_fee", "payee": "eXp", "amount": 75, "multiplierFrom": "company_dollar", "maxPercentOfSide": 0.2, "tiers": [{ "amount": 250, "untilPaid": 5000 }] },
       { "key": "risk_management", "name": "Risk management", "type": "per_deal_fee", "payee": "eXp", "amount": 60, "yearlyLimit": 750 },
       { "key": "broker_review", "name": "Broker review", "type": "per_deal_fee", "payee": "eXp", "amount": 25 },
       { "key": "stock", "name": "Stock", "type": "percent_of_net", "payee": "eXp Stock", "rate": 0.05, "after": ["company_dollar", "post_cap_fee", "risk_management", "broker_review"], "optIn": true }
@@ -37,7 +37,7 @@
     "name": "eXp $16,000 Team Lead",
     "lines": [
       { "key": "company_dollar", "name": "Company dollar", "type": "capped_percent", "payee": "eXp", "rate": 0.2, "capAmount": 16000 },
-      { "key": "post_cap_fee", "name": "Post-cap fee", "type": "per_deal_fee", "payee": "eXp", "amount": 75, "multiplierFrom": "company_dollar" },
+      { "key": "post_cap_fee", "name": "Post-cap fee", "type": "per_deal_fee", "payee": "eXp", "amount": 75, "multiplierFrom": "company_dollar", "maxPercentOfSide": 0.2 },
       { "key": "risk_management", "name": "Risk management", "type": "per_deal_fee", "payee": "eXp", "amount": 60, "yearlyLimit": 750 },
       { "key": "broker_review", "name": "Broker review", "type": "per_deal_fee", "payee": "eXp", "amount": 25 },
       { "key": "stock", "name": "Stock", "type": "percent_of_net", "payee": "eXp Stock", "rate": 0.05, "after": ["company_dollar", "post_cap_fee", "risk_management", "broker_review"], "optIn": true }

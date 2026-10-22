@@ -90,6 +90,14 @@ export function PlanEditor({
                 <>
                   <NumberField label="Amount per Deal" prefix="$" value={line.amount} onChange={(amount) => setLine(index, { amount: amount ?? 0 })} />
                   <NumberField label="Yearly Limit" prefix="$" allowEmpty placeholder="No Limit" value={line.yearlyLimit ?? null} onChange={(limit) => setLine(index, { yearlyLimit: limit ?? undefined })} />
+                  <NumberField
+                    label="No More Than (of the Split)"
+                    suffix="%"
+                    allowEmpty
+                    placeholder="No Limit"
+                    value={line.maxPercentOfSide === undefined ? null : toPoints(line.maxPercentOfSide)}
+                    onChange={(points) => setLine(index, { maxPercentOfSide: points === null ? undefined : fromPoints(points) })}
+                  />
                   <MenuField
                     label="Times the Post-Cap Fraction Of"
                     value={line.multiplierFrom || ''}

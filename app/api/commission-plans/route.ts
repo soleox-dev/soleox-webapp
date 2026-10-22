@@ -18,6 +18,8 @@ export type PlanSettingsDto = {
   startingBalanceFieldKeys: Record<string, string>;
   optInFieldKeys: Record<string, string>;
   capAmountFieldKeys: Record<string, string>;
+  /** Deal statuses that count toward caps and yearly limits. */
+  countingStatuses: string[];
 };
 export type PlansResponse = {
   success: true;
@@ -38,6 +40,7 @@ const DEFAULT_SETTINGS: PlanSettingsDto = {
   startingBalanceFieldKeys: {},
   optInFieldKeys: {},
   capAmountFieldKeys: {},
+  countingStatuses: ['Closed', 'Pending'],
 };
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -68,6 +71,11 @@ function fieldMap(value: unknown): Record<string, string> {
     if (text && FIELD_KEY.test(text) && FIELD_KEY.test(lineKey)) map[lineKey] = text;
   }
   return map;
+}
+
+function statusList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map((status) => String(status ?? '').trim()).filter(Boolean))];
 }
 
 function fieldKey(value: unknown): string | null {
@@ -116,6 +124,7 @@ async function loadPlans(supabase: SupabaseClient, clientId: string): Promise<Pl
           startingBalanceFieldKeys: fieldMap(stored.starting_balance_field_keys),
           optInFieldKeys: fieldMap(stored.opt_in_field_keys),
           capAmountFieldKeys: fieldMap(stored.cap_amount_field_keys),
+          countingStatuses: statusList(stored.counting_statuses).length ? statusList(stored.counting_statuses) : DEFAULT_SETTINGS.countingStatuses,
         }
       : DEFAULT_SETTINGS,
     agentCounts,
@@ -226,6 +235,7 @@ export async function PUT(request: Request) {
         starting_balance_field_keys: fieldMap(settings.startingBalanceFieldKeys),
         opt_in_field_keys: fieldMap(settings.optInFieldKeys),
         cap_amount_field_keys: fieldMap(settings.capAmountFieldKeys),
+        counting_statuses: statusList(settings.countingStatuses).length ? statusList(settings.countingStatuses) : null,
         updated_at: now,
         updated_by: email,
       };
