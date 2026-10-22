@@ -168,6 +168,12 @@ describe('several tiers', () => {
     expect(crossing.explanation).toContain('only $10.00 is left before $5,010.00');
   });
 
+  it('a plan cannot be saved until No Limit is selected on the last tier', () => {
+    const drafting = { ...two, lines: two.lines.map((item) => (item.key === 'post_cap_fee' ? { ...item, endsWithNoLimit: false } : item)) };
+    expect(validatePlan(drafting)).toEqual(['Post-cap fee: select No Limit on the last tier.']);
+    expect(validatePlan(two)).toEqual([]);
+  });
+
   it('a team lead on a plan that skips the tiers pays $75 from the start', () => {
     const skipping = { ...two, lines: two.lines.map((item) => (item.key === 'post_cap_fee' ? { ...item, skipTiersForRoles: ['team_lead'] } : item)) };
     const deal: PlanDealInput = { id: 'TXN_TL', gci: 100000, capDate: '2026-06-15', agents: [agent({ id: 'a', splitPercent: 100, plan: skipping, roles: ['team_lead'], startingBalances: leftToCap(skipping, 0) })] };

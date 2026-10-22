@@ -59,6 +59,11 @@ export interface PerDealFeeLine extends PlanLineBase {
   /** Multiply by the deal's Fee Share (default true). */
   appliesFeeShare?: boolean;
   /**
+   * The editor's state while the last tier has not been set to No Limit yet (false): every tier is then in `tiers`,
+   * and the plan cannot be saved until No Limit is selected, which moves the last tier's amount to `amount`.
+   */
+  endsWithNoLimit?: boolean;
+  /**
    * The fee is never more than this rate of the agent's split before bonuses (0.2: eXp's post-cap fee is at most
    * 20% of the split). Applied before the yearly limit.
    */
@@ -116,6 +121,7 @@ export const commissionPlanSchema: z.ZodType<CommissionPlan> = z.object({
         tiers: z.array(z.object({ amount: z.number(), untilPaid: z.number() })).optional(),
         skipTiersForRoles: z.array(z.string()).optional(),
         appliesFeeShare: z.boolean().optional(),
+        endsWithNoLimit: z.boolean().optional(),
         maxPercentOfSide: z.number().optional(),
       }),
       z.object({ ...lineBase, type: z.literal('percent_of_net'), rate: z.number(), after: z.array(z.string()), optIn: z.boolean().optional() }),
@@ -168,10 +174,11 @@ export function validatePlan(plan: CommissionPlan): string[] {
       if (line.multiplierFrom && earlierLine(line.multiplierFrom)?.type !== 'capped_percent') {
         problems.push(`${label}: the share past the cap must come from a percentage-up-to-a-cap line above it.`);
       }
+      if (line.endsWithNoLimit === false) problems.push(`${label}: select No Limit on the last tier.`);
       let previous = 0;
       for (const tier of line.tiers || []) {
         if (!(tier.amount >= 0) || !(tier.untilPaid > previous)) {
-          problems.push(`${label}: each tier needs an amount and a For the Next amount above $0.`);
+          problems.push(`${label}: every tier but the last needs a For the Next amount above $0.`);
           break;
         }
         previous = tier.untilPaid;
