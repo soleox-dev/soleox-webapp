@@ -3604,6 +3604,12 @@ function saleSidesSelected(picked: string[] | null): boolean {
 
 const SALE_SIDE_NOTE = 'These two sections are specific to Buyer and Seller transactions only.';
 
+/** Report color roles (report-requirements.mdc, Colors): emerald current period and Closed, amber Pending, grey prior year. */
+const TREND_CURRENT = 'text-emerald-600 dark:text-emerald-400';
+const TREND_PRIOR = 'text-[#b3bbc5] dark:text-slate-400';
+const TREND_CLOSED = 'text-emerald-700 dark:text-emerald-300';
+const TREND_PENDING = 'text-amber-600 dark:text-amber-400';
+
 function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, cumulative }: { deals: ReportDeal[]; range: DateRange; priorRange: DateRange; dateBasis: LeaderboardDate; sidePicked: string[] | null; cumulative: boolean }) {
   const [statusFilter, setStatusFilter] = useState<'all' | 'closed' | 'pending'>('all');
   useEffect(() => {
@@ -3644,12 +3650,12 @@ function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, cumu
   };
   return (
     <div className={pairedReport}>
-      <TrendPanel metric="volume" title="Sales Volume" tone="blue" currentClass="text-blue-700 dark:text-blue-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-blue-800 dark:text-blue-200" pendingClass="text-blue-600 dark:text-blue-400" cumulative={cumulative} {...panel} />
-      <TrendPanel metric="gci" title="Gross Commission Income" tone="emerald" currentClass="text-emerald-600 dark:text-emerald-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-emerald-700 dark:text-emerald-200" pendingClass="text-emerald-500 dark:text-emerald-400" cumulative={cumulative} {...panel} />
-      <TrendPanel metric="units" title="Units" tone="units" currentClass="text-purple-600 dark:text-purple-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-purple-700 dark:text-purple-200" pendingClass="text-purple-500 dark:text-purple-400" cumulative={cumulative} {...panel} />
-      <TrendPanel metric="team" title="Team Commission" tone="team" currentClass="text-rose-600 dark:text-rose-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-rose-700 dark:text-rose-200" pendingClass="text-rose-500 dark:text-rose-400" cumulative={cumulative} {...panel} />
-      <TrendPanel metric="price" title="Sales Price" tone="price" currentClass="text-amber-500 dark:text-amber-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-amber-700 dark:text-amber-200" pendingClass="text-amber-500 dark:text-amber-400" chart="bars" {...salePanel} />
-      <TrendPanel metric="rate" title="Gross Commission Percentage" tone="rate" currentClass="text-sky-600 dark:text-sky-400" previousClass="text-[#b3bbc5] dark:text-slate-400" accentClass="text-sky-700 dark:text-sky-200" pendingClass="text-sky-500 dark:text-sky-400" chart="bars" {...salePanel} />
+      <TrendPanel metric="volume" title="Sales Volume" tone="emerald" currentClass={TREND_CURRENT} previousClass={TREND_PRIOR} accentClass={TREND_CLOSED} pendingClass={TREND_PENDING} cumulative={cumulative} {...panel} />
+      <TrendPanel metric="gci" title="Gross Commission Income" tone="emerald" currentClass={TREND_CURRENT} previousClass={TREND_PRIOR} accentClass={TREND_CLOSED} pendingClass={TREND_PENDING} cumulative={cumulative} {...panel} />
+      <TrendPanel metric="units" title="Units" tone="emerald" currentClass={TREND_CURRENT} previousClass={TREND_PRIOR} accentClass={TREND_CLOSED} pendingClass={TREND_PENDING} cumulative={cumulative} {...panel} />
+      <TrendPanel metric="team" title="Team Commission" tone="emerald" currentClass={TREND_CURRENT} previousClass={TREND_PRIOR} accentClass={TREND_CLOSED} pendingClass={TREND_PENDING} cumulative={cumulative} {...panel} />
+      <TrendPanel metric="price" title="Sales Price" tone="emerald" currentClass={TREND_CURRENT} previousClass={TREND_PRIOR} accentClass={TREND_CLOSED} pendingClass={TREND_PENDING} chart="bars" {...salePanel} />
+      <TrendPanel metric="rate" title="Gross Commission Percentage" tone="emerald" currentClass={TREND_CURRENT} previousClass={TREND_PRIOR} accentClass={TREND_CLOSED} pendingClass={TREND_PENDING} chart="bars" {...salePanel} />
     </div>
   );
 }
@@ -3681,7 +3687,7 @@ function TrendPanel({ metric, title, tone, currentClass, previousClass, accentCl
   const chartProps = { metric, title, months, priorMonths, currentClass, previousClass };
   return (
     <section className={pairedSection}>
-      <SectionHeading tone={tone === 'emerald' ? undefined : tone} note={metric === 'team' ? 'Team commission is the commission left after off-the-top deductions and pre-splits are subtracted from total commission.' : undefined}>{title}</SectionHeading>
+      <SectionHeading tone="slate" note={metric === 'team' ? 'Team commission is the commission left after off-the-top deductions and pre-splits are subtracted from total commission.' : undefined}>{title}</SectionHeading>
       {notice ? (
         <div className="flex min-h-[28rem] flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white px-8 py-10 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">
           {notice}
@@ -3702,6 +3708,7 @@ function TrendPanel({ metric, title, tone, currentClass, previousClass, accentCl
 
 function metricEdge(label: string, tone: 'volume' | 'blue' | 'emerald' | 'units' | 'rate' | 'price' | 'team'): string {
   if (label === 'Total') return 'border-slate-900 ring-slate-900 dark:border-white dark:ring-white';
+  if (label === 'Pending' && tone === 'emerald') return 'border-amber-500 ring-amber-500 dark:border-amber-400 dark:ring-amber-400';
   const closed = label !== 'Pending';
   if (tone === 'blue') return closed ? 'border-blue-800 ring-blue-800 dark:border-blue-200 dark:ring-blue-200' : 'border-blue-600 ring-blue-600 dark:border-blue-400 dark:ring-blue-400';
   if (tone === 'volume') return closed ? 'border-teal-700 ring-teal-700 dark:border-teal-200 dark:ring-teal-200' : 'border-teal-500 ring-teal-500 dark:border-teal-400 dark:ring-teal-400';
@@ -3740,7 +3747,11 @@ function TrendScore({ tone, label, amount, compactAmount, toneClass, dollar, com
           ? 'bg-amber-50 dark:bg-amber-950/80'
           : tone === 'team'
             ? 'bg-rose-50 dark:bg-rose-950/80'
-            : 'bg-emerald-50 dark:bg-emerald-950/80';
+            : label === 'Pending'
+              ? 'bg-amber-50 dark:bg-amber-950/60'
+              : label === 'Total'
+                ? 'bg-slate-50 dark:bg-slate-800/80'
+                : 'bg-emerald-50 dark:bg-emerald-950/80';
   const focusClass = tone === 'blue' ? 'focus-visible:ring-blue-400' : tone === 'volume' ? 'focus-visible:ring-teal-400' : tone === 'units' ? 'focus-visible:ring-purple-400' : tone === 'rate' ? 'focus-visible:ring-sky-400' : tone === 'price' ? 'focus-visible:ring-amber-400' : tone === 'team' ? 'focus-visible:ring-rose-400' : 'focus-visible:ring-emerald-400';
   const isDesktop = useIsDesktop();
   return (
@@ -4885,7 +4896,7 @@ function EarningScoreRow({ sums, prior, statusFilter, onSelect }: {
     <div className={pairedScores}>
       <TrendScore tone="emerald" label="Total" amount={fullMoney(sums.total)} compactAmount={compactMoney(sums.total)} toneClass="" dollar={signedFull(sums.total - prior.total)} compactDollar={signedCompact(sums.total - prior.total)} percent={signedChangePercent(sums.total, prior.total)} current={sums.total} prior={prior.total} selected={statusFilter === 'all'} onSelect={() => onSelect('all')} />
       <TrendScore tone="emerald" label="Closed" amount={fullMoney(sums.closed)} compactAmount={compactMoney(sums.closed)} toneClass={closedClass} dollar={signedFull(sums.closed - prior.closed)} compactDollar={signedCompact(sums.closed - prior.closed)} percent={signedChangePercent(sums.closed, prior.closed)} current={sums.closed} prior={prior.closed} selected={statusFilter === 'closed'} onSelect={() => onSelect('closed')} />
-      <TrendScore tone="emerald" label="Pending" amount={fullMoney(sums.pending)} compactAmount={compactMoney(sums.pending)} toneClass="text-emerald-500 dark:text-emerald-400" selected={statusFilter === 'pending'} onSelect={() => onSelect('pending')} />
+      <TrendScore tone="emerald" label="Pending" amount={fullMoney(sums.pending)} compactAmount={compactMoney(sums.pending)} toneClass={TREND_PENDING} selected={statusFilter === 'pending'} onSelect={() => onSelect('pending')} />
     </div>
   );
 }
