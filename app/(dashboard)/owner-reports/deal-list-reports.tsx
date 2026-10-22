@@ -227,7 +227,23 @@ const STATUS_ORDER = [
   { key: 'closed', label: 'Closed', dot: 'bg-emerald-500', bar: 'bg-emerald-500 dark:bg-emerald-400' },
   { key: 'pending', label: 'Pending', dot: 'bg-amber-400', bar: 'bg-amber-400 dark:bg-amber-400' },
   { key: 'cancelled', label: 'Cancelled', dot: 'bg-rose-400', bar: 'bg-rose-400 dark:bg-rose-400' },
+  { key: 'other', label: 'Other', dot: 'bg-slate-400', bar: 'bg-slate-400 dark:bg-slate-500' },
 ] as const;
+
+/** Closed, Pending, Cancelled, or Other for any other status (such as Expired or Active). */
+function statusKeyOf(deal: ReportDeal): (typeof STATUS_ORDER)[number]['key'] {
+  const status = deal.status.trim().toLowerCase();
+  return status === 'closed' || status === 'pending' || status === 'cancelled' ? status : 'other';
+}
+
+/** A labeled figure under a tile's main number. */
+function TileFact({ label, value, tone = '' }: { label: string; value: string; tone?: string }) {
+  return (
+    <span>
+      {label} <span className={`font-semibold tabular-nums ${tone || 'text-slate-800 dark:text-slate-100'}`}>{value}</span>
+    </span>
+  );
+}
 
 /**
  * A Transaction List scorecard: the figure, a thin bar showing each status's share of it, and the amount per status.
@@ -235,9 +251,11 @@ const STATUS_ORDER = [
  */
 type StatusKey = (typeof STATUS_ORDER)[number]['key'];
 
-function StatusTile({ label, value, deals, read, format, footer, picked = null, onPick }: {
+function StatusTile({ label, value, valueClass = '', deals, read, format, footer, picked = null, onPick }: {
   label: string;
   value: string;
+  /** Color for the main number when it carries meaning (above or below asking); neutral otherwise. */
+  valueClass?: string;
   deals: ReportDeal[];
   read: (deal: ReportDeal) => number;
   format: (value: number) => string;
@@ -249,7 +267,7 @@ function StatusTile({ label, value, deals, read, format, footer, picked = null, 
 }) {
   const parts = STATUS_ORDER
     .map((status) => {
-      const rows = deals.filter((deal) => deal.status.trim().toLowerCase() === status.key);
+      const rows = deals.filter((deal) => statusKeyOf(deal) === status.key);
       return { ...status, present: rows.length > 0, amount: sum(rows, read) };
     })
     .filter((part) => part.present);
@@ -257,7 +275,7 @@ function StatusTile({ label, value, deals, read, format, footer, picked = null, 
   return (
     <div className="flex min-w-0 flex-col rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
       <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
-      <p className="mt-0.5 truncate text-xl font-bold tabular-nums text-slate-900 dark:text-slate-50">{value}</p>
+      <p className={`mt-0.5 truncate text-xl font-bold tabular-nums ${valueClass || 'text-slate-900 dark:text-slate-50'}`}>{value}</p>
       {parts.length > 0 ? (
         <>
           <div className="mt-2.5 flex h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
@@ -291,7 +309,7 @@ function StatusTile({ label, value, deals, read, format, footer, picked = null, 
           </div>
         </>
       ) : null}
-      {footer ? <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">{footer}</div> : null}
+      {footer ? <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">{footer}</div> : null}
     </div>
   );
 }
@@ -304,8 +322,8 @@ export function TransactionListReport({ deals: allDeals, names }: { deals: Repor
   // Clicking a status in a tile narrows the table (and its Grand Total) to that status; the tiles keep every status.
   const [picked, setPicked] = useState<StatusKey | null>(null);
   const pick = (status: StatusKey) => setPicked((current) => (current === status ? null : status));
-  const pickedPresent = picked != null && allDeals.some((deal) => deal.status.trim().toLowerCase() === picked);
-  const deals = pickedPresent ? allDeals.filter((deal) => deal.status.trim().toLowerCase() === picked) : allDeals;
+  const pickedPresent = picked != null && allDeals.some((deal) => statusKeyOf(deal) === picked);
+  const deals = pickedPresent ? allDeals.filter((deal) => statusKeyOf(deal) === picked) : allDeals;
   const tilePick = pickedPresent ? picked : null;
   const volume = sum(deals, (deal) => deal.salesPrice);
   const gci = sum(deals, (deal) => deal.gciAmount);
@@ -338,10 +356,10 @@ export function TransactionListReport({ deals: allDeals, names }: { deals: Repor
           read={() => 0}
           format={compactDollars}
           footer={(
-            <span className="inline-flex flex-wrap gap-x-4 gap-y-1">
-              <span>Avg. GCI % <span className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">{rate(allVolume ? allGci / allVolume : null)}</span></span>
-              <span>Avg. GCI <span className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">{allDeals.length ? compactDollars(allGci / allDeals.length) : '—'}</span></span>
-            </span>
+            <>
+              <TileFact label="Avg. GCI %" value={rate(allVolume ? allGci / allVolume : null)} />
+              <TileFact label="Avg. GCI" value={allDeals.length ? compactDollars(allGci / allDeals.length) : '—'} />
+            </>
           )}
         />
       </div>
@@ -358,17 +376,26 @@ export function TransactionListReport({ deals: allDeals, names }: { deals: Repor
   );
 }
 
-export function ListingsReport({ deals, names }: { deals: ReportDeal[]; names: Map<string, string> }) {
+export function ListingsReport({ deals: allDeals, names }: { deals: ReportDeal[]; names: Map<string, string> }) {
+  // Clicking a status in the Listings tile narrows the table to it; the tiles keep every listing.
+  const [picked, setPicked] = useState<StatusKey | null>(null);
+  const pickedPresent = picked != null && allDeals.some((deal) => statusKeyOf(deal) === picked);
+  const deals = pickedPresent ? allDeals.filter((deal) => statusKeyOf(deal) === picked) : allDeals;
+  const allSold = allDeals.filter(soldListing);
+  const allListVolume = sum(allDeals, (deal) => deal.listPrice);
+  const allListed = allDeals.filter((deal) => deal.listPrice > 0);
+  const allSalesVolume = sum(allSold, (deal) => deal.salesPrice);
+  const allPriced = allSold.filter(hasPrices);
+  const allOverUnder = sum(allPriced, (deal) => deal.salesPrice - deal.listPrice);
+  const allDom = average(allDeals.map(daysOnMarket).filter((value): value is number => value != null));
   const listVolume = sum(deals, (deal) => deal.listPrice);
   const sold = deals.filter(soldListing);
-  const salesVolume = sum(sold, (deal) => deal.salesPrice);
   const priced = sold.filter(hasPrices);
   const overUnder = sum(priced, (deal) => deal.salesPrice - deal.listPrice);
   const gci = sum(deals, (deal) => deal.gciAmount);
   const tableSales = sum(deals, (deal) => deal.salesPrice);
   const doms = deals.map(daysOnMarket).filter((value): value is number => value != null);
   const avgDom = average(doms);
-  const listed = deals.filter((deal) => deal.listPrice > 0);
   const columns: Column[] = [
     { key: 'agent', label: 'Primary Agent', width: 'min-w-32', sortValue: (deal) => names.get(deal.agentId) || '', cell: (deal) => names.get(deal.agentId) || '—' },
     { key: 'status', label: 'Status', sortValue: (deal) => deal.status, cell: (deal) => <StatusChip status={deal.status} /> },
@@ -396,16 +423,47 @@ export function ListingsReport({ deals, names }: { deals: ReportDeal[]; names: M
   ];
   return (
     <div className={fitReport}>
-      <div className={`${scoreBand} shrink-0 grid-cols-2 md:grid-cols-4 xl:grid-cols-8`}>
-        {/* Neutral figures; only over or under asking takes a color (report color roles). */}
-        <Score label="Listings" value={deals.length.toLocaleString()} />
-        <Score label="List Volume" value={fullMoney(listVolume)} />
-        <Score label="Avg. List Price" value={listed.length ? fullMoney(listVolume / listed.length) : '—'} />
-        <Score label="Sales Volume" value={fullMoney(salesVolume)} />
-        <Score label="Avg. Sales Price" value={sold.length ? fullMoney(salesVolume / sold.length) : '—'} />
-        <Score label="Avg. Sold vs. Asking" value={priced.length ? signedMoney(overUnder / priced.length) : '—'} tone={signTone(overUnder)} note />
-        <Score label="Total Sold vs. Asking" value={signedMoney(overUnder)} tone={signTone(overUnder)} note />
-        <Score label="Average DOM" value={avgDom == null ? '—' : Math.round(avgDom).toLocaleString()} />
+      {/* Neutral figures; only over or under asking takes a color (report color roles). */}
+      <div className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatusTile
+          label="Listings"
+          value={allDeals.length.toLocaleString()}
+          deals={allDeals}
+          read={() => 1}
+          format={(value) => value.toLocaleString()}
+          picked={pickedPresent ? picked : null}
+          onPick={(status) => setPicked((current) => (current === status ? null : status))}
+        />
+        <StatusTile
+          label="List Volume"
+          value={fullMoney(allListVolume)}
+          deals={[]}
+          read={() => 0}
+          format={compactDollars}
+          footer={<TileFact label="Avg. List Price" value={allListed.length ? fullMoney(allListVolume / allListed.length) : '—'} />}
+        />
+        <StatusTile
+          label="Sales Volume"
+          value={fullMoney(allSalesVolume)}
+          deals={allSold}
+          read={(deal) => deal.salesPrice}
+          format={compactDollars}
+          footer={<TileFact label="Avg. Sales Price" value={allSold.length ? fullMoney(allSalesVolume / allSold.length) : '—'} />}
+        />
+        <StatusTile
+          label="Sold vs. Asking"
+          value={signedMoney(allOverUnder)}
+          valueClass={signTone(allOverUnder)}
+          deals={[]}
+          read={() => 0}
+          format={compactDollars}
+          footer={(
+            <>
+              <TileFact label="Avg. per Listing" value={allPriced.length ? signedMoney(allOverUnder / allPriced.length) : '—'} tone={signTone(allOverUnder)} />
+              <TileFact label="Avg. DOM" value={allDom == null ? '—' : `${Math.round(allDom).toLocaleString()} days`} />
+            </>
+          )}
+        />
       </div>
       <DealListTable
         deals={deals}
@@ -415,11 +473,6 @@ export function ListingsReport({ deals, names }: { deals: ReportDeal[]; names: M
         empty="No listings were taken in this date range."
         fit
       />
-      <div className="shrink-0 space-y-1 text-xs text-slate-500 dark:text-slate-400">
-        <p>Every listing-side transaction with a list date in the range, whatever its status. Sales figures count closed and pending listings.</p>
-        <p><span className="text-rose-500">*</span> Leaves out transactions where the list price has not been recorded.</p>
-        <p>DOM (days on market) runs from the list date to the pending date.</p>
-      </div>
     </div>
   );
 }
