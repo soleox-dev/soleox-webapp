@@ -8,6 +8,7 @@ import {
   planAgentFromRow,
   planHistoryFromItems,
   buildDealPlanContext,
+  dealPlanMode,
   feeShareFor,
   planInForce,
   proposedExpPresetKey,
@@ -194,7 +195,7 @@ describe('proposed eXp plans from today\'s cap fields', () => {
 
 describe('whether plans calculate a deal', () => {
   const ingredients = (over: Partial<DealPlanIngredients> = {}, settingsOver: Partial<PlanSettingsRow> = {}): DealPlanIngredients => ({
-    settings: { ...settings, cap_date_field_key: 'closing_date', calculate_deals: true, calculate_from: '2026-01-01', ...settingsOver },
+    settings: { ...settings, cap_date_field_key: 'closing_date', calculate_deals: true, calculate_since: '2026-05-01T00:00:00Z', ...settingsOver },
     plans: [planRow],
     versions,
     agents: [
@@ -218,11 +219,32 @@ describe('whether plans calculate a deal', () => {
     expect(context!.agents.AGT_1.plan.versionId).toBe('CPV_NEW');
   });
 
-  it('leaves the deal alone when switched off, FINISHED, before the start date, or without a Cap Date', () => {
+  it('leaves the deal alone when switched off, FINISHED, or without a Cap Date', () => {
     expect(buildDealPlanContext(deal, ingredients({}, { calculate_deals: false })).reason).toBe('Commission Plans are switched off for this client.');
     expect(buildDealPlanContext(deal, ingredients({ finished: true })).reason).toBe('This deal is finished, so its saved lines stay as they are.');
-    expect(buildDealPlanContext(deal, ingredients({}, { calculate_from: '2026-07-01' })).reason).toBe('Commission Plans calculate deals from 2026-07-01; this deal is on 2026-06-15.');
     expect(buildDealPlanContext({ id: 'TXN_2' }, ingredients()).context).toBeNull();
+  });
+
+  it('no Settings action changes a saved deal: each deal\'s plan mode', () => {
+    const decision = buildDealPlanContext(deal, ingredients());
+    const since = { calculate_since: '2026-05-01T00:00:00Z' };
+    const before = { ...deal, created_at: '2026-04-01T00:00:00Z' };
+    const after = { ...deal, created_at: '2026-06-01T00:00:00Z' };
+    const mode = (over: Partial<Parameters<typeof dealPlanMode>[0]>) =>
+      dealPlanMode({ decision, settings: since, deal: before, savedWithPlans: false, editing: false, chosen: false, ...over });
+    // An existing deal keeps its saved lines, even while edited, until someone chooses to calculate it with plans.
+    expect(mode({})).toBe('available');
+    expect(mode({ editing: true })).toBe('available');
+    expect(mode({ chosen: true })).toBe('calculate');
+    // Created after the switch: on plans; once saved with plans, its saved lines stand until it is edited.
+    expect(mode({ deal: after })).toBe('calculate');
+    expect(mode({ deal: after, savedWithPlans: true })).toBe('saved');
+    expect(mode({ savedWithPlans: true })).toBe('saved');
+    expect(mode({ savedWithPlans: true, editing: true })).toBe('calculate');
+    // A new deal not saved yet is on plans.
+    expect(mode({ deal: { closing_date: '2026-06-15' } })).toBe('calculate');
+    // Switched off or FINISHED: off, whatever else is true.
+    expect(dealPlanMode({ decision: { context: null, reason: 'x' }, settings: since, deal: after, savedWithPlans: true, editing: true, chosen: true })).toBe('off');
   });
 
   it('the default Fee Share: 50% on a double end, less a brokerage agent\'s share of Total Commission', () => {

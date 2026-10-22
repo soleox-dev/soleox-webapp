@@ -22,9 +22,12 @@ export type PlanSettingsDto = {
   countingStatuses: string[];
   /** Plan line key -> the entity earlier deals paid that line to; those saved lines count toward caps. */
   historyEntityIds: Record<string, string>;
-  /** The switch: plans calculate this client's deals with a Cap Date on or after calculateFrom. */
+  /**
+   * The switch. Deals created after calculateSince (when it was turned on, set by the server) calculate with plans;
+   * earlier deals keep their saved lines until someone chooses Calculate With Plans on the deal.
+   */
   calculateDeals: boolean;
-  calculateFrom: string;
+  calculateSince: string;
 };
 export type PlansResponse = {
   success: true;
@@ -82,17 +85,21 @@ export async function PUT(request: Request) {
         counting_statuses: statusList(settings.countingStatuses).length ? statusList(settings.countingStatuses) : null,
         history_entity_ids: fieldMap(settings.historyEntityIds),
         calculate_deals: Boolean(settings.calculateDeals),
-        calculate_from: settings.calculateFrom && DAY.test(settings.calculateFrom) ? settings.calculateFrom : null,
         updated_at: now,
         updated_by: email,
       };
       const { data: existing, error: readError } = await supabase
         .from('client_commission_plan_settings')
-        .select('id')
+        .select('id, calculate_deals, calculate_since')
         .eq('client_id', clientId)
         .eq('archived', false)
         .maybeSingle();
       if (readError) throw readError;
+      // The switch time is the server's: set when the switch turns on, kept while it stays on, cleared when it turns off.
+      const switchedOn = Boolean(row.calculate_deals);
+      Object.assign(row, {
+        calculate_since: switchedOn ? (existing?.calculate_deals && existing.calculate_since ? existing.calculate_since : now) : null,
+      });
       const { error } = existing
         ? await supabase.from('client_commission_plan_settings').update(row).eq('id', existing.id).eq('client_id', clientId)
         : await supabase.from('client_commission_plan_settings').insert({ ...row, created_by: email });

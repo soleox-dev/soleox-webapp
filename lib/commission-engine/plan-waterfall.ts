@@ -172,3 +172,40 @@ export function applyPlansToWaterfall(state: WaterfallState, first: WaterfallRes
 
   return { waterfall: { ...base, postSplitRulesByAgent: level1 }, plans, problems };
 }
+
+/** A plan line whose saved amount differs from what the plans calculate now. */
+export interface PlanLineChange {
+  agent: string;
+  line: string;
+  saved: number | null;
+  now: number | null;
+}
+
+/**
+ * What recalculating with plans would change on a deal saved with plans: each agent's saved plan lines (by line key)
+ * against the plan step's lines. Typed lines are kept by the plan step, so they never show as changes.
+ */
+export function planLineChanges(saved: WaterfallState, recalculated: DealPlanStep): PlanLineChange[] {
+  const changes: PlanLineChange[] = [];
+  const savedLines = new Map<string, { agent: string; line: string; amount: number }>();
+  for (const [agent, rules] of Object.entries(saved.postSplitRulesByAgent)) {
+    for (const rule of rules) if (rule.planLineKey && rule.type === 'AMOUNT') savedLines.set(`${agent}|${rule.planLineKey}`, { agent, line: rule.name, amount: rule.value });
+  }
+  const seen = new Set<string>();
+  for (const agent of recalculated.plans.agents) {
+    for (const line of agent.lines) {
+      const key = `${agent.name}|${line.key}`;
+      seen.add(key);
+      const before = savedLines.get(key);
+      if (!before) {
+        if (line.amount !== 0) changes.push({ agent: agent.name, line: line.name, saved: null, now: line.amount });
+      } else if (Math.abs(before.amount - line.amount) >= 0.005) {
+        changes.push({ agent: agent.name, line: line.name, saved: before.amount, now: line.amount });
+      }
+    }
+  }
+  for (const [key, before] of savedLines) {
+    if (!seen.has(key) && before.amount !== 0) changes.push({ agent: before.agent, line: before.line, saved: before.amount, now: null });
+  }
+  return changes;
+}

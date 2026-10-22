@@ -21,7 +21,7 @@ export const DEFAULT_SETTINGS: PlanSettingsDto = {
   countingStatuses: ['Closed', 'Pending'],
   historyEntityIds: {},
   calculateDeals: false,
-  calculateFrom: '',
+  calculateSince: '',
 };
 
 export const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -108,7 +108,7 @@ export async function loadPlans(supabase: SupabaseClient, clientId: string): Pro
           countingStatuses: statusList(stored.counting_statuses).length ? statusList(stored.counting_statuses) : DEFAULT_SETTINGS.countingStatuses,
           historyEntityIds: fieldMap(stored.history_entity_ids),
           calculateDeals: Boolean(stored.calculate_deals),
-          calculateFrom: typeof stored.calculate_from === 'string' ? stored.calculate_from.slice(0, 10) : '',
+          calculateSince: typeof stored.calculate_since === 'string' && stored.calculate_deals ? stored.calculate_since : '',
         }
       : DEFAULT_SETTINGS,
     agentCounts,

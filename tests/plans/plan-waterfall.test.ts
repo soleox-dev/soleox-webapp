@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   applyTemplateLogic,
   computeDealCommission,
+  applyPlansToWaterfall,
   loadPlanPresets,
+  planLineChanges,
   waterfallAfterTemplate,
   waterfallFromCommissionItems,
   type CommissionEntityOption,
@@ -148,6 +150,23 @@ describe('Commission Plans in the deal waterfall', () => {
     const result = run(templateWaterfall(), { ...context(), agents: rest });
     expect(result.save.blockers.blocked).toBe(true);
     expect(result.save.blockers.reason).toContain('Kyle has no Commission Plan. Assign one on Agents.');
+  });
+
+  it('lists what recalculating with plans would change on a deal saved with plans', () => {
+    const first = run(templateWaterfall(), context());
+    const rows = first.save.commissionItems.map((item: Record<string, unknown>, index: number) => ({ id: `TCI_${index}`, ...item })) as StoredCommissionItem[];
+    const saved = waterfallFromCommissionItems(rows, knownAgents, knownEntities, 'AGT_W');
+    const step = (plans: DealPlanContext) => applyPlansToWaterfall(saved, run(saved, null), plans, 'TXN_VERIFIED');
+    expect(planLineChanges(saved, step(context()))).toEqual([]);
+    // eXp raises broker review to $30: every agent's broker review would change.
+    const raised = { ...context(), agents: Object.fromEntries(Object.entries(context().agents).map(([id, agent]) => [id, { ...agent, plan: { ...agent.plan, lines: agent.plan.lines.map((line) => (line.key === 'broker_review' ? { ...line, amount: 30 } : line)) } }])) };
+    expect(planLineChanges(saved, step(raised))).toEqual([
+      { agent: 'Winston', line: 'Broker review', saved: 21.25, now: 25.5 },
+      { agent: 'Skylar', line: 'Broker review', saved: 0.38, now: 0.45 },
+      { agent: 'Kyle', line: 'Broker review', saved: 0.19, now: 0.23 },
+      { agent: 'Patrick', line: 'Broker review', saved: 3.19, now: 3.83 },
+      { agent: 'Patrick', line: 'Stock', saved: 153.6, now: 153.57 },
+    ]);
   });
 
   it('without a plan context nothing changes', () => {

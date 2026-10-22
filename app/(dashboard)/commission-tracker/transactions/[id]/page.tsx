@@ -41,6 +41,7 @@ import { transactionDealLabel, transactionSearchLabel } from '@/lib/transaction-
 import { useAccess } from '@/components/access-provider';
 import { useTemplateQualification } from './hooks/useTemplateQualification';
 import { useDealPlanContext } from './hooks/useDealPlanContext';
+import { dealPlanMode, planLineChanges } from '@/lib/commission-engine';
 import { swallowNextClick } from '@/lib/swallow-click';
 
 type SavedPaymentRow = {
@@ -372,6 +373,8 @@ export default function Dashboard() {
     teamCapIds: string[] | null;
   } | null>(null);
   const [hasUnsavedLocalChanges, setHasUnsavedLocalChanges] = useState(false);
+  // Calculate or Recalculate With Plans was chosen on this deal; kept only by Save, cleared by Discard.
+  const [planChoice, setPlanChoice] = useState(false);
   const [waterfallResetPending, setWaterfallResetPending] = useState(false);
   const [allocatePromptOpen, setAllocatePromptOpen] = useState(false);
   const allocateAfterSaveRef = useRef<(() => void) | undefined>(undefined);
@@ -868,6 +871,23 @@ export default function Dashboard() {
     planDeal,
     overviewFields,
   );
+  // No Settings action changes a saved deal: an existing deal keeps its saved lines until someone chooses plans on
+  // it, and a deal saved with plans keeps its saved plan lines unless it is being edited (dealPlanMode).
+  const savedWithPlans = commissionItemsDealId === selectedDeal?.id
+    && (commissionItems || []).some((item: { plan_line_key?: string | null }) => Boolean(item.plan_line_key));
+  const planMode = dealPlanMode({
+    decision: dealPlans.decision,
+    settings: { calculate_since: dealPlans.calculateSince },
+    deal: planDeal,
+    savedWithPlans,
+    editing: isEditingWaterfall || overviewForm.isEditingOverview || hasUnsavedLocalChanges,
+    chosen: planChoice,
+  });
+  const plansForDeal = planMode === 'calculate' ? dealPlans.context : null;
+  const choosePlans = () => {
+    setPlanChoice(true);
+    setHasUnsavedLocalChanges(true);
+  };
   const editedSalesPrice = overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.sales_price) || salesPrice) : salesPrice;
   const editedGciPerc = overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.gci_perc) || gciPerc) : gciPerc;
   const closingForPayments = overviewForm.overviewFormValues.closing_date ?? closingDate ?? null;
@@ -884,7 +904,7 @@ export default function Dashboard() {
     allocation: allocationForWaterfall,
     template: templateReplay,
     storedAgentSplits,
-    plans: dealPlans.context,
+    plans: plansForDeal,
   }, {
     knownAgents,
     knownEntities,
@@ -895,7 +915,30 @@ export default function Dashboard() {
     selectedDeal, overviewForm.overviewFormValues, editedSalesPrice, editedGciPerc, clientType, overviewFields,
     agents, offTheTopRules, preSplitRules, postSplitRulesByAgent, postSplit2RulesByAgent, primaryAgentId,
     allocationForWaterfall, templateReplay, storedAgentSplits, knownAgents, knownEntities, primaryAgent, paymentDate, templateQualifies,
-    dealPlans.context,
+    plansForDeal,
+  ]);
+  // A deal saved with plans: what recalculating would change, for the marker. Nothing is applied.
+  const planChanges = useMemo(() => {
+    if (planMode !== 'saved' || !dealPlans.context) return [];
+    const waterfall = { agents, offTheTopRules, preSplitRules, postSplitRulesByAgent, postSplit2RulesByAgent };
+    const recalculated = computeDealCommission({
+      deal: selectedDeal,
+      form: overviewForm.overviewFormValues,
+      salesPrice: editedSalesPrice,
+      gciPerc: editedGciPerc,
+      clientType,
+      fields: overviewFields,
+      waterfall,
+      primaryAgentId,
+      allocation: allocationForWaterfall,
+      template: templateReplay,
+      storedAgentSplits,
+      plans: dealPlans.context,
+    });
+    return recalculated.planStep ? planLineChanges(waterfall, recalculated.planStep) : [];
+  }, [
+    planMode, dealPlans.context, selectedDeal, overviewForm.overviewFormValues, editedSalesPrice, editedGciPerc, clientType, overviewFields,
+    agents, offTheTopRules, preSplitRules, postSplitRulesByAgent, postSplit2RulesByAgent, primaryAgentId, allocationForWaterfall, templateReplay, storedAgentSplits,
   ]);
   // Agents with a $0 split and no post-split to pay, such as a team cap recipient the cap does not pay on this deal.
   // They stay in the list while the waterfall is being edited, so a split can still be given to them.
@@ -903,7 +946,7 @@ export default function Dashboard() {
   const waterfallAgents = isEditingWaterfall ? agents : agents.filter((agent) => !idleAgentIds.has(agent.id));
   // True until the deal, its submitted template, and its caps and allocations have loaded. The
   // waterfall computed before then is not final, so allocation auto-save waits for it.
-  const commissionSettling = !isNewTransaction && (!selectedDeal || templateReplaySettling || !allocationSettled || dealPlans.settling);
+  const commissionSettling = !isNewTransaction && (!selectedDeal || templateReplaySettling || !allocationSettled || (dealPlans.settling && planMode !== 'off'));
   // What the screen waits for is less: the saved waterfall, including each agent's split after team caps,
   // shows as soon as the deal and its caps and allocations load. The replay of the submitted template
   // (which needs the whole commission ledger) replaces it when ready and updates the template button.
@@ -1247,6 +1290,7 @@ export default function Dashboard() {
       commitOverrides();
 
       setHasUnsavedLocalChanges(false);
+      setPlanChoice(false);
       discardPendingTemplateSubmission('save');
       setSelectedDeal(savedTxn);
       setSavedDeals((current) => {
@@ -1447,6 +1491,7 @@ export default function Dashboard() {
     setIsUnsavedModalOpen(false);
     pendingNavigationRef.current = null;
     setHasUnsavedLocalChanges(false);
+    setPlanChoice(false);
     setCapOverrideBaseline(null);
     restoreLoadedOverrides();
     discardPendingTemplateSubmission();
@@ -1530,6 +1575,7 @@ export default function Dashboard() {
     const navigate = pendingNavigationRef.current;
     pendingNavigationRef.current = null;
     setHasUnsavedLocalChanges(false);
+    setPlanChoice(false);
     setCapOverrideBaseline(null);
     restoreLoadedOverrides();
     discardPendingTemplateSubmission();
@@ -1769,20 +1815,45 @@ export default function Dashboard() {
             validateFieldValue={overviewForm.validateFieldValue}
           />
 
-          {(dealPlans.context || dealPlans.error || dealPlans.switchedOn) && (
-            <div className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+          {(dealPlans.error || dealPlans.switchedOn) && (
+            <div className="space-y-1 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
               {dealPlans.error ? (
                 <span className="font-semibold text-rose-600 dark:text-rose-400">{dealPlans.error}</span>
-              ) : !dealPlans.context ? (
-                <><span className="font-semibold text-slate-800 dark:text-slate-100">Commission Plans</span> do not calculate this deal: {dealPlans.reason}</>
+              ) : planMode === 'off' ? (
+                <div><span className="font-semibold text-slate-800 dark:text-slate-100">Commission Plans</span> do not calculate this deal: {dealPlans.reason}</div>
+              ) : planMode === 'available' ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span>This deal keeps the lines it was saved with. Calculate it with Commission Plans to see each agent&apos;s plan lines; nothing changes until you save.</span>
+                  {canWriteTracker && (
+                    <button type="button" onClick={choosePlans} className="cursor-pointer rounded-md bg-brand-500/10 px-2 py-1 font-bold text-brand-700 hover:bg-brand-500/20 dark:text-brand-400">Calculate With Plans</button>
+                  )}
+                </div>
+              ) : planMode === 'saved' ? (
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span><span className="font-semibold text-slate-800 dark:text-slate-100">Saved with Commission Plans.</span> {planChanges.length ? 'The plans would now calculate some lines differently:' : 'The plans still give the same lines.'}</span>
+                    {planChanges.length > 0 && canWriteTracker && (
+                      <button type="button" onClick={choosePlans} className="cursor-pointer rounded-md bg-brand-500/10 px-2 py-1 font-bold text-brand-700 hover:bg-brand-500/20 dark:text-brand-400">Recalculate With Plans</button>
+                    )}
+                  </div>
+                  {planChanges.length > 0 && (
+                    <ul className="list-disc pl-5">
+                      {planChanges.map((change) => (
+                        <li key={`${change.agent}-${change.line}`}>
+                          {change.agent}, {change.line}: {change.saved === null ? 'none' : `$${change.saved.toFixed(2)}`} → {change.now === null ? 'none' : `$${change.now.toFixed(2)}`}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               ) : (
-                <>
+                <div>
                   <span className="font-semibold text-slate-800 dark:text-slate-100">Commission Plans</span>
-                  {' '}calculate each agent&apos;s brokerage lines on this deal (Cap Date {dealPlans.context?.capDate}, Fee Share {dealResult.planStep?.plans.feeSharePercent ?? 100}%).
+                  {' '}calculate each agent&apos;s brokerage lines on this deal (Cap Date {dealPlans.context?.capDate}, Fee Share {dealResult.planStep?.plans.feeSharePercent ?? 100}%){planChoice ? '. Save to keep them.' : '.'}
                   {dealResult.planStep?.problems.map((problem) => (
                     <span key={problem} className="ml-1 font-semibold text-amber-700 dark:text-amber-400">{problem}</span>
                   ))}
-                </>
+                </div>
               )}
             </div>
           )}
