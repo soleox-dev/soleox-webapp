@@ -1884,17 +1884,20 @@ export function CommissionTemplatePanel({
                           disabled={!canCollapse}
                           aria-expanded={canCollapse ? !isCollapsed : undefined}
                           title={canCollapse ? (isCollapsed ? 'Expand section' : 'Collapse section') : undefined}
-                          className={`flex min-w-0 flex-1 items-center gap-2 rounded-full px-3 py-1 text-left disabled:cursor-default ${canCollapse ? 'cursor-pointer transition hover:brightness-95 dark:hover:brightness-125' : ''}`}
+                          className={`flex min-w-0 flex-1 items-center gap-2 rounded-full py-1 pl-3 text-left disabled:cursor-default ${canCollapse ? 'pr-1 cursor-pointer transition hover:brightness-95 dark:hover:brightness-125' : 'pr-3'}`}
                         >
                           <span className={`min-w-0 flex-1 truncate text-xs font-bold ${isUnsectioned ? 'text-amber-700 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}>
                             {group.name}
                           </span>
                           {canCollapse && (
-                            <ChevronDown
-                              aria-hidden
-                              strokeWidth={2.25}
-                              className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 motion-reduce:transition-none ${isCollapsed ? '-rotate-90' : ''} ${isUnsectioned ? 'text-amber-700 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}
-                            />
+                            // Same 20px box and right inset as the info icon, so the two line up down the column.
+                            <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center">
+                              <ChevronDown
+                                aria-hidden
+                                strokeWidth={2.25}
+                                className={`h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none ${isCollapsed ? '-rotate-90' : ''} ${isUnsectioned ? 'text-amber-700 dark:text-amber-400' : 'text-brand-700 dark:text-brand-400'}`}
+                              />
+                            </span>
                           )}
                         </button>
                         {!isCollapsed && (inlineCalculations.get(group.name)?.length ?? 0) > 0 && (
