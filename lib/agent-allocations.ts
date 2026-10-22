@@ -180,6 +180,11 @@ export function writeTeamCapSelection(parameters: Record<string, string>, ids: s
  * allocationLookupTables. A formula that cannot be calculated, such as one whose lookup table is missing, does
  * not qualify: a cap never moves money on a guess.
  */
+/** The caps set up well enough to pay out (on, with a split field and a recipient), qualifying or not. */
+export function configuredTeamCaps(caps: TeamCapRule[]): TeamCapRule[] {
+  return caps.filter((cap) => cap.enabled && cap.splitPercentFieldKey && cap.recipientAgentId);
+}
+
 export function qualifyingTeamCaps(
   caps: TeamCapRule[],
   deal: Record<string, unknown> | null,
@@ -306,9 +311,12 @@ export function planDealAllocations(
   let amounts: Record<string, number> | null = null;
   const profiles = new Map(context.profiles.map((profile) => [profile.agentId, profile]));
 
+  // The caps checked on the template submission apply, whether or not they pass their qualifying formula: a box
+  // checked or unchecked by hand wins. Without a recorded choice, the caps that qualify apply.
   const recorded = context.selectedTeamCapIds;
-  const matchingCaps = qualifyingTeamCaps(context.teamCaps, context.deal, context.fieldTypes, context.lookups)
-    .filter((cap) => !recorded || recorded.includes(cap.id));
+  const matchingCaps = recorded
+    ? configuredTeamCaps(context.teamCaps).filter((cap) => recorded.includes(cap.id))
+    : qualifyingTeamCaps(context.teamCaps, context.deal, context.fieldTypes, context.lookups);
   const payableCaps = matchingCaps.flatMap((cap) => {
     const recipientId = cap.recipientAgentId;
     if (!recipientId) return [];

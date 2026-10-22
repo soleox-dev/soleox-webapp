@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Info, Loader2, Lock, Plus, RefreshCw, RotateCcw, Trash2, X, Zap, type LucideIcon } from 'lucide-react';
 import { evaluateFormula, formulaValueToInput, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { normalizeAgentName } from '@/lib/id';
-import { allocationLookupTables, qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection, type TeamCapRule } from '@/lib/agent-allocations';
+import { allocationLookupTables, configuredTeamCaps, qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection, type TeamCapRule } from '@/lib/agent-allocations';
 import { dealFieldValue, formulaFieldNames, templateBoltTone, type TemplateBoltTone } from '@/lib/transaction-default-view';
 import { formatPercent } from '@/lib/fields';
 import { allocationForReplay, loadAllocationCatalog, loadAllocationLookups, loadAllocationHistory, loadAllocationOverrides, payoutSignature, replayedPaymentSignature, savedPayouts } from '@/lib/template-payment-drift';
@@ -1361,6 +1361,11 @@ export function CommissionTemplatePanel({
     () => qualifyingTeamCaps(teamCaps, deal, fieldTypes, capLookups),
     [teamCaps, deal, fieldTypes, capLookups],
   );
+  // Every cap set up to pay out shows in the form. Its box starts checked when it qualifies on this deal (its
+  // default); checking or unchecking it by hand makes it EDITED, and the submission applies what is checked.
+  const shownCaps = useMemo(() => configuredTeamCaps(teamCaps), [teamCaps]);
+  const capQualifies = useMemo(() => new Set(qualifyingCaps.map((cap) => cap.id)), [qualifyingCaps]);
+  const capsAtDefault = shownCaps.every((cap) => checkedCapIds.includes(cap.id) === capQualifies.has(cap.id));
 
   useEffect(() => {
     if (!clientId) return;
@@ -1407,10 +1412,11 @@ export function CommissionTemplatePanel({
     }
     if (!capsLoaded || !schemaReady || !capLookupsReady || capChoiceSet.current) return;
     const qualifyingIds = qualifyingCaps.map((cap) => cap.id);
+    const shownIds = shownCaps.map((cap) => cap.id);
     const stored = draftTemplateId === submittedTemplateId ? readTeamCapSelection(submittedParameters) : null;
-    setCheckedCapIds(stored == null ? qualifyingIds : stored.filter((id) => qualifyingIds.includes(id)));
+    setCheckedCapIds(stored == null ? qualifyingIds : stored.filter((id) => shownIds.includes(id)));
     capChoiceSet.current = true;
-  }, [popupOpen, capsLoaded, schemaReady, capLookupsReady, qualifyingCaps, draftTemplateId, submittedTemplateId, submittedParameters]);
+  }, [popupOpen, capsLoaded, schemaReady, capLookupsReady, qualifyingCaps, shownCaps, draftTemplateId, submittedTemplateId, submittedParameters]);
 
   // The deal fields each cap's qualifying formula reads, with their values, for the line beside the cap.
 
@@ -1441,7 +1447,7 @@ export function CommissionTemplatePanel({
       if (typeof raw === 'boolean') return { type: 'boolean', value: raw };
       return { type: 'text', value: String(raw) };
     };
-    return new Map(qualifyingCaps.map((cap) => {
+    return new Map(shownCaps.map((cap) => {
       const formula = cap.qualifyingFormula ?? '';
       const lines: InfoLine[] = [];
       const shown = new Set<string>();
@@ -1466,7 +1472,7 @@ export function CommissionTemplatePanel({
       }
       return [cap.id, lines] as const;
     }));
-  }, [qualifyingCaps, overviewFields, deal, fieldTypes, agents, capLookups]);
+  }, [shownCaps, overviewFields, deal, fieldTypes, agents, capLookups]);
 
 
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -1650,9 +1656,9 @@ export function CommissionTemplatePanel({
       for (const parameter of parameters) {
         parameterValues[parameter.parameter_key] = liveValues.current[parameter.id] ?? '';
       }
-      const teamCapIds = checkedCapIds.filter((id) => qualifyingCaps.some((cap) => cap.id === id));
+      const teamCapIds = checkedCapIds.filter((id) => shownCaps.some((cap) => cap.id === id));
       const seenRecipients = new Set<string>();
-      const teamCapRecipients = qualifyingCaps.flatMap((cap) => {
+      const teamCapRecipients = shownCaps.flatMap((cap) => {
         if (!teamCapIds.includes(cap.id) || !cap.recipientAgentId || seenRecipients.has(cap.recipientAgentId)) return [];
         const recipient = agents.find((agent) => agent.id === cap.recipientAgentId);
         if (!recipient) return [];
@@ -1859,7 +1865,7 @@ export function CommissionTemplatePanel({
             {/* The cards sit straight on the popup, lined up with its title; the small gutter keeps their rings from being clipped. */}
             <div className="@container/params -mx-1 mt-3 min-h-0 flex-1 overflow-y-auto px-1 py-px">
               <div className="space-y-6">
-              {qualifyingCaps.length > 0 && (
+              {shownCaps.length > 0 && (
                 // Yellow, like a parameter changed by hand, when a box doesn't match its cap's qualifying formula;
                 // otherwise the brand blue while any team cap is checked.
                 // The same card as Parameters below. Each cap is a pill: blue while checked, yellow once unchecked
@@ -1871,29 +1877,44 @@ export function CommissionTemplatePanel({
                     {/* The caps side by side, wrapping when they run out of room. Each cap's info icon lists what its
                         qualifying formula looked at on this deal. */}
                     <div className="flex flex-wrap items-center gap-2">
-                    {qualifyingCaps.map((cap) => (
+                    {shownCaps.map((cap) => {
+                      const checked = checkedCapIds.includes(cap.id);
+                      const atDefault = checked === capQualifies.has(cap.id);
+                      return (
                       <div
                         key={cap.id}
-                        // As wide as its name and info icon.
-                        className={`flex min-w-0 max-w-full items-center gap-1.5 rounded-full py-1 pl-3 transition-colors ${(capInfoLines.get(cap.id)?.length ?? 0) > 0 ? 'pr-1' : 'pr-3'} ${checkedCapIds.includes(cap.id)
+                        // As wide as its name, tag and info icon. Blue at its default (checked when it qualifies, unchecked
+                        // when it does not), yellow once changed by hand.
+                        className={`flex min-w-0 max-w-full items-center gap-1.5 rounded-full py-1 pl-3 transition-colors ${(capInfoLines.get(cap.id)?.length ?? 0) > 0 ? 'pr-1' : 'pr-3'} ${atDefault
                           ? 'bg-brand-500/10 dark:bg-brand-500/15'
                           : 'bg-amber-500/15 ring-1 ring-amber-400/40 dark:bg-amber-400/12'}`}
                       >
                         <BooleanField
                           id={`team-cap-${cap.id}`}
                           label={cap.name.trim() || 'Team Cap'}
-                          checked={checkedCapIds.includes(cap.id)}
-                          onChange={(checked) => {
-                            setCheckedCapIds((current) => checked
+                          checked={checked}
+                          onChange={(next) => {
+                            setCheckedCapIds((current) => next
                               ? [...current, cap.id]
                               : current.filter((id) => id !== cap.id));
                           }}
                         />
+                        <span
+                          title={atDefault
+                            ? `Set by its qualifying formula: this deal ${capQualifies.has(cap.id) ? 'qualifies' : 'does not qualify'}.`
+                            : `Changed by hand: this deal ${capQualifies.has(cap.id) ? 'qualifies' : 'does not qualify'}, so by default it would be ${capQualifies.has(cap.id) ? 'checked' : 'unchecked'}.`}
+                          className={`rounded-full px-1.5 py-px text-2xs font-bold ${atDefault
+                            ? 'bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                            : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'}`}
+                        >
+                          {atDefault ? 'DEFAULT' : 'EDITED'}
+                        </span>
                         {(capInfoLines.get(cap.id)?.length ?? 0) > 0 && (
                           <SectionCalculationsInfo section={cap.name.trim() || 'Team Cap'} lines={capInfoLines.get(cap.id)!} />
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                     </div>
                   </div>
                 </section>
@@ -2083,7 +2104,7 @@ export function CommissionTemplatePanel({
                 }}
                 disabled={
                   !rows.some((row) => !parameterValuesMatch(row.parameter, values[row.parameter.id] ?? '', row.raw, uniqueAgents))
-                  && qualifyingCaps.every((cap) => checkedCapIds.includes(cap.id))
+                  && capsAtDefault
                 }
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 text-slate-600 transition hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700"
               >
