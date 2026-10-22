@@ -63,6 +63,7 @@ import {
 } from '@/lib/owner-reports';
 import { TeamCapsReport } from '@/app/(dashboard)/owner-reports/team-caps-report';
 import { TransactionMapReport } from '@/app/(dashboard)/owner-reports/transaction-map-report';
+import { ListingsReport, PriceChangeReport, TransactionListReport, priceChangeDeals } from '@/app/(dashboard)/owner-reports/deal-list-reports';
 import {
   formatLong,
   formatUs,
@@ -480,7 +481,8 @@ export default function OwnerReportsPage() {
 
   const closingBoard = reportId === 'lead-source-leaderboard' || reportId === 'team-performance' || reportId === 'net-commission-income';
   const closedPendingOnly = closingBoard || reportId === 'team-caps';
-  const statusFallback = closedPendingOnly ? ['Closed', 'Pending'] : null;
+  // The Transaction List starts on Closed and Pending; Cancelled can still be picked.
+  const statusFallback = closedPendingOnly || reportId === 'transaction-list' ? ['Closed', 'Pending'] : null;
   const filterPicks = {
     statusPicked,
     sidePicked,
@@ -1698,7 +1700,7 @@ function ReportView(props: {
         <FilterBar
           {...props}
           dateOnly={props.reportId === 'owner-summary'}
-          hideMetric={props.reportId === 'lead-source-leaderboard' || props.reportId === 'team-performance' || props.reportId === 'net-commission-income' || props.reportId === 'team-caps' || props.reportId === 'transaction-map'}
+          hideMetric={props.reportId === 'lead-source-leaderboard' || props.reportId === 'team-performance' || props.reportId === 'net-commission-income' || props.reportId === 'team-caps' || props.reportId === 'transaction-map' || props.reportId === 'transaction-list' || props.reportId === 'listings-by-list-date' || props.reportId === 'price-change'}
           hideDate={props.reportId === 'team-caps'}
           capYearOffset={props.capYearOffset}
           onCapYearOffset={props.onCapYearOffset}
@@ -1717,7 +1719,11 @@ function ReportView(props: {
             ? `${props.dateBases.find((field) => field.id === props.boardDate)?.label || 'Closing Date'} Range`
             : props.reportId === 'net-commission-income'
               ? `${props.dateBases.find((field) => field.id === 'closing')?.label || 'Closing Date'} Range`
-              : undefined}
+              : props.reportId === 'listings-by-list-date'
+                ? 'List Date Range'
+                : props.reportId === 'transaction-list' || props.reportId === 'transaction-map' || props.reportId === 'price-change'
+                  ? 'Closing Date Range'
+                  : undefined}
         />
         {capSection ? (
           <CapStickyHeading
@@ -2053,11 +2059,13 @@ function dealInReport(deal: ReportDeal, range: DateRange, reportId: string | nul
       return (status === 'closed' || status === 'pending') && inRange(deal.closingDate, range);
     case 'team-caps':
       return status === 'closed' || status === 'pending';
+    // Every listing-side deal listed in the range, cancelled ones too.
     case 'listings-by-list-date':
-      return listed;
-    case 'transaction-list':
-      return closed || pending;
+      return isListingSide(deal.side) && inRange(deal.listDate, range);
+    case 'price-change':
+      return isListingSide(deal.side) && (status === 'closed' || status === 'pending') && inRange(deal.closingDate, range);
     // Every status, cancelled too, by closing date; pending deals also by acceptance date.
+    case 'transaction-list':
     case 'transaction-map':
       return inRange(deal.closingDate, range) || pending;
     case 'daily-management':
@@ -2876,18 +2884,19 @@ function ReportBody(props: {
   }
   if (id === 'net-agent-leaderboard') return <AgentTable rows={agentPaidRows(closed)} caption="Closed transactions, split across the agents on each deal" paid />;
   if (id === 'lead-source-leaderboard') return <ProductionLeaderboard deals={deals} range={range} priorRange={priorRange} field={boardField} names={names} payments={payments} entityNames={entityNames} payeePicked={payeePicked} excludeTeamLeads={excludeTeamLeads} teamLeadIds={teamLeadIds} dateBasis={dateBasis} />;
-  if (id === 'listings-by-list-date') {
-    const listed = seriesBuckets(taken, (deal) => deal.listDate, range);
+  if (id === 'listings-by-list-date') return <ListingsReport deals={deals.filter((deal) => dealInReport(deal, range, id))} names={names} />;
+  if (id === 'transaction-list') return <TransactionListReport deals={deals.filter((deal) => dealInReport(deal, range, id))} names={names} />;
+  if (id === 'transaction-map') return <TransactionMapReport deals={deals.filter((deal) => dealInReport(deal, range, 'transaction-map'))} names={names} />;
+  if (id === 'price-change') {
     return (
-      <div className="space-y-3">
-        <LineChart title="Listings Taken" metric="units" current={listed} previous={[]} />
-        <MonthlyTable title="Listings Taken by List Month" rows={listed} mode="units" />
-      </div>
+      <PriceChangeReport
+        deals={priceChangeDeals(deals, range, isListingSide)}
+        priorDeals={priceChangeDeals(deals, priorRange, isListingSide)}
+        names={names}
+        range={range}
+      />
     );
   }
-  if (id === 'transaction-list') return <DealTable deals={[...closed, ...pending]} names={names} />;
-  if (id === 'transaction-map') return <TransactionMapReport deals={deals.filter((deal) => dealInReport(deal, range, 'transaction-map'))} names={names} />;
-  if (id === 'price-change') return <PriceChange deals={closed} names={names} />;
   if (id === 'daily-management') return <DailyManagement range={range} closed={closed} pending={pending} taken={taken} />;
   return null;
 }
@@ -5375,95 +5384,6 @@ function EarningTransactions({ lines, names, wrapRef }: { lines: Array<{ key: st
           </table>
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function DealTable({ deals, names }: { deals: ReportDeal[]; names: Map<string, string> }) {
-  const { sort, toggle } = useColumnSort();
-  const dated = [...deals].sort((a, b) => (b.closingDate?.getTime() || 0) - (a.closingDate?.getTime() || 0));
-  const sorted = sortBy(dated, sort, (deal, key) => {
-    if (key === 'address') return deal.address;
-    if (key === 'side') return deal.side;
-    if (key === 'status') return deal.status;
-    if (key === 'agent') return names.get(deal.agentId) || '';
-    if (key === 'price') return deal.salesPrice;
-    return deal.gciAmount;
-  });
-  return (
-    <div className={reportTableWrap}>
-      <table className="pin-col-1 w-full text-sm">
-        <thead className="report-head text-sm text-slate-500">
-          <tr>
-            <SortHead column="address" label="Address" sort={sort} onSort={toggle} className="px-3 py-2" />
-            <SortHead column="side" label="Side" sort={sort} onSort={toggle} className="px-3 py-2" />
-            <SortHead column="status" label="Status" sort={sort} onSort={toggle} className="px-3 py-2" />
-            <SortHead column="agent" label="Agent" sort={sort} onSort={toggle} className="px-3 py-2" />
-            <SortHead column="price" label="Sales Price" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
-            <SortHead column="gci" label="GCI" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.slice(0, 200).map((deal, idx) => (
-            <tr key={deal.id ? `${deal.id}-${idx}` : `deal-${idx}`} className="border-t border-slate-100 dark:border-slate-800">
-              <td className="px-3 py-1.5">{deal.address || '—'}</td>
-              <td className="px-3 py-1.5">{deal.side}</td>
-              <td className="px-3 py-1.5">{deal.status}</td>
-              <td className="px-3 py-1.5">{names.get(deal.agentId) || '—'}</td>
-              <td className="px-3 py-1.5 text-right tabular-nums">{money(deal.salesPrice)}</td>
-              <td className="px-3 py-1.5 text-right tabular-nums">{money(deal.gciAmount)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {sorted.length > 200 ? <p className="px-3 py-2 text-xs text-slate-500">Showing the first 200 of {sorted.length} transactions.</p> : null}
-    </div>
-  );
-}
-
-function PriceChange({ deals, names }: { deals: ReportDeal[]; names: Map<string, string> }) {
-  const rows = deals.filter((deal) => deal.listPrice > 0 && deal.salesPrice > 0);
-  const list = rows.reduce((total, deal) => total + deal.listPrice, 0);
-  const sale = rows.reduce((total, deal) => total + deal.salesPrice, 0);
-  const { sort, toggle } = useColumnSort();
-  const ordered = sortBy(rows, sort, (deal, key) => {
-    if (key === 'address') return deal.address;
-    if (key === 'agent') return names.get(deal.agentId) || '';
-    if (key === 'list') return deal.listPrice;
-    if (key === 'sale') return deal.salesPrice;
-    return deal.salesPrice - deal.listPrice;
-  });
-  return (
-    <div className="space-y-3">
-      <div className="grid md:grid-cols-3 gap-3">
-        <Stat label="Listings Compared" value={unitsLabel(rows.length)} />
-        <Stat label="Avg. List Price" value={money(rows.length ? list / rows.length : 0)} />
-        <Stat label="Avg. Change" value={money(rows.length ? (sale - list) / rows.length : 0)} hint={percent(sale - list, list)} />
-      </div>
-      <div className={reportTableWrap}>
-        <table className="pin-col-1 w-full text-sm">
-          <thead className="report-head text-sm text-slate-500">
-            <tr>
-              <SortHead column="address" label="Address" sort={sort} onSort={toggle} className="px-3 py-2" />
-              <SortHead column="agent" label="Agent" sort={sort} onSort={toggle} className="px-3 py-2" />
-              <SortHead column="list" label="List" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
-              <SortHead column="sale" label="Sale" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
-              <SortHead column="change" label="Change" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {ordered.slice(0, 100).map((deal, idx) => (
-              <tr key={deal.id ? `${deal.id}-${idx}` : `deal-${idx}`} className="border-t border-slate-100 dark:border-slate-800">
-                <td className="px-3 py-1.5">{deal.address}</td>
-                <td className="px-3 py-1.5">{names.get(deal.agentId) || '—'}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums">{money(deal.listPrice)}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums">{money(deal.salesPrice)}</td>
-                <td className="px-3 py-1.5 text-right tabular-nums">{money(deal.salesPrice - deal.listPrice)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 }
