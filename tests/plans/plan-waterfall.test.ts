@@ -145,6 +145,21 @@ describe('Commission Plans in the deal waterfall', () => {
     expect(result.save.blockers.reason).toContain("Winston pays eXp twice: once by the plan and once by a template or typed line. Remove the template's eXp rule before saving.");
   });
 
+  it('several entities paid twice by one agent make one message', () => {
+    const waterfall = templateWaterfall();
+    waterfall.postSplitRulesByAgent.Winston = [
+      ...(waterfall.postSplitRulesByAgent.Winston || []),
+      { id: 'tpl_old', name: 'Company Comm', entity: 'eXp', type: 'AMOUNT', value: 3255 },
+      { id: 'tpl_review', name: 'Broker Review', entity: 'Review Co', type: 'AMOUNT', value: 25 },
+    ];
+    const base = context();
+    const winston = base.agents.AGT_W;
+    const agents = { ...base.agents, AGT_W: { ...winston, plan: { ...winston.plan, lines: winston.plan.lines.map((line) => (line.key === 'broker_review' ? { ...line, payee: 'Review Co' } : line)) } } };
+    const result = run(waterfall, { ...base, agents });
+    expect(result.save.blockers.reason).toContain("Winston pays eXp and Review Co twice: once by the plan and once by a template or typed line. Remove the template's eXp and Review Co rules before saving.");
+    expect(result.planStep?.problems.filter((problem: string) => problem.startsWith('Winston pays'))).toHaveLength(1);
+  });
+
   it('an agent without a plan blocks Save with the reason', () => {
     const { AGT_K: _kyle, ...rest } = context().agents;
     const result = run(templateWaterfall(), { ...context(), agents: rest });

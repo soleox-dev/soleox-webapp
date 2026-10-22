@@ -165,12 +165,18 @@ export function applyPlansToWaterfall(state: WaterfallState, first: WaterfallRes
       .filter((rule) => !rule.beforePlan)
       .map((rule) => rule.entity.trim().toLowerCase());
     const twice = [...new Set(agent.lines.map((line) => line.payee).filter((payee) => own.includes(payee.trim().toLowerCase())))];
-    for (const payee of twice) {
-      problems.push(`${agent.name} pays ${payee} twice: once by the plan and once by a template or typed line. Remove the template's ${payee} rule before saving.`);
+    if (twice.length) {
+      const names = listOf(twice);
+      problems.push(`${agent.name} pays ${names} twice: once by the plan and once by a template or typed line. Remove the template's ${names} ${twice.length === 1 ? 'rule' : 'rules'} before saving.`);
     }
   }
 
   return { waterfall: { ...base, postSplitRulesByAgent: level1 }, plans, problems };
+}
+
+/** "A", "A and B", "A, B and C". */
+function listOf(items: string[]): string {
+  return items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 }
 
 /** A plan line whose saved amount differs from what the plans calculate now. */
