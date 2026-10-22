@@ -258,6 +258,8 @@ export function gateForRequest(pathname: string, method: string): AccessGate | n
   }
 
   if (path.startsWith('/api/')) {
+    // The Transaction Map report reads and saves address coordinates; it belongs to Owner Reports.
+    if (path.startsWith('/api/geocode')) return 'owner_reports';
     if (path.startsWith('/api/agents')) return write ? 'tracker_write' : 'tracker_read';
     if (path.startsWith('/api/integrations')) {
       if (!write) return 'tracker_read';

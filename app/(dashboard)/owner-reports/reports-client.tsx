@@ -62,6 +62,7 @@ import {
   type Totals,
 } from '@/lib/owner-reports';
 import { TeamCapsReport } from '@/app/(dashboard)/owner-reports/team-caps-report';
+import { TransactionMapReport } from '@/app/(dashboard)/owner-reports/transaction-map-report';
 import {
   formatLong,
   formatUs,
@@ -1697,7 +1698,7 @@ function ReportView(props: {
         <FilterBar
           {...props}
           dateOnly={props.reportId === 'owner-summary'}
-          hideMetric={props.reportId === 'lead-source-leaderboard' || props.reportId === 'team-performance' || props.reportId === 'net-commission-income' || props.reportId === 'team-caps'}
+          hideMetric={props.reportId === 'lead-source-leaderboard' || props.reportId === 'team-performance' || props.reportId === 'net-commission-income' || props.reportId === 'team-caps' || props.reportId === 'transaction-map'}
           hideDate={props.reportId === 'team-caps'}
           capYearOffset={props.capYearOffset}
           onCapYearOffset={props.onCapYearOffset}
@@ -2056,6 +2057,9 @@ function dealInReport(deal: ReportDeal, range: DateRange, reportId: string | nul
       return listed;
     case 'transaction-list':
       return closed || pending;
+    // Every status, cancelled too, by closing date; pending deals also by acceptance date.
+    case 'transaction-map':
+      return inRange(deal.closingDate, range) || pending;
     case 'daily-management':
       return closed || pending || listed;
     case 'owner-summary':
@@ -2882,6 +2886,7 @@ function ReportBody(props: {
     );
   }
   if (id === 'transaction-list') return <DealTable deals={[...closed, ...pending]} names={names} />;
+  if (id === 'transaction-map') return <TransactionMapReport deals={deals.filter((deal) => dealInReport(deal, range, 'transaction-map'))} names={names} />;
   if (id === 'price-change') return <PriceChange deals={closed} names={names} />;
   if (id === 'daily-management') return <DailyManagement range={range} closed={closed} pending={pending} taken={taken} />;
   return null;

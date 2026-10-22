@@ -853,7 +853,7 @@ export const OWNER_REPORTS: ReportDefinition[] = [
   { id: 'net-commission-income', name: 'Agent Earnings', group: 'Your Agents', ready: true },
   { id: 'team-caps', name: 'Caps', group: 'Your Agents', ready: true },
   { id: 'transaction-list', name: 'Transaction List', group: 'Transactions', ready: true },
-  { id: 'transaction-map', name: 'Transaction Map', group: 'Transactions', ready: false, note: 'Transactions do not have map coordinates yet.' },
+  { id: 'transaction-map', name: 'Transaction Map', group: 'Transactions', ready: true },
   { id: 'goal-assessment', name: 'Goal Assessment', group: 'Add-ons', ready: false, note: 'Goals are not recorded yet, so there is no target to compare with production.' },
   { id: 'lead-conversion', name: 'Lead Conversion Funnel', group: 'Add-ons', ready: false, note: 'Lead counts are not recorded yet, so conversion from lead to closing cannot be calculated.' },
   { id: 'team-productivity', name: 'Team Productivity', group: 'Add-ons', ready: true },

@@ -42,6 +42,7 @@ Example: `TXN_6C59DB33ADE8` (Length: 16 characters total).
 | `transactions` | `TXN_` | `TXN_6C59DB33ADE8` | Real estate transactions/deals. External IDs live in `tms_id`. |
 | `transaction_commission_items` | `TCI_` | `TCI_7DE0AA0AD2AB` | Granular waterfall ledger entries linked to a `transaction_id`. |
 | `payments` | `PAY_` | `PAY_4A5B6C7D8E9F` | Actual disbursements and payouts linked to a `transaction_id`. |
+| `address_geocodes` | `GEO_` | `GEO_5B6C7D8E9F0A` | Map coordinates per client and property address (US Census geocoder), shared by deals at that address. |
 
 ---
 
