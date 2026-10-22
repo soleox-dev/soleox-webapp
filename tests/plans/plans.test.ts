@@ -54,7 +54,7 @@ describe('the verified eXp deal', () => {
       agent({ id: 'winston', name: 'Winston', splitPercent: 85, plan: exp4000, startingBalances: leftToCap(exp4000, 3255), afterPlan: [{ name: 'TC fee', amount: 300, payee: 'TC' }] }),
       agent({ id: 'skylar', name: 'Skylar', splitPercent: 1.5, plan: exp4000, startingBalances: leftToCap(exp4000, 0) }),
       agent({ id: 'kyle', name: 'Kyle', splitPercent: 0.75, plan: exp4000, startingBalances: leftToCap(exp4000, 100) }),
-      agent({ id: 'patrick', name: 'Patrick', splitPercent: 12.75, plan: teamLead, roles: ['team_lead'], fields: { stock: 'Yes' }, startingBalances: leftToCap(teamLead, 1000) }),
+      agent({ id: 'patrick', name: 'Patrick', splitPercent: 12.75, plan: teamLead, roles: ['team_lead'], optedIn: ['stock'], startingBalances: leftToCap(teamLead, 1000) }),
     ],
   };
   const result = computePlanDeal(deal);
@@ -264,7 +264,7 @@ describe('typed lines', () => {
     capDate: '2026-06-15',
     bonuses: [{ fromAgentId: 'b', toAgentId: 'w', amount: 86.25 }],
     agents: [
-      agent({ id: 'w', splitPercent: 85, plan: exp4000, fields: { stock: 'Yes' }, startingBalances: leftToCap(exp4000, 3255), overrides }),
+      agent({ id: 'w', splitPercent: 85, plan: exp4000, optedIn: ['stock'], startingBalances: leftToCap(exp4000, 3255), overrides }),
       agent({ id: 'b', splitPercent: 15, plan: exp16000 }),
     ],
   });

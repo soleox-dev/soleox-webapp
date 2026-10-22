@@ -36,6 +36,9 @@ Example: `TXN_6C59DB33ADE8` (Length: 16 characters total).
 | `commission_template_parameters` | `CTP_` | `CTP_1A2B3C4D5E6F` | Dynamic parameters defined for commission templates. |
 | `commission_template_rules` | `CTR_` | `CTR_9A8B7C6D5E4F` | Calculation rules in a commission template. |
 | `commission_template_submissions`| `CTS_` | `CTS_5E6F7A8B9C0D` | Audit snapshots of calculated commission runs. |
+| `commission_plans` | `CPL_` | `CPL_1B2C3D4E5F6A` | Commission Plans; `client_id` NULL is a platform preset. Agents reference their client's plans (`agents.commission_plan_id`). |
+| `commission_plan_versions` | `CPV_` | `CPV_2C3D4E5F6A7B` | A plan's lines from `effective_from`; saved plan lines reference the version (`transaction_commission_items.commission_plan_version_id`). |
+| `client_commission_plan_settings` | `CPS_` | `CPS_3D4E5F6A7B8C` | Per client: the Cap Date field and the agent fields that feed plans. |
 | `transactions` | `TXN_` | `TXN_6C59DB33ADE8` | Real estate transactions/deals. External IDs live in `tms_id`. |
 | `transaction_commission_items` | `TCI_` | `TCI_7DE0AA0AD2AB` | Granular waterfall ledger entries linked to a `transaction_id`. |
 | `payments` | `PAY_` | `PAY_4A5B6C7D8E9F` | Actual disbursements and payouts linked to a `transaction_id`. |
