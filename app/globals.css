@@ -610,13 +610,75 @@ html.dark .underline-field.parameter-line.is-locked:focus-within {
   background-color: transparent;
 }
 
-/* Transaction Map basemap (OpenStreetMap tiles): quiet gray in light mode, inverted to near-black in dark mode. */
-.transaction-map-tiles {
-  filter: grayscale(1) brightness(1.04) contrast(0.88);
+/* Transaction Map (Stadia Alidade Smooth tiles, light and dark styles): app type, themed cards and hover labels. */
+.transaction-map .leaflet-container {
+  font: inherit;
 }
 
-html.dark .transaction-map-tiles {
-  filter: grayscale(1) invert(1) brightness(0.82) contrast(0.9);
+.transaction-map .leaflet-popup-content-wrapper,
+.transaction-map .leaflet-popup-tip,
+.transaction-map .leaflet-tooltip {
+  background: var(--color-white);
+  color: var(--color-slate-700);
+  box-shadow: 0 8px 24px rgb(15 23 42 / 0.16);
+}
+
+.transaction-map .leaflet-popup-content-wrapper {
+  border-radius: 0.75rem;
+}
+
+.transaction-map .leaflet-popup-content {
+  margin: 0.75rem 0.875rem;
+  min-width: 13rem;
+}
+
+.transaction-map .leaflet-control-attribution {
+  font-size: 11px;
+}
+
+.transaction-map .leaflet-tooltip {
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.transaction-map .leaflet-tooltip::before {
+  display: none;
+}
+
+html.dark .transaction-map .leaflet-popup-content-wrapper,
+html.dark .transaction-map .leaflet-popup-tip,
+html.dark .transaction-map .leaflet-tooltip {
+  background: var(--color-slate-800);
+  color: var(--color-slate-200);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
+}
+
+html.dark .transaction-map .leaflet-control-zoom a,
+html.dark .transaction-map .leaflet-control-attribution {
+  background: var(--color-slate-800);
+  color: var(--color-slate-300);
+  border-color: var(--color-slate-700);
+}
+
+html.dark .transaction-map .leaflet-control-attribution a {
+  color: var(--color-slate-300);
+}
+
+/* Pending deals breathe: a ring that swells and fades around the bubble. */
+@keyframes map-bubble-pulse {
+  0%, 100% { stroke-width: 1.5px; stroke-opacity: 0.95; }
+  50% { stroke-width: 9px; stroke-opacity: 0.18; }
+}
+
+.map-bubble-pulse {
+  animation: map-bubble-pulse 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-bubble-pulse {
+    animation: none;
+  }
 }
 
 /* A read-only value that was just recalculated from another parameter. */
