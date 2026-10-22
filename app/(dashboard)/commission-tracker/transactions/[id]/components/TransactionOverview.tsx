@@ -23,7 +23,8 @@ import { CancelEditPrompt } from './CancelEditPrompt';
 import { useEditOnDoublePress } from './useEditOnDoublePress';
 import { useSectionEditKeys } from './useSectionEditKeys';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
-import { BooleanField, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
+import { BooleanCheckbox, BooleanField, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
+import { ChevronDown } from 'lucide-react';
 import { UndoableDateInput } from '@/components/ui/UndoableDateInput';
 import { useAccess } from '@/components/access-provider';
 
@@ -216,16 +217,18 @@ export function TransactionOverview({
             return (
               <div
                 key={sectionName}
-                className={`${strip ? 'min-w-0' : 'mb-6 break-inside-avoid'} space-y-2`}
+                className={strip ? 'min-w-0 space-y-2' : 'mb-4 min-w-0 break-inside-avoid'}
               >
                 {/* A full-width pill so each section title is easy to follow across the columns. */}
-                <div className={strip ? STRIP_PILL : 'flex items-center gap-2 rounded-full bg-brand-500/10 px-3 py-1 dark:bg-brand-500/15'}>
-                  <span className={`min-w-0 text-xs font-bold ${strip ? '' : 'text-brand-700 dark:text-brand-400'}`}>
+                <div className={strip ? STRIP_PILL : 'flex items-center gap-2 rounded-full bg-brand-500/10 px-3.5 py-1.5 dark:bg-brand-500/15'}>
+                  <span className={`min-w-0 font-bold ${strip ? 'text-xs' : 'text-sm text-brand-700 dark:text-brand-400'}`}>
                     {sectionName}
                   </span>
                 </div>
 
-                <div className={strip ? 'grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(11rem,1fr))]' : 'flex flex-col gap-2'}>
+                {/* Key Terms while editing: a grid of fields. Other sections: one line per field, its name on the left
+                    and its value on the right, edited in place, like the Commission Template form. */}
+                <div className={strip ? 'grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(11rem,1fr))]' : 'mt-0.5 flex flex-col'}>
                   {visibleFields.map((field) => {
                     const fieldData = getFieldValue(field.key, field.type);
                     const isSystemLocked = field.key === 'id' || field.key === 'total_commission';
@@ -272,6 +275,27 @@ export function TransactionOverview({
                       ? 'text-amber-600 dark:text-amber-400'
                       : 'text-slate-500 dark:text-slate-400';
 
+                    if (isBoolean && !strip) {
+                      return (
+                        <div key={field.id} className="group/field relative underline-field parameter-line flex min-h-7 flex-wrap items-center gap-x-3 rounded-md border-b border-b-slate-200 py-0.5 pl-2.5 pr-2 dark:border-b-slate-700/70">
+                          <span className={`min-w-0 flex-1 truncate text-xs leading-4 ${labelTone}`}>
+                            {field.label}
+                            {field.is_required && <span className="text-rose-500" title="Required field">*</span>}
+                          </span>
+                          <BooleanCheckbox
+                            checked={booleanChecked}
+                            disabled={!isEditing || isInputDisabled}
+                            onChange={(checked) => handleOverviewInputChange(field.key, checked)}
+                          />
+                          {assistiveMessage && (
+                            <p className={`basis-full pb-0.5 text-right text-2xs leading-3 font-medium ${showError ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                              {assistiveMessage}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    }
+
                     if (isBoolean) {
                       return (
                         <div key={field.id} className="min-w-0 py-1">
@@ -291,20 +315,8 @@ export function TransactionOverview({
                       );
                     }
 
-                    return (
-                      <div key={field.id} className="min-w-0">
-                        <div className={`group relative underline-field rounded-t-md pl-2.5 ${isSystemLocked && isEditing ? 'pr-14' : 'pr-2.5'} pt-1 pb-0.5 border-b transition-colors ${shellBorder} ${isInputDisabled && isEditing ? 'opacity-70' : ''}`}>
-                          <div className="flex items-center gap-1.5">
-                            <span className={`text-2xs leading-3 font-medium truncate ${labelTone} ${!showError && !showWarning ? 'group-focus-within:text-brand-600 dark:group-focus-within:text-brand-400' : ''}`}>
-                              {field.label}
-                              {field.is_required && <span className="text-rose-500" title="Required field">*</span>}
-                            </span>
-                            {showWarning && (
-                              <span className="cursor-help text-xs shrink-0" title={validationResult.message}>⚠️</span>
-                            )}
-                          </div>
-                          <div className={`${spansBoth ? 'min-h-5 items-start' : 'h-5 items-center'} flex`}>
-                            {isEditing ? (
+                    // The value, or its input while editing. Both layouts below show it.
+                    const control = isEditing ? (
                               field.type === 'AGENT_PICKER' || field.key === 'agent_id' || field.key === 'primary_agent' ? (
                                 <ClearableSelect
                                   disabled={isInputDisabled}
@@ -382,7 +394,82 @@ export function TransactionOverview({
                               >
                                 {fieldData.text}
                               </span>
+                            );
+
+                    if (!strip) {
+                      return (
+                        <div
+                          key={field.id}
+                          className={`group/field relative underline-field parameter-line flex min-h-7 flex-wrap items-center gap-x-3 rounded-md border-b py-0.5 pl-2.5 pr-2 transition-colors ${
+                            showError ? 'border-b-rose-500' : showWarning ? 'border-b-amber-500' : 'border-b-slate-200 dark:border-b-slate-700/70 focus-within:border-b-brand-500'
+                          } ${isInputDisabled && isEditing ? 'opacity-70' : ''}`}
+                        >
+                          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                            <span className={`min-w-0 truncate text-xs leading-4 ${labelTone} ${!showError && !showWarning ? 'group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400' : ''}`}>
+                              {field.label}
+                              {field.is_required && <span className="text-rose-500" title="Required field">*</span>}
+                            </span>
+                            {showWarning && (
+                              <span className="cursor-help text-xs shrink-0" title={validationResult.message}>⚠️</span>
                             )}
+                          </div>
+                          {/* Values sit on the right. A long one (an address) wraps under its name instead. */}
+                          <div
+                            className={`relative flex min-w-0 items-center justify-end text-right [&_input]:text-right [&_input]:placeholder:text-slate-400 dark:[&_input]:placeholder:text-slate-500 ${
+                              spansBoth && !isEditing ? 'basis-full pb-0.5 [&>span]:whitespace-normal' : 'w-[55%] max-w-[16rem] shrink-0'
+                            } ${isEditing && (isDropdown || field.type === 'DATE') ? '[&_input]:pr-5' : ''} ${isSystemLocked && isEditing ? 'pr-12' : ''}`}
+                          >
+                            {control}
+                            {isSystemLocked && isEditing && (
+                              <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-2xs bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1 py-0.5 rounded font-mono">
+                                LOCKED
+                              </span>
+                            )}
+                            {isEditing && isDropdown && (
+                              <ChevronDown aria-hidden strokeWidth={2} className="pointer-events-none absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
+                            )}
+                            {isEditing && field.type === 'DATE' && !isInputDisabled && (
+                              <button
+                                type="button"
+                                aria-label={`Choose ${field.label}`}
+                                onClick={(event) => {
+                                  const input = event.currentTarget.parentElement?.querySelector('input[type="date"]');
+                                  if (!(input instanceof HTMLInputElement)) return;
+                                  input.focus();
+                                  if (typeof input.showPicker === 'function') input.showPicker();
+                                }}
+                                className="absolute right-0 top-1/2 inline-flex -translate-y-1/2 cursor-pointer text-slate-500 dark:text-slate-400"
+                              >
+                                <svg viewBox="0 0 16 16" aria-hidden className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                                  <rect x="2.25" y="3.25" width="11.5" height="10.5" rx="1.25" />
+                                  <path d="M2.25 6.75h11.5M5.25 2v2.5M10.75 2v2.5" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                          {assistiveMessage && (
+                            <p className={`basis-full pb-0.5 text-right text-2xs leading-3 font-medium ${showWarning && !showError ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                              {assistiveMessage}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={field.id} className="min-w-0">
+                        <div className={`group relative underline-field rounded-t-md pl-2.5 ${isSystemLocked && isEditing ? 'pr-14' : 'pr-2.5'} pt-1 pb-0.5 border-b transition-colors ${shellBorder} ${isInputDisabled && isEditing ? 'opacity-70' : ''}`}>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-2xs leading-3 font-medium truncate ${labelTone} ${!showError && !showWarning ? 'group-focus-within:text-brand-600 dark:group-focus-within:text-brand-400' : ''}`}>
+                              {field.label}
+                              {field.is_required && <span className="text-rose-500" title="Required field">*</span>}
+                            </span>
+                            {showWarning && (
+                              <span className="cursor-help text-xs shrink-0" title={validationResult.message}>⚠️</span>
+                            )}
+                          </div>
+                          <div className={`${spansBoth ? 'min-h-5 items-start' : 'h-5 items-center'} flex`}>
+                            {control}
                           </div>
                           {isSystemLocked && isEditing && (
                             <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-2xs bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1 py-0.5 rounded font-mono">
@@ -501,7 +588,7 @@ export function TransactionOverview({
           </div>
           )}
           {columnSections.length > 0 && (
-          <div className="lg:[column-count:4] lg:[column-width:20rem] lg:gap-x-8">
+          <div className="lg:[column-count:4] lg:[column-width:20rem] lg:gap-x-12">
           {columnSections.map(([sectionName, fields]) => renderSection(sectionName, fields, false))}
           </div>
           )}
