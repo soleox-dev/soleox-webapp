@@ -170,7 +170,7 @@ export default function CommissionPlansPage() {
   });
 
   const startBlank = () => choose(() => {
-    const next: Draft = { id: '', preset: tab === 'presets', name: tab === 'presets' ? 'New preset' : 'New plan', effectiveFrom: today(), lines: [] };
+    const next: Draft = { id: '', preset: tab === 'presets', name: tab === 'presets' ? 'New Preset' : 'New Plan', effectiveFrom: today(), lines: [] };
     setDraft(next);
     setBaseline('');
   });
@@ -255,7 +255,7 @@ export default function CommissionPlansPage() {
                   {tab === 'plans' && <div className="text-2xs text-slate-500 dark:text-slate-400">{data.agentCounts[plan.id] || 0} agents</div>}
                 </button>
                 {canEdit && (
-                  <button type="button" onClick={() => void remove(plan)} className="cursor-pointer rounded p-1 text-rose-500 opacity-0 transition hover:bg-rose-500/10 group-hover:opacity-100 focus:opacity-100" aria-label={`Remove ${plan.name}`} title="Remove plan">
+                  <button type="button" onClick={() => void remove(plan)} className="cursor-pointer rounded p-1 text-rose-500 opacity-0 transition hover:bg-rose-500/10 group-hover:opacity-100 focus:opacity-100" aria-label={`Remove ${plan.name}`} title="Remove Plan">
                     <TrashIcon />
                   </button>
                 )}
@@ -265,10 +265,10 @@ export default function CommissionPlansPage() {
               <div className="space-y-2 border-t border-slate-200 pt-2 dark:border-slate-700">
                 <button type="button" onClick={startBlank} className="inline-flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-brand-500/10 hover:text-brand-700 dark:text-slate-400 dark:hover:bg-brand-500/15 dark:hover:text-brand-400">
                   <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  {tab === 'presets' ? 'Blank preset' : 'Blank plan'}
+                  {tab === 'presets' ? 'Blank Preset' : 'Blank Plan'}
                 </button>
                 {tab === 'plans' && data.presets.length > 0 && (
-                  <MenuField label="Copy a preset" value="" placeholder="Choose a preset" options={data.presets.map((preset) => ({ value: preset.id, label: preset.name }))} onChange={(id) => requestLeave(() => void copyPreset(id))} />
+                  <MenuField label="Copy a Preset" value="" placeholder="Choose a Preset" options={data.presets.map((preset) => ({ value: preset.id, label: preset.name }))} onChange={(id) => requestLeave(() => void copyPreset(id))} />
                 )}
               </div>
             )}
@@ -278,15 +278,15 @@ export default function CommissionPlansPage() {
             <div className="space-y-6">
               <div className={`${SETTINGS_CARD} space-y-4`}>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <TextField label="Plan name" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
-                  <UnderlineDate label="These lines take effect" value={draft.effectiveFrom} onChange={(effectiveFrom) => setDraft({ ...draft, effectiveFrom })} />
+                  <TextField label="Plan Name" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
+                  <UnderlineDate label="These Lines Take Effect" value={draft.effectiveFrom} onChange={(effectiveFrom) => setDraft({ ...draft, effectiveFrom })} />
                 </div>
                 {selected && selected.versions.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5 text-2xs text-slate-500 dark:text-slate-400">
                     <span className="font-bold">Versions:</span>
                     {selected.versions.map((version) => (
                       <button key={version.id} type="button" onClick={() => choosePlan(selected, version.id)} className={`cursor-pointer rounded-md px-2 py-0.5 font-semibold transition ${draft.effectiveFrom === version.effectiveFrom ? 'bg-brand-500/10 text-brand-700 dark:text-brand-400' : 'hover:bg-slate-100 dark:hover:bg-slate-700/50'}`}>
-                        from {longDate(version.effectiveFrom)}
+                        From {longDate(version.effectiveFrom)}
                       </button>
                     ))}
                     <span>Saving with a new date adds a version from that date; deals before it keep the earlier lines.</span>
@@ -301,7 +301,7 @@ export default function CommissionPlansPage() {
               </div>
 
               <div className={`${SETTINGS_CARD} space-y-4`}>
-                <SettingsHeader title="Test bench" description="Runs the plan as it stands above on a sample deal. Nothing here is saved." />
+                <SettingsHeader title="Test Bench" description="Runs the plan as it stands above on a sample deal. Nothing here is saved." />
                 <PlanTestBench plan={enginePlan} />
               </div>
             </div>
