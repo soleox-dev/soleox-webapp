@@ -499,7 +499,15 @@ thead th.sticky[class*="left-"] {
 /* The desktop top bar: md and wider, except phones in landscape (touch with a short viewport),
    which keep the phone menu. Desktops never match the exception; iPads are too tall for it.
    Same media query as DESKTOP_NAV_QUERY in lib/use-media-query.ts. */
-@custom-variant desktop-nav (@media (min-width: 48rem) and (not ((hover: none) and (pointer: coarse) and (max-height: 500px))));
+/* The full top bar also gives way to the menu button when it does not fit the window (Navbar adds
+   html.nav-collapsed), even above that width. */
+@custom-variant desktop-nav {
+  @media (min-width: 48rem) and (not ((hover: none) and (pointer: coarse) and (max-height: 500px))) {
+    &:where(html:not(.nav-collapsed) *) {
+      @slot;
+    }
+  }
+}
 
 /* Underline fields. A faint fill at rest; the full grey on hover or focus.
    Full grey is slate-100 / slate-900. */

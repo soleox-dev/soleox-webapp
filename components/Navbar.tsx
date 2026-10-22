@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -11,7 +11,7 @@ import { useSoleoxTheme } from '@/app/providers';
 import { SoleoxLogo } from '@/components/ui/logo';
 import { useAccess } from '@/components/access-provider';
 import { isWidePagePath, pageFrame, widePageFrame } from '@/lib/page-frame';
-import { useIsDesktop, useIsDesktopNav } from '@/lib/use-media-query';
+import { DESKTOP_NAV_QUERY, useIsDesktop, useIsDesktopNav } from '@/lib/use-media-query';
 import { OWNER_REPORTS, OWNER_REPORT_GROUPS } from '@/lib/owner-reports';
 import { BarChart3, Briefcase, Building2, ChevronDown, ChevronLeft, ChevronRight, House, Laptop, LayoutGrid, List, Menu, Monitor, Moon, PieChart, Receipt, Search, Settings, Smartphone, Sun, Target, UserPlus, Users, X, type LucideIcon } from 'lucide-react';
 import type { ThemePreference } from '@/app/providers';
@@ -32,7 +32,13 @@ export default function Navbar() {
   ];
   const isDesktop = useIsDesktop();
   // Phones in landscape are md wide but keep the phone menu; see DESKTOP_NAV_QUERY.
-  const isDesktopNav = useIsDesktopNav();
+  const isDesktopWidth = useIsDesktopNav();
+  // The full bar folds into the menu button whenever it does not fit, even at desktop widths: html.nav-collapsed
+  // turns the desktop-nav variant off. It unfolds once the window is back to the width the bar needed.
+  const navRowRef = useRef<HTMLDivElement>(null);
+  const neededNavWidth = useRef(0);
+  const [navCollapsed, setNavCollapsed] = useState(false);
+  const isDesktopNav = isDesktopWidth && !navCollapsed;
 
   const themeOptions: { id: ThemePreference; label: string; icon: LucideIcon }[] = [
     { id: 'light', label: 'Light', icon: Sun },
@@ -275,6 +281,39 @@ export default function Navbar() {
       : [];
   const CurrentModuleIcon = currentModule?.icon ?? LayoutGrid;
 
+  // Folds the bar when its parts leave less than 24px free, and unfolds it once the window is back to the width the
+  // bar needed. Checked on resize and whenever the bar's contents may change.
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const check = () => {
+      const row = navRowRef.current;
+      if (!row) return;
+      if (root.classList.contains('nav-collapsed')) {
+        if (window.innerWidth < neededNavWidth.current) return;
+        root.classList.remove('nav-collapsed');
+        setNavCollapsed(false);
+      }
+      if (!window.matchMedia(DESKTOP_NAV_QUERY).matches) return;
+      const style = getComputedStyle(row);
+      const inner = row.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      const used = [...row.children].reduce((sum, child) => sum + (child as HTMLElement).offsetWidth, 0);
+      const free = inner - used;
+      if (free >= 24) return;
+      neededNavWidth.current = window.innerWidth + (24 - free);
+      root.classList.add('nav-collapsed');
+      setNavCollapsed(true);
+    };
+    check();
+    // The page's width, not only window resizes: zoom, a scrollbar appearing, or a resized pane change it too.
+    const observer = new ResizeObserver(check);
+    observer.observe(root);
+    window.addEventListener('resize', check);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', check);
+    };
+  }, [pathname, access?.clientId, modules.length, modulePages.length]);
+
   return (
     <header
       ref={headerRef}
@@ -284,10 +323,11 @@ export default function Navbar() {
         ? `${reportsBarClass} ${barClass}`
         : `sticky top-0 z-50 transition-transform duration-200 ease-out motion-reduce:transition-none ${navHidden ? '-translate-y-full pointer-events-none' : navPeek && scrollHidden ? 'shadow-lg' : ''} ${barClass}`}
     >
-      <div className={`${isWidePagePath(pathname) ? widePageFrame : pageFrame} flex h-16 items-center justify-between`}>
+      <div ref={navRowRef} className={`${isWidePagePath(pathname) ? widePageFrame : pageFrame} flex h-16 items-center justify-between`}>
         
-        {/* Brand Logo Component with REBI Badge */}
-        <div className="flex items-center gap-4">
+        {/* Brand Logo Component with REBI Badge. Its parts never shrink or wrap, so a bar too wide for the window
+            overflows and folds into the menu button instead. */}
+        <div className="flex shrink-0 items-center gap-4">
           <Link href="/" className="flex items-center">
             {/* REBI reads as the product name beside the logo, after a thin divider. It shares the
                 word's baseline, and the divider centers on the row, which is the middle of the capitals. */}
@@ -311,7 +351,7 @@ export default function Navbar() {
                 onClick={() => setModuleMenuOpen((open) => !open)}
                 aria-haspopup="menu"
                 aria-expanded={moduleMenuOpen}
-                className={`inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-semibold transition cursor-pointer ${moduleMenuOpen ? 'bg-slate-200 text-slate-900 dark:bg-slate-800 dark:text-white' : 'bg-slate-100 text-slate-800 hover:bg-slate-200 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-800'}`}
+                className={`inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-lg px-3 text-sm font-semibold transition cursor-pointer ${moduleMenuOpen ? 'bg-slate-200 text-slate-900 dark:bg-slate-800 dark:text-white' : 'bg-slate-100 text-slate-800 hover:bg-slate-200 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-800'}`}
               >
                 <CurrentModuleIcon className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" strokeWidth={1.75} aria-hidden />
                 {currentModule?.label ?? 'Modules'}
@@ -364,7 +404,7 @@ export default function Navbar() {
                   key={page.href}
                   href={page.href}
                   aria-current={page.active ? 'page' : undefined}
-                  className={`flex items-center gap-1.5 border-b-2 pt-0.5 text-sm font-semibold transition ${page.active ? 'border-brand-500 text-brand-700 dark:text-brand-400' : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
+                  className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 pt-0.5 text-sm font-semibold transition ${page.active ? 'border-brand-500 text-brand-700 dark:text-brand-400' : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}`}
                 >
                   <page.icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
                   {page.label}
@@ -375,12 +415,12 @@ export default function Navbar() {
         </div>
 
         {/* Right Nav Actions */}
-        <div className="flex items-center space-x-3 text-xs font-medium text-slate-700 dark:text-slate-300">
+        <div className="flex shrink-0 items-center space-x-3 text-xs font-medium text-slate-700 dark:text-slate-300">
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
             aria-label="Search"
-            className="hidden desktop-nav:flex h-9 w-56 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs text-slate-400 transition hover:border-slate-300 hover:text-slate-600 cursor-pointer dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-500 dark:hover:border-slate-700 dark:hover:text-slate-300 xl:w-64"
+            className="hidden desktop-nav:flex h-9 w-56 shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs text-slate-400 transition hover:border-slate-300 hover:text-slate-600 cursor-pointer dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-500 dark:hover:border-slate-700 dark:hover:text-slate-300 xl:w-64"
           >
             <Search className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
             <span className="truncate">{showTransactions ? 'Search transactions, agents…' : 'Search…'}</span>
