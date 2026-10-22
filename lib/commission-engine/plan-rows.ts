@@ -36,9 +36,9 @@ export interface PlanSettingsRow {
   counting_statuses?: string[] | null;
   /** Plan line key -> the entity earlier deals paid that line to (migration 071): those saved lines count too. */
   history_entity_ids?: Record<string, string> | null;
-  /** The switch (migration 070): plans calculate this client's deals from calculate_from on. */
+  /** The switch (migrations 070, 072): on since calculate_since. */
   calculate_deals?: boolean | null;
-  calculate_from?: string | null;
+  calculate_since?: string | null;
 }
 
 /** What TATH's template counted: a cancelled or lost deal never fills a cap or a yearly limit. */
@@ -272,8 +272,8 @@ export interface DealPlanIngredients {
 export type DealPlanDecision = { context: DealPlanContext | null; reason: string };
 
 /**
- * The plan context for the deal as currently edited, or why plans do not calculate it: the switch is off, the deal
- * has no Cap Date or it is before the start date, or the deal is FINISHED (its saved lines stay untouched).
+ * The plan context for the deal as currently edited, or why plans cannot calculate it: the switch is off, the deal
+ * is FINISHED (its saved lines stay untouched), or it has no Cap Date. Whether they do is dealPlanMode's call.
  */
 export function buildDealPlanContext(deal: Record<string, unknown>, ingredients: DealPlanIngredients): DealPlanDecision {
   const { settings } = ingredients;
@@ -285,8 +285,6 @@ export function buildDealPlanContext(deal: Record<string, unknown>, ingredients:
   } catch {
     return { context: null, reason: `The deal has no ${settings.cap_date_field_key} yet, so Commission Plans cannot place it in a cap year.` };
   }
-  const from = readDay(settings.calculate_from);
-  if (from && capDate < from) return { context: null, reason: `Commission Plans calculate deals from ${from}; this deal is on ${capDate}.` };
 
   const plansById = new Map(ingredients.plans.map((plan) => [plan.id, plan]));
   const agents: DealPlanContext['agents'] = {};
@@ -319,4 +317,38 @@ export function buildDealPlanContext(deal: Record<string, unknown>, ingredients:
     },
     reason: '',
   };
+}
+
+/**
+ * How the deal page treats Commission Plans on one deal. No Settings action ever changes a saved deal:
+ * - off: plans cannot calculate it (switched off, FINISHED, no Cap Date); saved lines as they are.
+ * - available: a deal that existed before the switch and was never saved with plans; saved lines as they are, and
+ *   the user may choose Calculate With Plans.
+ * - saved: a deal saved with plans, not being edited; its saved plan lines as they are (a marker lists what plans
+ *   would change).
+ * - calculate: plans calculate it: a deal created after the switch and not yet saved with plans, one the user chose
+ *   to calculate or recalculate, or one being edited that is on plans.
+ */
+export type DealPlanMode = 'off' | 'available' | 'saved' | 'calculate';
+
+export function dealPlanMode(input: {
+  decision: DealPlanDecision;
+  settings: Pick<PlanSettingsRow, 'calculate_since'>;
+  deal: Record<string, unknown> | null;
+  /** The deal has saved lines with a plan_line_key. */
+  savedWithPlans: boolean;
+  /** Someone is editing the deal (waterfall, overview, or unsaved changes such as a submitted template). */
+  editing: boolean;
+  /** The user chose Calculate or Recalculate With Plans on this deal. */
+  chosen: boolean;
+}): DealPlanMode {
+  if (!input.decision.context) return 'off';
+  const createdAt = typeof input.deal?.created_at === 'string' ? input.deal.created_at : '';
+  const since = input.settings.calculate_since || '';
+  // A deal not yet saved anywhere, or created after the switch, starts on plans.
+  const newSinceSwitch = !input.deal?.id || (Boolean(since) && Boolean(createdAt) && createdAt >= since);
+  const onPlans = input.savedWithPlans || newSinceSwitch || input.chosen;
+  if (!onPlans) return 'available';
+  if (input.chosen || input.editing) return 'calculate';
+  return input.savedWithPlans ? 'saved' : 'calculate';
 }

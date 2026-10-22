@@ -5,8 +5,6 @@ import type { PlanDto, PlanSettingsDto } from '@/app/api/commission-plans/route'
 import type { PlanLine } from '@/lib/commission-engine';
 import type { AllocationSchemaField } from '../allocation-fields';
 import { MenuField, TextField } from './plan-inputs';
-import { NativeDateInput } from '@/components/ui/NativeDateInput';
-import { UnderlineField, underlineControl } from '@/components/ui/underline-field';
 
 /** Comma-separated statuses, committed when the field loses focus so typing a comma does not jump. */
 function StatusesField({ statuses, onChange }: { statuses: string[]; onChange: (statuses: string[]) => void }) {
@@ -85,14 +83,12 @@ export function PlanSettingsForm({
             <input type="checkbox" className="h-4 w-4 cursor-pointer accent-brand-600" checked={settings.calculateDeals} onChange={(event) => onChange({ ...settings, calculateDeals: event.target.checked })} />
             Calculate Deals With Commission Plans
           </label>
-          <div className="w-56">
-            <UnderlineField label="Starting With Cap Date">
-              <NativeDateInput value={settings.calculateFrom} onChange={(event) => onChange({ ...settings, calculateFrom: event.target.value })} className={`${underlineControl} overview-date dark:[color-scheme:dark]`} />
-            </UnderlineField>
-          </div>
+          {settings.calculateSince && (
+            <span className="pb-1 text-xs text-slate-500 dark:text-slate-400">On since {new Date(settings.calculateSince).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+          )}
         </div>
         <p className="max-w-3xl text-2xs text-slate-500 dark:text-slate-400">
-          When on, each deal with a Cap Date on or after this date adds every agent&apos;s plan lines to the waterfall. Deals before it, and deals in the Finished view, keep their saved lines exactly as they are. Leave it off until the template no longer has its own brokerage rules.
+          When on, deals created from now on calculate each agent&apos;s plan lines. Deals that already exist keep their saved lines exactly as they are: on each one, Calculate With Plans shows the plan result, and nothing changes until it is saved. A deal saved with plans keeps its saved lines when plans or these settings change. Finished deals never change. Leave it off until the template no longer has its own brokerage rules.
         </p>
       </section>
 

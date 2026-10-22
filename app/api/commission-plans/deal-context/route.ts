@@ -46,7 +46,7 @@ export async function GET(request: Request) {
       counting_statuses: (stored.counting_statuses as string[]) || null,
       history_entity_ids: (stored.history_entity_ids as Record<string, string>) || {},
       calculate_deals: Boolean(stored.calculate_deals),
-      calculate_from: (stored.calculate_from as string) || null,
+      calculate_since: (stored.calculate_since as string) || null,
     };
 
     // Nothing more is needed while the switch is off: the page leaves the deal alone.

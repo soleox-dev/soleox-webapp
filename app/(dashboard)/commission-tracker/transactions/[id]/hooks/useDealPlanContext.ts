@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { buildDealPlanContext, type DealPlanContext, type DealPlanIngredients, type EngineField } from '@/lib/commission-engine';
+import { buildDealPlanContext, type DealPlanContext, type DealPlanDecision, type DealPlanIngredients, type EngineField } from '@/lib/commission-engine';
 import { dealMatchesDefaultView } from '@/lib/transaction-default-view';
 
 type Loaded = Omit<DealPlanIngredients, 'finished'> & { finishedFormula: string };
@@ -16,7 +16,15 @@ export function useDealPlanContext(
   clientId: string,
   deal: Record<string, unknown> | null,
   fields: EngineField[],
-): { context: DealPlanContext | null; reason: string; settling: boolean; error: string | null; switchedOn: boolean } {
+): {
+  context: DealPlanContext | null;
+  decision: DealPlanDecision;
+  reason: string;
+  settling: boolean;
+  error: string | null;
+  switchedOn: boolean;
+  calculateSince: string | null;
+} {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,11 +55,19 @@ export function useDealPlanContext(
   return useMemo(() => {
     if (!loaded || !deal) {
       // Until the settings load, a failed load or a deal not yet open counts as switched off only once known.
-      return { context: null, reason: '', settling: !error && Boolean(deal) && !loaded, error, switchedOn: false };
+      return { context: null, decision: { context: null, reason: '' }, reason: '', settling: !error && Boolean(deal) && !loaded, error, switchedOn: false, calculateSince: null };
     }
     // A FINISHED deal keeps its saved lines; a formula that cannot be read counts as finished, to stay safe.
     const finished = Boolean(loaded.finishedFormula) && dealMatchesDefaultView(deal, loaded.finishedFormula, fieldTypes);
     const decision = buildDealPlanContext(deal, { ...loaded, finished });
-    return { context: decision.context, reason: decision.reason, settling: false, error, switchedOn: Boolean(loaded.settings.calculate_deals) };
+    return {
+      context: decision.context,
+      decision,
+      reason: decision.reason,
+      settling: false,
+      error,
+      switchedOn: Boolean(loaded.settings.calculate_deals),
+      calculateSince: loaded.settings.calculate_since || null,
+    };
   }, [loaded, deal, fieldTypes, error]);
 }
