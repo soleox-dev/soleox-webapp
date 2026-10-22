@@ -31,10 +31,11 @@ function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
 }
 
-/** CARTO's light or dark basemap (OpenStreetMap data), matching the app theme. No key needed. */
-function basemapUrl(dark: boolean): string {
-  return `https://{s}.basemaps.cartocdn.com/${dark ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`;
-}
+/**
+ * OpenStreetMap's own tiles: no key, credited in the corner, fine for this light use. CSS turns them a quiet gray
+ * (light) or an inverted near-black (dark) so the colored bubbles stand out (see .transaction-map-tiles).
+ */
+const BASEMAP_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 /**
  * Transaction Map (Owner Reports): one bubble per deal at its property address, sized by sales price and colored by
@@ -101,27 +102,22 @@ export function TransactionMapReport({ deals, names }: { deals: ReportDeal[]; na
   // The map, once: Leaflet needs the browser, so it loads here.
   useEffect(() => {
     let disposed = false;
-    let themeObserver: MutationObserver | null = null;
     void import('leaflet').then((module) => {
       const leaflet = ((module as unknown as { default?: typeof import('leaflet') }).default ?? module) as typeof import('leaflet');
       if (disposed || !mapNode.current || mapRef.current) return;
       leafletRef.current = leaflet;
       const map = leaflet.map(mapNode.current, { zoomControl: true, scrollWheelZoom: true, worldCopyJump: true }).setView([37.5, -98.5], 4);
-      const isDark = () => document.documentElement.classList.contains('dark');
-      const tiles = leaflet.tileLayer(basemapUrl(isDark()), {
+      leaflet.tileLayer(BASEMAP_URL, {
         maxZoom: 19,
-        subdomains: 'abcd',
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        className: 'transaction-map-tiles',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       }).addTo(map);
-      themeObserver = new MutationObserver(() => tiles.setUrl(basemapUrl(isDark())));
-      themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
       mapRef.current = map;
       bubblesRef.current = leaflet.layerGroup().addTo(map);
       setReady(true);
     });
     return () => {
       disposed = true;
-      themeObserver?.disconnect();
       mapRef.current?.remove();
       mapRef.current = null;
     };

@@ -610,6 +610,15 @@ html.dark .underline-field.parameter-line.is-locked:focus-within {
   background-color: transparent;
 }
 
+/* Transaction Map basemap (OpenStreetMap tiles): quiet gray in light mode, inverted to near-black in dark mode. */
+.transaction-map-tiles {
+  filter: grayscale(1) brightness(1.04) contrast(0.88);
+}
+
+html.dark .transaction-map-tiles {
+  filter: grayscale(1) invert(1) brightness(0.82) contrast(0.9);
+}
+
 /* A read-only value that was just recalculated from another parameter. */
 @keyframes parameter-recalc {
   0%, 45% { box-shadow: inset 0 0 0 999px color-mix(in srgb, #34d399 42%, transparent); }

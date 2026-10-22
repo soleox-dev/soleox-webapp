@@ -46,12 +46,13 @@ export async function POST(request: Request) {
     const keys = [...byKey.keys()];
 
     const saved: GeocodeRow[] = [];
-    for (let start = 0; start < keys.length; start += 400) {
+    // Addresses travel in the request URL, so they are read 50 at a time to keep it short.
+    for (let start = 0; start < keys.length; start += 50) {
       const { data, error } = await supabase
         .from('address_geocodes')
         .select('address_key, matched, latitude, longitude, matched_address')
         .eq('client_id', clientId)
-        .in('address_key', keys.slice(start, start + 400));
+        .in('address_key', keys.slice(start, start + 50));
       if (error) {
         if (error.code === '42P01' || error.code === 'PGRST205') {
           return NextResponse.json(
