@@ -5,12 +5,18 @@ interface LogoProps {
   wordClassName?: string;
   /** Shown after the word on the same baseline, such as a product name. */
   suffix?: React.ReactNode;
+  /** The word beside the icon; Soleox unless a page names itself, such as Owner Reports. */
+  word?: React.ReactNode;
+  /** Size and weight of the word. */
+  wordSize?: string;
 }
 
 export function SoleoxLogo({
   className = "h-8 w-auto",
   wordClassName = "text-slate-900 dark:text-white",
   suffix,
+  word = "Soleox",
+  wordSize = "text-xl font-semibold tracking-normal",
 }: LogoProps) {
   return (
     <div className="flex items-center gap-2">
@@ -86,8 +92,8 @@ export function SoleoxLogo({
 
       {/* Styled Brand Name Typography */}
       <span className="flex items-baseline">
-        <span className={`text-xl font-semibold tracking-normal ${wordClassName}`}>
-          Soleox
+        <span className={`${wordSize} ${wordClassName}`}>
+          {word}
         </span>
         {suffix}
       </span>

@@ -8,6 +8,7 @@ import { widePageFrame } from '@/lib/page-frame';
 import { DESKTOP_QUERY, useFitsScreen, useIsDesktop, useIsTouch } from '@/lib/use-media-query';
 import { swallowNextClick } from '@/lib/swallow-click';
 import { FieldChevron, underlineControl, underlineShell } from '@/components/ui/underline-field';
+import { SoleoxLogo } from '@/components/ui/logo';
 import { LoadingDataPage, type LoadingProgressInfo } from './loading-data-page';
 import { areaUnder, linePeaks, smoothLine, smoothRuns, svgUserX } from './chart-paths';
 import {
@@ -1277,8 +1278,17 @@ function OwnerReportNav({ reportId, onSelect }: { reportId: string | null; onSel
           >
             <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
               <button type="button" onClick={() => choose(null)} className="min-w-0 cursor-pointer text-left">
-                <p className="text-2xs font-bold text-brand-600 dark:text-brand-400">Soleox</p>
-                <h2 id={titleId} className="text-base font-extrabold tracking-tight text-slate-900 dark:text-white">Owner Reports</h2>
+                <SoleoxLogo
+                  className="h-6 w-auto"
+                  word={<span id={titleId}>Owner Reports</span>}
+                  wordSize="text-base font-extrabold tracking-tight"
+                  suffix={(
+                    <>
+                      <span aria-hidden className="mx-2.5 h-4 w-px self-center bg-slate-300 dark:bg-slate-700" />
+                      <span className="text-sm font-medium tracking-[0.02em] text-slate-500 dark:text-slate-400">REBI</span>
+                    </>
+                  )}
+                />
               </button>
               <button
                 type="button"
@@ -1335,8 +1345,19 @@ function ReportMenu({ reportId, onSelect }: { reportId: string | null; onSelect:
   return (
     <>
       <button type="button" onClick={() => onSelect(null)} className="w-full cursor-pointer text-left px-2 py-2">
-        <p className="text-2xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Soleox</p>
-        <h1 className="text-base font-extrabold tracking-tight">Owner Reports</h1>
+        <h1>
+          <SoleoxLogo
+            className="h-6 w-auto"
+            word="Owner Reports"
+            wordSize="text-base font-extrabold tracking-tight"
+            suffix={(
+              <>
+                <span aria-hidden className="mx-2.5 h-4 w-px self-center bg-slate-300 dark:bg-slate-700" />
+                <span className="text-sm font-medium tracking-[0.02em] text-slate-500 dark:text-slate-400">REBI</span>
+              </>
+            )}
+          />
+        </h1>
       </button>
       {GROUPS.map((group) => (
         <div key={group} className="mt-3">
