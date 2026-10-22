@@ -171,7 +171,7 @@ export function validatePlan(plan: CommissionPlan): string[] {
       let previous = 0;
       for (const tier of line.tiers || []) {
         if (!(tier.amount >= 0) || !(tier.untilPaid > previous)) {
-          problems.push(`${label}: each tier needs an amount and a yearly limit above the tier before it.`);
+          problems.push(`${label}: each tier needs an amount and a For the Next amount above $0.`);
           break;
         }
         previous = tier.untilPaid;
