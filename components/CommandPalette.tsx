@@ -206,7 +206,7 @@ export function CommandPalette({
             onChange={(event) => setQuery(event.target.value)}
             placeholder={canSearchTracker ? 'Search transactions, agents, and pages…' : 'Search pages…'}
             aria-label="Search"
-            className="h-12 min-w-0 flex-1 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none dark:text-white"
+            className="h-12 min-w-0 flex-1 bg-transparent text-base md:text-sm max-md:placeholder:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none dark:text-white"
           />
           <kbd className="shrink-0 rounded border border-slate-200 px-1.5 py-0.5 text-2xs font-semibold text-slate-400 dark:border-slate-700">Esc</kbd>
         </div>
