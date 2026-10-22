@@ -12,7 +12,7 @@ import {
 } from '@/lib/owner-reports';
 
 /**
- * Owner Reports that list deals row by row: Transaction List, Listings by List Date and Price Change Analysis.
+ * Owner Reports that list deals row by row: Transaction List, Listings by List Date and Sold vs. List Price.
  * Each takes the deals that already passed the report's filters and date rule (`dealInReport` in reports-client).
  */
 

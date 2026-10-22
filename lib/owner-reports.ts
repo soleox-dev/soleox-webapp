@@ -860,5 +860,5 @@ export const OWNER_REPORTS: ReportDefinition[] = [
   { id: 'daily-management', name: 'Daily Management Report', group: 'My Custom Reports', ready: true },
   { id: 'net-agent-leaderboard', name: 'NET Agent Leaderboard', group: 'My Custom Reports', ready: true },
   { id: 'listings-by-list-date', name: 'Listings by List Date', group: 'My Custom Reports', ready: true },
-  { id: 'price-change', name: 'Price Change Analysis', group: 'My Custom Reports', ready: true },
+  { id: 'price-change', name: 'Sold vs. List Price', group: 'My Custom Reports', ready: true },
 ];
