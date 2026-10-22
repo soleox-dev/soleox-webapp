@@ -1850,9 +1850,6 @@ export default function Dashboard() {
                 <div>
                   <span className="font-semibold text-slate-800 dark:text-slate-100">Commission Plans</span>
                   {' '}calculate each agent&apos;s brokerage lines on this deal (Cap Date {dealPlans.context?.capDate}, Fee Share {dealResult.planStep?.plans.feeSharePercent ?? 100}%){planChoice ? '. Save to keep them.' : '.'}
-                  {dealResult.planStep?.problems.map((problem) => (
-                    <span key={problem} className="ml-1 font-semibold text-amber-700 dark:text-amber-400">{problem}</span>
-                  ))}
                 </div>
               )}
             </div>
