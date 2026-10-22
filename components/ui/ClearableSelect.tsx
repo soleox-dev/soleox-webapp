@@ -24,6 +24,11 @@ function optionsFromChildren(children: React.ReactNode): MenuOption[] {
   const options: MenuOption[] = [];
   React.Children.forEach(children, (child) => {
     if (!React.isValidElement<{ value?: string | number; children?: React.ReactNode; hidden?: boolean; disabled?: boolean }>(child)) return;
+    // The menu has no group headings; an <optgroup>'s options are listed in place.
+    if (child.type === 'optgroup') {
+      options.push(...optionsFromChildren(child.props.children));
+      return;
+    }
     if (child.type !== 'option' || child.props.hidden) return;
     const label = optionLabel(child.props.children);
     const raw = child.props.value ?? label;
