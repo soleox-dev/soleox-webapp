@@ -52,6 +52,8 @@ export function TransactionMapReport({ deals, names }: { deals: ReportDeal[]; na
   const [lookup, setLookup] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState('');
   const [showUnplaced, setShowUnplaced] = useState(false);
+  // False: frame the densest group of deals. True: frame every bubble.
+  const [showAll, setShowAll] = useState(false);
 
   const withAddress = useMemo(() => deals.filter((deal) => deal.address.trim()), [deals]);
   const addresses = useMemo(() => [...new Set(withAddress.map((deal) => deal.address.trim()))], [withAddress]);
@@ -169,13 +171,38 @@ export function TransactionMapReport({ deals, names }: { deals: ReportDeal[]; na
         fillOpacity: 0.35,
       }).bindPopup(`<div style="font-size:12px;line-height:1.45">${lines}</div>`).addTo(group);
     });
-    // Frame the deals when the set changes, not every time a few more addresses come in.
-    const signature = `${deals.length}:${placed.length > 0}`;
-    if (placed.length > 0 && fittedFor.current !== signature) {
-      fittedFor.current = signature;
-      map.fitBounds(leaflet.latLngBounds(placed.map(({ latitude, longitude }) => [latitude, longitude])), { padding: [32, 32], maxZoom: 13 });
-    }
-  }, [ready, placed, minPrice, maxPrice, names, deals.length]);
+  }, [ready, placed, minPrice, maxPrice, names]);
+
+  // The densest group of deals: the 1°-square grid cell (about 100 km) holding the most, with its eight neighbors.
+  // The map opens on it so a few far-off deals do not zoom it out; Show All frames every bubble.
+  const focused = useMemo(() => {
+    if (placed.length === 0) return placed;
+    const cellOf = (latitude: number, longitude: number) => `${Math.floor(latitude)}:${Math.floor(longitude)}`;
+    const perCell = new Map<string, number>();
+    placed.forEach(({ latitude, longitude }) => {
+      const cell = cellOf(latitude, longitude);
+      perCell.set(cell, (perCell.get(cell) || 0) + 1);
+    });
+    const [best] = [...perCell.entries()].sort((a, b) => b[1] - a[1])[0];
+    const [bestLat, bestLng] = best.split(':').map(Number);
+    return placed.filter(({ latitude, longitude }) => (
+      Math.abs(Math.floor(latitude) - bestLat) <= 1 && Math.abs(Math.floor(longitude) - bestLng) <= 1
+    ));
+  }, [placed]);
+  const outsideFocus = placed.length - focused.length;
+
+  // Frames the view when the deals change, when the lookups finish, or when the view mode changes; not each time a
+  // few more addresses come in.
+  useEffect(() => {
+    const leaflet = leafletRef.current;
+    const map = mapRef.current;
+    if (!ready || !leaflet || !map) return;
+    const shown = showAll ? placed : focused;
+    const signature = `${deals.length}:${showAll}:${lookup === null}:${shown.length > 0}`;
+    if (shown.length === 0 || fittedFor.current === signature) return;
+    fittedFor.current = signature;
+    map.fitBounds(leaflet.latLngBounds(shown.map(({ latitude, longitude }) => [latitude, longitude])), { padding: [32, 32], maxZoom: 13 });
+  }, [ready, placed, focused, showAll, lookup, deals.length]);
 
   const counts = useMemo(() => {
     const totals = { closed: 0, pending: 0, cancelled: 0, other: 0 };
@@ -194,6 +221,23 @@ export function TransactionMapReport({ deals, names }: { deals: ReportDeal[]; na
       ) : null}
       <div className="relative overflow-clip rounded-xl border border-slate-200 dark:border-slate-700">
         <div ref={mapNode} className="z-0 h-[min(70vh,720px)] min-h-[360px] w-full bg-slate-100 dark:bg-slate-900" aria-label="Map of transactions" />
+        {placed.length > 0 && (outsideFocus > 0 || showAll) ? (
+          <div className="absolute right-3 top-3 z-[500] flex items-center gap-2">
+            {!showAll ? (
+              <span className="rounded-full bg-white/95 px-2.5 py-1 text-2xs font-medium text-slate-600 shadow-sm dark:bg-slate-800/95 dark:text-slate-300">
+                {outsideFocus.toLocaleString()} outside this view
+              </span>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setShowAll((current) => !current)}
+              aria-pressed={showAll}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 cursor-pointer dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            >
+              {showAll ? 'Focus on Most Deals' : 'Show All'}
+            </button>
+          </div>
+        ) : null}
         {lookup ? (
           <div className="pointer-events-none absolute left-1/2 top-3 z-[500] -translate-x-1/2 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-md dark:bg-slate-800/95 dark:text-slate-200">
             Placing addresses on the map… {lookup.done.toLocaleString()} of {lookup.total.toLocaleString()}
