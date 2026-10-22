@@ -177,6 +177,35 @@ export async function PATCH(request: Request) {
     const { clientId, supabase } = await requireSessionClient();
     const updatedAt = new Date().toISOString();
 
+    // Update: one field set to one value on the selected parameters.
+    if (typeof body.field === 'string') {
+      const ids: string[] = (Array.isArray(body.ids) ? body.ids : []).map((id: unknown) => String(id || '').trim()).filter(Boolean);
+      if (!templateId || ids.length === 0) {
+        return NextResponse.json({ error: 'Choose the parameters to change.' }, { status: 400 });
+      }
+      const value = String(body.value ?? '').trim();
+      let change: Record<string, string | boolean | null>;
+      if (body.field === 'section') change = { section: value || null };
+      else if (body.field === 'is_required' || body.field === 'is_user_editable') change = { [body.field]: value === 'true' };
+      else return NextResponse.json({ error: 'That field cannot be updated in bulk.' }, { status: 400 });
+      const { error } = await supabase
+        .from('commission_template_parameters')
+        .update({ ...change, updated_at: updatedAt, updated_by: session.user.email })
+        .in('id', ids)
+        .eq('template_id', templateId)
+        .eq('client_id', clientId);
+      if (error) throw error;
+      await recordAudit(supabase, {
+        clientId,
+        actorEmail: session.user.email,
+        action: 'update',
+        entity: 'template',
+        entityId: templateId,
+        summary: `Set ${body.field} on ${ids.length} template ${ids.length === 1 ? 'parameter' : 'parameters'}`,
+      });
+      return NextResponse.json({ success: true, updated: ids.length });
+    }
+
     if (typeof body.divider_below === 'boolean') {
       const ids: string[] = (Array.isArray(body.ids) ? body.ids : []).map((id: unknown) => String(id || '').trim()).filter(Boolean);
       if (!templateId || ids.length === 0) {
@@ -243,7 +272,7 @@ export async function DELETE(request: Request) {
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ error: 'Parameter ID is required' }, { status: 400 });
+      return deleteParameters(request, session.user.email);
     }
 
     const { clientId, supabase } = await requireSessionClient();
@@ -303,4 +332,60 @@ export async function DELETE(request: Request) {
   } catch (error: any) {
     return apiError(error, 'The request could not be completed.');
   }
+}
+
+// Bulk delete ({ template_id, ids }): archives the selected parameters that nothing outside the selection uses.
+// The used ones stay, and the reply says where each is used.
+async function deleteParameters(request: Request, actorEmail: string) {
+  const body = await request.json().catch(() => ({}));
+  const templateId = String(body.template_id || '').trim();
+  const ids: string[] = (Array.isArray(body.ids) ? body.ids : []).map((id: unknown) => String(id || '').trim()).filter(Boolean);
+  if (!templateId || ids.length === 0) {
+    return NextResponse.json({ error: 'Choose the parameters to delete.' }, { status: 400 });
+  }
+  const { clientId, supabase } = await requireSessionClient();
+  const [rulesResult, parametersResult] = await Promise.all([
+    supabase
+      .from('commission_template_rules')
+      .select('rule_name, agent_key, from_agent_key, paid_by_agent_keys, payee_formula, apply_condition, custom_baseline, calculation_formula, show_when_formula')
+      .eq('template_id', templateId)
+      .eq('client_id', clientId)
+      .or('archived.is.null,archived.eq.false'),
+    supabase
+      .from('commission_template_parameters')
+      .select('id, parameter_name, parameter_key, autofill_formula, validation_rule')
+      .eq('template_id', templateId)
+      .eq('client_id', clientId)
+      .or('archived.is.null,archived.eq.false'),
+  ]);
+  if (rulesResult.error) throw rulesResult.error;
+  if (parametersResult.error) throw parametersResult.error;
+  const parameters = (parametersResult.data || []) as (UsageParameter & { id: string })[];
+  const selected = new Set(ids);
+  const remaining = parameters.filter((parameter) => !selected.has(parameter.id));
+  const refused: string[] = [];
+  const deletable: string[] = [];
+  for (const parameter of parameters.filter((item) => selected.has(item.id))) {
+    const usedBy = parameterUsedBy(parameter.parameter_key, (rulesResult.data || []) as UsageRule[], remaining);
+    if (usedBy.length) refused.push(parameterInUseMessage(parameter.parameter_name, usedBy));
+    else deletable.push(parameter.id);
+  }
+  if (deletable.length) {
+    const { error } = await supabase
+      .from('commission_template_parameters')
+      .update({ archived: true, updated_at: new Date().toISOString(), updated_by: actorEmail })
+      .in('id', deletable)
+      .eq('template_id', templateId)
+      .eq('client_id', clientId);
+    if (error) throw error;
+    await recordAudit(supabase, {
+      clientId,
+      actorEmail,
+      action: 'delete',
+      entity: 'template',
+      entityId: templateId,
+      summary: `Archived ${deletable.length} template ${deletable.length === 1 ? 'parameter' : 'parameters'}`,
+    });
+  }
+  return NextResponse.json({ success: true, deleted: deletable, refused });
 }

@@ -164,6 +164,42 @@ export async function PATCH(request: Request) {
     const body = await request.json().catch(() => ({}));
     const templateId = String(body.template_id || '').trim();
 
+    // Update: one field set to one value on the selected rules. The page sends only the rules the field applies to.
+    if (typeof body.field === 'string') {
+      const ids: string[] = (Array.isArray(body.ids) ? body.ids : []).map((id: unknown) => String(id || '').trim()).filter(Boolean);
+      if (!templateId || ids.length === 0) {
+        return NextResponse.json({ error: 'Choose the rules to change.' }, { status: 400 });
+      }
+      const value = String(body.value ?? '').trim();
+      let change: Record<string, string | boolean | null>;
+      if (body.field === 'payee_entity_id') {
+        if (!value) return NextResponse.json({ error: 'Choose an entity.' }, { status: 400 });
+        change = { payee_entity_id: value, payee_formula: null };
+      } else if (body.field === 'show_in_popup') change = { show_in_popup: value === 'true' };
+      else if (body.field === 'popup_section') change = { popup_section: value || null };
+      else if (body.field === 'result_type') {
+        if (!['CURRENCY', 'NUMBER', 'PERCENT'].includes(value)) return NextResponse.json({ error: 'Choose a result type.' }, { status: 400 });
+        change = { result_type: value };
+      } else return NextResponse.json({ error: 'That field cannot be updated in bulk.' }, { status: 400 });
+      const { clientId, supabase } = await requireSessionClient();
+      const { error } = await supabase
+        .from('commission_template_rules')
+        .update({ ...change, updated_at: new Date().toISOString(), updated_by: session.user.email })
+        .in('id', ids)
+        .eq('template_id', templateId)
+        .eq('client_id', clientId);
+      if (error) throw error;
+      await recordAudit(supabase, {
+        clientId,
+        actorEmail: session.user.email,
+        action: 'update',
+        entity: 'template',
+        entityId: templateId,
+        summary: `Set ${body.field} on ${ids.length} template ${ids.length === 1 ? 'rule' : 'rules'}`,
+      });
+      return NextResponse.json({ success: true, updated: ids.length });
+    }
+
     // Turning "Add horizontal divider below this rule" on or off for several rules.
     if (typeof body.divider_below === 'boolean') {
       const ids: string[] = (Array.isArray(body.ids) ? body.ids : []).map((id: unknown) => String(id || '').trim()).filter(Boolean);
@@ -235,11 +271,34 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
+    const { clientId, supabase } = await requireSessionClient();
+
+    // Bulk delete: { template_id, ids } in the body.
     if (!id) {
-      return NextResponse.json({ error: 'Logic step ID is required' }, { status: 400 });
+      const body = await request.json().catch(() => ({}));
+      const templateId = String(body.template_id || '').trim();
+      const ids: string[] = (Array.isArray(body.ids) ? body.ids : []).map((value: unknown) => String(value || '').trim()).filter(Boolean);
+      if (!templateId || ids.length === 0) {
+        return NextResponse.json({ error: 'Choose the rules to delete.' }, { status: 400 });
+      }
+      const { error } = await supabase
+        .from('commission_template_rules')
+        .update({ archived: true, updated_at: new Date().toISOString(), updated_by: session.user.email })
+        .in('id', ids)
+        .eq('template_id', templateId)
+        .eq('client_id', clientId);
+      if (error) throw error;
+      await recordAudit(supabase, {
+        clientId,
+        actorEmail: session.user.email,
+        action: 'delete',
+        entity: 'template',
+        entityId: templateId,
+        summary: `Archived ${ids.length} template ${ids.length === 1 ? 'rule' : 'rules'}`,
+      });
+      return NextResponse.json({ success: true, deleted: ids });
     }
 
-    const { clientId, supabase } = await requireSessionClient();
     const { error } = await supabase
       .from('commission_template_rules')
       .update({

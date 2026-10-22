@@ -22,6 +22,10 @@ export interface BulkDialogField {
   is_required?: boolean | null;
   dropdown_options?: string[];
   visibility_rules?: VisibilityRulesConfig | null;
+  /** Shown in place of the stored option value (an entity's name for its ID). */
+  option_labels?: Record<string, string>;
+  /** A menu without the Clear choice, for a field that must keep a value. */
+  no_clear?: boolean;
 }
 
 interface BulkAgent {
@@ -47,7 +51,7 @@ export function BulkUpdateDialog({
   selectedCount: number;
   isPending: boolean;
   error?: string | null;
-  recordNoun?: 'transaction' | 'agent';
+  recordNoun?: 'transaction' | 'agent' | 'parameter' | 'rule';
   onCancel: () => void;
   onConfirm: (fieldKey: string, value: string) => void;
 }) {
@@ -61,6 +65,8 @@ export function BulkUpdateDialog({
         isRequired: Boolean(field.is_required),
         visibilityRules: field.visibility_rules || undefined,
         options: Array.isArray(field.dropdown_options) ? field.dropdown_options.filter(Boolean) : [],
+        optionLabels: field.option_labels || {},
+        noClear: Boolean(field.no_clear),
       }))
       .sort((left, right) => left.fieldLabel.localeCompare(right.fieldLabel));
   }, [fields]);
@@ -204,7 +210,7 @@ function BulkValueControl({
   disabled,
   onChange,
 }: {
-  field: Pick<BulkFieldChoice, 'fieldKey' | 'fieldType' | 'fieldLabel' | 'isRequired' | 'options'>;
+  field: Pick<BulkFieldChoice, 'fieldKey' | 'fieldType' | 'fieldLabel' | 'isRequired' | 'options'> & { optionLabels?: Record<string, string>; noClear?: boolean };
   agents: BulkAgent[];
   value: string;
   disabled: boolean;
@@ -236,9 +242,9 @@ function BulkValueControl({
     return wrap(
       <ClearableSelect allowBlank={false} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} className={menuClass}>
         <option value="">{`Choose ${field.fieldLabel}`}</option>
-        <option value={CLEAR_VALUE}>Clear</option>
+        {field.noClear ? null : <option value={CLEAR_VALUE}>Clear</option>}
         {field.options.map((option) => (
-          <option key={option} value={option}>{option}</option>
+          <option key={option} value={option}>{field.optionLabels?.[option] || option}</option>
         ))}
       </ClearableSelect>,
       true,
