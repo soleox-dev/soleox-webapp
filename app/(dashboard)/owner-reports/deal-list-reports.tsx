@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useId, useMemo, useState } from 'react';
+import { areaUnder, linePeaks, smoothLine, smoothRuns, svgUserX } from './chart-paths';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import {
   fullMoney,
@@ -383,8 +384,25 @@ function RelativeDelta({ current, prior }: { current: number | null; prior: numb
   return <Delta current={change} prior={change == null ? null : 0} format={(value) => rate(value, 1)} />;
 }
 
-/** Average Price Change % by period: this range (solid) and the same dates a year earlier (light), with the average dashed. */
+const CHART_CURRENT = 'text-emerald-600 dark:text-emerald-400';
+const CHART_PRIOR = 'text-[#b3bbc5] dark:text-slate-400';
+
+/** Percent axis ticks covering low to high at a round step (1%, 2%, 2.5%, 5%, 10%…). */
+function percentTicks(low: number, high: number): number[] {
+  const rough = Math.max(high - low, 0.01) / 4;
+  const step = [0.005, 0.01, 0.02, 0.025, 0.05, 0.1, 0.2, 0.25, 0.5, 1].find((value) => value >= rough) ?? 1;
+  const ticks: number[] = [];
+  for (let tick = Math.floor(low / step) * step; tick <= high + step * 0.999; tick += step) ticks.push(Math.round(tick * 1e6) / 1e6);
+  return ticks.length > 1 ? ticks : [ticks[0] ?? 0, (ticks[0] ?? 0) + step];
+}
+
+/**
+ * Average Price Change % by period, in the Team Performance line style: smooth curves, the current period filled and
+ * shining at its peaks, the same dates a year earlier in gray, and each average dashed. Hover for a period's values.
+ */
 function ChangeChart({ deals, priorDeals, range }: { deals: ReportDeal[]; priorDeals: ReportDeal[]; range: DateRange }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const shineId = useId().replace(/:/g, '');
   const columns = periodColumns(range);
   const series = (rows: ReportDeal[], shiftYears: number) => columns.map((column) => average(rows.flatMap((deal) => {
     if (!deal.closingDate) return [];
@@ -395,53 +413,127 @@ function ChangeChart({ deals, priorDeals, range }: { deals: ReportDeal[]; priorD
   })));
   const current = series(deals, 0);
   const prior = series(priorDeals, 1);
-  const overall = average(deals.map(priceChange).filter((value): value is number => value != null));
-  const values = [...current, ...prior, overall].filter((value): value is number => value != null);
+  const currentAverage = average(deals.map(priceChange).filter((value): value is number => value != null));
+  const priorAverage = average(priorDeals.filter(hasPrices).map(priceChange).filter((value): value is number => value != null));
+  const values = [...current, ...prior, currentAverage, priorAverage].filter((value): value is number => value != null);
   if (values.length === 0) return <p className="px-4 py-8 text-sm text-slate-500">No listings with both prices in this range.</p>;
-  const top = Math.max(0.1, Math.ceil(Math.max(...values) * 10) / 10);
-  const bottom = Math.min(0, Math.floor(Math.min(...values) * 10) / 10);
-  const width = 480;
+
+  const ticks = percentTicks(Math.min(0, ...values), Math.max(...values));
+  const low = ticks[0];
+  const high = ticks[ticks.length - 1];
+  const width = 380;
   const height = 220;
-  const left = 40;
-  const right = 12;
-  const plotTop = 12;
-  const plotBottom = height - 28;
-  const x = (index: number) => left + (columns.length <= 1 ? (width - left - right) / 2 : (index / (columns.length - 1)) * (width - left - right));
-  const y = (value: number) => plotTop + ((top - value) / (top - bottom)) * (plotBottom - plotTop);
-  const ticks: number[] = [];
-  for (let tick = bottom; tick <= top + 1e-9; tick += 0.1) ticks.push(Math.round(tick * 10) / 10);
-  const path = (points: Array<number | null>) => {
-    let d = '';
-    let open = false;
-    points.forEach((value, index) => {
-      if (value == null) { open = false; return; }
-      d += `${open ? 'L' : 'M'}${x(index).toFixed(1)},${y(value).toFixed(1)}`;
-      open = true;
-    });
-    return d;
-  };
+  const pad = { left: 40, right: 10, top: 14, bottom: 26 };
+  const innerW = width - pad.left - pad.right;
+  const xAt = (index: number) => pad.left + (columns.length <= 1 ? innerW / 2 : (index / (columns.length - 1)) * innerW);
+  const yAt = (value: number) => pad.top + ((high - value) / (high - low)) * (height - pad.top - pad.bottom);
+  const toPoints = (points: Array<number | null>) => points.map((value, index) => ({ x: xAt(index), y: yAt(value ?? 0) }));
+  const currentPoints = toPoints(current);
+  const priorPoints = toPoints(prior);
+  const currentPresent = current.map((value) => value != null);
+  const priorPresent = prior.map((value) => value != null);
+  const currentRuns = smoothRuns(currentPoints, currentPresent);
+  const peaks = linePeaks(currentPoints, currentPresent, current.map((value) => value ?? 0));
+  const baseline = yAt(Math.max(low, Math.min(0, high)));
   const labelEvery = Math.max(1, Math.ceil(columns.length / 6));
+  const hoverX = hover === null ? 0 : (xAt(hover) / width) * 100;
+  const signed = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${rate(Math.abs(value))}`;
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full" role="img" aria-label="Average price change percent by period">
-      {ticks.map((tick) => (
-        <g key={tick}>
-          <line x1={left} x2={width - right} y1={y(tick)} y2={y(tick)} className={tick === 0 ? 'stroke-slate-300 dark:stroke-slate-600' : 'stroke-slate-100 dark:stroke-slate-800'} />
-          <text x={left - 6} y={y(tick) + 3} textAnchor="end" className="fill-slate-500 text-2xs">{Math.round(tick * 100)}%</text>
-        </g>
-      ))}
-      {columns.map((column, index) => (index % labelEvery === 0 ? (
-        <text key={column.key} x={x(index)} y={height - 8} textAnchor="middle" className="fill-slate-500 text-2xs">{column.label}</text>
-      ) : null))}
-      {overall != null ? (
-        <g>
-          <line x1={left} x2={width - right} y1={y(overall)} y2={y(overall)} strokeDasharray="5 4" className="stroke-pink-500" strokeWidth={1.5} />
-          <text x={left + 4} y={y(overall) - 5} className="fill-pink-600 text-2xs font-semibold dark:fill-pink-400">Avg. {rate(overall)}</text>
-        </g>
-      ) : null}
-      <path d={path(prior)} fill="none" className="stroke-sky-300 dark:stroke-sky-700" strokeWidth={2} />
-      <path d={path(current)} fill="none" className="stroke-brand-600 dark:stroke-brand-400" strokeWidth={2.5} />
-      {current.map((value, index) => (value == null ? null : <circle key={index} cx={x(index)} cy={y(value)} r={3} className="fill-brand-600 dark:fill-brand-400" />))}
-    </svg>
+    <div>
+      <div className="relative">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="h-auto w-full overflow-hidden"
+          role="img"
+          aria-label="Average price change percent by period"
+          onMouseLeave={() => setHover(null)}
+          onMouseMove={(event) => {
+            const x = svgUserX(event.currentTarget, event.clientX, event.clientY);
+            let nearest = 0;
+            columns.forEach((_, index) => {
+              if (Math.abs(xAt(index) - x) < Math.abs(xAt(nearest) - x)) nearest = index;
+            });
+            setHover(nearest);
+          }}
+        >
+          <defs>
+            <linearGradient id={`change-fade-${shineId}`} x1="0" y1="0" x2="0" y2="1" className={CHART_CURRENT}>
+              <stop offset="0%" stopColor="currentColor" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+            </linearGradient>
+            <radialGradient id={`change-peak-${shineId}`} cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="white" />
+              <stop offset="40%" stopColor="white" />
+              <stop offset="100%" stopColor="black" />
+            </radialGradient>
+            <mask id={`change-shine-${shineId}`}>
+              <rect width={width} height={height} fill="black" />
+              {peaks.map((peak, index) => <circle key={index} cx={peak.x} cy={peak.y} r="22" fill={`url(#change-peak-${shineId})`} />)}
+            </mask>
+          </defs>
+          {ticks.map((tick) => (
+            <g key={tick}>
+              <line x1={pad.left} x2={width - pad.right} y1={yAt(tick)} y2={yAt(tick)} className={tick === 0 ? 'stroke-slate-200 dark:stroke-slate-700' : 'stroke-slate-100 dark:stroke-slate-800'} strokeWidth="1" />
+              <text x={pad.left - 6} y={yAt(tick) + 3} textAnchor="end" className="fill-slate-400" fontSize="11">{`${Math.round(tick * 1000) / 10}%`}</text>
+            </g>
+          ))}
+          {currentRuns.map((run, index) => <path key={`fill-${index}`} d={areaUnder(run, baseline)} fill={`url(#change-fade-${shineId})`} stroke="none" />)}
+          {smoothRuns(priorPoints, priorPresent).map((run, index) => (
+            <path key={`prior-${index}`} d={smoothLine(run)} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={CHART_PRIOR} />
+          ))}
+          {currentRuns.map((run, index) => (
+            <path key={`current-${index}`} d={smoothLine(run)} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={CHART_CURRENT} />
+          ))}
+          {currentRuns.map((run, index) => (
+            <path key={`shine-${index}`} d={smoothLine(run)} fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" strokeOpacity="0.8" mask={`url(#change-shine-${shineId})`} />
+          ))}
+          {currentAverage != null ? <line x1={pad.left} x2={width - pad.right} y1={yAt(currentAverage)} y2={yAt(currentAverage)} stroke="currentColor" strokeWidth="1.25" strokeDasharray="10 6" className={CHART_CURRENT} /> : null}
+          {priorAverage != null ? <line x1={pad.left} x2={width - pad.right} y1={yAt(priorAverage)} y2={yAt(priorAverage)} stroke="currentColor" strokeWidth="1.25" strokeDasharray="10 6" className={CHART_PRIOR} /> : null}
+          {hover !== null ? (
+            <g>
+              <line x1={xAt(hover)} x2={xAt(hover)} y1={pad.top} y2={height - pad.bottom} stroke="currentColor" strokeOpacity="0.35" className={CHART_CURRENT} />
+              {prior[hover] != null ? <circle cx={xAt(hover)} cy={yAt(prior[hover] as number)} r="5" fill="currentColor" stroke="white" strokeWidth="2" className={CHART_PRIOR} /> : null}
+              {current[hover] != null ? <circle cx={xAt(hover)} cy={yAt(current[hover] as number)} r="5.5" fill="currentColor" stroke="white" strokeWidth="2" className={CHART_CURRENT} /> : null}
+            </g>
+          ) : null}
+          {columns.map((column, index) => (index % labelEvery === 0 ? (
+            <text key={column.key} x={xAt(index)} y={height - 8} textAnchor="middle" className="fill-slate-400" fontSize="11">{column.label}</text>
+          ) : null))}
+        </svg>
+        {hover !== null ? (
+          <div
+            className="pointer-events-none absolute top-2 z-10 w-max whitespace-nowrap rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-950/95"
+            style={{ left: `${hoverX}%`, transform: hoverX > 50 ? 'translateX(calc(-100% - 10px))' : 'translateX(10px)' }}
+          >
+            <p className="font-bold">{columns[hover].label}</p>
+            <div className="mt-1 grid grid-cols-[auto_auto] items-baseline gap-x-5 gap-y-0.5">
+              <span className={CHART_CURRENT}>Current:</span>
+              <span className={`text-right font-semibold tabular-nums ${CHART_CURRENT}`}>{rate(current[hover])}</span>
+              <span className={CHART_PRIOR}>Prior Year:</span>
+              <span className={`text-right font-semibold tabular-nums ${CHART_PRIOR}`}>{rate(prior[hover])}</span>
+              {current[hover] != null && prior[hover] != null ? (
+                <>
+                  <span className="font-semibold text-slate-500">Diff:</span>
+                  <span className={`text-right font-semibold tabular-nums ${(current[hover] as number) >= (prior[hover] as number) ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>{signed((current[hover] as number) - (prior[hover] as number))}</span>
+                </>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </div>
+      <div className="mt-1 flex flex-wrap items-baseline justify-center gap-x-4 gap-y-1 text-2xs text-slate-500">
+        <span className="inline-flex items-baseline gap-1.5">
+          <span className={`h-0.5 w-4 self-center rounded-full bg-current ${CHART_CURRENT}`} />
+          Current period. Average:
+          <span className={`text-sm font-bold tabular-nums ${CHART_CURRENT}`}>{rate(currentAverage)}</span>
+        </span>
+        <span className="inline-flex items-baseline gap-1.5">
+          <span className={`h-0.5 w-4 self-center rounded-full bg-current ${CHART_PRIOR}`} />
+          Previous year. Average:
+          <span className={`text-sm font-bold tabular-nums ${CHART_PRIOR}`}>{rate(priorAverage)}</span>
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -536,10 +628,6 @@ export function PriceChangeReport({ deals, priorDeals, names, range }: {
             <p className="rounded-t-xl bg-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">Average Price Change %</p>
             <div className="p-3">
               <ChangeChart deals={shown} priorDeals={priorDeals} range={range} />
-              <div className="mt-1 flex items-center justify-center gap-4 text-2xs text-slate-500">
-                <span className="inline-flex items-center gap-1.5"><span aria-hidden className="h-0.5 w-4 bg-brand-600 dark:bg-brand-400" />This Period</span>
-                <span className="inline-flex items-center gap-1.5"><span aria-hidden className="h-0.5 w-4 bg-sky-300 dark:bg-sky-700" />Prior Year</span>
-              </div>
             </div>
           </div>
         </div>
