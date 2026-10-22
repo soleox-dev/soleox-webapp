@@ -309,6 +309,22 @@ export default function CommissionTemplateDetailPage() {
   const [isSavingRuleLabel, setIsSavingRuleLabel] = useState(false);
   const [dropTarget, setDropTarget] = useState<null | { parameterId: string; placement: 'before' | 'after' } | { sectionName: string }>(null);
   const [logicDropTarget, setLogicDropTarget] = useState<null | { stepId: string; placement: 'before' | 'after' } | { sectionName: string }>(null);
+  // Which list a drag handle is moving a row in. Rows show the green drop line only for that drag, never for other
+  // things dragged over them (selected text), and any drag ending anywhere clears the line.
+  const reorderDrag = useRef<'parameter' | 'rule' | null>(null);
+  useEffect(() => {
+    const clear = () => {
+      reorderDrag.current = null;
+      setDropTarget(null);
+      setLogicDropTarget(null);
+    };
+    window.addEventListener('dragend', clear);
+    window.addEventListener('drop', clear);
+    return () => {
+      window.removeEventListener('dragend', clear);
+      window.removeEventListener('drop', clear);
+    };
+  }, []);
   const [parametersCollapsed, setParametersCollapsed] = useState(true);
   const [logicCollapsed, setLogicCollapsed] = useState(true);
   const [compactRows, setCompactRows] = useState(false);
@@ -1575,7 +1591,7 @@ export default function CommissionTemplateDetailPage() {
                       <React.Fragment key={group.name}>
                         <tr
                           onDragOver={(event) => {
-                            if (parameterSearch.trim()) return;
+                            if (parameterSearch.trim() || reorderDrag.current !== 'parameter') return;
                             event.preventDefault();
                             setDropTarget({ sectionName: group.name });
                           }}
@@ -1660,7 +1676,7 @@ export default function CommissionTemplateDetailPage() {
                         key={parameter.id}
                         className={`align-top ${parameter.id === recentParameterId ? '[&>td]:bg-emerald-50 dark:[&>td]:bg-emerald-500/10' : ''} ${dropTarget && 'parameterId' in dropTarget && dropTarget.parameterId === parameter.id ? (dropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
                         onDragOver={(event) => {
-                          if (parameterSearch.trim()) return;
+                          if (parameterSearch.trim() || reorderDrag.current !== 'parameter') return;
                           event.preventDefault();
                           const bounds = event.currentTarget.getBoundingClientRect();
                           const placement = event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
@@ -1699,6 +1715,7 @@ export default function CommissionTemplateDetailPage() {
                               draggable={!isReordering && !parameterSearch.trim()}
                               onDragStart={(event) => {
                                 if (parameterSearch.trim()) return;
+                                reorderDrag.current = 'parameter';
                                 event.dataTransfer.setData('text/plain', parameter.id);
                                 event.dataTransfer.effectAllowed = 'move';
                               }}
@@ -1930,7 +1947,7 @@ export default function CommissionTemplateDetailPage() {
                         {ruleView === 'section' && (
                         <tr
                           onDragOver={(event) => {
-                            if (logicSearch.trim()) return;
+                            if (logicSearch.trim() || reorderDrag.current !== 'rule') return;
                             event.preventDefault();
                             setLogicDropTarget({ sectionName: group.name });
                           }}
@@ -2031,7 +2048,7 @@ export default function CommissionTemplateDetailPage() {
                         draggable={selectingRules ? false : undefined}
                         className={`align-top ${selectingRules ? 'cursor-pointer select-none' : ''} ${selectingRules && selectedRuleIds.has(step.id) ? '[&>td]:!bg-[color-mix(in_srgb,var(--color-brand-500)_15%,var(--color-white))] dark:[&>td]:!bg-[color-mix(in_srgb,var(--color-brand-500)_20%,var(--color-slate-800))]' : ''} ${ruleView !== 'section' ? '' : calculationFormSectionEnds(step, group.items[itemIndex + 1]) ? '[&>td]:border-b-2 [&>td]:!border-b-slate-400 dark:[&>td]:!border-b-slate-500' : calculationDividerBelow(step) ? '[&>td]:!border-b-brand-500 dark:[&>td]:!border-b-brand-400' : ''} ${step.id === recentLogicId ? '[&>td]:bg-emerald-50 dark:[&>td]:bg-emerald-500/10' : ''} ${logicDropTarget && 'stepId' in logicDropTarget && logicDropTarget.stepId === step.id ? (logicDropTarget.placement === 'before' ? '[&>td]:shadow-[inset_0_2px_0_0_#10b981]' : '[&>td]:shadow-[inset_0_-2px_0_0_#10b981]') : ''}`}
                         onDragOver={(event) => {
-                          if (logicSearch.trim()) return;
+                          if (logicSearch.trim() || reorderDrag.current !== 'rule') return;
                           event.preventDefault();
                           const bounds = event.currentTarget.getBoundingClientRect();
                           const placement = event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
@@ -2125,6 +2142,7 @@ export default function CommissionTemplateDetailPage() {
                               draggable={!isReordering && !logicSearch.trim()}
                               onDragStart={(event) => {
                                 if (logicSearch.trim()) return;
+                                reorderDrag.current = 'rule';
                                 event.dataTransfer.setData('text/plain', step.id);
                                 event.dataTransfer.effectAllowed = 'move';
                               }}
