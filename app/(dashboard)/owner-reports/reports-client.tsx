@@ -1568,6 +1568,7 @@ function ReportView(props: {
   // Below md, or on a short screen, the page scrolls natively instead.
   // A phone in landscape is wide but short, so the full-screen layout also needs a tall screen.
   const locked = screenFitReport(props.reportId);
+  const [filterSlot, setFilterSlot] = useState<HTMLDivElement | null>(null);
   const fitsScreen = useFitsScreen();
   const chromeRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -1700,11 +1701,12 @@ function ReportView(props: {
             </h2>
             <p className="mt-1.5 text-sm text-slate-500 max-md:mt-1 max-md:text-xs">{props.reportId === 'team-caps' ? 'Each agent’s cap year comes from that cap’s reset date.' : `${formatRange(range)} compared with ${formatRange(priorRange)}`}</p>
           </div>
-          <div className="justify-self-end max-md:justify-self-center max-md:empty:hidden">
-          </div>
+          {/* The date and Filters controls render here from FilterBar on wider screens. */}
+          <div ref={setFilterSlot} className="relative z-50 min-w-0 justify-self-end max-md:hidden" />
         </div>
         <FilterBar
           {...props}
+          headerSlot={filterSlot}
           dateOnly={props.reportId === 'owner-summary'}
           hideMetric={props.reportId === 'lead-source-leaderboard' || props.reportId === 'team-performance' || props.reportId === 'net-commission-income' || props.reportId === 'team-caps' || props.reportId === 'transaction-map' || props.reportId === 'transaction-list' || props.reportId === 'listings-by-list-date' || props.reportId === 'price-change'}
           hideDate={props.reportId === 'team-caps'}
@@ -1804,6 +1806,9 @@ function swallowOutsideFilters(target: EventTarget | null) {
 /** Inside the filter panel or sheet, dropdowns open in place below their field instead of floating over the page. */
 const FiltersInPanel = React.createContext(false);
 
+/** The date and Cap Year pills and the Filters button in the report title row. */
+const headerPill = 'inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-xs transition hover:border-brand-300 hover:text-brand-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-brand-700 dark:hover:text-brand-300';
+
 const panelList = 'relative mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100';
 
 /** Date presets offered as chips on the phone sheet; the rest stay in the Date Range dropdown. */
@@ -1875,6 +1880,8 @@ function FilterBar(props: {
   onReset?: () => void;
   /** Transactions the report shows with the current filters, for the phone sheet's button. */
   resultCount?: number;
+  /** The right side of the report title row: on wider screens the date and Filters controls render there. */
+  headerSlot?: HTMLElement | null;
 }) {
   const isDesktop = useIsDesktop();
   const [open, setOpen] = useState(false);
@@ -2001,22 +2008,39 @@ function FilterBar(props: {
     ? 'Show Results'
     : `Show ${props.resultCount.toLocaleString()} ${props.resultCount === 1 ? 'Transaction' : 'Transactions'}`;
 
-  const bar = isDesktop ? (
-    <div data-report-filters className="relative z-30 flex flex-wrap items-end gap-x-4 gap-y-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-haspopup="dialog"
-        className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 self-end rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-xs transition hover:border-brand-300 hover:text-brand-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-brand-700 dark:hover:text-brand-300"
-      >
-        <SlidersHorizontal className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-        Filters
-        {countBadge}
-      </button>
-      {props.hideDate ? capYear : <DateRangeFilter preset={props.preset} range={props.range} onPreset={props.onPreset} onRange={props.onRange} label={props.dateRangeLabel} />}
+  const filtersButton = (
+    <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" className={headerPill}>
+      <SlidersHorizontal className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+      Filters
+      {countBadge}
+    </button>
+  );
+  // Wider screens: the date (or Cap Year) and Filters sit in the title row; a row of chips appears under the title
+  // only while a filter is set or Custom dates are being typed.
+  const headerControls = (
+    <div data-report-filters className="flex flex-wrap items-center justify-end gap-2">
+      {props.hideDate
+        ? (props.onCapYearOffset ? (
+          <ChoiceFilter
+            compact
+            label="Cap Year"
+            value={String(props.capYearOffset || 0)}
+            options={[
+              { value: '0', label: 'Current Cap Year' },
+              { value: '1', label: 'Previous Cap Year' },
+            ]}
+            onChange={(next) => props.onCapYearOffset?.(next === '1' ? 1 : 0)}
+          />
+        ) : null)
+        : <DateRangeFilter compact preset={props.preset} range={props.range} onPreset={props.onPreset} onRange={props.onRange} label={props.dateRangeLabel} />}
+      {filtersButton}
+    </div>
+  );
+  const chipRow = chips.length > 0 || customDates ? (
+    <div data-report-filters className="relative z-30 flex flex-wrap items-end gap-x-4 gap-y-2">
       {customDates}
       {chips.length > 0 ? (
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5 self-end pb-0.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           {chips.map((chip) => (
             <span key={chip.key} className="inline-flex max-w-[18rem] items-center gap-1 rounded-full bg-brand-50 py-0.5 pl-2.5 pr-1 text-xs text-brand-800 ring-1 ring-brand-200 dark:bg-brand-950/60 dark:text-brand-200 dark:ring-brand-800">
               <span className="truncate">
@@ -2033,10 +2057,17 @@ function FilterBar(props: {
               </button>
             </span>
           ))}
+          {resetButton}
         </div>
       ) : null}
-      {resetButton ? <div className="ml-auto self-end">{resetButton}</div> : null}
     </div>
+  ) : null;
+
+  const bar = isDesktop ? (
+    <>
+      {props.headerSlot ? createPortal(headerControls, props.headerSlot) : headerControls}
+      {chipRow}
+    </>
   ) : (
     <button
       type="button"
@@ -2567,12 +2598,14 @@ function useDropdownScrollLock(ref: React.RefObject<HTMLElement | null>, open: b
   }, [ref, open]);
 }
 
-function ChoiceFilter({ label, note, value, options, onChange }: {
+function ChoiceFilter({ label, note, value, options, onChange, compact = false }: {
   label: string;
   note?: string;
   value: string;
   options: { value: string; label: string }[];
   onChange: (value: string) => void;
+  /** A one-line pill for the report title row, its list opening to the left. */
+  compact?: boolean;
 }) {
   const inPanel = React.useContext(FiltersInPanel);
   const [open, setOpen] = useState(false);
@@ -2607,7 +2640,22 @@ function ChoiceFilter({ label, note, value, options, onChange }: {
   }, [open]);
 
   return (
-    <div ref={ref} className={`relative ${filterLabel} max-md:min-w-0`}>
+    <div ref={ref} className={compact ? 'relative' : `relative ${filterLabel} max-md:min-w-0`}>
+      {compact ? (
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => setOpen((current) => !current)}
+          className={headerPill}
+        >
+          <span className="text-slate-400">{label}</span>
+          <span>{selected?.label || ''}</span>
+          <ChevronDown className="h-3.5 w-3.5 text-slate-400" strokeWidth={2.25} aria-hidden />
+        </button>
+      ) : (
+        <>
       <span className="inline-flex items-center gap-1">
         {label}
         {note ? <ScoreNote label={label} text={note} className="relative inline-flex" align="left" /> : null}
@@ -2623,8 +2671,10 @@ function ChoiceFilter({ label, note, value, options, onChange }: {
         <span className={`${underlineControl} !inline-flex !w-auto items-center normal-case tracking-normal max-md:text-sm`}>{selected?.label || ''}</span>
         <FieldChevron />
       </button>
+        </>
+      )}
       {open ? (
-        <div ref={listRef} role="listbox" aria-label={label} className={inPanel ? panelList : 'absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100'}>
+        <div ref={listRef} role="listbox" aria-label={label} className={inPanel ? panelList : `${compact ? 'right-0' : 'left-0'} absolute top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100`}>
           {options.length > 8 ? (
             <div className="sticky -top-1 z-10 bg-white px-1 py-1 dark:bg-slate-900">
               <input
@@ -2653,12 +2703,14 @@ function ChoiceFilter({ label, note, value, options, onChange }: {
   );
 }
 
-function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date Range' }: {
+function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date Range', compact = false }: {
   preset: RangePreset;
   range: DateRange;
   onPreset: (preset: RangePreset) => void;
   onRange: (range: DateRange) => void;
   label?: string;
+  /** A one-line pill for the report title row (the subtitle already shows the dates), its list opening to the left. */
+  compact?: boolean;
 }) {
   const inPanel = React.useContext(FiltersInPanel);
   const [open, setOpen] = useState(false);
@@ -2694,7 +2746,24 @@ function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date Range
   }, [open]);
 
   return (
-    <div ref={ref} className={`relative ${filterLabel} max-md:col-span-2 max-md:min-w-0`}>
+    <div ref={ref} className={compact ? 'relative' : `relative ${filterLabel} max-md:col-span-2 max-md:min-w-0`}>
+      {compact ? (
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => setOpen((value) => !value)}
+          title={`${label}: ${formatFilterSpan(range)}`}
+          className={headerPill}
+        >
+          <Calendar className="h-4 w-4 text-slate-400" strokeWidth={2} aria-hidden />
+          <span className="hidden text-slate-400 xl:inline">{label.replace(/ Range$/, '')}</span>
+          <span>{selected.label}</span>
+          <ChevronDown className="h-3.5 w-3.5 text-slate-400" strokeWidth={2.25} aria-hidden />
+        </button>
+      ) : (
+        <>
       <span className="inline-flex items-center gap-1">
         {label}
         <ScoreNote label={label} text="This date range is shared across Owner Reports and stays in place when you open another report." className="relative inline-flex" align="left" />
@@ -2713,8 +2782,10 @@ function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date Range
         </span>
         <FieldChevron />
       </button>
+        </>
+      )}
       {open ? (
-        <div ref={listRef} role="listbox" aria-label="Date Range" className={inPanel ? panelList : 'absolute left-0 top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-80 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100'}>
+        <div ref={listRef} role="listbox" aria-label="Date Range" className={inPanel ? panelList : `${compact ? 'right-0' : 'left-0'} absolute top-full z-40 mt-1 max-h-[min(36rem,calc(100dvh-14rem))] w-80 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100`}>
           {DATE_PRESETS.length > 8 ? (
             <div className="sticky -top-1 z-10 bg-white px-1 py-1 dark:bg-slate-900">
               <input

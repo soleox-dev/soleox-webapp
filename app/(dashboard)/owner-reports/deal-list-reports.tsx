@@ -233,13 +233,19 @@ const STATUS_ORDER = [
  * A Transaction List scorecard: the figure, a thin bar showing each status's share of it, and the amount per status.
  * Only statuses that have transactions in the report are listed, so a Closed + Pending view shows no Cancelled $0.
  */
-function StatusTile({ label, value, deals, read, format, footer }: {
+type StatusKey = (typeof STATUS_ORDER)[number]['key'];
+
+function StatusTile({ label, value, deals, read, format, footer, picked = null, onPick }: {
   label: string;
   value: string;
   deals: ReportDeal[];
   read: (deal: ReportDeal) => number;
   format: (value: number) => string;
   footer?: React.ReactNode;
+  /** The status the table is narrowed to; the other statuses dim. */
+  picked?: StatusKey | null;
+  /** Clicking a bar segment or a status narrows the table to it; clicking it again shows every status. */
+  onPick?: (status: StatusKey) => void;
 }) {
   const parts = STATUS_ORDER
     .map((status) => {
@@ -254,18 +260,33 @@ function StatusTile({ label, value, deals, read, format, footer }: {
       <p className="mt-0.5 truncate text-xl font-bold tabular-nums text-slate-900 dark:text-slate-50">{value}</p>
       {parts.length > 0 ? (
         <>
-          <div className="mt-2.5 flex h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" aria-hidden>
+          <div className="mt-2.5 flex h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
             {parts.map((part) => (total > 0 && part.amount > 0 ? (
-              <span key={part.key} className={`h-full ${part.bar} first:rounded-l-full last:rounded-r-full`} style={{ width: `${(part.amount / total) * 100}%` }} />
+              <button
+                key={part.key}
+                type="button"
+                tabIndex={-1}
+                onClick={() => onPick?.(part.key)}
+                title={picked === part.key ? 'Show every status' : `Show only ${part.label}`}
+                className={`h-full cursor-pointer transition-opacity hover:opacity-80 ${part.bar} ${picked && picked !== part.key ? 'opacity-25' : ''}`}
+                style={{ width: `${(part.amount / total) * 100}%` }}
+              />
             ) : null))}
           </div>
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
             {parts.map((part) => (
-              <span key={part.key} className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <button
+                key={part.key}
+                type="button"
+                aria-pressed={picked === part.key}
+                onClick={() => onPick?.(part.key)}
+                title={picked === part.key ? 'Show every status' : `Show only ${part.label}`}
+                className={`-mx-1.5 inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 ${picked === part.key ? 'bg-slate-100 ring-1 ring-slate-300 dark:bg-slate-800 dark:ring-slate-600' : ''} ${picked && picked !== part.key ? 'opacity-40' : ''}`}
+              >
                 <span aria-hidden className={`h-2 w-2 rounded-full ${part.dot}`} />
                 {part.label}
                 <span className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">{format(part.amount)}</span>
-              </span>
+              </button>
             ))}
           </div>
         </>
@@ -279,10 +300,18 @@ function compactDollars(value: number): string {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 2 }).format(Math.round(value));
 }
 
-export function TransactionListReport({ deals, names }: { deals: ReportDeal[]; names: Map<string, string> }) {
+export function TransactionListReport({ deals: allDeals, names }: { deals: ReportDeal[]; names: Map<string, string> }) {
+  // Clicking a status in a tile narrows the table (and its Grand Total) to that status; the tiles keep every status.
+  const [picked, setPicked] = useState<StatusKey | null>(null);
+  const pick = (status: StatusKey) => setPicked((current) => (current === status ? null : status));
+  const pickedPresent = picked != null && allDeals.some((deal) => deal.status.trim().toLowerCase() === picked);
+  const deals = pickedPresent ? allDeals.filter((deal) => deal.status.trim().toLowerCase() === picked) : allDeals;
+  const tilePick = pickedPresent ? picked : null;
   const volume = sum(deals, (deal) => deal.salesPrice);
   const gci = sum(deals, (deal) => deal.gciAmount);
-  const priced = deals.filter((deal) => deal.salesPrice > 0);
+  const allVolume = sum(allDeals, (deal) => deal.salesPrice);
+  const allGci = sum(allDeals, (deal) => deal.gciAmount);
+  const allPriced = allDeals.filter((deal) => deal.salesPrice > 0);
   const columns: Column[] = [
     { key: 'status', label: 'Status', sortValue: (deal) => deal.status, cell: (deal) => <StatusChip status={deal.status} /> },
     { key: 'agent', label: 'Primary Agent', width: 'min-w-32', sortValue: (deal) => names.get(deal.agentId) || '', cell: (deal) => names.get(deal.agentId) || '—' },
@@ -299,19 +328,19 @@ export function TransactionListReport({ deals, names }: { deals: ReportDeal[]; n
   return (
     <div className={fitReport}>
       <div className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatusTile label="Transactions" value={deals.length.toLocaleString()} deals={deals} read={() => 1} format={(value) => value.toLocaleString()} />
-        <StatusTile label="Sales Volume" value={fullMoney(volume)} deals={deals} read={(deal) => deal.salesPrice} format={compactDollars} />
-        <StatusTile label="GCI" value={fullMoney(gci)} deals={deals} read={(deal) => deal.gciAmount} format={compactDollars} />
+        <StatusTile label="Transactions" value={allDeals.length.toLocaleString()} deals={allDeals} read={() => 1} format={(value) => value.toLocaleString()} picked={tilePick} onPick={pick} />
+        <StatusTile label="Sales Volume" value={fullMoney(allVolume)} deals={allDeals} read={(deal) => deal.salesPrice} format={compactDollars} picked={tilePick} onPick={pick} />
+        <StatusTile label="GCI" value={fullMoney(allGci)} deals={allDeals} read={(deal) => deal.gciAmount} format={compactDollars} picked={tilePick} onPick={pick} />
         <StatusTile
           label="Avg. Sales Price"
-          value={priced.length ? fullMoney(sum(priced, (deal) => deal.salesPrice) / priced.length) : '—'}
+          value={allPriced.length ? fullMoney(sum(allPriced, (deal) => deal.salesPrice) / allPriced.length) : '—'}
           deals={[]}
           read={() => 0}
           format={compactDollars}
           footer={(
             <span className="inline-flex flex-wrap gap-x-4 gap-y-1">
-              <span>Avg. GCI % <span className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">{rate(volume ? gci / volume : null)}</span></span>
-              <span>Avg. GCI <span className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">{deals.length ? compactDollars(gci / deals.length) : '—'}</span></span>
+              <span>Avg. GCI % <span className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">{rate(allVolume ? allGci / allVolume : null)}</span></span>
+              <span>Avg. GCI <span className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">{allDeals.length ? compactDollars(allGci / allDeals.length) : '—'}</span></span>
             </span>
           )}
         />
