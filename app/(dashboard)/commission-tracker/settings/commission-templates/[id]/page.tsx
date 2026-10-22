@@ -2056,7 +2056,9 @@ export default function CommissionTemplateDetailPage() {
                                 checked={selectedRuleIds.has(step.id)}
                                 onChange={() => {}}
                                 tabIndex={-1}
-                                className="block h-3.5 w-3.5 accent-brand-600 cursor-pointer"
+                                // The row's click selects; the box only shows it. A click the box handled itself would
+                                // flip it again after the row did, leaving it checked on an unselected row.
+                                className="pointer-events-none block h-3.5 w-3.5 accent-brand-600"
                               />
                               {step.step_number}
                             </label>
