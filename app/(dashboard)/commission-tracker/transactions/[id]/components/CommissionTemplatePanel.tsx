@@ -1920,7 +1920,7 @@ export function CommissionTemplatePanel({
                     const isCollapsed = canCollapse && collapsedSections[group.name] === true;
                     return (
                     <div key={group.name} className="mb-4 min-w-0 break-inside-avoid">
-                      <div className={`flex items-start gap-2 border-b pb-1.5 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-brand-500/50 dark:border-brand-400/50'}`}>
+                      <div className="flex items-start gap-2">
                         {/* The pill holds the section's name, which collapses an empty section, and the info icon for its calculations. */}
                         <div className={`flex min-w-0 flex-1 items-center rounded-full ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}>
                         <button
@@ -1952,7 +1952,7 @@ export function CommissionTemplatePanel({
                       </div>
                       {!isCollapsed && (
                         // One parameter per line, top to bottom. A parameter set to add a divider gets a line under it.
-                        <div className="mt-1 flex flex-col">
+                        <div className="mt-0.5 flex flex-col">
                           {group.rows.map(({ parameter, raw }, rowIndex) => (
                             <React.Fragment key={parameter.id}>
                             <div className="min-w-0">
