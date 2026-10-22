@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { ClipboardList, Library, Plus, Settings2 } from 'lucide-react';
+import { ClipboardList, Library, Plus, Settings2, Users } from 'lucide-react';
 import { useRegisterSave, useRequestLeave } from '@/components/save-leave-guard';
 import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { TrashIcon } from '@/components/ui/trash-icon';
@@ -13,6 +13,7 @@ import { useAllocationSchema } from '../allocation-fields';
 import { PlanEditor } from './PlanEditor';
 import { PlanTestBench } from './PlanTestBench';
 import { PlanSettingsForm } from './PlanSettingsForm';
+import { ProposePlansDialog } from './ProposePlansDialog';
 import { MenuField, TextField } from './plan-inputs';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
 import { UnderlineField, underlineControl } from '@/components/ui/underline-field';
@@ -50,6 +51,7 @@ export default function CommissionPlansPage() {
   const [settingsDraft, setSettingsDraft] = useState<PlanSettingsDto | null>(null);
   const [settingsBaseline, setSettingsBaseline] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [proposing, setProposing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -204,6 +206,19 @@ export default function CommissionPlansPage() {
   return (
     <div className="space-y-6">
       {confirmDialog}
+      {proposing && data && (
+        <ProposePlansDialog
+          data={data}
+          agentFields={agentFields}
+          onClose={() => setProposing(false)}
+          onApplied={(next, done) => {
+            setProposing(false);
+            accept(next, draft?.id ?? undefined);
+            setMessage(done);
+            setError(null);
+          }}
+        />
+      )}
       <div className={SETTINGS_CARD}>
         <SettingsHeader
           title="Commission Plans"
@@ -267,6 +282,12 @@ export default function CommissionPlansPage() {
                   <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                   {tab === 'presets' ? 'Blank Preset' : 'Blank Plan'}
                 </button>
+                {tab === 'plans' && data.presets.length > 0 && (
+                  <button type="button" onClick={() => requestLeave(() => setProposing(true))} className="inline-flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-brand-500/10 hover:text-brand-700 dark:text-slate-400 dark:hover:bg-brand-500/15 dark:hover:text-brand-400">
+                    <Users className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                    Propose Plans for Agents
+                  </button>
+                )}
                 {tab === 'plans' && data.presets.length > 0 && (
                   <MenuField label="Copy a Preset" value="" placeholder="Choose a Preset" options={data.presets.map((preset) => ({ value: preset.id, label: preset.name }))} onChange={(id) => requestLeave(() => void copyPreset(id))} />
                 )}

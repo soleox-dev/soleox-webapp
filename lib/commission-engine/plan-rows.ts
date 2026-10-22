@@ -74,11 +74,15 @@ function readDay(value: unknown): string | null {
   return match ? match[0] : null;
 }
 
+/** Yes, true, or a number above zero (TATH keeps stock as a rate: 0.05 means the agent buys stock). */
 function isYes(value: unknown): boolean {
   if (value === true) return true;
-  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'number') return value > 0;
   if (typeof value !== 'string') return false;
-  return ['yes', 'y', 'true', '1'].includes(value.trim().toLowerCase());
+  const textValue = value.trim().toLowerCase();
+  if (['yes', 'y', 'true'].includes(textValue)) return true;
+  const number = readNumber(textValue);
+  return number !== null && number > 0;
 }
 
 /**
@@ -222,4 +226,17 @@ export function defaultFeeSharePercent(input: {
   const parts = [otherSide ? `50%: the other side of this address and closing date is deal ${otherSide.id}` : '100%'];
   if (share > 0) parts.push(`less ${Number((share * 100).toFixed(4))}% paid to a brokerage agent`);
   return { percent, explanation: `Fee Share ${percent}% (${parts.join(', ')}).` };
+}
+
+/**
+ * The eXp preset an agent's current cap fields point to (design: Migration step 1): a $4,000 or $8,000 cap is that
+ * preset; a $16,000 cap is eXp $16,000 when the agent has a $250 fee cap and eXp $16,000 Team Lead when not. The
+ * plan decides the $250 tier, not the Team Lead flag. Null when the cap is missing or not an eXp cap.
+ */
+export function proposedExpPresetKey(cap: unknown, feeCap: unknown): string | null {
+  const amount = readNumber(cap);
+  if (amount === 4000) return 'exp-4000';
+  if (amount === 8000) return 'exp-8000';
+  if (amount === 16000) return (readNumber(feeCap) ?? 0) > 0 ? 'exp-16000' : 'exp-16000-team-lead';
+  return null;
 }
