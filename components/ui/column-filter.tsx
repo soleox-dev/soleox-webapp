@@ -94,11 +94,12 @@ export function ColumnHeader({
             filtered ? 'text-brand-700 dark:text-brand-300' : ''
           }`}
         >
-          {/* A long header (over about 16 characters) wraps onto two balanced lines about 9rem wide, so a column of
-              narrow values is not stretched by its header. Shorter ones always stay on one line. */}
+          {/* A long header (over about 16 characters) wraps onto balanced lines about 9rem wide, as many as it needs,
+              so a column of narrow values is not stretched by its header. Shorter ones stay on one line. Either way
+              the whole name shows. */}
           <span className={label.length > 16
-            ? `line-clamp-2 max-w-[9rem] whitespace-normal text-balance leading-tight ${align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'}`
-            : 'truncate'}
+            ? `min-w-[4.75rem] max-w-[9rem] whitespace-normal break-words text-balance leading-tight ${align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'}`
+            : 'whitespace-nowrap'}
           >
             {label}
           </span>
