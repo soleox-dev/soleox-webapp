@@ -3,6 +3,8 @@
 import React from 'react';
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react';
 import { TrashIcon } from '@/components/ui/trash-icon';
+import { OptionMenu } from '@/components/ui/option-menu';
+import { FieldChevron, UnderlineField, underlineControl } from '@/components/ui/underline-field';
 import { FormulaEditor, type FormulaName } from '../commission-templates/FormulaEditor';
 import { planFormulaNames, type CommissionPlan, type FeeTier, type PlanLine } from '@/lib/commission-engine';
 import { LINE_TYPES, MenuField, NumberField, TextField, fromPoints, lineTypeLabel, newLine, toPoints } from './plan-inputs';
@@ -70,7 +72,6 @@ function TierList({
   };
   const setNoLimit = (checked: boolean) => {
     if (checked) save(rows.map((row, j) => (j === rows.length - 1 ? { ...row, width: null } : row)), true);
-    else save(rows.map((row, j) => (j === rows.length - 1 ? { ...row, width: 0 } : row)), false);
   };
   return (
     <div className="space-y-2 sm:col-span-3">
@@ -78,19 +79,31 @@ function TierList({
       {rows.map((row, i) => {
         const last = i === rows.length - 1;
         return (
-          <div key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_7rem_2rem] items-end gap-3">
+          <div key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem] items-end gap-3">
             <NumberField label={rows.length > 1 ? `Tier ${i + 1}: Amount per Deal` : 'Amount per Deal'} prefix="$" value={row.amount} onChange={(value) => setRow(i, { amount: value ?? 0 })} />
-            {last && open ? (
-              <TextField label="For the Next" readOnly value="No Limit" onChange={() => undefined} />
+            {last ? (
+              // The last tier's For the Next is an amount typed in, or No Limit picked from the field's menu.
+              <UnderlineField label="For the Next">
+                <OptionMenu
+                  allowCustom
+                  className={`${underlineControl} overview-field-select`}
+                  value={open ? 'No Limit' : row.width ? String(row.width) : ''}
+                  placeholder="Choose No Limit or Type an Amount"
+                  options={[{ value: 'No Limit', label: 'No Limit' }]}
+                  onChange={(value) => {
+                    if (value === 'No Limit') {
+                      setNoLimit(true);
+                      return;
+                    }
+                    const amount = Number(value.replace(/[$,\s]/g, ''));
+                    if (value.trim() === '' || Number.isFinite(amount)) save(rows.map((item, j) => (j === i ? { ...item, width: value.trim() === '' ? 0 : amount } : item)), false);
+                  }}
+                />
+                <FieldChevron />
+              </UnderlineField>
             ) : (
               <NumberField label="For the Next" prefix="$" value={row.width} onChange={(value) => setRow(i, { width: value ?? 0 })} />
             )}
-            {last ? (
-              <label className="flex items-center gap-2 pb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                <input type="checkbox" className="h-4 w-4 cursor-pointer accent-brand-600" checked={open} onChange={(event) => setNoLimit(event.target.checked)} />
-                No Limit
-              </label>
-            ) : <span />}
             {rows.length > 1 ? (
               <button type="button" onClick={() => remove(i)} className="mb-1 cursor-pointer rounded p-1 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600" aria-label={`Remove Tier ${i + 1}`} title={`Remove Tier ${i + 1}`}>
                 <TrashIcon />
@@ -108,7 +121,7 @@ function TierList({
         Add Tier
       </button>
       {rows.length > 1 && (
-        <p className="text-2xs text-slate-500 dark:text-slate-400">Charged in order, by what the agent has paid on this fee in the cap year; a deal that finishes a tier is charged the rest at the next one. Select No Limit on the last tier.</p>
+        <p className="text-2xs text-slate-500 dark:text-slate-400">Charged in order, by what the agent has paid on this fee in the cap year; a deal that finishes a tier is charged the rest at the next one. Choose No Limit in the last tier&apos;s For the Next.</p>
       )}
     </div>
   );

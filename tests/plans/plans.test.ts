@@ -168,9 +168,9 @@ describe('several tiers', () => {
     expect(crossing.explanation).toContain('only $10.00 is left before $5,010.00');
   });
 
-  it('a plan cannot be saved until No Limit is selected on the last tier', () => {
+  it('a plan cannot be saved until No Limit is chosen on the last tier', () => {
     const drafting = { ...two, lines: two.lines.map((item) => (item.key === 'post_cap_fee' ? { ...item, endsWithNoLimit: false } : item)) };
-    expect(validatePlan(drafting)).toEqual(['Post-cap fee: select No Limit on the last tier.']);
+    expect(validatePlan(drafting)).toEqual(["Post-cap fee: choose No Limit in the last tier's For the Next."]);
     expect(validatePlan(two)).toEqual([]);
   });
 
