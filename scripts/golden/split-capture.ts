@@ -16,7 +16,7 @@ if (!file) {
 }
 const capture = JSON.parse(fs.readFileSync(file, 'utf8'));
 const report = capture.privacyReport || {};
-if (report.fullNamesLeft || report.addressesLeft || report.clientNamesLeft || report.otherEmailsLeft) {
+if (report.fullNamesLeft || report.addressesLeft || report.clientNamesLeft || report.otherEmailsLeft || report.loneFirstOrLastNamesLeft) {
   console.error('The capture reports personal data left in it. Not writing fixtures.');
   process.exit(1);
 }
@@ -35,6 +35,7 @@ const shared = {
   bundles: capture.bundles,
   allocationConfig: capture.allocationConfig,
   teamCapHistory: capture.teamCapHistory,
+  ledger: capture.ledger,
 };
 fs.writeFileSync(path.join(root, 'shared.json'), `${JSON.stringify(shared, null, 2)}\n`);
 for (const [id, deal] of Object.entries(capture.deals as Record<string, unknown>)) {

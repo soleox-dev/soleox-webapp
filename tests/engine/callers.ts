@@ -163,7 +163,7 @@ function lookupsFor(client: ClientFixture, tables: readonly string[]): FormulaLo
 
 /** loadCommissionLedger: the raw ledger lines, labelled with entity names. */
 function ledgerFor(fx: DealFixture, entities: { id: string; name: string }[]): FormulaLedgerRow[] {
-  const items = fx.ledger.map(([final_amount, agent_id, payee_entity_id, section, transaction_id, closing_date, transaction_status]) => (
+  const items = (fx.ledger ?? []).map(([final_amount, agent_id, payee_entity_id, section, transaction_id, closing_date, transaction_status]) => (
     { final_amount, agent_id, payee_entity_id, section, transaction_id, closing_date, transaction_status }
   ));
   return labelLedgerRows(items, entities);
@@ -605,7 +605,8 @@ function viewOutput(view: ReturnType<typeof pageView>) {
   };
 }
 
-export function runGoldenScenarios(client: ClientFixture, fx: DealFixture, dealId: string) {
+export function runGoldenScenarios(client: ClientFixture, deal: DealFixture, dealId: string) {
+  const fx: DealFixture = deal.ledger ? deal : { ...deal, ledger: client.ledger ?? [] };
   const ctx: Ctx = { client, fx, dealId };
   const saved = savedPageState(ctx);
   const savedView = pageView(ctx, saved);

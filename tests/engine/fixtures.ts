@@ -19,6 +19,8 @@ export type ClientFixture = {
   bundles: Record<string, { parameters: ApiRow[]; steps: ApiRow[] }>;
   allocationConfig: { teamCaps: ApiRow[]; agentCaps: ApiRow[]; salesVolume: ApiRow | null };
   teamCapHistory: { agentId: string; amount: number; periodStart: string | null; teamCapId: string | null; transactionId?: string | null }[];
+  /** Ledger rows any of the client's fixture deals can read; used when a deal has no ledger of its own. */
+  ledger?: LedgerTuple[];
 };
 
 /** [final_amount, agent_id, payee_entity_id, section, transaction_id, closing_date, transaction_status] */
@@ -30,7 +32,8 @@ export type DealFixture = {
   submissions: ApiRow[];
   teamCapRows: ApiRow[];
   allocationRows: ApiRow[];
-  ledger: LedgerTuple[];
+  /** The rows this deal's SUMIFS can read. Without it the client's shared ledger is used. */
+  ledger?: LedgerTuple[];
 };
 
 export const FIXTURE_ROOT = path.join(__dirname, 'fixtures');

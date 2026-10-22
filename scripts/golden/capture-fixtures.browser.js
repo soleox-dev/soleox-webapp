@@ -38,7 +38,7 @@
     return rows;
   };
 
-  console.log(`Capturing ${DEAL_IDS.length} deals for ${C}…`);
+  console.log(`Capturing ${DEAL_IDS.length} deals for ${C}...`);
   const [agentsBody, entitiesBody, dealsBody, templatesBody, allocationConfig, schema, ledgerBody] = await Promise.all([
     get('/api/agents?include_archived=true'),
     get('/api/commission-entities'),
@@ -120,7 +120,11 @@
       return true;
     }).map((row) => [row.final_amount, row.agent_id, row.payee_entity_id, row.section, row.transaction_id, row.closing_date, row.transaction_status]);
   };
-  Object.values(deals).forEach((entry) => { entry.ledger = ledgerSlice(entry); });
+  // One shared ledger: the rows any fixture deal's SUMIFS could read. Each SUMIFS filters on the deal's own
+  // agent, entity, status and dates, so rows kept for another deal never match it.
+  const ledgerRows = new Map();
+  Object.values(deals).forEach((entry) => ledgerSlice(entry).forEach((row) => ledgerRows.set(JSON.stringify(row), row)));
+  const sharedLedger = [...ledgerRows.values()];
 
   // ---- Masking ----
   const pad = (n) => String(n).padStart(3, '0');
@@ -150,7 +154,7 @@
     addVariant(`${agent.last_name || ''}, ${agent.first_name || ''}`, comma);
   });
   // First names of team cap recipients appear in field keys and cap names (custom_<first>_team_cap_split).
-  const ENGINE_WORDS = new Set(['sales', 'price', 'gci', 'perc', 'amount', 'total', 'commission', 'closing', 'date', 'agent', 'split', 'team', 'cap', 'lead', 'source', 'side', 'transaction', 'status', 'fee', 'baseline', 'prior', 'units', 'custom', 'stock', 'liability', 'company', 'comm', 'flat', 'exp', 'reset', 'join', 'name', 'first', 'last', 'level', 'post', 'pre', 'off', 'top']);
+  const ENGINE_WORDS = new Set(['closed', 'pending', 'active', 'cancelled', 'expired', 'incomplete', 'broker', 'brokerage', 'yes', 'no', 'true', 'false', 'buyer', 'seller', 'landlord', 'tenant', 'referral', 'referred', 'percent', 'credit', 'custom', 'option', 'zillow', 'flex', 'before', 'after', 'pay', 'paid', 'amount', 'calculation', 'section', 'entity', 'parameter', 'number', 'text', 'select', 'currency', 'boolean', 'sales', 'price', 'gci', 'perc', 'amount', 'total', 'commission', 'closing', 'date', 'agent', 'split', 'team', 'cap', 'lead', 'source', 'side', 'transaction', 'status', 'fee', 'baseline', 'prior', 'units', 'custom', 'stock', 'liability', 'company', 'comm', 'flat', 'exp', 'reset', 'join', 'name', 'first', 'last', 'level', 'post', 'pre', 'off', 'top']);
   const firstTokens = new Map();
   const skippedTokens = [];
   capRecipients.forEach((id) => {
@@ -240,13 +244,13 @@
     bundles: Object.fromEntries(Object.entries(bundles).map(([id, b]) => [id, { parameters: b.parameters.map(maskWho), steps: b.steps.map(maskWho) }])),
     allocationConfig: { teamCaps: allocationConfig.teamCaps || [], agentCaps: (allocationConfig.agentCaps || []).map(maskWho), salesVolume: allocationConfig.salesVolume ?? null },
     teamCapHistory: history.filter((row) => kept.has(row.agentId)),
+    ledger: sharedLedger,
     deals: Object.fromEntries(Object.entries(deals).map(([id, entry]) => [id, {
       deal: maskDealFields(entry.deal, dealIndex.get(id)),
       items: entry.items.map(maskWho),
       submissions: entry.submissions.map(maskWho),
       teamCapRows: entry.teamCapRows,
       allocationRows: entry.allocationRows,
-      ledger: entry.ledger,
     }])),
   };
   // Masked entity names are replaced wherever they appear (stored rule names, labels).
@@ -256,6 +260,63 @@
   });
   text = replaceNames(text);
   text = text.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, (email) => (email === MASKED_EMAIL ? email : MASKED_EMAIL));
+  // First and last names left on their own (dropdown options, labels, text parameters, entity names) are replaced
+  // everywhere with the same token, so formulas that compare them still match. "_" counts as part of a word, so
+  // keys such as sales_price are never touched; words the engine compares literally are skipped.
+  const loneTokens = new Map();
+  allAgents.forEach((agent) => [agent.first_name, agent.last_name, ...String(agent.agent_name || '').split(/[\s,]+/)].forEach((part) => {
+    const word = String(part || '').trim();
+    if (word.length < 3 || !/^[A-Za-z][A-Za-z'.-]*$/.test(word) || ENGINE_WORDS.has(word.toLowerCase())) return;
+    if (!loneTokens.has(word.toLowerCase())) loneTokens.set(word.toLowerCase(), `Nm${pad(loneTokens.size + 1)}`);
+  }));
+  // Words in the app's own keys (sales_price, final_amount, ...) are replaced only as whole words, so a name that is
+  // also such a word never breaks a key the engine reads. Every other name is also replaced inside keys, such as a
+  // custom field named custom_<first>_team_cap_split. CODE_WORDS: snake_case segments from lib/, app/ and db/migrations.
+  const CODE_WORDS = [
+    'acceptance', 'access', 'active', 'actor', 'add', 'address', 'adj', 'admin', 'after', 'agent', 'agg',
+    'allocations', 'amount', 'amounts', 'anchor', 'and', 'any', 'apply', 'approval', 'archived', 'array',
+    'assignment', 'assignments', 'attribute', 'attributes', 'audit', 'auth', 'auto', 'autofill', 'avatar',
+    'baseline', 'below', 'billing', 'bool', 'broker', 'build', 'bump', 'cached', 'calculated', 'calculation', 'can',
+    'cancelled', 'cap', 'caps', 'case', 'center', 'change', 'changed', 'changes', 'check', 'class', 'client',
+    'clients', 'close', 'closed', 'closing', 'code', 'color', 'column', 'columns', 'commission', 'compliance',
+    'condition', 'config', 'configs', 'configurations', 'connected', 'connection', 'connections', 'constraint',
+    'constraintdef', 'contact', 'contribution', 'coordinator', 'count', 'created', 'credit', 'currency', 'custom',
+    'dash', 'data', 'date', 'deal', 'default', 'defs', 'delete', 'deleted', 'description', 'detailed', 'details',
+    'disbursement', 'disconnected', 'divider', 'domain', 'dropdown', 'each', 'edit', 'editable', 'eligibility',
+    'ellipse', 'email', 'enabled', 'end', 'engine', 'entities', 'entity', 'error', 'escrow', 'events', 'exclude',
+    'expires', 'fee', 'field', 'filter', 'final', 'finance', 'financial', 'finished', 'first', 'fkey', 'for', 'form',
+    'formula', 'formulas', 'full', 'functiondef', 'gci', 'generate', 'get', 'google', 'grant', 'gross', 'group',
+    'has', 'header', 'hide', 'history', 'ids', 'idx', 'include', 'income', 'information', 'insert', 'integration',
+    'item', 'items', 'json', 'jsonb', 'keep', 'key', 'kind', 'label', 'labels', 'last', 'lead', 'length', 'license',
+    'list', 'location', 'lock', 'logic', 'login', 'logo', 'lookup', 'manage', 'manual', 'mapping', 'mappings', 'max',
+    'member', 'method', 'min', 'minmax', 'mode', 'name', 'namespace', 'new', 'next', 'number', 'object', 'off',
+    'offboard', 'office', 'officer', 'old', 'onboard', 'one', 'only', 'option', 'options', 'order', 'other', 'over',
+    'override', 'owner', 'paid', 'parameter', 'parameters', 'path', 'pattern', 'payee', 'payload', 'payment',
+    'payments', 'pending', 'per', 'perc', 'percent', 'percentage', 'period', 'permanent', 'permanently', 'phone',
+    'plan', 'platform', 'policy', 'popup', 'position', 'post', 'postal', 'pre', 'prefixed', 'price', 'primary',
+    'prior', 'private', 'proc', 'property', 'protected', 'protections', 'provider', 'purchase', 'qualifying', 'rate',
+    'read', 'recipient', 'recipients', 'reference', 'regclass', 'regex', 'regexp', 'remove', 'rename', 'replace',
+    'reports', 'request', 'require', 'required', 'reset', 'result', 'returned', 'robert', 'role', 'roles', 'row',
+    'rows', 'rule', 'rules', 'runs', 'sale', 'sales', 'saved', 'schema', 'scope', 'scorecards', 'search', 'section',
+    'service', 'set', 'settings', 'settlement', 'share', 'sheets', 'show', 'side', 'skipped', 'snake', 'sort',
+    'source', 'split', 'splits', 'spreadsheet', 'srgb', 'start', 'started', 'status', 'step', 'steps', 'stock',
+    'storage', 'submission', 'submissions', 'submitted', 'subscription', 'super', 'sync', 'system', 'tab', 'table',
+    'target', 'tax', 'tci', 'team', 'template', 'templates', 'tenant', 'terms', 'the', 'title', 'tms', 'token',
+    'top', 'total', 'track', 'tracker', 'transaction', 'transactions', 'transparent', 'type', 'typeof', 'uidx',
+    'unchanged', 'undone', 'unique', 'units', 'until', 'update', 'updated', 'url', 'usage', 'user', 'users',
+    'validation', 'value', 'values', 'vendors', 'version', 'versions', 'view', 'views', 'visibility', 'volume',
+    'waterfall', 'web', 'when', 'wins', 'write', 'zip',
+  ];
+  const keySegments = new Set([...ENGINE_WORDS, ...CODE_WORDS]);
+  const loneRx = (words, insideKeys) => new RegExp(insideKeys
+    ? `(?<![A-Za-z])(${words.map(escape).join('|')})(?![A-Za-z])`
+    : `(?<![A-Za-z0-9_])(${words.map(escape).join('|')})(?![A-Za-z0-9_])`, 'gi');
+  const byLength = (a, b) => b.length - a.length;
+  const keyWords = [...loneTokens.keys()].filter((word) => keySegments.has(word)).sort(byLength);
+  const otherWords = [...loneTokens.keys()].filter((word) => !keySegments.has(word)).sort(byLength);
+  const swap = (match) => sameCase(match, loneTokens.get(match.toLowerCase()));
+  if (otherWords.length > 0) text = text.replace(loneRx(otherWords, true), swap);
+  if (keyWords.length > 0) text = text.replace(loneRx(keyWords, false), swap);
   const final = JSON.parse(text);
 
   // ---- Privacy report ----
@@ -264,12 +325,14 @@
   const loneNameHits = new Set();
   allAgents.forEach((agent) => [agent.first_name, agent.last_name].forEach((part) => {
     const word = String(part || '').trim();
-    if (word.length >= 4 && !ENGINE_WORDS.has(word.toLowerCase()) && new RegExp(`(?<![A-Za-z])${escape(word)}(?![A-Za-z])`, 'i').test(text)) loneNameHits.add(word);
+    if (word.length < 3 || ENGINE_WORDS.has(word.toLowerCase())) return;
+    const boundary = keySegments.has(word.toLowerCase()) ? 'A-Za-z0-9_' : 'A-Za-z';
+    if (new RegExp(`(?<![${boundary}])${escape(word)}(?![${boundary}])`, 'i').test(text)) loneNameHits.add(word);
   }));
   const report = {
     deals: Object.keys(final.deals).length,
     agentsKept: final.agents.length,
-    ledgerRows: Object.values(final.deals).reduce((sum, d) => sum + d.ledger.length, 0),
+    ledgerRows: final.ledger.length,
     everySumifsFiltersAgent,
     fullNamesLeft: hits(realNames),
     addressesLeft: hits(realAddresses),
@@ -280,8 +343,9 @@
     bytes: text.length,
   };
   console.table(report);
-  if (report.fullNamesLeft || report.addressesLeft || report.clientNamesLeft || report.otherEmailsLeft) {
-    console.error('Personal data is still in the output; nothing was downloaded.');
+  if (report.fullNamesLeft || report.addressesLeft || report.clientNamesLeft || report.otherEmailsLeft || report.loneFirstOrLastNamesLeft) {
+    window.__goldenLoneNames = [...loneNameHits];
+    console.error('Personal data is still in the output; nothing was downloaded. Lone names, if any, are in window.__goldenLoneNames.');
     return;
   }
   if (report.loneFirstOrLastNamesLeft) {
