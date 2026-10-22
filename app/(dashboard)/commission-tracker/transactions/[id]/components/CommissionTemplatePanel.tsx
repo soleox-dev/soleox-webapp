@@ -393,7 +393,7 @@ function LabeledParameter({
   // One line per parameter: its name on the left, its value on the right, edited in place. Empty values show a
   // faint dash, so the filled ones stand out down the list.
   return (
-    <div key={flashToken || undefined} className={`group/field relative underline-field parameter-line flex min-h-8 flex-wrap items-center gap-x-3 rounded-md border-b py-1 pl-2.5 pr-2 transition-colors ${locked ? 'is-locked' : ''} ${changed ? 'is-changed' : ''} ${flashToken ? 'is-recalculated' : ''} ${lineBorder}`}>
+    <div key={flashToken || undefined} className={`group/field relative underline-field parameter-line flex min-h-7 flex-wrap items-center gap-x-3 rounded-md border-b py-0.5 pl-2.5 pr-2 transition-colors ${locked ? 'is-locked' : ''} ${changed ? 'is-changed' : ''} ${flashToken ? 'is-recalculated' : ''} ${lineBorder}`}>
       <div className="flex min-w-0 flex-1 items-center gap-1">
         <label htmlFor={id} title={label} className={`min-w-0 truncate text-xs leading-4 ${labelTone}`}>
           {label}
@@ -1919,7 +1919,7 @@ export function CommissionTemplatePanel({
                     const canCollapse = group.rows.every(({ parameter }) => !(values[parameter.id] ?? '').trim());
                     const isCollapsed = canCollapse && collapsedSections[group.name] === true;
                     return (
-                    <div key={group.name} className="mb-6 min-w-0 break-inside-avoid">
+                    <div key={group.name} className="mb-4 min-w-0 break-inside-avoid">
                       <div className={`flex items-start gap-2 border-b pb-1.5 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-brand-500/50 dark:border-brand-400/50'}`}>
                         {/* The pill holds the section's name, which collapses an empty section, and the info icon for its calculations. */}
                         <div className={`flex min-w-0 flex-1 items-center rounded-full ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}>
