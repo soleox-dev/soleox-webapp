@@ -332,9 +332,11 @@
     'waterfall', 'web', 'when', 'wins', 'write', 'zip',
   ];
   const keySegments = new Set([...ENGINE_WORDS, ...CODE_WORDS]);
+  // A word right after "." or right before ".column" is a formula table or column reference (transactions.closing_date),
+  // never a name, even when an entity shares the word.
   const loneRx = (words, insideKeys) => new RegExp(insideKeys
-    ? `(?<![A-Za-z])(${words.map(escape).join('|')})(?![A-Za-z])`
-    : `(?<![A-Za-z0-9_])(${words.map(escape).join('|')})(?![A-Za-z0-9_])`, 'gi');
+    ? `(?<![A-Za-z.])(${words.map(escape).join('|')})(?![A-Za-z]|\\.[A-Za-z_])`
+    : `(?<![A-Za-z0-9_.])(${words.map(escape).join('|')})(?![A-Za-z0-9_]|\\.[A-Za-z_])`, 'gi');
   const byLength = (a, b) => b.length - a.length;
   const keyWords = [...loneTokens.keys()].filter((word) => keySegments.has(word)).sort(byLength);
   const otherWords = [...loneTokens.keys()].filter((word) => !keySegments.has(word)).sort(byLength);
@@ -351,9 +353,14 @@
     const word = String(part || '').trim().replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, '');
     if (word.length < 3 || ENGINE_WORDS.has(word.toLowerCase())) return;
     const boundary = keySegments.has(word.toLowerCase()) ? 'A-Za-z0-9_' : 'A-Za-z';
-    if (new RegExp(`(?<![${boundary}])${escape(word)}(?![${boundary}])`, 'i').test(text)) loneNameHits.add(word);
+    if (new RegExp(`(?<![${boundary}.])${escape(word)}(?![${boundary}]|\\.[A-Za-z_])`, 'i').test(text)) loneNameHits.add(word);
   });
+  // Masking must not change how a formula reads: the same functions and the same table references before and after.
+  const formulaShape = (source) => [...new Set([...source.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '').matchAll(/\b([A-Z][A-Z0-9_]*)\(|\b([a-z_][a-z0-9_]*)\.[a-z_]/g)]
+    .map((match) => (match[1] ? `${match[1].toUpperCase()}(` : `${match[2]}.`)))].sort().join(',');
+  const formulaShapeChanged = formulaShape(templateText) !== formulaShape(JSON.stringify(final.bundles));
   const report = {
+    formulaShapeChanged,
     deals: Object.keys(final.deals).length,
     agentsKept: final.agents.length,
     ledgerRows: final.ledger.length,
@@ -367,7 +374,7 @@
     bytes: text.length,
   };
   console.table(report);
-  if (report.fullNamesLeft || report.addressesLeft || report.clientNamesLeft || report.otherEmailsLeft || report.loneFirstOrLastNamesLeft) {
+  if (report.fullNamesLeft || report.addressesLeft || report.clientNamesLeft || report.otherEmailsLeft || report.loneFirstOrLastNamesLeft || report.formulaShapeChanged) {
     window.__goldenLoneNames = [...loneNameHits];
     console.error('Personal data is still in the output; nothing was downloaded. Lone names, if any, are in window.__goldenLoneNames.');
     return;
