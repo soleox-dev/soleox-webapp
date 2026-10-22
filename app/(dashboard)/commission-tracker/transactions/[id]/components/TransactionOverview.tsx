@@ -50,7 +50,7 @@ interface TransactionOverviewProps {
 
 /** Key Terms uses the same emerald as the amounts in them, tinted like the blue pills of the
     other sections, so they read as their own sub-section. */
-const STRIP_PILL = 'flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-400';
+const STRIP_PILL = 'flex items-center gap-2 rounded-full bg-emerald-500/15 px-3.5 py-1.5 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-400';
 
 export function TransactionOverview({
   isEditing,
@@ -175,7 +175,7 @@ export function TransactionOverview({
               return (
                 <div key={sectionName} className="min-w-0 space-y-2">
                   <div className={STRIP_PILL}>
-                    <span className="min-w-0 text-xs font-bold">{sectionName}</span>
+                    <span className="min-w-0 text-sm font-bold">{sectionName}</span>
                   </div>
                   {/* The grid sits 1px outside its frame so the outer edges of the cell borders are clipped. */}
                   <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
@@ -221,7 +221,7 @@ export function TransactionOverview({
               >
                 {/* A full-width pill so each section title is easy to follow across the columns. */}
                 <div className={strip ? STRIP_PILL : 'flex items-center gap-2 rounded-full bg-brand-500/10 px-3.5 py-1.5 dark:bg-brand-500/15'}>
-                  <span className={`min-w-0 font-bold ${strip ? 'text-xs' : 'text-sm text-brand-700 dark:text-brand-400'}`}>
+                  <span className={`min-w-0 text-sm font-bold ${strip ? '' : 'text-brand-700 dark:text-brand-400'}`}>
                     {sectionName}
                   </span>
                 </div>
