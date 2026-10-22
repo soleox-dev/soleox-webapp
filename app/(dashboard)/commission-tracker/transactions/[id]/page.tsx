@@ -1769,10 +1769,12 @@ export default function Dashboard() {
             validateFieldValue={overviewForm.validateFieldValue}
           />
 
-          {(dealPlans.context || dealPlans.error || dealResult.planStep?.problems.length) && (
+          {(dealPlans.context || dealPlans.error || dealPlans.switchedOn) && (
             <div className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
               {dealPlans.error ? (
                 <span className="font-semibold text-rose-600 dark:text-rose-400">{dealPlans.error}</span>
+              ) : !dealPlans.context ? (
+                <><span className="font-semibold text-slate-800 dark:text-slate-100">Commission Plans</span> do not calculate this deal: {dealPlans.reason}</>
               ) : (
                 <>
                   <span className="font-semibold text-slate-800 dark:text-slate-100">Commission Plans</span>

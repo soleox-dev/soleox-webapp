@@ -16,7 +16,7 @@ export function useDealPlanContext(
   clientId: string,
   deal: Record<string, unknown> | null,
   fields: EngineField[],
-): { context: DealPlanContext | null; reason: string; settling: boolean; error: string | null } {
+): { context: DealPlanContext | null; reason: string; settling: boolean; error: string | null; switchedOn: boolean } {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,11 +47,11 @@ export function useDealPlanContext(
   return useMemo(() => {
     if (!loaded || !deal) {
       // Until the settings load, a failed load or a deal not yet open counts as switched off only once known.
-      return { context: null, reason: '', settling: !error && Boolean(deal) && !loaded, error };
+      return { context: null, reason: '', settling: !error && Boolean(deal) && !loaded, error, switchedOn: false };
     }
     // A FINISHED deal keeps its saved lines; a formula that cannot be read counts as finished, to stay safe.
     const finished = Boolean(loaded.finishedFormula) && dealMatchesDefaultView(deal, loaded.finishedFormula, fieldTypes);
     const decision = buildDealPlanContext(deal, { ...loaded, finished });
-    return { context: decision.context, reason: decision.reason, settling: false, error };
+    return { context: decision.context, reason: decision.reason, settling: false, error, switchedOn: Boolean(loaded.settings.calculate_deals) };
   }, [loaded, deal, fieldTypes, error]);
 }
