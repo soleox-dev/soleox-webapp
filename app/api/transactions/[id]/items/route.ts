@@ -26,7 +26,13 @@ export async function GET(
         payee_type,
         payee_entity_id,
         agent_id,
-        final_amount
+        final_amount,
+        plan_line_key,
+        commission_plan_version_id,
+        bonus_net:custom_attributes->bonus_net,
+        plan_typed:custom_attributes->plan_typed,
+        plan_waived:custom_attributes->plan_waived,
+        before_plan:custom_attributes->before_plan
       `)
       .eq('transaction_id', transactionId)
       .eq('client_id', clientId)
@@ -36,8 +42,20 @@ export async function GET(
     if (error) throw error;
 
     // Cast numeric fields explicitly to match your TransactionCommissionItem interface
-    const items = (data || []).map((row: any) => ({
+    // Only Commission Plan markers are read from custom_attributes here; a saved manual_split is still not read
+    // (lib/commission-engine/README.md, Known differences).
+    const items = (data || []).map(({ bonus_net, plan_typed, plan_waived, before_plan, ...row }: any) => ({
       ...row,
+      ...(bonus_net != null || plan_typed || plan_waived || before_plan
+        ? {
+            custom_attributes: {
+              ...(bonus_net != null ? { bonus_net: Number(bonus_net) } : {}),
+              ...(plan_typed === true ? { plan_typed: true } : {}),
+              ...(plan_waived === true ? { plan_waived: true } : {}),
+              ...(before_plan === true ? { before_plan: true } : {}),
+            },
+          }
+        : {}),
       step_number: Number(row.step_number || 0),
       split_value: row.split_value === null || row.split_value === undefined || row.split_value === ''
         ? null

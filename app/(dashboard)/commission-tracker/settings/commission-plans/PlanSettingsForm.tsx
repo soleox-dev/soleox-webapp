@@ -5,6 +5,8 @@ import type { PlanDto, PlanSettingsDto } from '@/app/api/commission-plans/route'
 import type { PlanLine } from '@/lib/commission-engine';
 import type { AllocationSchemaField } from '../allocation-fields';
 import { MenuField, TextField } from './plan-inputs';
+import { NativeDateInput } from '@/components/ui/NativeDateInput';
+import { UnderlineField, underlineControl } from '@/components/ui/underline-field';
 
 /** Comma-separated statuses, committed when the field loses focus so typing a comma does not jump. */
 function StatusesField({ statuses, onChange }: { statuses: string[]; onChange: (statuses: string[]) => void }) {
@@ -73,6 +75,24 @@ export function PlanSettingsForm({
 
   return (
     <div className="space-y-6">
+      <section className="space-y-3">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Calculate Deals</h3>
+        <div className="flex flex-wrap items-end gap-4">
+          <label className="flex cursor-pointer items-center gap-2 pb-1 text-xs font-semibold text-slate-800 dark:text-slate-200">
+            <input type="checkbox" className="h-4 w-4 cursor-pointer accent-brand-600" checked={settings.calculateDeals} onChange={(event) => onChange({ ...settings, calculateDeals: event.target.checked })} />
+            Calculate Deals With Commission Plans
+          </label>
+          <div className="w-56">
+            <UnderlineField label="Starting With Cap Date">
+              <NativeDateInput value={settings.calculateFrom} onChange={(event) => onChange({ ...settings, calculateFrom: event.target.value })} className={`${underlineControl} overview-date dark:[color-scheme:dark]`} />
+            </UnderlineField>
+          </div>
+        </div>
+        <p className="max-w-3xl text-2xs text-slate-500 dark:text-slate-400">
+          When on, each deal with a Cap Date on or after this date adds every agent&apos;s plan lines to the waterfall. Deals before it, and deals in the Finished view, keep their saved lines exactly as they are. Leave it off until the template no longer has its own brokerage rules.
+        </p>
+      </section>
+
       <section className="space-y-3">
         <h3 className="text-sm font-bold text-slate-900 dark:text-white">Cap Year</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

@@ -25,7 +25,7 @@ function planColumns(item: { planLineKey?: string; planVersionId?: string; planT
     ...(item.beforePlan ? { before_plan: true } : {}),
   };
   return {
-    ...(item.planLineKey ? { plan_line_key: item.planLineKey, commission_plan_version_id: item.planVersionId || null } : {}),
+    ...(item.planLineKey && item.planVersionId ? { plan_line_key: item.planLineKey, commission_plan_version_id: item.planVersionId } : {}),
     ...(Object.keys(attributes).length ? { custom_attributes: attributes } : {}),
   };
 }

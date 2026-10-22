@@ -46,8 +46,9 @@ const slimTemplate = [
 ];
 
 const deal = { id: 'TXN_VERIFIED', total_commission: 30900, closing_date: '2026-06-15', transaction_status: 'Closed' };
+// Plans from the database always carry the version in force on the Cap Date.
 const planned = (left: number, plan: string, extra: Partial<DealPlanContext['agents'][string]> = {}) => ({
-  plan: presets[plan],
+  plan: { ...presets[plan], versionId: `CPV_${plan}` },
   capYearStart: '2026-01-01',
   startingBalances: { capYearOf: '2026-01-01', amounts: { company_dollar: (presets[plan].lines[0] as { capAmount: number }).capAmount - left } },
   ...extra,
@@ -97,7 +98,7 @@ describe('Commission Plans in the deal waterfall', () => {
     expect(result.save.blockers.blocked).toBe(false);
     const saved = result.save.commissionItems.filter((item) => 'plan_line_key' in item && item.plan_line_key);
     expect(saved).toHaveLength(20);
-    expect(saved[0]).toMatchObject({ section: 'POST_SPLIT', plan_line_key: 'company_dollar', final_amount: 3255 });
+    expect(saved[0]).toMatchObject({ section: 'POST_SPLIT', plan_line_key: 'company_dollar', commission_plan_version_id: 'CPV_exp-4000', final_amount: 3255 });
   });
 
   it('saved and reloaded, the plan lines come back the same (bonuses and versions are kept)', () => {

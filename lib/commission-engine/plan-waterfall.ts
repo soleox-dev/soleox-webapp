@@ -17,7 +17,13 @@ export interface DealPlanContext {
   active: boolean;
   capDate: string;
   savedAt?: string | null;
-  feeSharePercent?: number;
+  /** A typed Fee Share %. Without one, feeShareDefault works it out from the deal. */
+  feeSharePercent?: number | null;
+  /**
+   * The default Fee Share: 50% for a double end booked as one transaction (doubleEnd), then reduced by the share of
+   * Total Commission paid off the top to these brokerage-agent entities (an External eXp Agent's referral).
+   */
+  feeShareDefault?: { doubleEnd: boolean; brokerageAgentEntities: string[] };
   waivedLines?: string[];
   /** Each agent's plan and plan fields, by agent id; an agent with a split and no entry has no plan. */
   agents: Record<string, Omit<PlanAgentInput, 'id' | 'name' | 'splitPercent' | 'overrides' | 'afterPlan'>>;
@@ -59,6 +65,20 @@ export function waterfallWithoutPlans(state: WaterfallState): WaterfallState {
     postSplitRulesByAgent: withoutPlanRules(state.postSplitRulesByAgent),
     postSplit2RulesByAgent: withoutPlanRules(state.postSplit2RulesByAgent),
   };
+}
+
+/** The typed Fee Share, or the default worked out from the first pass's off-the-top and pre-split lines. */
+export function feeShareFor(context: Pick<DealPlanContext, 'feeSharePercent' | 'feeShareDefault'>, first: WaterfallResult): number {
+  if (context.feeSharePercent !== null && context.feeSharePercent !== undefined && Number.isFinite(context.feeSharePercent)) return context.feeSharePercent;
+  const fallback = context.feeShareDefault;
+  if (!fallback) return 100;
+  const names = new Set(fallback.brokerageAgentEntities.map((name) => name.trim().toLowerCase()));
+  const paid = [...(first.offTheTopItems || []), ...(first.preSplitItems || [])]
+    .filter((item: { entity?: string }) => names.has(String(item.entity || '').trim().toLowerCase()))
+    .reduce((sum: number, item: { amount?: number }) => sum + (Number(item.amount) || 0), 0);
+  const total = Number(first.totalCommission) || 0;
+  const share = total > 0 ? Math.min(1, Math.max(0, paid / total)) : 0;
+  return Number(((fallback.doubleEnd ? 50 : 100) * (1 - share)).toFixed(6));
 }
 
 const money = (value: number) => `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -109,7 +129,7 @@ export function applyPlansToWaterfall(state: WaterfallState, first: WaterfallRes
         gci: pool,
         capDate: context.capDate,
         savedAt: context.savedAt ?? null,
-        feeSharePercent: context.feeSharePercent ?? 100,
+        feeSharePercent: feeShareFor(context, first),
         waivedLines: context.waivedLines ?? [],
         agents,
         sides,

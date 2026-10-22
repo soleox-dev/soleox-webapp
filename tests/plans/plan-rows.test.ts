@@ -7,8 +7,12 @@ import {
   loadPlanPresets,
   planAgentFromRow,
   planHistoryFromItems,
+  buildDealPlanContext,
+  feeShareFor,
   planInForce,
   proposedExpPresetKey,
+  type DealPlanIngredients,
+  type WaterfallResult,
   type CommissionPlanRow,
   type CommissionPlanVersionRow,
   type PlanSettingsRow,
@@ -167,6 +171,47 @@ describe('proposed eXp plans from today\'s cap fields', () => {
     const plan = planInForce(planRow, versions, '2026-06-15');
     const opted = (value: unknown) => planAgentFromRow({ id: 'A', agent_name: 'A', custom_attributes: { custom_plan_stock: value } }, { plan, settings, splitPercent: 100 }).optedIn;
     expect([opted(0.05), opted('0.05'), opted('Yes'), opted(0), opted(''), opted('No')]).toEqual([['stock'], ['stock'], ['stock'], [], [], []]);
+  });
+});
+
+describe('whether plans calculate a deal', () => {
+  const ingredients = (over: Partial<DealPlanIngredients> = {}, settingsOver: Partial<PlanSettingsRow> = {}): DealPlanIngredients => ({
+    settings: { ...settings, cap_date_field_key: 'closing_date', calculate_deals: true, calculate_from: '2026-01-01', ...settingsOver },
+    plans: [planRow],
+    versions,
+    agents: [
+      { id: 'AGT_1', agent_name: 'Winston', commission_plan_id: 'CPL_4000', custom_attributes: { custom_exp_cap_date: '2025-07-01', custom_plan_stock: 'Yes' } },
+      { id: 'AGT_2', agent_name: 'Kyle', commission_plan_id: null },
+    ],
+    history: [],
+    finished: false,
+    doubleEnd: false,
+    brokerageAgentEntities: ['External eXp Agent'],
+    ...over,
+  });
+  const deal = { id: 'TXN_1', closing_date: '2026-06-15', created_at: '2026-06-01T00:00:00Z', waived_plan_lines: ['broker_review'] };
+
+  it('builds the context: plan in force on the Cap Date, agent fields, waived lines', () => {
+    const { context, reason } = buildDealPlanContext(deal, ingredients());
+    expect(reason).toBe('');
+    expect(context).toMatchObject({ active: true, capDate: '2026-06-15', waivedLines: ['broker_review'], feeSharePercent: null });
+    expect(Object.keys(context!.agents)).toEqual(['AGT_1']);
+    expect(context!.agents.AGT_1).toMatchObject({ capYearStart: '2025-07-01', optedIn: ['stock'] });
+    expect(context!.agents.AGT_1.plan.versionId).toBe('CPV_NEW');
+  });
+
+  it('leaves the deal alone when switched off, FINISHED, before the start date, or without a Cap Date', () => {
+    expect(buildDealPlanContext(deal, ingredients({}, { calculate_deals: false })).reason).toBe('Commission Plans are switched off for this client.');
+    expect(buildDealPlanContext(deal, ingredients({ finished: true })).reason).toBe('This deal is finished, so its saved lines stay as they are.');
+    expect(buildDealPlanContext(deal, ingredients({}, { calculate_from: '2026-07-01' })).reason).toBe('Commission Plans calculate deals from 2026-07-01; this deal is on 2026-06-15.');
+    expect(buildDealPlanContext({ id: 'TXN_2' }, ingredients()).context).toBeNull();
+  });
+
+  it('the default Fee Share: 50% on a double end, less a brokerage agent\'s share of Total Commission', () => {
+    const first = { totalCommission: 10000, offTheTopItems: [{ entity: 'External eXp Agent', amount: 2000 }], preSplitItems: [] } as unknown as WaterfallResult;
+    expect(feeShareFor({ feeShareDefault: { doubleEnd: false, brokerageAgentEntities: ['External eXp Agent'] } }, first)).toBe(80);
+    expect(feeShareFor({ feeShareDefault: { doubleEnd: true, brokerageAgentEntities: ['External eXp Agent'] } }, first)).toBe(40);
+    expect(feeShareFor({ feeSharePercent: 100, feeShareDefault: { doubleEnd: true, brokerageAgentEntities: [] } }, first)).toBe(100);
   });
 });
 

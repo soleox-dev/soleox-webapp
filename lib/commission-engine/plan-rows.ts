@@ -7,6 +7,7 @@
  */
 import { readTransactionField } from './model';
 import { capDateOf, commissionPlanSchema, type CommissionPlan, type PlanAgentInput, type PlanHistoryLine } from './plans';
+import type { DealPlanContext } from './plan-waterfall';
 
 export interface CommissionPlanRow {
   id: string;
@@ -33,6 +34,9 @@ export interface PlanSettingsRow {
   cap_amount_field_keys: Record<string, string>;
   /** Deal statuses that count toward year-to-date totals; null or empty means DEFAULT_COUNTING_STATUSES. */
   counting_statuses?: string[] | null;
+  /** The switch (migration 070): plans calculate this client's deals from calculate_from on. */
+  calculate_deals?: boolean | null;
+  calculate_from?: string | null;
 }
 
 /** What TATH's template counted: a cancelled or lost deal never fills a cap or a yearly limit. */
@@ -239,4 +243,71 @@ export function proposedExpPresetKey(cap: unknown, feeCap: unknown): string | nu
   if (amount === 8000) return 'exp-8000';
   if (amount === 16000) return (readNumber(feeCap) ?? 0) > 0 ? 'exp-16000' : 'exp-16000-team-lead';
   return null;
+}
+
+/** What the deal page loads once per deal to calculate it with Commission Plans (/api/commission-plans/deal-context). */
+export interface DealPlanIngredients {
+  settings: PlanSettingsRow;
+  plans: CommissionPlanRow[];
+  versions: CommissionPlanVersionRow[];
+  agents: PlanAgentRow[];
+  history: PlanHistoryLine[];
+  /** Whether the deal, as currently edited, is in the client's FINISHED view (worked out by the caller). */
+  finished: boolean;
+  /** Another deal is the other side of this one (same address and closing date): the default Fee Share is 50%. */
+  doubleEnd: boolean;
+  /** Entities marked as brokerage agents; a share paid to them reduces the default Fee Share. */
+  brokerageAgentEntities: string[];
+}
+
+export type DealPlanDecision = { context: DealPlanContext | null; reason: string };
+
+/**
+ * The plan context for the deal as currently edited, or why plans do not calculate it: the switch is off, the deal
+ * has no Cap Date or it is before the start date, or the deal is FINISHED (its saved lines stay untouched).
+ */
+export function buildDealPlanContext(deal: Record<string, unknown>, ingredients: DealPlanIngredients): DealPlanDecision {
+  const { settings } = ingredients;
+  if (!settings.calculate_deals) return { context: null, reason: 'Commission Plans are switched off for this client.' };
+  if (ingredients.finished) return { context: null, reason: 'This deal is finished, so its saved lines stay as they are.' };
+  let capDate: string;
+  try {
+    capDate = capDateOf(deal, settings.cap_date_field_key);
+  } catch {
+    return { context: null, reason: `The deal has no ${settings.cap_date_field_key} yet, so Commission Plans cannot place it in a cap year.` };
+  }
+  const from = readDay(settings.calculate_from);
+  if (from && capDate < from) return { context: null, reason: `Commission Plans calculate deals from ${from}; this deal is on ${capDate}.` };
+
+  const plansById = new Map(ingredients.plans.map((plan) => [plan.id, plan]));
+  const agents: DealPlanContext['agents'] = {};
+  for (const row of ingredients.agents) {
+    const plan = row.commission_plan_id ? plansById.get(row.commission_plan_id) : undefined;
+    if (!plan) continue;
+    try {
+      const { id: _id, name: _name, splitPercent: _split, overrides: _typed, afterPlan: _after, ...rest } = planAgentFromRow(row, {
+        plan: planInForce(plan, ingredients.versions, capDate),
+        settings,
+        splitPercent: 0,
+      });
+      agents[row.id] = rest;
+    } catch {
+      // A plan with no version in force on the Cap Date: the agent is reported as having no plan.
+    }
+  }
+  const typedFeeShare = readNumber(readTransactionField(deal, 'fee_share_percent'));
+  const waived = readTransactionField(deal, 'waived_plan_lines');
+  return {
+    context: {
+      active: true,
+      capDate,
+      savedAt: typeof deal.created_at === 'string' ? deal.created_at : null,
+      feeSharePercent: typedFeeShare,
+      feeShareDefault: { doubleEnd: ingredients.doubleEnd, brokerageAgentEntities: ingredients.brokerageAgentEntities },
+      waivedLines: Array.isArray(waived) ? waived.map(String) : [],
+      agents,
+      history: ingredients.history,
+    },
+    reason: '',
+  };
 }

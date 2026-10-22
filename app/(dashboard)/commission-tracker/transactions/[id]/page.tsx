@@ -40,6 +40,7 @@ import { generatePrefixedId } from '@/lib/id';
 import { transactionDealLabel, transactionSearchLabel } from '@/lib/transaction-label';
 import { useAccess } from '@/components/access-provider';
 import { useTemplateQualification } from './hooks/useTemplateQualification';
+import { useDealPlanContext } from './hooks/useDealPlanContext';
 import { swallowNextClick } from '@/lib/swallow-click';
 
 type SavedPaymentRow = {
@@ -418,6 +419,10 @@ export default function Dashboard() {
     if (!source) return current;
     return { ...current, [name]: [...rules, change({ ...source })] };
   };
+  // A Commission Plan line typed by hand keeps that dollar amount (EDITED), and later lines follow it.
+  const typedRule = (rule: DynamicRule, value: number): DynamicRule => (rule.planLineKey
+    ? { ...rule, value, type: 'AMOUNT', planTyped: true, planWaived: false }
+    : { ...rule, value });
   const cloneWaterfallRulesByAgent = (map: Record<string, DynamicRule[]>) =>
     Object.fromEntries(Object.entries(map).map(([k, rules]) => [k, cloneWaterfallRules(rules)]));
 
@@ -852,6 +857,17 @@ export default function Dashboard() {
     [selectedDeal, overviewForm.isEditingOverview, overviewForm.overviewFormValues],
   );
   const templateQualifies = useTemplateQualification(selectedDeal?.client_id, qualificationDeal);
+  // Commission Plans: off unless the client switched them on; never for a FINISHED deal or one before the start date.
+  const planDeal = useMemo(
+    () => (selectedDeal ? { ...selectedDeal, ...(overviewForm.overviewFormValues || {}) } : null),
+    [selectedDeal, overviewForm.overviewFormValues],
+  );
+  const dealPlans = useDealPlanContext(
+    selectedDeal?.id ? String(selectedDeal.id) : '',
+    String(selectedDeal?.client_id || access?.clientId || ''),
+    planDeal,
+    overviewFields,
+  );
   const editedSalesPrice = overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.sales_price) || salesPrice) : salesPrice;
   const editedGciPerc = overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.gci_perc) || gciPerc) : gciPerc;
   const closingForPayments = overviewForm.overviewFormValues.closing_date ?? closingDate ?? null;
@@ -868,6 +884,7 @@ export default function Dashboard() {
     allocation: allocationForWaterfall,
     template: templateReplay,
     storedAgentSplits,
+    plans: dealPlans.context,
   }, {
     knownAgents,
     knownEntities,
@@ -878,6 +895,7 @@ export default function Dashboard() {
     selectedDeal, overviewForm.overviewFormValues, editedSalesPrice, editedGciPerc, clientType, overviewFields,
     agents, offTheTopRules, preSplitRules, postSplitRulesByAgent, postSplit2RulesByAgent, primaryAgentId,
     allocationForWaterfall, templateReplay, storedAgentSplits, knownAgents, knownEntities, primaryAgent, paymentDate, templateQualifies,
+    dealPlans.context,
   ]);
   // Agents with a $0 split and no post-split to pay, such as a team cap recipient the cap does not pay on this deal.
   // They stay in the list while the waterfall is being edited, so a split can still be given to them.
@@ -885,7 +903,7 @@ export default function Dashboard() {
   const waterfallAgents = isEditingWaterfall ? agents : agents.filter((agent) => !idleAgentIds.has(agent.id));
   // True until the deal, its submitted template, and its caps and allocations have loaded. The
   // waterfall computed before then is not final, so allocation auto-save waits for it.
-  const commissionSettling = !isNewTransaction && (!selectedDeal || templateReplaySettling || !allocationSettled);
+  const commissionSettling = !isNewTransaction && (!selectedDeal || templateReplaySettling || !allocationSettled || dealPlans.settling);
   // What the screen waits for is less: the saved waterfall, including each agent's split after team caps,
   // shows as soon as the deal and its caps and allocations load. The replay of the submitted template
   // (which needs the whole commission ledger) replaces it when ready and updates the template button.
@@ -1751,6 +1769,22 @@ export default function Dashboard() {
             validateFieldValue={overviewForm.validateFieldValue}
           />
 
+          {(dealPlans.context || dealPlans.error || dealResult.planStep?.problems.length) && (
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              {dealPlans.error ? (
+                <span className="font-semibold text-rose-600 dark:text-rose-400">{dealPlans.error}</span>
+              ) : (
+                <>
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">Commission Plans</span>
+                  {' '}calculate each agent&apos;s brokerage lines on this deal (Cap Date {dealPlans.context?.capDate}, Fee Share {dealResult.planStep?.plans.feeSharePercent ?? 100}%).
+                  {dealResult.planStep?.problems.map((problem) => (
+                    <span key={problem} className="ml-1 font-semibold text-amber-700 dark:text-amber-400">{problem}</span>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+
           <CommissionWaterfall
             isEditing={isEditingWaterfall}
             calculating={showCommissionCalculating}
@@ -1892,7 +1926,7 @@ export default function Dashboard() {
             onAddAgentPostSplitRule={(name, rule) => setPostSplitRulesByAgent((p) => ({ ...p, [name]: [...(p[name] || []), rule] }))}
             onDeleteAgentPostSplitRule={(name, id) => setPostSplitRulesByAgent((p) => ({ ...p, [name]: (p[name] || []).filter((r) => r.id !== id) }))}
             onToggleAgentPostSplitType={(name, id) => setPostSplitRulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplitRulesByAgent, name, id, (rule) => ({ ...rule, type: rule.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT' })))}
-            onUpdateAgentPostSplitValue={(name, id, val) => setPostSplitRulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplitRulesByAgent, name, id, (rule) => ({ ...rule, value: val })))}
+            onUpdateAgentPostSplitValue={(name, id, val) => setPostSplitRulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplitRulesByAgent, name, id, (rule) => typedRule(rule, val)))}
             onUpdateAgentPostSplitEntity={(name, id, ent) => setPostSplitRulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplitRulesByAgent, name, id, (rule) => ({ ...rule, entity: ent, name: ent })))}
             onUpdateAgentPostSplitNote={(name, id, note) => setPostSplitRulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplitRulesByAgent, name, id, (rule) => ({ ...rule, note })))}
             onReorderAgentPostSplitRules={(agentName, fromIndex, toIndex) => {
@@ -1912,7 +1946,7 @@ export default function Dashboard() {
             onAddAgentPostSplit2Rule={(name, rule) => setPostSplit2RulesByAgent((p) => ({ ...p, [name]: [...(p[name] || []), rule] }))}
             onDeleteAgentPostSplit2Rule={(name, id) => setPostSplit2RulesByAgent((p) => ({ ...p, [name]: (p[name] || []).filter((r) => r.id !== id) }))}
             onToggleAgentPostSplit2Type={(name, id) => setPostSplit2RulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplit2RulesByAgent, name, id, (rule) => ({ ...rule, type: rule.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT' })))}
-            onUpdateAgentPostSplit2Value={(name, id, val) => setPostSplit2RulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplit2RulesByAgent, name, id, (rule) => ({ ...rule, value: val })))}
+            onUpdateAgentPostSplit2Value={(name, id, val) => setPostSplit2RulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplit2RulesByAgent, name, id, (rule) => typedRule(rule, val)))}
             onUpdateAgentPostSplit2Entity={(name, id, ent) => setPostSplit2RulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplit2RulesByAgent, name, id, (rule) => ({ ...rule, entity: ent, name: ent })))}
             onUpdateAgentPostSplit2Note={(name, id, note) => setPostSplit2RulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplit2RulesByAgent, name, id, (rule) => ({ ...rule, note })))}
             onReorderAgentPostSplit2Rules={(agentName, fromIndex, toIndex) => {
