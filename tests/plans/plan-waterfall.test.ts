@@ -95,7 +95,7 @@ describe('Commission Plans in the deal waterfall', () => {
     expect(lines(result, 'Patrick')).toEqual(['Company dollar 770.7', 'Post-cap fee 0', 'Risk management 7.65', 'Broker review 3.19', 'Stock 153.6']);
     expect(result.netPayouts).toMatchObject({ Winston: 22699.62, Skylar: 461.09, Kyle: 184.76, Patrick: 2918.36, eXp: 4182.57, 'eXp Stock': 153.6, TC: 300 });
     expect(result.save.blockers.blocked).toBe(false);
-    const saved = result.save.commissionItems.filter((item: { plan_line_key?: string }) => item.plan_line_key);
+    const saved = result.save.commissionItems.filter((item) => 'plan_line_key' in item && item.plan_line_key);
     expect(saved).toHaveLength(20);
     expect(saved[0]).toMatchObject({ section: 'POST_SPLIT', plan_line_key: 'company_dollar', final_amount: 3255 });
   });
@@ -129,7 +129,7 @@ describe('Commission Plans in the deal waterfall', () => {
     const typed = run(reloaded, context());
     // $700 of the $770.70 base leaves 9.17% past the cap: a $0.88 post-cap fee, and stock on what is left.
     expect(lines(typed, 'Patrick')).toEqual(['Company dollar 700', 'Post-cap fee 0.88', 'Risk management 7.65', 'Broker review 3.19', 'Stock 157.09']);
-    const saved = typed.save.commissionItems.find((item: { agent_id?: string; plan_line_key?: string }) => item.agent_id === 'AGT_P' && item.plan_line_key === 'company_dollar');
+    const saved = typed.save.commissionItems.find((item) => item.agent_id === 'AGT_P' && 'plan_line_key' in item && item.plan_line_key === 'company_dollar');
     expect(saved).toMatchObject({ final_amount: 700, custom_attributes: { plan_typed: true } });
   });
 
