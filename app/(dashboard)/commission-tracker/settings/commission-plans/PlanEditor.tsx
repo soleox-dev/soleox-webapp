@@ -154,7 +154,7 @@ export function PlanEditor({
                   <NumberField label="Rate" suffix="%" value={toPoints(line.rate)} onChange={(points) => setLine(index, { rate: fromPoints(points ?? 0) })} />
                   <label className="flex items-center gap-2 self-end pb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
                     <input type="checkbox" className="h-4 w-4 cursor-pointer accent-brand-600" checked={Boolean(line.optIn)} onChange={(event) => setLine(index, { optIn: event.target.checked || undefined })} />
-                    Only Agents Who Opt In
+                    Only agents who opt in
                   </label>
                   <div className="sm:col-span-3">
                     <div className="mb-1 text-2xs font-bold text-slate-500 dark:text-slate-400">Taken Off the Side First</div>
