@@ -4,6 +4,21 @@ import { Eraser, LayoutGrid, MoreHorizontal, Table2 } from 'lucide-react';
 import { toPercentPoints } from '@/lib/percent';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { AgentConfig, DynamicRule, CommissionEntityOption, KnownAgentInfo } from '../types';
+
+/** The editable rules with each agent's calculated plan lines in their place: after paid-by credits, before the rest. */
+function withPlanLines(
+  editable: Record<string, DynamicRule[]>,
+  calculated: Record<string, DynamicRule[]> | undefined,
+): Record<string, DynamicRule[]> {
+  if (!calculated) return editable;
+  const names = new Set([...Object.keys(editable), ...Object.keys(calculated)]);
+  return Object.fromEntries([...names].map((name) => {
+    const planLines = (calculated[name] || []).filter((rule) => rule.planLineKey);
+    const own = (editable[name] || []).filter((rule) => !rule.planLineKey);
+    if (!planLines.length) return [name, editable[name] || []];
+    return [name, [...own.filter((rule) => rule.beforePlan), ...planLines, ...own.filter((rule) => !rule.beforePlan)]];
+  }));
+}
 import { CommissionWaterfallTable, WATERFALL_HEADING } from './CommissionWaterfallTable';
 import { isPrimaryAgent } from '@/lib/commission-engine/stored-lines';
 import { HoverNote } from './HoverNote';
@@ -247,9 +262,11 @@ export function CommissionWaterfall({
   const commissionAfterPreSplit = dealResult.commissionAfterPreSplit ?? commissionAfterOffTop;
   const agentSplitsExceedPool = (dealResult.agentSplitItems || []).some((item: { overAllocated?: boolean }) => item.overAllocated)
     || Number(dealResult.agentSplitExcess) > 0.009;
+  // While editing, the rules are the editable ones, but Commission Plan lines come from the calculation (they are
+  // worked out again on every change), so a plan line shows in edit mode and can be typed over.
   const shownPostSplitRules = !isEditing && dealResult.displayPostSplitRulesByAgent
     ? dealResult.displayPostSplitRulesByAgent
-    : postSplitRulesByAgent;
+    : withPlanLines(postSplitRulesByAgent, dealResult.displayPostSplitRulesByAgent);
   const shownPostSplit2Rules = !isEditing && dealResult.displayPostSplit2RulesByAgent
     ? dealResult.displayPostSplit2RulesByAgent
     : postSplit2RulesByAgent;
