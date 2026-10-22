@@ -142,13 +142,19 @@ function calculationText(row: AppliedCalculation): { text: string; error: boolea
  * list on hover, or on a tap where there is no hover; a tap elsewhere or Escape closes it. Any calculation that
  * failed turns the icon red, so a problem is not hidden behind it.
  */
-function SectionCalculationsInfo({ section, rows }: { section: string; rows: AppliedCalculation[] }) {
+/** One line in an info list: a name and its value as short text. */
+type InfoLine = { id: string; name: string; text: string; error?: boolean; dividerBelow?: boolean };
+
+function calculationInfoLines(rows: AppliedCalculation[]): InfoLine[] {
+  return rows.map((row) => ({ id: row.id, name: row.name, dividerBelow: row.dividerBelow, ...calculationText(row) }));
+}
+
+function SectionCalculationsInfo({ section, lines }: { section: string; lines: InfoLine[] }) {
   const [open, setOpen] = useState(false);
   const [box, setBox] = useState<{ top: number; left: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<number | undefined>(undefined);
-  const lines = rows.map((row) => ({ row, ...calculationText(row) }));
   const hasError = lines.some((line) => line.error);
 
   const show = () => {
@@ -232,12 +238,12 @@ function SectionCalculationsInfo({ section, rows }: { section: string; rows: App
         >
           <p className="mb-2 text-xs font-bold text-brand-700 dark:text-brand-400">{section}</p>
           <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-6 gap-y-1 text-xs">
-            {lines.map(({ row, text, error }, index) => (
-              <React.Fragment key={row.id}>
-                <dt className="text-slate-500 dark:text-slate-400">{row.name}</dt>
+            {lines.map(({ id, name, text, error, dividerBelow }, index) => (
+              <React.Fragment key={id}>
+                <dt className="text-slate-500 dark:text-slate-400">{name}</dt>
                 <dd className={`text-right font-semibold tabular-nums ${error ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}>{text}</dd>
                 {/* "Add horizontal divider below this rule" in the template's rule settings. */}
-                {row.dividerBelow && index < lines.length - 1 && (
+                {dividerBelow && index < lines.length - 1 && (
                   <div role="separator" className="col-span-2 my-1 border-t border-slate-200 dark:border-slate-700" />
                 )}
               </React.Fragment>
@@ -1412,14 +1418,76 @@ export function CommissionTemplatePanel({
   }, [popupOpen, capsLoaded, schemaReady, qualifyingCaps, draftTemplateId, submittedTemplateId, submittedParameters]);
 
   // The deal fields each cap's qualifying formula reads, with their values, for the line beside the cap.
-  const capFormulaFields = useMemo(() => {
+  // Tables the caps' qualifying formulas look things up in (agents for XLOOKUP), plus field settings for labels.
+  const [capLookups, setCapLookups] = useState<FormulaLookups | null>(null);
+  const capLookupTables = useMemo(
+    () => formulaDataNeeds(qualifyingCaps.map((cap) => cap.qualifyingFormula ?? '')).lookupTables.join(','),
+    [qualifyingCaps],
+  );
+  useEffect(() => {
+    const tables = [...new Set([...capLookupTables.split(',').filter(Boolean), 'client_field_configurations'])];
+    const cached = peekFormulaLookups(clientId, tables);
+    if (cached) setCapLookups(cached);
+    let cancelled = false;
+    loadFormulaLookups(clientId, tables)
+      .then((loaded) => { if (!cancelled) setCapLookups(loaded); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [clientId, capLookupTables]);
+
+  // What each cap's qualifying formula looks at on this deal, for its info list. An agent field shows the agent's
+  // name. An XLOOKUP shows the value looked up and what it found, labelled with the found column's name:
+  // "Primary Agent: Yamilet Escamilla" and "Group: Las Vegas".
+  const capInfoLines = useMemo(() => {
     const labels = new Map(overviewFields.map((field) => [field.key, field.label]));
-    return new Map(qualifyingCaps.map((cap) => [cap.id, formulaFieldNames(cap.qualifyingFormula ?? '').map((key) => ({
-      key,
-      label: labels.get(key) ?? key,
-      text: dealFieldText(deal ? dealFieldValue(deal, key) : null, fieldTypes[key] ?? 'TEXT'),
-    }))]));
-  }, [qualifyingCaps, overviewFields, deal, fieldTypes]);
+    const agentName = (id: string) => agents.find((agent) => agent.id === id)?.name || id;
+    const columnLabel = (table: string, column: string) => {
+      const config = capLookups?.tables.client_field_configurations?.find(
+        (row) => String(row.fields.target_table) === table && String(row.fields.field_key) === column,
+      );
+      const label = config ? String(config.fields.field_label || '').trim() : '';
+      return label || column.replace(/^custom_/, '').replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+    };
+    const rawValue = (key: string) => (deal ? dealFieldValue(deal, key) : null);
+    const fieldText = (key: string) => {
+      const raw = rawValue(key);
+      const type = fieldTypes[key] ?? (key === 'agent_id' ? 'AGENT_PICKER' : 'TEXT');
+      if (type === 'AGENT_PICKER' && raw !== undefined && raw !== null && String(raw).trim()) return agentName(String(raw));
+      return dealFieldText(raw, type);
+    };
+    const resolve = (name: string): FormulaValue => {
+      const raw = rawValue(name);
+      if (raw === undefined || raw === null || String(raw).trim() === '') return { type: 'blank' };
+      if (typeof raw === 'number') return { type: 'number', value: raw };
+      if (typeof raw === 'boolean') return { type: 'boolean', value: raw };
+      return { type: 'text', value: String(raw) };
+    };
+    return new Map(qualifyingCaps.map((cap) => {
+      const formula = cap.qualifyingFormula ?? '';
+      const lines: InfoLine[] = [];
+      const shown = new Set<string>();
+      const addField = (key: string) => {
+        if (shown.has(key)) return;
+        shown.add(key);
+        lines.push({ id: `${cap.id}:${key}`, name: labels.get(key) ?? key, text: fieldText(key) });
+      };
+      const withoutText = formula.replace(/"(?:[^"\\]|\\.)*"/g, '""');
+      for (const match of withoutText.matchAll(/XLOOKUP\(\s*([A-Za-z_]\w*)\s*,\s*([A-Za-z_]\w*)\.(\w+)\s*,\s*([A-Za-z_]\w*)\.(\w+)\s*\)/gi)) {
+        const [, key, searchTable, searchColumn, resultTable, resultColumn] = match;
+        addField(key);
+        const lookupId = `${cap.id}:${resultTable}.${resultColumn}:${key}`;
+        if (shown.has(lookupId)) continue;
+        shown.add(lookupId);
+        const found = evaluateFormula(`XLOOKUP(${key}, ${searchTable}.${searchColumn}, ${resultTable}.${resultColumn})`, resolve, [], [], capLookups ?? undefined);
+        const text = !capLookups ? 'Loading…' : !found || found.type === 'error' || found.type === 'blank' ? '—' : formulaValueToInput(found) || '—';
+        lines.push({ id: lookupId, name: columnLabel(resultTable, resultColumn), text });
+      }
+      for (const key of formulaFieldNames(formula)) {
+        if (!key.includes('.')) addField(key);
+      }
+      return [cap.id, lines] as const;
+    }));
+  }, [qualifyingCaps, overviewFields, deal, fieldTypes, agents, capLookups]);
 
   // Every listed cap passed its qualifying formula, so its box should be checked; an unchecked one was overridden by hand.
   const capChoiceOverridden = qualifyingCaps.some((cap) => !checkedCapIds.includes(cap.id));
@@ -1825,9 +1893,16 @@ export function CommissionTemplatePanel({
                   {/* Same columns as the parameter sections below, so the blue line under the title lines up with theirs. */}
                   <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-3 py-2 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:gap-x-4">
                     <span className="text-sm font-bold text-brand-600 dark:text-brand-400 @min-[720px]/params:self-stretch @min-[720px]/params:flex @min-[720px]/params:items-center @min-[720px]/params:border-r @min-[720px]/params:border-brand-500/50 @min-[720px]/params:pr-3 @min-[720px]/params:dark:border-brand-400/50">Team Caps</span>
-                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                    {/* One column per cap, up to four, then more rows. Each cap's info icon lists what its qualifying
+                        formula looked at on this deal. */}
+                    <div className={`grid gap-x-6 gap-y-2 ${[
+                      '',
+                      '',
+                      '@min-[720px]/params:grid-cols-2',
+                      '@min-[720px]/params:grid-cols-3',
+                    ][qualifyingCaps.length] ?? '@min-[720px]/params:grid-cols-4'}`}>
                     {qualifyingCaps.map((cap) => (
-                      <div key={cap.id} className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                      <div key={cap.id} className="flex min-w-0 items-center gap-1.5">
                         <BooleanField
                           id={`team-cap-${cap.id}`}
                           label={cap.name.trim() || 'Team Cap'}
@@ -1838,16 +1913,8 @@ export function CommissionTemplatePanel({
                               : current.filter((id) => id !== cap.id));
                           }}
                         />
-                        {(capFormulaFields.get(cap.id)?.length ?? 0) > 0 && (
-                          <p className="text-2xs leading-5 text-slate-500 dark:text-slate-400">
-                            {capFormulaFields.get(cap.id)!.map((field, index) => (
-                              <React.Fragment key={field.key}>
-                                {index > 0 && <span aria-hidden className="px-1.5 text-slate-300 dark:text-slate-600">—</span>}
-                                <span className="whitespace-nowrap">{field.label}:</span>{' '}
-                                <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{field.text}</span>
-                              </React.Fragment>
-                            ))}
-                          </p>
+                        {(capInfoLines.get(cap.id)?.length ?? 0) > 0 && (
+                          <SectionCalculationsInfo section={cap.name.trim() || 'Team Cap'} lines={capInfoLines.get(cap.id)!} />
                         )}
                       </div>
                     ))}
@@ -1901,7 +1968,7 @@ export function CommissionTemplatePanel({
                           )}
                         </button>
                         {!isCollapsed && (inlineCalculations.get(group.name)?.length ?? 0) > 0 && (
-                          <SectionCalculationsInfo section={group.name} rows={inlineCalculations.get(group.name)!} />
+                          <SectionCalculationsInfo section={group.name} lines={calculationInfoLines(inlineCalculations.get(group.name)!)} />
                         )}
                         </div>
                       </div>
