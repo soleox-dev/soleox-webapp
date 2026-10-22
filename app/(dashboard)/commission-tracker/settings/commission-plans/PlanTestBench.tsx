@@ -78,8 +78,8 @@ export function PlanTestBench({ plan }: { plan: CommissionPlan }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:max-w-md">
-        <NumberField label="GCI" prefix="$" value={gci} onChange={(value) => setGci(value ?? 0)} />
-        <NumberField label="Fee Share" suffix="%" value={feeShare} onChange={(value) => setFeeShare(value ?? 100)} />
+        <NumberField label="GCI" hint="The commission the agents split on the sample deal, after any off-the-top lines." prefix="$" value={gci} onChange={(value) => setGci(value ?? 0)} />
+        <NumberField label="Fee Share" hint="The share of the transaction's per-deal fees this deal pays: 100% normally, 50% for a double end booked as one deal." suffix="%" value={feeShare} onChange={(value) => setFeeShare(value ?? 100)} />
       </div>
 
       <div className="space-y-2">
@@ -87,11 +87,11 @@ export function PlanTestBench({ plan }: { plan: CommissionPlan }) {
           // Columns wrap as the row narrows, each wide enough for a full "… Paid This Year" label.
           <div key={agent.id} className="grid grid-cols-[repeat(auto-fill,minmax(13.5rem,1fr))] items-end gap-3 rounded-lg bg-slate-50 p-3 dark:bg-slate-900/50">
             <TextField label="Agent" value={agent.name} onChange={(name) => setAgent(agent.id, { name })} />
-            <NumberField label="Split" suffix="%" value={agent.splitPercent} onChange={(value) => setAgent(agent.id, { splitPercent: value ?? 0 })} />
+            <NumberField label="Split" hint="This agent's split % of the sample deal; fees are shared by it." suffix="%" value={agent.splitPercent} onChange={(value) => setAgent(agent.id, { splitPercent: value ?? 0 })} />
             {yearly.map((line) => (
               <NumberField
                 key={line.key}
-                label={`${line.name} Paid This Year`}
+                label={`${line.name} Paid This Year`} hint={"What the agent already paid on this line in the cap year before this sample deal."}
                 prefix="$"
                 value={agent.paid[line.key] ?? 0}
                 onChange={(value) => setAgent(agent.id, { paid: { ...agent.paid, [line.key]: value ?? 0 } })}

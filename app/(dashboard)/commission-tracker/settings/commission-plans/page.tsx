@@ -14,7 +14,7 @@ import { PlanEditor } from './PlanEditor';
 import { PlanTestBench } from './PlanTestBench';
 import { PlanSettingsForm } from './PlanSettingsForm';
 import { ProposePlansDialog } from './ProposePlansDialog';
-import { MenuField, TextField } from './plan-inputs';
+import { HintedLabel, MenuField, TextField } from './plan-inputs';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
 import { UnderlineField, underlineControl } from '@/components/ui/underline-field';
 
@@ -300,8 +300,8 @@ export default function CommissionPlansPage() {
             <div className="space-y-6">
               <div className={`${SETTINGS_CARD} space-y-4`}>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <TextField label="Plan Name" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
-                  <UnderlineDate label="These Lines Take Effect" value={draft.effectiveFrom} onChange={(effectiveFrom) => setDraft({ ...draft, effectiveFrom })} />
+                  <TextField label="Plan Name" hint="The plan's name, as agents and Propose Plans show it." value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
+                  <UnderlineDate label="These Lines Take Effect" hint="Deals with a Cap Date on or after this date use these lines. Saving with a new date adds a version; deals before it keep the earlier lines." value={draft.effectiveFrom} onChange={(effectiveFrom) => setDraft({ ...draft, effectiveFrom })} />
                 </div>
                 {selected && selected.versions.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5 text-2xs text-slate-500 dark:text-slate-400">
@@ -338,9 +338,9 @@ export default function CommissionPlansPage() {
   );
 }
 
-function UnderlineDate({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function UnderlineDate({ label, value, onChange, hint }: { label: string; value: string; onChange: (value: string) => void; hint?: string }) {
   return (
-    <UnderlineField label={label}>
+    <UnderlineField label={<HintedLabel label={label} hint={hint} />}>
       <NativeDateInput value={value} onChange={(event) => onChange(event.target.value)} className={`${underlineControl} overview-date dark:[color-scheme:dark]`} />
     </UnderlineField>
   );

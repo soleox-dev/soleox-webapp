@@ -4,6 +4,20 @@ import React, { useEffect, useState } from 'react';
 import { FieldChevron, UnderlineField, underlineControl } from '@/components/ui/underline-field';
 import { OptionMenu } from '@/components/ui/option-menu';
 import type { PlanLine } from '@/lib/commission-engine';
+import { FormulaHint } from '../commission-templates/FormulaEditor';
+
+/** A field label with an info button whose note shows on hover; clicking it does not open the field. */
+export function HintedLabel({ label, hint }: { label: string; hint?: string }) {
+  if (!hint) return <>{label}</>;
+  return (
+    <span className="inline-flex items-center gap-1">
+      {label}
+      <span onClick={(event) => event.preventDefault()}>
+        <FormulaHint text={hint} />
+      </span>
+    </span>
+  );
+}
 
 export const LINE_TYPES: { type: PlanLine['type']; label: string; hint: string }[] = [
   { type: 'capped_percent', label: 'Percentage up to a Yearly Cap', hint: 'A rate of the side after bonuses, up to a yearly cap. Gives the share past the cap.' },
@@ -40,8 +54,10 @@ export function NumberField({
   prefix,
   placeholder,
   allowEmpty = false,
+  hint,
 }: {
   label: string;
+  hint?: string;
   value: number | null | undefined;
   onChange: (value: number | null) => void;
   suffix?: string;
@@ -57,7 +73,7 @@ export function NumberField({
     // Only an outside change (load, discard) rewrites the text.
   }, [shown]);
   return (
-    <UnderlineField label={label}>
+    <UnderlineField label={<HintedLabel label={label} hint={hint} />}>
       <div className="flex items-center gap-1">
         {prefix && <span className="text-xs text-slate-400">{prefix}</span>}
         <input
@@ -82,9 +98,9 @@ export function NumberField({
   );
 }
 
-export function TextField({ label, value, onChange, mono = false, readOnly = false }: { label: string; value: string; onChange: (value: string) => void; mono?: boolean; readOnly?: boolean }) {
+export function TextField({ label, value, onChange, mono = false, readOnly = false, hint }: { label: string; value: string; onChange: (value: string) => void; mono?: boolean; readOnly?: boolean; hint?: string }) {
   return (
-    <UnderlineField label={label}>
+    <UnderlineField label={<HintedLabel label={label} hint={hint} />}>
       <input className={`${underlineControl} ${mono ? 'font-mono' : ''} ${readOnly ? 'text-slate-500' : ''}`} readOnly={readOnly} value={value} onChange={(event) => onChange(event.target.value)} />
     </UnderlineField>
   );
@@ -96,15 +112,17 @@ export function MenuField({
   options,
   onChange,
   placeholder = '',
+  hint,
 }: {
   label: string;
   value: string;
   options: { value: string; label: string }[];
   onChange: (value: string) => void;
   placeholder?: string;
+  hint?: string;
 }) {
   return (
-    <UnderlineField label={label}>
+    <UnderlineField label={<HintedLabel label={label} hint={hint} />}>
       <OptionMenu className={`${underlineControl} overview-field-select`} value={value} options={options} placeholder={placeholder} onChange={onChange} />
       <FieldChevron />
     </UnderlineField>

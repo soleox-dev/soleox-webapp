@@ -155,10 +155,10 @@ export function ProposePlansDialog({
             </p>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-            <MenuField label="Cap Field" value={capField} options={fieldChoices(agentFields, AMOUNT_TYPES, 'Not Set')} onChange={setCapField} />
-            <MenuField label="First Tier Limit Field" value={feeCapField} options={fieldChoices(agentFields, AMOUNT_TYPES, 'Not Set')} onChange={setFeeCapField} />
-            <MenuField label="Cap Year Start Field" value={capYearField} options={fieldChoices(agentFields, DATE_TYPES, 'Not Set')} onChange={setCapYearField} />
-            <MenuField label="Opt-In Field (Yes or a Rate)" value={stockField} options={fieldChoices(agentFields, null, 'Nobody Opts In')} onChange={setStockField} />
+            <MenuField label="Cap Field" hint={"The agent field with each agent's company dollar cap today: $4,000, $8,000 or $16,000 picks that eXp plan."} value={capField} options={fieldChoices(agentFields, AMOUNT_TYPES, 'Not Set')} onChange={setCapField} />
+            <MenuField label="First Tier Limit Field" hint={"The agent field with how much of the $250 post-cap fee the agent pays before it drops to $75. Above zero with a $16,000 cap: eXp $16,000; zero or empty: eXp $16,000 Team Lead."} value={feeCapField} options={fieldChoices(agentFields, AMOUNT_TYPES, 'Not Set')} onChange={setFeeCapField} />
+            <MenuField label="Cap Year Start Field" hint={"The agent date field with each agent's cap anniversary. Apply saves it in Plan Settings."} value={capYearField} options={fieldChoices(agentFields, DATE_TYPES, 'Not Set')} onChange={setCapYearField} />
+            <MenuField label="Opt-In Field (Yes or a Rate)" hint={"The agent field that says whether the agent buys stock: Yes, or a rate above zero. Apply saves it in Plan Settings."} value={stockField} options={fieldChoices(agentFields, null, 'Nobody Opts In')} onChange={setStockField} />
           </div>
           {error && <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">{error}</p>}
         </div>
