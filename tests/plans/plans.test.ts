@@ -223,6 +223,33 @@ describe('year-to-date totals', () => {
   });
 });
 
+describe('typed lines', () => {
+  const deal = (overrides: Record<string, number>): PlanDealInput => ({
+    id: 'TXN_TYPED',
+    gci: 30900,
+    capDate: '2026-06-15',
+    bonuses: [{ fromAgentId: 'b', toAgentId: 'w', amount: 86.25 }],
+    agents: [
+      agent({ id: 'w', splitPercent: 85, plan: exp4000, fields: { stock: 'Yes' }, startingBalances: leftToCap(exp4000, 3255), overrides }),
+      agent({ id: 'b', splitPercent: 15, plan: exp16000 }),
+    ],
+  });
+
+  it('a typed company dollar recalculates the post-cap fee and stock below it', () => {
+    const [w] = computePlanDeal(deal({ company_dollar: 3000 })).agents;
+    expect(line(w, 'company_dollar').calculated).toBe(3255);
+    expect(line(w, 'company_dollar').postCapFraction).toBeCloseTo(1 - 3000 / 5270.25, 12);
+    expect(line(w, 'post_cap_fee').amount).toBe(27.46);
+    expect(line(w, 'stock').amount).toBe(1162.58);
+  });
+
+  it('a typed post-cap fee below it wins, and stock follows it', () => {
+    const [w] = computePlanDeal(deal({ company_dollar: 3000, post_cap_fee: 20 })).agents;
+    expect([line(w, 'post_cap_fee').amount, line(w, 'post_cap_fee').calculated, line(w, 'post_cap_fee').edited]).toEqual([20, 27.46, true]);
+    expect(line(w, 'stock').amount).toBe(1162.95);
+  });
+});
+
 describe('off the top', () => {
   it('a client credit paid by one agent reduces only that side before the 20%', () => {
     const deal: PlanDealInput = {
