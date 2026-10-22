@@ -174,7 +174,7 @@ export function validatePlan(plan: CommissionPlan): string[] {
       if (line.multiplierFrom && earlierLine(line.multiplierFrom)?.type !== 'capped_percent') {
         problems.push(`${label}: the share past the cap must come from a percentage-up-to-a-cap line above it.`);
       }
-      if (line.endsWithNoLimit === false) problems.push(`${label}: select No Limit on the last tier.`);
+      if (line.endsWithNoLimit === false) problems.push(`${label}: choose No Limit in the last tier's For the Next.`);
       let previous = 0;
       for (const tier of line.tiers || []) {
         if (!(tier.amount >= 0) || !(tier.untilPaid > previous)) {
