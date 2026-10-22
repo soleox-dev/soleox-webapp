@@ -135,6 +135,8 @@ export function OptionMenu({
         onChange={(event) => {
           const next = event.target.value;
           if (allowCustom) onChange(next);
+          // Deleting all the text clears the choice, so a dropdown can be left blank.
+          else if (next.trim() === '' && value !== '') onChange('');
           setQuery(next);
           setNarrowing(true);
           setActiveIndex(0);
