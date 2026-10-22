@@ -1,0 +1,2365 @@
+{
+  "pageSaved": {
+    "waterfall": {
+      "grossCommission": 11875,
+      "totalCommission": 12434.55,
+      "commissionAfterOffTop": 12434.55,
+      "commissionAfterPreSplit": 9325.91,
+      "offTheTopItems": [],
+      "preSplitItems": [
+        {
+          "id": "TCI_21E292DD067D",
+          "name": "Credit",
+          "entity": "Credit",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 3108.64,
+          "amount": 3108.64
+        }
+      ],
+      "agentSplitItems": [
+        {
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "splitType": "PERCENT",
+          "splitVal": 0.9,
+          "percent": 0.9,
+          "amount": 7460.73,
+          "isPrimary": true,
+          "grossAmount": 8393.32,
+          "displayPercent": 0.8000002,
+          "capAdjusted": true
+        },
+        {
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "splitType": "PERCENT",
+          "splitVal": 0.1,
+          "percent": 0.1,
+          "amount": 1865.18,
+          "overAllocated": false,
+          "isPrimary": false,
+          "manualSplit": false,
+          "grossAmount": 932.59,
+          "displayPercent": 0.1999998,
+          "capAdjusted": true
+        }
+      ],
+      "allocationLines": [
+        {
+          "id": "AGT_09EF3A5C000A:CTC_51EC79943233:team_cap",
+          "agent_id": "AGT_09EF3A5C000A",
+          "kind": "team_cap",
+          "amount": 932.59,
+          "calculated_amount": 1678.66,
+          "is_override": true,
+          "period_start": "2024-08-01",
+          "team_cap_id": "CTC_51EC79943233",
+          "cap_name": "Fn046 Team Cap",
+          "tracked": true,
+          "cap_amount": 12000,
+          "prior_amount": 1735.48,
+          "team_percent": 20
+        }
+      ],
+      "postSplitItems": [
+        {
+          "id": "TCI_58542D6B3F18",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "Flat Cap Fee",
+          "ruleName": "Flat Cap Fee",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 60,
+          "amount": 60,
+          "level": 1
+        },
+        {
+          "id": "TCI_CE4679BCE592",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "Liability",
+          "ruleName": "Liability",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 48,
+          "amount": 48,
+          "level": 1
+        },
+        {
+          "id": "TCI_FFC95155FCFC",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "Broker Nm620",
+          "ruleName": "Broker Nm620",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 20,
+          "amount": 20,
+          "level": 1
+        },
+        {
+          "id": "TCI_BDEF5A9F70D9",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "Stock",
+          "ruleName": "Stock",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 412.47,
+          "amount": 412.47,
+          "level": 1
+        },
+        {
+          "id": "TCI_CCD6573D990D",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "TC: Fn124 Ln124",
+          "ruleName": "TC: Fn124 Ln124",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 500,
+          "amount": 500,
+          "level": 1
+        },
+        {
+          "id": "TCI_219929868961",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Liability",
+          "ruleName": "Liability",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 12,
+          "amount": 12,
+          "level": 1
+        },
+        {
+          "id": "TCI_C994F3752366",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Broker Nm620",
+          "ruleName": "Broker Nm620",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 5,
+          "amount": 5,
+          "level": 1
+        },
+        {
+          "id": "TCI_362382B28731",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Stock",
+          "ruleName": "Stock",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 45.83,
+          "amount": 45.83,
+          "level": 1
+        },
+        {
+          "id": "TCI_BF364E761B13",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Flat Cap Fee",
+          "ruleName": "Flat Cap Fee",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 14.57,
+          "amount": 14.57,
+          "level": 1
+        },
+        {
+          "id": "tpl_CTR_0B53B8068AA3",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Company Comm",
+          "ruleName": "TL Company Comm Split",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 10.69,
+          "amount": 10.69,
+          "level": 1
+        }
+      ],
+      "postSplit2Items": [
+        {
+          "id": "tpl_CTR_620B33C2B735",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "Stock",
+          "ruleName": "A1 Stock Split",
+          "note": "",
+          "type": "PERCENT",
+          "value": 0.0500005,
+          "amount": 321.02,
+          "level": 2
+        },
+        {
+          "id": "tpl_CTR_3049A32268BF",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "TC: Fn124 Ln124",
+          "ruleName": "A1 TC 1 Fee Split",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 500,
+          "amount": 500,
+          "level": 2
+        },
+        {
+          "id": "tpl_CTR_90C85BBB227A",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Stock",
+          "ruleName": "TL Stock Split",
+          "note": "",
+          "type": "PERCENT",
+          "value": 0.0500022,
+          "amount": 88.86,
+          "level": 2
+        }
+      ],
+      "agentNetAfterLevel1": {
+        "Fn011 Ln011": 6420.26,
+        "Fn046 Ln046": 1777.09
+      },
+      "netPayouts": {
+        "Fn011 Ln011": 5599.24,
+        "Fn046 Ln046": 1688.23,
+        "Credit": 3108.64,
+        "Flat Cap Fee": 74.57,
+        "Liability": 60,
+        "Broker Nm620": 25,
+        "Stock": 868.18,
+        "TC: Fn124 Ln124": 1000,
+        "Company Comm": 10.69
+      },
+      "agentSplitTotal": 9325.91,
+      "agentSplitExcess": 0,
+      "idleAgentIds": [],
+      "capMovedMoney": true
+    },
+    "save": {
+      "commissionItems": [
+        {
+          "step_number": 11,
+          "rule_name": "Credit",
+          "section": "PRE_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 3108.64,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_5A72B5CC6870",
+          "agent_id": null,
+          "final_amount": 3108.64
+        },
+        {
+          "step_number": 1,
+          "rule_name": "Fn011 Ln011 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.9,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 7460.73,
+          "custom_attributes": {}
+        },
+        {
+          "step_number": 2,
+          "rule_name": "Fn046 Ln046 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.1,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 1865.18,
+          "custom_attributes": {}
+        },
+        {
+          "step_number": 31,
+          "rule_name": "Flat Cap Fee",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 60,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_A62BC6AB3907",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 60
+        },
+        {
+          "step_number": 32,
+          "rule_name": "Liability",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 48,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_D3EEBD4798E4",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 48
+        },
+        {
+          "step_number": 33,
+          "rule_name": "Broker Nm620",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 20,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_CD8F0DC899EC",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 20
+        },
+        {
+          "step_number": 34,
+          "rule_name": "Stock",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 412.47,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_9A537FFD60AC",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 412.47
+        },
+        {
+          "step_number": 35,
+          "rule_name": "TC: Fn124 Ln124",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 500,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_3DAEE7CCB4A1",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 500
+        },
+        {
+          "step_number": 36,
+          "rule_name": "Liability",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 12,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_D3EEBD4798E4",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 12
+        },
+        {
+          "step_number": 37,
+          "rule_name": "Broker Nm620",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 5,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_CD8F0DC899EC",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 5
+        },
+        {
+          "step_number": 38,
+          "rule_name": "Stock",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 45.83,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_9A537FFD60AC",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 45.83
+        },
+        {
+          "step_number": 39,
+          "rule_name": "Flat Cap Fee",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 14.57,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_A62BC6AB3907",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 14.57
+        },
+        {
+          "step_number": 40,
+          "rule_name": "Company Comm",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 10.69,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_5A0A184950C5",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 10.69
+        },
+        {
+          "step_number": 51,
+          "rule_name": "Stock",
+          "section": "POST_SPLIT_L2",
+          "split_type": "PERCENT",
+          "split_value": 0.0500005,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_9A537FFD60AC",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 321.02
+        },
+        {
+          "step_number": 52,
+          "rule_name": "TC: Fn124 Ln124",
+          "section": "POST_SPLIT_L2",
+          "split_type": "AMOUNT",
+          "split_value": 500,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_3DAEE7CCB4A1",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 500
+        },
+        {
+          "step_number": 53,
+          "rule_name": "Stock",
+          "section": "POST_SPLIT_L2",
+          "split_type": "PERCENT",
+          "split_value": 0.0500022,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_9A537FFD60AC",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 88.86
+        }
+      ],
+      "payments": [
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_09EF3A5C000A",
+          "payee_entity_id": null,
+          "amount_paid": 5599.24,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn011 Ln011 (Agent) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_29AD53B88AC3",
+          "payee_entity_id": null,
+          "amount_paid": 1688.23,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn046 Ln046 (Agent) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_5A72B5CC6870",
+          "amount_paid": 3108.64,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Credit (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_A62BC6AB3907",
+          "amount_paid": 74.57,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Flat Cap Fee (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_D3EEBD4798E4",
+          "amount_paid": 60,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Liability (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "BROKERAGE",
+          "agent_id": null,
+          "payee_entity_id": "ENT_CD8F0DC899EC",
+          "amount_paid": 25,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Broker Nm620 (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_9A537FFD60AC",
+          "amount_paid": 868.18,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Stock (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_3DAEE7CCB4A1",
+          "amount_paid": 1000,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "TC: Fn124 Ln124 (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_5A0A184950C5",
+          "amount_paid": 10.69,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Company Comm (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        }
+      ],
+      "allocationRows": [
+        {
+          "agentId": "AGT_09EF3A5C000A",
+          "kind": "team_cap",
+          "amount": 932.59,
+          "calculatedAmount": 1678.66,
+          "isOverride": true,
+          "periodStart": "2024-08-01",
+          "teamCapId": "CTC_51EC79943233"
+        }
+      ]
+    },
+    "capRecipientShortfalls": [],
+    "saveBlocked": false,
+    "saveBlockedReason": ""
+  },
+  "pageBeforeReplay": {
+    "waterfall": {
+      "grossCommission": 11875,
+      "totalCommission": 12434.55,
+      "commissionAfterOffTop": 12434.55,
+      "commissionAfterPreSplit": 9325.91,
+      "offTheTopItems": [],
+      "preSplitItems": [
+        {
+          "id": "TCI_21E292DD067D",
+          "name": "Credit",
+          "entity": "Credit",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 3108.64,
+          "amount": 3108.64
+        }
+      ],
+      "agentSplitItems": [
+        {
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "splitType": "PERCENT",
+          "splitVal": 0.9,
+          "percent": 0.9,
+          "amount": 8393.32,
+          "isPrimary": true
+        },
+        {
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "splitType": "PERCENT",
+          "splitVal": 0.1,
+          "percent": 0.1,
+          "amount": 932.59,
+          "overAllocated": false,
+          "isPrimary": false,
+          "manualSplit": false
+        }
+      ],
+      "allocationLines": [
+        {
+          "id": "AGT_09EF3A5C000A:CTC_51EC79943233:team_cap",
+          "agent_id": "AGT_09EF3A5C000A",
+          "kind": "team_cap",
+          "amount": 932.59,
+          "calculated_amount": 1678.66,
+          "is_override": true,
+          "period_start": "2024-08-01",
+          "team_cap_id": "CTC_51EC79943233",
+          "cap_name": "Fn046 Team Cap",
+          "tracked": true,
+          "cap_amount": 12000,
+          "prior_amount": 1735.48,
+          "team_percent": 20
+        }
+      ],
+      "postSplitItems": [
+        {
+          "id": "TCI_58542D6B3F18",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "Flat Cap Fee",
+          "ruleName": "Flat Cap Fee",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 67.5,
+          "amount": 67.5,
+          "level": 1
+        },
+        {
+          "id": "TCI_CE4679BCE592",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "Liability",
+          "ruleName": "Liability",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 54,
+          "amount": 54,
+          "level": 1
+        },
+        {
+          "id": "TCI_FFC95155FCFC",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "Broker Nm620",
+          "ruleName": "Broker Nm620",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 22.5,
+          "amount": 22.5,
+          "level": 1
+        },
+        {
+          "id": "TCI_BDEF5A9F70D9",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "Stock",
+          "ruleName": "Stock",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 412.47,
+          "amount": 412.47,
+          "level": 1
+        },
+        {
+          "id": "TCI_CCD6573D990D",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "TC: Fn124 Ln124",
+          "ruleName": "TC: Fn124 Ln124",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 500,
+          "amount": 500,
+          "level": 1
+        },
+        {
+          "id": "TCI_219929868961",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Liability",
+          "ruleName": "Liability",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 6,
+          "amount": 6,
+          "level": 1
+        },
+        {
+          "id": "TCI_C994F3752366",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Broker Nm620",
+          "ruleName": "Broker Nm620",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 2.5,
+          "amount": 2.5,
+          "level": 1
+        },
+        {
+          "id": "TCI_362382B28731",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Stock",
+          "ruleName": "Stock",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 45.83,
+          "amount": 45.83,
+          "level": 1
+        },
+        {
+          "id": "TCI_BF364E761B13",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Flat Cap Fee",
+          "ruleName": "Flat Cap Fee",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 7.5,
+          "amount": 7.5,
+          "level": 1
+        }
+      ],
+      "postSplit2Items": [],
+      "agentNetAfterLevel1": {
+        "Fn011 Ln011": 7336.85,
+        "Fn046 Ln046": 870.76
+      },
+      "netPayouts": {
+        "Fn011 Ln011": 7336.85,
+        "Fn046 Ln046": 870.76,
+        "Credit": 3108.64,
+        "Flat Cap Fee": 75,
+        "Liability": 60,
+        "Broker Nm620": 25,
+        "Stock": 458.3,
+        "TC: Fn124 Ln124": 500
+      },
+      "agentSplitTotal": 9325.91,
+      "agentSplitExcess": 0,
+      "idleAgentIds": [],
+      "capMovedMoney": true
+    },
+    "save": {
+      "commissionItems": [
+        {
+          "step_number": 11,
+          "rule_name": "Credit",
+          "section": "PRE_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 3108.64,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_5A72B5CC6870",
+          "agent_id": null,
+          "final_amount": 3108.64
+        },
+        {
+          "step_number": 1,
+          "rule_name": "Fn011 Ln011 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.9,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 8393.32,
+          "custom_attributes": {}
+        },
+        {
+          "step_number": 2,
+          "rule_name": "Fn046 Ln046 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.1,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 932.59,
+          "custom_attributes": {}
+        },
+        {
+          "step_number": 31,
+          "rule_name": "Flat Cap Fee",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 67.5,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_A62BC6AB3907",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 67.5
+        },
+        {
+          "step_number": 32,
+          "rule_name": "Liability",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 54,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_D3EEBD4798E4",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 54
+        },
+        {
+          "step_number": 33,
+          "rule_name": "Broker Nm620",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 22.5,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_CD8F0DC899EC",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 22.5
+        },
+        {
+          "step_number": 34,
+          "rule_name": "Stock",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 412.47,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_9A537FFD60AC",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 412.47
+        },
+        {
+          "step_number": 35,
+          "rule_name": "TC: Fn124 Ln124",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 500,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_3DAEE7CCB4A1",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 500
+        },
+        {
+          "step_number": 36,
+          "rule_name": "Liability",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 6,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_D3EEBD4798E4",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 6
+        },
+        {
+          "step_number": 37,
+          "rule_name": "Broker Nm620",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 2.5,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_CD8F0DC899EC",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 2.5
+        },
+        {
+          "step_number": 38,
+          "rule_name": "Stock",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 45.83,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_9A537FFD60AC",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 45.83
+        },
+        {
+          "step_number": 39,
+          "rule_name": "Flat Cap Fee",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 7.5,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_A62BC6AB3907",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 7.5
+        }
+      ],
+      "payments": [
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_09EF3A5C000A",
+          "payee_entity_id": null,
+          "amount_paid": 7336.85,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn011 Ln011 (Agent) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_29AD53B88AC3",
+          "payee_entity_id": null,
+          "amount_paid": 870.76,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn046 Ln046 (Agent) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_5A72B5CC6870",
+          "amount_paid": 3108.64,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Credit (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_A62BC6AB3907",
+          "amount_paid": 75,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Flat Cap Fee (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_D3EEBD4798E4",
+          "amount_paid": 60,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Liability (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "BROKERAGE",
+          "agent_id": null,
+          "payee_entity_id": "ENT_CD8F0DC899EC",
+          "amount_paid": 25,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Broker Nm620 (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_9A537FFD60AC",
+          "amount_paid": 458.3,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Stock (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_3DAEE7CCB4A1",
+          "amount_paid": 500,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "TC: Fn124 Ln124 (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        }
+      ],
+      "allocationRows": [
+        {
+          "agentId": "AGT_09EF3A5C000A",
+          "kind": "team_cap",
+          "amount": 932.59,
+          "calculatedAmount": 1678.66,
+          "isOverride": true,
+          "periodStart": "2024-08-01",
+          "teamCapId": "CTC_51EC79943233"
+        }
+      ]
+    },
+    "capRecipientShortfalls": [],
+    "saveBlocked": false,
+    "saveBlockedReason": ""
+  },
+  "pageTypedSplit": {
+    "agentId": "AGT_29AD53B88AC3",
+    "splitVal": 0.09,
+    "waterfall": {
+      "grossCommission": 11875,
+      "totalCommission": 12434.55,
+      "commissionAfterOffTop": 12434.55,
+      "commissionAfterPreSplit": 9325.91,
+      "offTheTopItems": [],
+      "preSplitItems": [
+        {
+          "id": "TCI_21E292DD067D",
+          "name": "Credit",
+          "entity": "Credit",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 3108.64,
+          "amount": 3108.64
+        }
+      ],
+      "agentSplitItems": [
+        {
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "splitType": "PERCENT",
+          "splitVal": 0.91,
+          "percent": 0.91,
+          "amount": 8486.58,
+          "isPrimary": true
+        },
+        {
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "splitType": "PERCENT",
+          "splitVal": 0.09,
+          "percent": 0.09,
+          "amount": 839.33,
+          "overAllocated": false,
+          "isPrimary": false,
+          "manualSplit": true
+        }
+      ],
+      "allocationLines": [
+        {
+          "id": "AGT_09EF3A5C000A:CTC_51EC79943233:team_cap",
+          "agent_id": "AGT_09EF3A5C000A",
+          "kind": "team_cap",
+          "amount": 932.59,
+          "calculated_amount": 1697.32,
+          "is_override": true,
+          "period_start": "2024-08-01",
+          "team_cap_id": "CTC_51EC79943233",
+          "cap_name": "Fn046 Team Cap",
+          "tracked": true,
+          "cap_amount": 12000,
+          "prior_amount": 1735.48,
+          "team_percent": 20
+        }
+      ],
+      "postSplitItems": [
+        {
+          "id": "TCI_58542D6B3F18",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "Flat Cap Fee",
+          "ruleName": "Flat Cap Fee",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 60,
+          "amount": 60,
+          "level": 1
+        },
+        {
+          "id": "TCI_CE4679BCE592",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "Liability",
+          "ruleName": "Liability",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 48,
+          "amount": 48,
+          "level": 1
+        },
+        {
+          "id": "TCI_FFC95155FCFC",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "Broker Nm620",
+          "ruleName": "Broker Nm620",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 20,
+          "amount": 20,
+          "level": 1
+        },
+        {
+          "id": "TCI_BDEF5A9F70D9",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "Stock",
+          "ruleName": "Stock",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 412.47,
+          "amount": 412.47,
+          "level": 1
+        },
+        {
+          "id": "TCI_CCD6573D990D",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "TC: Fn124 Ln124",
+          "ruleName": "TC: Fn124 Ln124",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 500,
+          "amount": 500,
+          "level": 1
+        },
+        {
+          "id": "TCI_219929868961",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Liability",
+          "ruleName": "Liability",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 12,
+          "amount": 12,
+          "level": 1
+        },
+        {
+          "id": "TCI_C994F3752366",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Broker Nm620",
+          "ruleName": "Broker Nm620",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 5,
+          "amount": 5,
+          "level": 1
+        },
+        {
+          "id": "TCI_362382B28731",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Stock",
+          "ruleName": "Stock",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 45.83,
+          "amount": 45.83,
+          "level": 1
+        },
+        {
+          "id": "TCI_BF364E761B13",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Flat Cap Fee",
+          "ruleName": "Flat Cap Fee",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 14.57,
+          "amount": 14.57,
+          "level": 1
+        },
+        {
+          "id": "tpl_CTR_0B53B8068AA3",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Company Comm",
+          "ruleName": "TL Company Comm Split",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 10.69,
+          "amount": 10.69,
+          "level": 1
+        }
+      ],
+      "postSplit2Items": [
+        {
+          "id": "tpl_CTR_620B33C2B735",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "Stock",
+          "ruleName": "A1 Stock Split",
+          "note": "",
+          "type": "PERCENT",
+          "value": 0.0500005,
+          "amount": 372.31,
+          "level": 2
+        },
+        {
+          "id": "tpl_CTR_3049A32268BF",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "TC: Fn124 Ln124",
+          "ruleName": "A1 TC 1 Fee Split",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 500,
+          "amount": 500,
+          "level": 2
+        },
+        {
+          "id": "tpl_CTR_90C85BBB227A",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Stock",
+          "ruleName": "TL Stock Split",
+          "note": "",
+          "type": "PERCENT",
+          "value": 0.0500022,
+          "amount": 37.56,
+          "level": 2
+        }
+      ],
+      "agentNetAfterLevel1": {
+        "Fn011 Ln011": 7446.11,
+        "Fn046 Ln046": 751.24
+      },
+      "netPayouts": {
+        "Fn011 Ln011": 6573.8,
+        "Fn046 Ln046": 713.68,
+        "Credit": 3108.64,
+        "Flat Cap Fee": 74.57,
+        "Liability": 60,
+        "Broker Nm620": 25,
+        "Stock": 868.17,
+        "TC: Fn124 Ln124": 1000,
+        "Company Comm": 10.69
+      },
+      "agentSplitTotal": 9325.91,
+      "agentSplitExcess": 0,
+      "idleAgentIds": [],
+      "capMovedMoney": true
+    },
+    "save": {
+      "commissionItems": [
+        {
+          "step_number": 11,
+          "rule_name": "Credit",
+          "section": "PRE_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 3108.64,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_5A72B5CC6870",
+          "agent_id": null,
+          "final_amount": 3108.64
+        },
+        {
+          "step_number": 1,
+          "rule_name": "Fn011 Ln011 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.91,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 8486.58,
+          "custom_attributes": {}
+        },
+        {
+          "step_number": 2,
+          "rule_name": "Fn046 Ln046 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.09,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 839.33,
+          "custom_attributes": {
+            "manual_split": true
+          }
+        },
+        {
+          "step_number": 31,
+          "rule_name": "Flat Cap Fee",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 60,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_A62BC6AB3907",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 60
+        },
+        {
+          "step_number": 32,
+          "rule_name": "Liability",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 48,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_D3EEBD4798E4",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 48
+        },
+        {
+          "step_number": 33,
+          "rule_name": "Broker Nm620",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 20,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_CD8F0DC899EC",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 20
+        },
+        {
+          "step_number": 34,
+          "rule_name": "Stock",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 412.47,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_9A537FFD60AC",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 412.47
+        },
+        {
+          "step_number": 35,
+          "rule_name": "TC: Fn124 Ln124",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 500,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_3DAEE7CCB4A1",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 500
+        },
+        {
+          "step_number": 36,
+          "rule_name": "Liability",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 12,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_D3EEBD4798E4",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 12
+        },
+        {
+          "step_number": 37,
+          "rule_name": "Broker Nm620",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 5,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_CD8F0DC899EC",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 5
+        },
+        {
+          "step_number": 38,
+          "rule_name": "Stock",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 45.83,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_9A537FFD60AC",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 45.83
+        },
+        {
+          "step_number": 39,
+          "rule_name": "Flat Cap Fee",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 14.57,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_A62BC6AB3907",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 14.57
+        },
+        {
+          "step_number": 40,
+          "rule_name": "Company Comm",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 10.69,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_5A0A184950C5",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 10.69
+        },
+        {
+          "step_number": 51,
+          "rule_name": "Stock",
+          "section": "POST_SPLIT_L2",
+          "split_type": "PERCENT",
+          "split_value": 0.0500005,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_9A537FFD60AC",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 372.31
+        },
+        {
+          "step_number": 52,
+          "rule_name": "TC: Fn124 Ln124",
+          "section": "POST_SPLIT_L2",
+          "split_type": "AMOUNT",
+          "split_value": 500,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_3DAEE7CCB4A1",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 500
+        },
+        {
+          "step_number": 53,
+          "rule_name": "Stock",
+          "section": "POST_SPLIT_L2",
+          "split_type": "PERCENT",
+          "split_value": 0.0500022,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_9A537FFD60AC",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 37.56
+        }
+      ],
+      "payments": [
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_09EF3A5C000A",
+          "payee_entity_id": null,
+          "amount_paid": 6573.8,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn011 Ln011 (Agent) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_29AD53B88AC3",
+          "payee_entity_id": null,
+          "amount_paid": 713.68,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn046 Ln046 (Agent) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_5A72B5CC6870",
+          "amount_paid": 3108.64,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Credit (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_A62BC6AB3907",
+          "amount_paid": 74.57,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Flat Cap Fee (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_D3EEBD4798E4",
+          "amount_paid": 60,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Liability (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "BROKERAGE",
+          "agent_id": null,
+          "payee_entity_id": "ENT_CD8F0DC899EC",
+          "amount_paid": 25,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Broker Nm620 (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_9A537FFD60AC",
+          "amount_paid": 868.17,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Stock (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_3DAEE7CCB4A1",
+          "amount_paid": 1000,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "TC: Fn124 Ln124 (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_5A0A184950C5",
+          "amount_paid": 10.69,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Company Comm (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        }
+      ],
+      "allocationRows": [
+        {
+          "agentId": "AGT_09EF3A5C000A",
+          "kind": "team_cap",
+          "amount": 932.59,
+          "calculatedAmount": 1697.32,
+          "isOverride": true,
+          "periodStart": "2024-08-01",
+          "teamCapId": "CTC_51EC79943233"
+        }
+      ]
+    },
+    "capRecipientShortfalls": [
+      {
+        "recipientId": "AGT_29AD53B88AC3",
+        "name": "Fn046 Ln046",
+        "receives": 932.59,
+        "has": 839.33
+      }
+    ],
+    "saveBlocked": true,
+    "saveBlockedReason": "Fn046 Ln046's agent split is $839.33, less than the $932.59 team caps move to them."
+  },
+  "popupResubmit": {
+    "applied": {
+      "offTheTopRules": [],
+      "preSplitRules": [],
+      "postSplitRulesByAgent": {
+        "Fn011 Ln011": [
+          {
+            "id": "tpl_CTR_FE09CB17DFAB",
+            "name": "A1 Flat Cap Fee Split",
+            "entity": "Flat Cap Fee",
+            "type": "AMOUNT",
+            "value": 67.5,
+            "fromTeamCapBaseline": false
+          },
+          {
+            "id": "tpl_CTR_63821ECE5120",
+            "name": "A1 Liability Split",
+            "entity": "Liability",
+            "type": "AMOUNT",
+            "value": 54,
+            "fromTeamCapBaseline": false
+          },
+          {
+            "id": "tpl_CTR_01CCA6C2E9DF",
+            "name": "A1 Broker Nm620 Split",
+            "entity": "Broker Nm620",
+            "type": "AMOUNT",
+            "value": 22.5,
+            "fromTeamCapBaseline": false
+          }
+        ],
+        "Fn046 Ln046": [
+          {
+            "id": "tpl_CTR_0B53B8068AA3",
+            "name": "TL Company Comm Split",
+            "entity": "Company Comm",
+            "type": "AMOUNT",
+            "value": 10.69,
+            "fromTeamCapBaseline": false
+          },
+          {
+            "id": "tpl_CTR_AA24573FB919",
+            "name": "TL Flat Cap Fee Split",
+            "entity": "Flat Cap Fee",
+            "type": "AMOUNT",
+            "value": 7.18,
+            "fromTeamCapBaseline": false
+          },
+          {
+            "id": "tpl_CTR_FB34498B19AA",
+            "name": "TL Liability Split",
+            "entity": "Liability",
+            "type": "AMOUNT",
+            "value": 6,
+            "fromTeamCapBaseline": false
+          },
+          {
+            "id": "tpl_CTR_2A080FF52A20",
+            "name": "TL Broker Nm620 Split",
+            "entity": "Broker Nm620",
+            "type": "AMOUNT",
+            "value": 2.5,
+            "fromTeamCapBaseline": false
+          }
+        ]
+      },
+      "postSplit2RulesByAgent": {
+        "Fn011 Ln011": [
+          {
+            "id": "tpl_CTR_620B33C2B735",
+            "name": "A1 Stock Split",
+            "entity": "Stock",
+            "type": "PERCENT",
+            "value": 0.0500005,
+            "fromTeamCapBaseline": false
+          },
+          {
+            "id": "tpl_CTR_3049A32268BF",
+            "name": "A1 TC 1 Fee Split",
+            "entity": "TC: Fn124 Ln124",
+            "type": "AMOUNT",
+            "value": 500,
+            "fromTeamCapBaseline": false
+          }
+        ],
+        "Fn046 Ln046": [
+          {
+            "id": "tpl_CTR_90C85BBB227A",
+            "name": "TL Stock Split",
+            "entity": "Stock",
+            "type": "PERCENT",
+            "value": 0.0499967,
+            "fromTeamCapBaseline": false
+          }
+        ]
+      },
+      "agentSplits": [
+        {
+          "name": "Fn011 Ln011",
+          "splitType": "PERCENT",
+          "splitVal": 0.9000004,
+          "amount": 11191.1,
+          "remainder": false
+        },
+        {
+          "name": "Fn046 Ln046",
+          "splitType": "PERCENT",
+          "splitVal": 0.0999996,
+          "amount": 1243.45,
+          "remainder": true
+        }
+      ],
+      "calculations": [
+        {
+          "id": "CTR_9AFF9AA31323",
+          "name": "eXp Cap Reset Date",
+          "section": "Agent 1",
+          "value": {
+            "type": "text",
+            "value": "2024-08-01"
+          },
+          "dividerBelow": true
+        },
+        {
+          "id": "CTR_7F478AD484B9",
+          "name": "Company Comm Cap",
+          "section": "Agent 1",
+          "value": {
+            "type": "number",
+            "value": 4000
+          },
+          "dividerBelow": false
+        },
+        {
+          "id": "CTR_3A02CF2A27B7",
+          "name": "Prior Company Comm Contribution",
+          "section": "Agent 1",
+          "value": {
+            "type": "number",
+            "value": 4000
+          },
+          "dividerBelow": false
+        },
+        {
+          "id": "CTR_0F6CAAFCA0A8",
+          "name": "Remaining Company Comm Cap",
+          "section": "Agent 1",
+          "value": {
+            "type": "number",
+            "value": 0
+          },
+          "dividerBelow": true
+        },
+        {
+          "id": "CTR_41F0A305FC19",
+          "name": "$250 Flat Fee Cap",
+          "section": "Agent 1",
+          "value": {
+            "type": "blank"
+          },
+          "dividerBelow": false
+        },
+        {
+          "id": "CTR_D99B24A2E2B7",
+          "name": "Prior Flat Cap Fee Contribution",
+          "section": "Agent 1",
+          "value": {
+            "type": "number",
+            "value": 270.17
+          },
+          "dividerBelow": false
+        },
+        {
+          "id": "CTR_2C69D71327CD",
+          "name": "Remaining $250 Flat Fee Cap",
+          "section": "Agent 1",
+          "value": {
+            "type": "number",
+            "value": 0
+          },
+          "dividerBelow": true
+        },
+        {
+          "id": "CTR_39D258F5282A",
+          "name": "Liability Cap",
+          "section": "Agent 1",
+          "value": {
+            "type": "number",
+            "value": 750
+          },
+          "dividerBelow": false
+        },
+        {
+          "id": "CTR_020C6CB96EE6",
+          "name": "Prior Liability Contribution",
+          "section": "Agent 1",
+          "value": {
+            "type": "number",
+            "value": 258
+          },
+          "dividerBelow": false
+        },
+        {
+          "id": "CTR_F6E1A425804D",
+          "name": "Remaining Liability Cap",
+          "section": "Agent 1",
+          "value": {
+            "type": "number",
+            "value": 492
+          },
+          "dividerBelow": false
+        },
+        {
+          "id": "CTR_E39B5AF302E9",
+          "name": "eXp Cap Reset Date",
+          "section": "Team Lead",
+          "value": {
+            "type": "text",
+            "value": "2024-12-01"
+          },
+          "dividerBelow": true
+        },
+        {
+          "id": "CTR_FD262D78D4A9",
+          "name": "Company Comm Cap",
+          "section": "Team Lead",
+          "value": {
+            "type": "number",
+            "value": 16000
+          },
+          "dividerBelow": false
+        },
+        {
+          "id": "CTR_144E88836338",
+          "name": "Prior Company Comm Contribution",
+          "section": "Team Lead",
+          "value": {
+            "type": "number",
+            "value": 15989.31
+          },
+          "dividerBelow": false
+        },
+        {
+          "id": "CTR_08D8CC80C997",
+          "name": "Remaining Company Comm Cap",
+          "section": "Team Lead",
+          "value": {
+            "type": "number",
+            "value": 10.69000000000051
+          },
+          "dividerBelow": true
+        },
+        {
+          "id": "CTR_A130A6767317",
+          "name": "$250 Flat Fee Cap",
+          "section": "Team Lead",
+          "value": {
+            "type": "number",
+            "value": 0
+          },
+          "dividerBelow": false
+        },
+        {
+          "id": "CTR_5833D879B259",
+          "name": "Prior Flat Cap Fee Contribution",
+          "section": "Team Lead",
+          "value": {
+            "type": "number",
+            "value": 129.42000000000002
+          },
+          "dividerBelow": false
+        },
+        {
+          "id": "CTR_29F9076B04DE",
+          "name": "Remaining $250 Flat Fee Cap",
+          "section": "Team Lead",
+          "value": {
+            "type": "number",
+            "value": 0
+          },
+          "dividerBelow": true
+        },
+        {
+          "id": "CTR_097452F7F491",
+          "name": "Liability Cap",
+          "section": "Team Lead",
+          "value": {
+            "type": "number",
+            "value": 750
+          },
+          "dividerBelow": false
+        },
+        {
+          "id": "CTR_F32A78829A82",
+          "name": "Prior Liability Contribution",
+          "section": "Team Lead",
+          "value": {
+            "type": "number",
+            "value": 539.9
+          },
+          "dividerBelow": false
+        },
+        {
+          "id": "CTR_A4017DA32A39",
+          "name": "Remaining Liability Cap",
+          "section": "Team Lead",
+          "value": {
+            "type": "number",
+            "value": 210.10000000000002
+          },
+          "dividerBelow": false
+        }
+      ]
+    },
+    "teamCapIds": [
+      "CTC_51EC79943233"
+    ],
+    "teamCapRecipients": [
+      {
+        "id": "AGT_29AD53B88AC3",
+        "name": "Fn046 Ln046",
+        "isTeamLead": true
+      }
+    ],
+    "waterfall": {
+      "grossCommission": 11875,
+      "totalCommission": 12434.55,
+      "commissionAfterOffTop": 12434.55,
+      "commissionAfterPreSplit": 12434.55,
+      "offTheTopItems": [],
+      "preSplitItems": [],
+      "agentSplitItems": [
+        {
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "splitType": "PERCENT",
+          "splitVal": 0.9000004,
+          "percent": 0.9000004,
+          "amount": 10258.51,
+          "isPrimary": true,
+          "grossAmount": 11191.1,
+          "displayPercent": 0.8250005,
+          "capAdjusted": true
+        },
+        {
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "splitType": "PERCENT",
+          "splitVal": 0.0999996,
+          "percent": 0.0999996,
+          "amount": 2176.04,
+          "overAllocated": false,
+          "isPrimary": false,
+          "manualSplit": false,
+          "grossAmount": 1243.45,
+          "displayPercent": 0.1749995,
+          "capAdjusted": true
+        }
+      ],
+      "allocationLines": [
+        {
+          "id": "AGT_09EF3A5C000A:CTC_51EC79943233:team_cap",
+          "agent_id": "AGT_09EF3A5C000A",
+          "kind": "team_cap",
+          "amount": 932.59,
+          "calculated_amount": 2238.22,
+          "is_override": true,
+          "period_start": "2024-08-01",
+          "team_cap_id": "CTC_51EC79943233",
+          "cap_name": "Fn046 Team Cap",
+          "tracked": true,
+          "cap_amount": 12000,
+          "prior_amount": 1735.48,
+          "team_percent": 20
+        }
+      ],
+      "postSplitItems": [
+        {
+          "id": "tpl_CTR_FE09CB17DFAB",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "Flat Cap Fee",
+          "ruleName": "A1 Flat Cap Fee Split",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 61.88,
+          "amount": 61.88,
+          "level": 1
+        },
+        {
+          "id": "tpl_CTR_63821ECE5120",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "Liability",
+          "ruleName": "A1 Liability Split",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 49.5,
+          "amount": 49.5,
+          "level": 1
+        },
+        {
+          "id": "tpl_CTR_01CCA6C2E9DF",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "Broker Nm620",
+          "ruleName": "A1 Broker Nm620 Split",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 20.63,
+          "amount": 20.63,
+          "level": 1
+        },
+        {
+          "id": "tpl_CTR_0B53B8068AA3",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Company Comm",
+          "ruleName": "TL Company Comm Split",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 10.69,
+          "amount": 10.69,
+          "level": 1
+        },
+        {
+          "id": "tpl_CTR_AA24573FB919",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Flat Cap Fee",
+          "ruleName": "TL Flat Cap Fee Split",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 12.8,
+          "amount": 12.8,
+          "level": 1
+        },
+        {
+          "id": "tpl_CTR_FB34498B19AA",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Liability",
+          "ruleName": "TL Liability Split",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 10.5,
+          "amount": 10.5,
+          "level": 1
+        },
+        {
+          "id": "tpl_CTR_2A080FF52A20",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Broker Nm620",
+          "ruleName": "TL Broker Nm620 Split",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 4.37,
+          "amount": 4.37,
+          "level": 1
+        }
+      ],
+      "postSplit2Items": [
+        {
+          "id": "tpl_CTR_620B33C2B735",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "Stock",
+          "ruleName": "A1 Stock Split",
+          "note": "",
+          "type": "PERCENT",
+          "value": 0.0500005,
+          "amount": 506.33,
+          "level": 2
+        },
+        {
+          "id": "tpl_CTR_3049A32268BF",
+          "agentId": "AGT_09EF3A5C000A",
+          "agentName": "Fn011 Ln011",
+          "entity": "TC: Fn124 Ln124",
+          "ruleName": "A1 TC 1 Fee Split",
+          "note": "",
+          "type": "AMOUNT",
+          "value": 500,
+          "amount": 500,
+          "level": 2
+        },
+        {
+          "id": "tpl_CTR_90C85BBB227A",
+          "agentId": "AGT_29AD53B88AC3",
+          "agentName": "Fn046 Ln046",
+          "entity": "Stock",
+          "ruleName": "TL Stock Split",
+          "note": "",
+          "type": "PERCENT",
+          "value": 0.0499981,
+          "amount": 106.88,
+          "level": 2
+        }
+      ],
+      "agentNetAfterLevel1": {
+        "Fn011 Ln011": 10126.5,
+        "Fn046 Ln046": 2137.68
+      },
+      "netPayouts": {
+        "Fn011 Ln011": 9120.17,
+        "Fn046 Ln046": 2030.8,
+        "Flat Cap Fee": 74.68,
+        "Liability": 60,
+        "Broker Nm620": 25,
+        "Company Comm": 10.69,
+        "Stock": 613.21,
+        "TC: Fn124 Ln124": 500
+      },
+      "agentSplitTotal": 12434.55,
+      "agentSplitExcess": 0,
+      "idleAgentIds": [],
+      "capMovedMoney": true
+    },
+    "save": {
+      "commissionItems": [
+        {
+          "step_number": 1,
+          "rule_name": "Fn011 Ln011 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.9000004,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 10258.51,
+          "custom_attributes": {}
+        },
+        {
+          "step_number": 2,
+          "rule_name": "Fn046 Ln046 Split",
+          "section": "AGENT_SPLIT",
+          "split_type": "PERCENT",
+          "split_value": 0.0999996,
+          "note": null,
+          "payee_type": "AGENT",
+          "payee_entity_id": null,
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 2176.04,
+          "custom_attributes": {}
+        },
+        {
+          "step_number": 31,
+          "rule_name": "Flat Cap Fee",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 61.88,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_A62BC6AB3907",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 61.88
+        },
+        {
+          "step_number": 32,
+          "rule_name": "Liability",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 49.5,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_D3EEBD4798E4",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 49.5
+        },
+        {
+          "step_number": 33,
+          "rule_name": "Broker Nm620",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 20.63,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_CD8F0DC899EC",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 20.63
+        },
+        {
+          "step_number": 34,
+          "rule_name": "Company Comm",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 10.69,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_5A0A184950C5",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 10.69
+        },
+        {
+          "step_number": 35,
+          "rule_name": "Flat Cap Fee",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 12.8,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_A62BC6AB3907",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 12.8
+        },
+        {
+          "step_number": 36,
+          "rule_name": "Liability",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 10.5,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_D3EEBD4798E4",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 10.5
+        },
+        {
+          "step_number": 37,
+          "rule_name": "Broker Nm620",
+          "section": "POST_SPLIT",
+          "split_type": "AMOUNT",
+          "split_value": 4.37,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_CD8F0DC899EC",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 4.37
+        },
+        {
+          "step_number": 51,
+          "rule_name": "Stock",
+          "section": "POST_SPLIT_L2",
+          "split_type": "PERCENT",
+          "split_value": 0.0500005,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_9A537FFD60AC",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 506.33
+        },
+        {
+          "step_number": 52,
+          "rule_name": "TC: Fn124 Ln124",
+          "section": "POST_SPLIT_L2",
+          "split_type": "AMOUNT",
+          "split_value": 500,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_3DAEE7CCB4A1",
+          "agent_id": "AGT_09EF3A5C000A",
+          "final_amount": 500
+        },
+        {
+          "step_number": 53,
+          "rule_name": "Stock",
+          "section": "POST_SPLIT_L2",
+          "split_type": "PERCENT",
+          "split_value": 0.0499981,
+          "note": null,
+          "payee_type": "ENTITY",
+          "payee_entity_id": "ENT_9A537FFD60AC",
+          "agent_id": "AGT_29AD53B88AC3",
+          "final_amount": 106.88
+        }
+      ],
+      "payments": [
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_09EF3A5C000A",
+          "payee_entity_id": null,
+          "amount_paid": 9120.17,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn011 Ln011 (Agent) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "AGENT",
+          "agent_id": "AGT_29AD53B88AC3",
+          "payee_entity_id": null,
+          "amount_paid": 2030.8,
+          "payment_method": "ACH",
+          "payment_status": "Ready to Pay",
+          "disbursement_type": "AGENT_NET",
+          "notes": "Fn046 Ln046 (Agent) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_A62BC6AB3907",
+          "amount_paid": 74.68,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Flat Cap Fee (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_D3EEBD4798E4",
+          "amount_paid": 60,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Liability (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "BROKERAGE",
+          "agent_id": null,
+          "payee_entity_id": "ENT_CD8F0DC899EC",
+          "amount_paid": 25,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Broker Nm620 (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_5A0A184950C5",
+          "amount_paid": 10.69,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Company Comm (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_9A537FFD60AC",
+          "amount_paid": 613.21,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "Stock (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        },
+        {
+          "payee_type": "ENTITY",
+          "agent_id": null,
+          "payee_entity_id": "ENT_3DAEE7CCB4A1",
+          "amount_paid": 500,
+          "payment_method": "Escrow Wire",
+          "payment_status": "Pending Escrow Wire",
+          "disbursement_type": "THIRD_PARTY_DISBURSEMENT",
+          "notes": "TC: Fn124 Ln124 (Entity) - Primary: Fn011 Ln011",
+          "payment_date": "2025-01-17"
+        }
+      ],
+      "allocationRows": [
+        {
+          "agentId": "AGT_09EF3A5C000A",
+          "kind": "team_cap",
+          "amount": 932.59,
+          "calculatedAmount": 2238.22,
+          "isOverride": true,
+          "periodStart": "2024-08-01",
+          "teamCapId": "CTC_51EC79943233"
+        }
+      ]
+    },
+    "capRecipientShortfalls": [],
+    "saveBlocked": false,
+    "saveBlockedReason": ""
+  },
+  "driftPanel": {
+    "saved": "broker nm620:25.00|credit:3108.64|flat cap fee:75.00|fn011 ln011:7336.85|fn046 ln046:870.76|liability:60.00|stock:458.30|tc: fn124 ln124:500.00",
+    "replayed": [
+      "broker nm620:25.00|company comm:10.69|flat cap fee:74.68|fn011 ln011:9120.17|fn046 ln046:2030.80|liability:60.00|stock:613.21|tc: fn124 ln124:500.00"
+    ],
+    "changed": true
+  },
+  "driftList": {
+    "saved": "broker nm620:25.00|credit:3108.64|flat cap fee:75.00|fn011 ln011:7336.85|fn046 ln046:870.76|liability:60.00|stock:458.30|tc: fn124 ln124:500.00",
+    "replayed": [
+      "broker nm620:25.00|company comm:10.69|flat cap fee:74.68|fn011 ln011:9120.17|fn046 ln046:2030.80|liability:60.00|stock:613.21|tc: fn124 ln124:500.00"
+    ],
+    "changed": true
+  },
+  "driftPanelSavedManualSplit": {
+    "saved": "broker nm620:25.00|credit:3108.64|flat cap fee:75.00|fn011 ln011:7336.85|fn046 ln046:870.76|liability:60.00|stock:458.30|tc: fn124 ln124:500.00",
+    "replayed": [
+      "broker nm620:25.00|company comm:10.69|flat cap fee:74.68|fn011 ln011:9120.17|fn046 ln046:2030.80|liability:60.00|stock:613.21|tc: fn124 ln124:500.00"
+    ],
+    "changed": true
+  },
+  "driftListSavedManualSplit": {
+    "saved": "broker nm620:25.00|credit:3108.64|flat cap fee:75.00|fn011 ln011:7336.85|fn046 ln046:870.76|liability:60.00|stock:458.30|tc: fn124 ln124:500.00",
+    "replayed": [
+      "broker nm620:25.00|company comm:10.69|flat cap fee:74.68|fn011 ln011:9120.17|fn046 ln046:2030.80|liability:60.00|stock:613.21|tc: fn124 ln124:500.00"
+    ],
+    "changed": true
+  }
+}
