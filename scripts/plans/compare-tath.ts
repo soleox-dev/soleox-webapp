@@ -12,6 +12,7 @@ import path from 'node:path';
 import {
   computePlanDeal,
   loadPlanPresets,
+  proposedExpPresetKey,
   type PlanAgentInput,
   type PlanHistoryLine,
   type PlanSide,
@@ -51,11 +52,7 @@ const attr = (agent: Row, key: string) => {
 };
 
 export function proposedPlanKey(agent: Row): string {
-  const cap = money(attr(agent, 'custom_company_comm_cap'));
-  const feeCap = money(attr(agent, 'custom_exp_250_fee_cap'));
-  if (cap === 16000) return agent.is_team_lead || !feeCap ? 'exp-16000-team-lead' : 'exp-16000';
-  if (cap === 8000) return 'exp-8000';
-  return 'exp-4000';
+  return proposedExpPresetKey(attr(agent, 'custom_company_comm_cap'), attr(agent, 'custom_exp_250_fee_cap')) || 'exp-4000';
 }
 
 export type LineDiff = {

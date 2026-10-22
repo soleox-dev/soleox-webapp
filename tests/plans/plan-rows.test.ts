@@ -8,6 +8,7 @@ import {
   planAgentFromRow,
   planHistoryFromItems,
   planInForce,
+  proposedExpPresetKey,
   type CommissionPlanRow,
   type CommissionPlanVersionRow,
   type PlanSettingsRow,
@@ -148,6 +149,24 @@ describe('statuses that count', () => {
 
   it('the client can choose the statuses', () => {
     expect(planHistoryFromItems(items, deals, { cap_date_field_key: 'closing_date', counting_statuses: ['Closed'] }).map((line) => line.dealId)).toEqual(['TXN_C']);
+  });
+});
+
+describe('proposed eXp plans from today\'s cap fields', () => {
+  it('follows the cap and the $250 fee cap, not the Team Lead flag', () => {
+    expect(proposedExpPresetKey(4000, null)).toBe('exp-4000');
+    expect(proposedExpPresetKey('$8,000', '5000')).toBe('exp-8000');
+    expect(proposedExpPresetKey(16000, 5000)).toBe('exp-16000');
+    expect(proposedExpPresetKey(16000, 0)).toBe('exp-16000-team-lead');
+    expect(proposedExpPresetKey('16000', '')).toBe('exp-16000-team-lead');
+    expect(proposedExpPresetKey('', 5000)).toBeNull();
+    expect(proposedExpPresetKey(12000, 5000)).toBeNull();
+  });
+
+  it('a stock rate above zero counts as opted in', () => {
+    const plan = planInForce(planRow, versions, '2026-06-15');
+    const opted = (value: unknown) => planAgentFromRow({ id: 'A', agent_name: 'A', custom_attributes: { custom_plan_stock: value } }, { plan, settings, splitPercent: 100 }).optedIn;
+    expect([opted(0.05), opted('0.05'), opted('Yes'), opted(0), opted(''), opted('No')]).toEqual([['stock'], ['stock'], ['stock'], [], [], []]);
   });
 });
 
