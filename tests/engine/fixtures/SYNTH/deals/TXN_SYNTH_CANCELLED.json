@@ -1,0 +1,58 @@
+{
+  "deal": {
+    "id": "TXN_SYNTH_CANCELLED",
+    "client_id": "SYNTH",
+    "tms_id": null,
+    "transaction_status": "Cancelled",
+    "transaction_side": "Buyer",
+    "property_address": "LED Example Street",
+    "client_name": "Client",
+    "lead_source": "Zillow",
+    "sales_price": 1000000,
+    "gci_perc": 0.03,
+    "gci_amount": 30000,
+    "total_commission": 30000,
+    "closing_date": null,
+    "agent_id": "AGT_000000000004",
+    "custom_attributes": {},
+    "archived": false
+  },
+  "items": [
+    {
+      "id": "TCI_CELLED000022",
+      "client_id": "SYNTH",
+      "transaction_id": "TXN_SYNTH_CANCELLED",
+      "submission_id": null,
+      "step_number": 1,
+      "section": "AGENT_SPLIT",
+      "split_type": "PERCENT",
+      "split_value": 0.7,
+      "payee_type": "AGENT",
+      "payee_entity_id": null,
+      "agent_id": "AGT_000000000004",
+      "final_amount": 21000,
+      "archived": false,
+      "custom_attributes": {}
+    },
+    {
+      "id": "TCI_CELLED000023",
+      "client_id": "SYNTH",
+      "transaction_id": "TXN_SYNTH_CANCELLED",
+      "submission_id": null,
+      "step_number": 2,
+      "section": "AGENT_SPLIT",
+      "split_type": "AMOUNT",
+      "split_value": 9000,
+      "payee_type": "AGENT",
+      "payee_entity_id": null,
+      "agent_id": "AGT_000000000005",
+      "final_amount": 9000,
+      "archived": false,
+      "custom_attributes": {}
+    }
+  ],
+  "submissions": [],
+  "teamCapRows": [],
+  "allocationRows": [],
+  "ledger": []
+}

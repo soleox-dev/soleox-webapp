@@ -1,0 +1,646 @@
+{
+  "clientId": "SYNTH",
+  "agents": [
+    {
+      "id": "AGT_000000000001",
+      "client_id": "SYNTH",
+      "agent_name": "Fn001 Ln001",
+      "first_name": "Fn001",
+      "last_name": "Ln001",
+      "agent_email": null,
+      "agent_phone": null,
+      "group_id": "West",
+      "agent_status": "Active",
+      "is_team_lead": true,
+      "archived": false,
+      "created_at": "2024-01-01T00:00:00Z",
+      "custom_exp_cap_date": "2026-03-01",
+      "custom_team_cap_split": null,
+      "custom_team_cap_amount": 6000,
+      "custom_east_cap_split": "10%",
+      "custom_east_cap_amount": null
+    },
+    {
+      "id": "AGT_000000000002",
+      "client_id": "SYNTH",
+      "agent_name": "Fn002 Ln002",
+      "first_name": "Fn002",
+      "last_name": "Ln002",
+      "agent_email": null,
+      "agent_phone": null,
+      "group_id": "East",
+      "agent_status": "Active",
+      "is_team_lead": true,
+      "archived": false,
+      "created_at": "2024-01-02T00:00:00Z",
+      "custom_exp_cap_date": "2026-03-01",
+      "custom_team_cap_split": 20,
+      "custom_team_cap_amount": 6000,
+      "custom_east_cap_split": null,
+      "custom_east_cap_amount": null
+    },
+    {
+      "id": "AGT_000000000003",
+      "client_id": "SYNTH",
+      "agent_name": "Fn003 Ln003",
+      "first_name": "Fn003",
+      "last_name": "Ln003",
+      "agent_email": null,
+      "agent_phone": null,
+      "group_id": "West",
+      "agent_status": "Active",
+      "is_team_lead": false,
+      "archived": false,
+      "created_at": "2024-01-03T00:00:00Z",
+      "custom_exp_cap_date": "2026-03-01",
+      "custom_team_cap_split": 20,
+      "custom_team_cap_amount": 6000,
+      "custom_east_cap_split": "10%",
+      "custom_east_cap_amount": null
+    },
+    {
+      "id": "AGT_000000000004",
+      "client_id": "SYNTH",
+      "agent_name": "Fn004 Ln004",
+      "first_name": "Fn004",
+      "last_name": "Ln004",
+      "agent_email": null,
+      "agent_phone": null,
+      "group_id": "East",
+      "agent_status": "Active",
+      "is_team_lead": false,
+      "archived": false,
+      "created_at": "2024-01-04T00:00:00Z",
+      "custom_exp_cap_date": "2026-03-01",
+      "custom_team_cap_split": 20,
+      "custom_team_cap_amount": 6000,
+      "custom_east_cap_split": "10%",
+      "custom_east_cap_amount": null
+    },
+    {
+      "id": "AGT_000000000005",
+      "client_id": "SYNTH",
+      "agent_name": "Fn005 Ln005",
+      "first_name": "Fn005",
+      "last_name": "Ln005",
+      "agent_email": null,
+      "agent_phone": null,
+      "group_id": "West",
+      "agent_status": "Active",
+      "is_team_lead": false,
+      "archived": false,
+      "created_at": "2024-01-05T00:00:00Z",
+      "custom_exp_cap_date": "2026-03-01",
+      "custom_team_cap_split": 20,
+      "custom_team_cap_amount": 1500,
+      "custom_east_cap_split": "10%",
+      "custom_east_cap_amount": null
+    }
+  ],
+  "lookupAgents": [
+    {
+      "id": "AGT_000000000001",
+      "client_id": "SYNTH",
+      "agent_name": "Fn001 Ln001",
+      "first_name": "Fn001",
+      "last_name": "Ln001",
+      "agent_email": null,
+      "agent_phone": null,
+      "group_id": "West",
+      "agent_status": "Active",
+      "is_team_lead": true,
+      "archived": false,
+      "created_at": "2024-01-01T00:00:00Z",
+      "custom_exp_cap_date": "2026-03-01",
+      "custom_team_cap_split": null,
+      "custom_team_cap_amount": 6000,
+      "custom_east_cap_split": "10%",
+      "custom_east_cap_amount": null
+    },
+    {
+      "id": "AGT_000000000002",
+      "client_id": "SYNTH",
+      "agent_name": "Fn002 Ln002",
+      "first_name": "Fn002",
+      "last_name": "Ln002",
+      "agent_email": null,
+      "agent_phone": null,
+      "group_id": "East",
+      "agent_status": "Active",
+      "is_team_lead": true,
+      "archived": false,
+      "created_at": "2024-01-02T00:00:00Z",
+      "custom_exp_cap_date": "2026-03-01",
+      "custom_team_cap_split": 20,
+      "custom_team_cap_amount": 6000,
+      "custom_east_cap_split": null,
+      "custom_east_cap_amount": null
+    },
+    {
+      "id": "AGT_000000000003",
+      "client_id": "SYNTH",
+      "agent_name": "Fn003 Ln003",
+      "first_name": "Fn003",
+      "last_name": "Ln003",
+      "agent_email": null,
+      "agent_phone": null,
+      "group_id": "West",
+      "agent_status": "Active",
+      "is_team_lead": false,
+      "archived": false,
+      "created_at": "2024-01-03T00:00:00Z",
+      "custom_exp_cap_date": "2026-03-01",
+      "custom_team_cap_split": 20,
+      "custom_team_cap_amount": 6000,
+      "custom_east_cap_split": "10%",
+      "custom_east_cap_amount": null
+    },
+    {
+      "id": "AGT_000000000004",
+      "client_id": "SYNTH",
+      "agent_name": "Fn004 Ln004",
+      "first_name": "Fn004",
+      "last_name": "Ln004",
+      "agent_email": null,
+      "agent_phone": null,
+      "group_id": "East",
+      "agent_status": "Active",
+      "is_team_lead": false,
+      "archived": false,
+      "created_at": "2024-01-04T00:00:00Z",
+      "custom_exp_cap_date": "2026-03-01",
+      "custom_team_cap_split": 20,
+      "custom_team_cap_amount": 6000,
+      "custom_east_cap_split": "10%",
+      "custom_east_cap_amount": null
+    },
+    {
+      "id": "AGT_000000000005",
+      "client_id": "SYNTH",
+      "agent_name": "Fn005 Ln005",
+      "first_name": "Fn005",
+      "last_name": "Ln005",
+      "agent_email": null,
+      "agent_phone": null,
+      "group_id": "West",
+      "agent_status": "Active",
+      "is_team_lead": false,
+      "archived": false,
+      "created_at": "2024-01-05T00:00:00Z",
+      "custom_exp_cap_date": "2026-03-01",
+      "custom_team_cap_split": 20,
+      "custom_team_cap_amount": 1500,
+      "custom_east_cap_split": "10%",
+      "custom_east_cap_amount": null
+    }
+  ],
+  "fieldConfigurations": [
+    {
+      "id": "CFC_sales_price",
+      "client_id": "SYNTH",
+      "target_table": "transactions",
+      "field_key": "sales_price",
+      "field_label": "sales_price",
+      "field_type": "CURRENCY",
+      "section_name": "General",
+      "is_enabled": true,
+      "sort_order": 1
+    },
+    {
+      "id": "CFC_gci_perc",
+      "client_id": "SYNTH",
+      "target_table": "transactions",
+      "field_key": "gci_perc",
+      "field_label": "gci_perc",
+      "field_type": "PERCENT",
+      "section_name": "General",
+      "is_enabled": true,
+      "sort_order": 2
+    },
+    {
+      "id": "CFC_total_commission",
+      "client_id": "SYNTH",
+      "target_table": "transactions",
+      "field_key": "total_commission",
+      "field_label": "total_commission",
+      "field_type": "CURRENCY",
+      "section_name": "General",
+      "is_enabled": true,
+      "sort_order": 3
+    },
+    {
+      "id": "CFC_lead_source",
+      "client_id": "SYNTH",
+      "target_table": "transactions",
+      "field_key": "lead_source",
+      "field_label": "lead_source",
+      "field_type": "SELECT",
+      "section_name": "General",
+      "is_enabled": true,
+      "sort_order": 4
+    },
+    {
+      "id": "CFC_transaction_side",
+      "client_id": "SYNTH",
+      "target_table": "transactions",
+      "field_key": "transaction_side",
+      "field_label": "transaction_side",
+      "field_type": "SELECT",
+      "section_name": "General",
+      "is_enabled": true,
+      "sort_order": 5
+    },
+    {
+      "id": "CFC_closing_date",
+      "client_id": "SYNTH",
+      "target_table": "transactions",
+      "field_key": "closing_date",
+      "field_label": "closing_date",
+      "field_type": "DATE",
+      "section_name": "General",
+      "is_enabled": true,
+      "sort_order": 6
+    },
+    {
+      "id": "CFC_agent_id",
+      "client_id": "SYNTH",
+      "target_table": "transactions",
+      "field_key": "agent_id",
+      "field_label": "agent_id",
+      "field_type": "AGENT_PICKER",
+      "section_name": "General",
+      "is_enabled": true,
+      "sort_order": 7
+    },
+    {
+      "id": "CFC_transaction_status",
+      "client_id": "SYNTH",
+      "target_table": "transactions",
+      "field_key": "transaction_status",
+      "field_label": "transaction_status",
+      "field_type": "SELECT",
+      "section_name": "General",
+      "is_enabled": true,
+      "sort_order": 8
+    }
+  ],
+  "schema": {
+    "catalog": [
+      {
+        "id": "CFC_sales_price",
+        "client_id": "SYNTH",
+        "target_table": "transactions",
+        "field_key": "sales_price",
+        "field_label": "sales_price",
+        "field_type": "CURRENCY",
+        "section_name": "General",
+        "is_enabled": true,
+        "sort_order": 1
+      },
+      {
+        "id": "CFC_gci_perc",
+        "client_id": "SYNTH",
+        "target_table": "transactions",
+        "field_key": "gci_perc",
+        "field_label": "gci_perc",
+        "field_type": "PERCENT",
+        "section_name": "General",
+        "is_enabled": true,
+        "sort_order": 2
+      },
+      {
+        "id": "CFC_total_commission",
+        "client_id": "SYNTH",
+        "target_table": "transactions",
+        "field_key": "total_commission",
+        "field_label": "total_commission",
+        "field_type": "CURRENCY",
+        "section_name": "General",
+        "is_enabled": true,
+        "sort_order": 3
+      },
+      {
+        "id": "CFC_lead_source",
+        "client_id": "SYNTH",
+        "target_table": "transactions",
+        "field_key": "lead_source",
+        "field_label": "lead_source",
+        "field_type": "SELECT",
+        "section_name": "General",
+        "is_enabled": true,
+        "sort_order": 4
+      },
+      {
+        "id": "CFC_transaction_side",
+        "client_id": "SYNTH",
+        "target_table": "transactions",
+        "field_key": "transaction_side",
+        "field_label": "transaction_side",
+        "field_type": "SELECT",
+        "section_name": "General",
+        "is_enabled": true,
+        "sort_order": 5
+      },
+      {
+        "id": "CFC_closing_date",
+        "client_id": "SYNTH",
+        "target_table": "transactions",
+        "field_key": "closing_date",
+        "field_label": "closing_date",
+        "field_type": "DATE",
+        "section_name": "General",
+        "is_enabled": true,
+        "sort_order": 6
+      },
+      {
+        "id": "CFC_agent_id",
+        "client_id": "SYNTH",
+        "target_table": "transactions",
+        "field_key": "agent_id",
+        "field_label": "agent_id",
+        "field_type": "AGENT_PICKER",
+        "section_name": "General",
+        "is_enabled": true,
+        "sort_order": 7
+      },
+      {
+        "id": "CFC_transaction_status",
+        "client_id": "SYNTH",
+        "target_table": "transactions",
+        "field_key": "transaction_status",
+        "field_label": "transaction_status",
+        "field_type": "SELECT",
+        "section_name": "General",
+        "is_enabled": true,
+        "sort_order": 8
+      }
+    ]
+  },
+  "entities": [
+    {
+      "id": "ENT_00000000000A",
+      "client_id": "SYNTH",
+      "entity_name": "Company Comm",
+      "entity_type": "BROKERAGE",
+      "waterfall_sort_order": 1
+    },
+    {
+      "id": "ENT_00000000000B",
+      "client_id": "SYNTH",
+      "entity_name": "Referral Partner",
+      "entity_type": "REFERRAL",
+      "waterfall_sort_order": 2
+    },
+    {
+      "id": "ENT_00000000000C",
+      "client_id": "SYNTH",
+      "entity_name": "TC Fee",
+      "entity_type": "VENDOR",
+      "waterfall_sort_order": 3
+    },
+    {
+      "id": "ENT_00000000000D",
+      "client_id": "SYNTH",
+      "entity_name": "Stock Program",
+      "entity_type": "PROGRAM",
+      "waterfall_sort_order": 4
+    }
+  ],
+  "templates": [
+    {
+      "id": "TPL_SYNTH0000001",
+      "client_id": "SYNTH",
+      "template_name": "Synthetic Template",
+      "is_active": true,
+      "eligibility_formula": "transaction_status <> \"Cancelled\""
+    }
+  ],
+  "bundles": {
+    "TPL_SYNTH0000001": {
+      "parameters": [
+        {
+          "id": "TPP_agent_1",
+          "template_id": "TPL_SYNTH0000001",
+          "parameter_name": "agent_1",
+          "parameter_key": "agent_1",
+          "data_type": "AGENT_PICKER",
+          "sort_order": 1,
+          "is_user_editable": true
+        },
+        {
+          "id": "TPP_a1_split_percent",
+          "template_id": "TPL_SYNTH0000001",
+          "parameter_name": "a1_split_percent",
+          "parameter_key": "a1_split_percent",
+          "data_type": "PERCENT",
+          "sort_order": 2,
+          "is_user_editable": true
+        },
+        {
+          "id": "TPP_agent_2",
+          "template_id": "TPL_SYNTH0000001",
+          "parameter_name": "agent_2",
+          "parameter_key": "agent_2",
+          "data_type": "AGENT_PICKER",
+          "sort_order": 3,
+          "is_user_editable": true
+        },
+        {
+          "id": "TPP_a2_split_percent",
+          "template_id": "TPL_SYNTH0000001",
+          "parameter_name": "a2_split_percent",
+          "parameter_key": "a2_split_percent",
+          "data_type": "PERCENT",
+          "sort_order": 4,
+          "is_user_editable": true
+        },
+        {
+          "id": "TPP_team_lead",
+          "template_id": "TPL_SYNTH0000001",
+          "parameter_name": "team_lead",
+          "parameter_key": "team_lead",
+          "data_type": "AGENT_PICKER",
+          "sort_order": 5,
+          "is_user_editable": true
+        },
+        {
+          "id": "TPP_referral_amount",
+          "template_id": "TPL_SYNTH0000001",
+          "parameter_name": "referral_amount",
+          "parameter_key": "referral_amount",
+          "data_type": "CURRENCY",
+          "sort_order": 6,
+          "is_user_editable": true
+        },
+        {
+          "id": "TPP_a1_cap_reset",
+          "template_id": "TPL_SYNTH0000001",
+          "parameter_name": "a1_cap_reset",
+          "parameter_key": "a1_cap_reset",
+          "data_type": "DATE",
+          "sort_order": 7,
+          "is_user_editable": true
+        },
+        {
+          "id": "TPP_stock_option",
+          "template_id": "TPL_SYNTH0000001",
+          "parameter_name": "stock_option",
+          "parameter_key": "stock_option",
+          "data_type": "SELECT",
+          "sort_order": 8,
+          "is_user_editable": true
+        }
+      ],
+      "steps": [
+        {
+          "id": "TPR_001",
+          "template_id": "TPL_SYNTH0000001",
+          "step_number": 1,
+          "show_in_popup": false,
+          "rule_name": "Referral",
+          "rule_key": "referral",
+          "section": "Off-the-top",
+          "payee_entity_id": "ENT_00000000000B",
+          "apply_condition": "referral_amount > 0",
+          "calculation_formula": "referral_amount",
+          "split_type": "AMOUNT"
+        },
+        {
+          "id": "TPR_002",
+          "template_id": "TPL_SYNTH0000001",
+          "step_number": 2,
+          "show_in_popup": false,
+          "rule_name": "TC Fee",
+          "rule_key": "tc_fee",
+          "section": "Pre-splits",
+          "payee_entity_id": "ENT_00000000000C",
+          "calculation_formula": "250",
+          "split_type": "AMOUNT"
+        },
+        {
+          "id": "TPR_003",
+          "template_id": "TPL_SYNTH0000001",
+          "step_number": 3,
+          "show_in_popup": false,
+          "rule_name": "Agent 1 Split",
+          "rule_key": "a1_split",
+          "section": "Agent Splits",
+          "agent_key": "agent_1",
+          "calculation_formula": "baseline * a1_split_percent",
+          "split_type": "PERCENT"
+        },
+        {
+          "id": "TPR_004",
+          "template_id": "TPL_SYNTH0000001",
+          "step_number": 4,
+          "show_in_popup": false,
+          "rule_name": "Agent 2 Split",
+          "rule_key": "a2_split",
+          "section": "Agent Splits",
+          "agent_key": "agent_2",
+          "apply_condition": "agent_2 <> \"\"",
+          "calculation_formula": "baseline * a2_split_percent",
+          "split_type": "PERCENT"
+        },
+        {
+          "id": "TPR_005",
+          "template_id": "TPL_SYNTH0000001",
+          "step_number": 5,
+          "show_in_popup": false,
+          "rule_name": "Team Lead Split",
+          "rule_key": "tl_split",
+          "section": "Agent Splits",
+          "agent_key": "team_lead",
+          "apply_condition": "team_lead <> \"\"",
+          "calculation_formula": "IFERROR(team_cap.total, 0)",
+          "split_type": "AMOUNT"
+        },
+        {
+          "id": "TPR_006",
+          "template_id": "TPL_SYNTH0000001",
+          "step_number": 6,
+          "show_in_popup": false,
+          "rule_name": "A1 Company Comm",
+          "rule_key": "a1_company",
+          "section": "Level 1 Post-splits",
+          "agent_key": "agent_1",
+          "payee_entity_id": "ENT_00000000000A",
+          "calculation_formula": "MIN(baseline * 20%, MAX(0, 5000 - SUMIFS(transaction_commission_items.final_amount, transaction_commission_items.agent_id, agent_1, commission_entities.entity_name, \"Company Comm\", transactions.closing_date, \">=\" & a1_cap_reset, transactions.closing_date, \"<\" & closing_date, transactions.transaction_status, \"Closed\")))",
+          "split_type": "PERCENT"
+        },
+        {
+          "id": "TPR_007",
+          "template_id": "TPL_SYNTH0000001",
+          "step_number": 7,
+          "show_in_popup": false,
+          "rule_name": "A2 Company Comm",
+          "rule_key": "a2_company",
+          "section": "Level 1 Post-splits",
+          "agent_key": "agent_2",
+          "payee_entity_id": "ENT_00000000000A",
+          "apply_condition": "agent_2 <> \"\"",
+          "calculation_formula": "baseline * 20%",
+          "split_type": "PERCENT"
+        },
+        {
+          "id": "TPR_008",
+          "template_id": "TPL_SYNTH0000001",
+          "step_number": 8,
+          "show_in_popup": false,
+          "rule_name": "A1 Stock",
+          "rule_key": "a1_stock",
+          "section": "Level 2 Post-splits",
+          "agent_key": "agent_1",
+          "payee_entity_id": "ENT_00000000000D",
+          "apply_condition": "stock_option = \"Yes\"",
+          "calculation_formula": "baseline * 5%",
+          "split_type": "PERCENT"
+        }
+      ]
+    }
+  },
+  "allocationConfig": {
+    "teamCaps": [
+      {
+        "id": "CTC_000000000001",
+        "name": "Fn001 Team Cap",
+        "key": "team_cap",
+        "enabled": true,
+        "qualifying_formula": "AND(lead_source=\"#Agent Lead\", transaction_side <> \"Tenant\")",
+        "split_percent_field_key": "custom_team_cap_split",
+        "cap_amount_field_key": "custom_team_cap_amount",
+        "reset_date_field_key": "custom_exp_cap_date",
+        "recipient_agent_id": "AGT_000000000001"
+      },
+      {
+        "id": "CTC_000000000002",
+        "name": "East Cap",
+        "key": "east_cap",
+        "enabled": true,
+        "qualifying_formula": "XLOOKUP(agent_id, agents.id, agents.group_id) = \"East\"",
+        "split_percent_field_key": "custom_east_cap_split",
+        "cap_amount_field_key": "custom_east_cap_amount",
+        "reset_date_field_key": "custom_exp_cap_date",
+        "recipient_agent_id": "AGT_000000000002"
+      }
+    ],
+    "agentCaps": [],
+    "salesVolume": null
+  },
+  "teamCapHistory": [
+    {
+      "agentId": "AGT_000000000005",
+      "amount": 1500,
+      "periodStart": "2026-03-01",
+      "teamCapId": "CTC_000000000001",
+      "transactionId": "TXN_SYNTH_PRIOR1"
+    },
+    {
+      "agentId": "AGT_000000000003",
+      "amount": 1000,
+      "periodStart": "2026-03-01",
+      "teamCapId": "CTC_000000000001",
+      "transactionId": "TXN_SYNTH_PRIOR2"
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "deal": {
+    "id": "TXN_SYNTH_CAPREACHED",
+    "client_id": "SYNTH",
+    "tms_id": null,
+    "transaction_status": "Closed",
+    "transaction_side": "Buyer",
+    "property_address": "HED Example Street",
+    "client_name": "Client",
+    "lead_source": "#Agent Lead",
+    "sales_price": 1000000,
+    "gci_perc": 0.03,
+    "gci_amount": 30000,
+    "total_commission": 30000,
+    "closing_date": "2026-09-01",
+    "agent_id": "AGT_000000000005",
+    "custom_attributes": {},
+    "archived": false
+  },
+  "items": [
+    {
+      "id": "TCI_EACHED000010",
+      "client_id": "SYNTH",
+      "transaction_id": "TXN_SYNTH_CAPREACHED",
+      "submission_id": null,
+      "step_number": 1,
+      "section": "AGENT_SPLIT",
+      "split_type": "PERCENT",
+      "split_value": 1,
+      "payee_type": "AGENT",
+      "payee_entity_id": null,
+      "agent_id": "AGT_000000000005",
+      "final_amount": 29750,
+      "archived": false,
+      "custom_attributes": {}
+    },
+    {
+      "id": "TCI_EACHED000011",
+      "client_id": "SYNTH",
+      "transaction_id": "TXN_SYNTH_CAPREACHED",
+      "submission_id": null,
+      "step_number": 2,
+      "section": "PRE_SPLIT",
+      "split_type": "AMOUNT",
+      "split_value": 250,
+      "payee_type": "ENTITY",
+      "payee_entity_id": "ENT_00000000000C",
+      "agent_id": null,
+      "final_amount": 250,
+      "archived": false,
+      "custom_attributes": {}
+    }
+  ],
+  "submissions": [
+    {
+      "id": "CTS_PREACHED",
+      "client_id": "SYNTH",
+      "transaction_id": "TXN_SYNTH_CAPREACHED",
+      "template_id": "TPL_SYNTH0000001",
+      "submitted_parameters": {
+        "agent_1": "AGT_000000000005",
+        "a1_split_percent": "100%",
+        "agent_2": "",
+        "a2_split_percent": "",
+        "team_lead": "",
+        "referral_amount": "",
+        "a1_cap_reset": "2026-03-01",
+        "stock_option": "No"
+      },
+      "status": "SUBMITTED",
+      "archived": false
+    }
+  ],
+  "teamCapRows": [],
+  "allocationRows": [],
+  "ledger": []
+}

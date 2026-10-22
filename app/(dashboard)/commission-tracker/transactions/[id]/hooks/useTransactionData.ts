@@ -1,7 +1,7 @@
 // app/commission-tracker/transactions/[id]/hooks/useTransactionData.ts
 import { useState, useEffect, useCallback } from 'react';
 import { FieldSetting, SchemaField, CORE_REQUIRED_FIELDS, VisibilityRulesConfig, KnownAgentInfo, CommissionEntityOption } from '../types';
-import { StoredCommissionItem } from '../commissionItemState';
+import { StoredCommissionItem } from '@/lib/commission-engine/stored-lines';
 import { clearCommissionModuleCache } from '../components/applyTemplateLogic';
 
 const AGENT_DIRECTORY_KEYS = new Set([

@@ -1,43 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { allocationLookupTables, type DealAllocationContext } from '@/lib/agent-allocations';
+import { allocationCatalogFromConfig, buildAllocationContext, dealUnitsField, overridesFromStoredRows } from '@/lib/commission-engine/allocation';
 import type { FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { loadFormulaLookups } from '../components/applyTemplateLogic';
 import { buildAgentCapCells, type AgentCapDefinition, type AgentCapHistoryRow } from '@/lib/agent-cap-progress';
 import type { AgentConfig, KnownAgentInfo } from '../types';
-import { readTransactionField } from '../types';
-
-type TeamCapRow = {
-  id?: string;
-  name?: string | null;
-  key?: string | null;
-  enabled?: boolean;
-  qualifying_formula?: string | null;
-  split_percent_field_key?: string | null;
-  cap_amount_field_key?: string | null;
-  reset_date_field_key?: string | null;
-  recipient_agent_id?: string | null;
-};
-
-type VolumeRow = {
-  enabled?: boolean;
-  qualifying_formula?: string | null;
-  anchor?: string | null;
-  assignment?: string | null;
-};
-
-function teamCapFrom(row: TeamCapRow) {
-  return {
-    id: String(row.id || ''),
-    name: String(row.name || 'Team Cap'),
-    key: row.key ? String(row.key) : null,
-    enabled: Boolean(row.enabled),
-    qualifyingFormula: row.qualifying_formula || null,
-    splitPercentFieldKey: row.split_percent_field_key || null,
-    capAmountFieldKey: row.cap_amount_field_key || null,
-    resetDateFieldKey: row.reset_date_field_key || null,
-    recipientAgentId: row.recipient_agent_id || null,
-  };
-}
 
 type StoredOverride = DealAllocationContext['overrides'][number];
 
@@ -66,16 +33,6 @@ function agentCapsFrom(rows: Array<Record<string, unknown>>): AgentCapDefinition
       hideOverAllocations: Boolean(row.hide_over_allocations),
     }];
   });
-}
-
-function volumeFrom(row: VolumeRow | null) {
-  if (!row) return null;
-  return {
-    enabled: Boolean(row.enabled),
-    qualifyingFormula: row.qualifying_formula || null,
-    anchor: row.anchor === 'sales_price_x_units' ? 'sales_price_x_units' as const : 'sales_price' as const,
-    assignment: row.assignment === 'primary_agent' ? 'primary_agent' as const : 'agent_share' as const,
-  };
 }
 
 export function useAgentAllocationInput({
@@ -170,8 +127,7 @@ export function useAgentAllocationInput({
         if (capsResponse && (!capsResponse.ok || capsBody.success === false)) return;
         if (allocationsResponse && (!allocationsResponse.ok || allocationsBody.success === false)) return;
         const nextAgentCaps = agentCapsFrom(Array.isArray(config.agentCaps) ? config.agentCaps : []);
-        const nextTeamCaps = (Array.isArray(config.teamCaps) ? config.teamCaps : []).map(teamCapFrom).filter((cap: { id: string }) => cap.id);
-        const nextVolume = volumeFrom(config.salesVolume);
+        const { teamCaps: nextTeamCaps, salesVolume: nextVolume } = allocationCatalogFromConfig(config);
         const lookupTables = allocationLookupTables(nextTeamCaps, nextVolume);
         const [nextHistory, nextLookups] = await Promise.all([
           postSplitPromise,
@@ -187,16 +143,7 @@ export function useAgentAllocationInput({
         const capRows = Array.isArray(capsBody.teamCaps) ? capsBody.teamCaps : [];
         const allocationRows = Array.isArray(allocationsBody.allocations) ? allocationsBody.allocations : [];
         setHasStoredRows(capRows.length > 0 || allocationRows.length > 0);
-        const loaded = [
-          ...capRows.flatMap((row: { is_override?: boolean; agent_id?: string; amount?: number; team_cap_id?: string | null }) => {
-            if (!row.is_override || !row.agent_id) return [];
-            return [{ agentId: row.agent_id, kind: 'team_cap' as const, amount: Number(row.amount) || 0, teamCapId: row.team_cap_id || null }];
-          }),
-          ...allocationRows.flatMap((row: { is_override?: boolean; agent_id?: string; amount?: number }) => {
-            if (!row.is_override || !row.agent_id) return [];
-            return [{ agentId: row.agent_id, kind: 'sales_volume' as const, amount: Number(row.amount) || 0, teamCapId: null }];
-          }),
-        ];
+        const loaded = overridesFromStoredRows(capRows, allocationRows);
         loadedOverridesRef.current = loaded;
         setOverrides(loaded);
         setLoadedKey(requestKey);
@@ -223,20 +170,17 @@ export function useAgentAllocationInput({
     dealDate,
   }), [agentCaps, agents, knownAgents, postSplitHistory, dealDate]);
 
-  const unitsRaw = readTransactionField(deal, 'units');
-  const units = unitsRaw === undefined || unitsRaw === null || String(unitsRaw).trim() === ''
-    ? 1
-    : Math.max(0, Number(unitsRaw) || 0);
+  const units = dealUnitsField(deal);
 
   const input = useMemo<DealAllocationContext | null>(() => {
     if (!ready) return null;
-    return {
-      teamCaps,
-      salesVolume,
-      profiles: agents.map((agent) => ({
-        agentId: agent.id,
+    return buildAllocationContext({
+      catalog: { teamCaps, salesVolume },
+      agents: agents.map((agent) => ({
+        id: agent.id,
         fields: knownAgents.find((known) => known.id === agent.id)?.fields || {},
       })),
+      // The request already leaves out this deal's own cap rows (exclude_transaction_id).
       history,
       overrides,
       deal,
@@ -245,7 +189,7 @@ export function useAgentAllocationInput({
       units,
       fieldTypes,
       lookups: allocationLookups,
-    };
+    });
   }, [ready, teamCaps, salesVolume, allocationLookups, agents, knownAgents, history, overrides, deal, dealDate, salesPrice, units, fieldTypes]);
 
   const setTeamCapOverride = (agentId: string, teamCapId: string, amount: number | null) => {

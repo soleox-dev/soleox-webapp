@@ -25,7 +25,7 @@ Soleox REBI (Real Estate Business Intelligence) is a multi-tenant B2B real estat
   ```bash
   npx next build
   ```
-- **No test runner or linter is configured.** `npm test` is a stub that exits with an error, and there is no ESLint config. Verify changes with `npx tsc --noEmit` and, for engine logic, a throwaway `npx tsx` script.
+- **Tests**: `npm test` runs the commission engine golden tests (Vitest, `tests/engine`). There is no ESLint config. Verify other changes with `npx tsc --noEmit`.
 - Do not start a second dev server on another port, re-enable `devIndicators`, or shrink the in-memory page buffer in `next.config.ts` (see `.cursor/rules/dev-navigation.mdc`).
 - **Dependencies**: React 19, Next.js 16 (App Router), Tailwind CSS v4, Supabase JS v2, NextAuth v4, Zod, Lucide React.
 
@@ -109,7 +109,8 @@ Full per-permission behavior (which buttons and columns each role hides, deferre
 ## 4. Commission Engine & Waterfall Domain Rules
 
 The Commission Waterfall Engine resides in:
-- `app/(dashboard)/commission-tracker/transactions/[id]/components/` (`CommissionWaterfall.tsx`, `applyTemplateLogic.ts`, `CommissionTemplatePanel.tsx`)
+- `lib/commission-engine/`: pure, server-safe functions; `computeDealCommission` is the one entry point every screen calls. Its `README.md` says which value wins (saved lines, recalculation, hand-typed split, template replay). Golden tests: `npm test` (`tests/engine/README.md`); numbers must not change unless meant to.
+- `app/(dashboard)/commission-tracker/transactions/[id]/components/` (`CommissionWaterfall.tsx`, `CommissionTemplatePanel.tsx`; `applyTemplateLogic.ts` now only loads and caches templates, the ledger and lookups)
 - `app/(dashboard)/commission-tracker/settings/commission-templates/` (`FormulaEditor.tsx`, `formula-evaluator.ts`, `formula-validator.ts`, `formula-explainer.ts`)
 
 ### Terminology & State Behavior
@@ -201,7 +202,7 @@ Detailed filter, table, and per-report requirements for Owner/Agent/Office Repor
 1. **Strict Typing**: Write clean, production-grade TypeScript. Avoid `any` types; prefer strict interfaces and zod validations.
 2. **Multi-Tenant Isolation**: Never query the database without scoping queries to the active `client_id` and passing authenticated JWTs.
 3. **No Unprompted Reverts**: Keep prior functional changes intact unless explicitly instructed to revert.
-4. **Focused Context**: When modifying commission calculations or waterfall formulas, restrict analysis to the commission engine files (`applyTemplateLogic.ts`, `formula-evaluator.ts`, `CommissionTemplatePanel.tsx`) without scanning unrelated modules.
+4. **Focused Context**: When modifying commission calculations or waterfall formulas, restrict analysis to the commission engine files (`lib/commission-engine/`, `formula-evaluator.ts`, `CommissionTemplatePanel.tsx`) without scanning unrelated modules.
 
 ---
 

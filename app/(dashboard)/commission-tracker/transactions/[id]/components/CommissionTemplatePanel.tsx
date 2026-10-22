@@ -8,10 +8,13 @@ import { normalizeAgentName } from '@/lib/id';
 import { allocationLookupTables, configuredTeamCaps, qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection, type TeamCapRule } from '@/lib/agent-allocations';
 import { dealFieldValue, formulaFieldNames, templateBoltTone, type TemplateBoltTone } from '@/lib/transaction-default-view';
 import { formatPercent } from '@/lib/fields';
-import { allocationForReplay, loadAllocationCatalog, loadAllocationLookups, loadAllocationHistory, loadAllocationOverrides, payoutSignature, replayedPaymentSignature, savedPayouts } from '@/lib/template-payment-drift';
-import { applyTemplateLogic, clearCommissionModuleCache, formulaDataNeeds, loadCommissionLedger, loadFormulaLookups, loadTemplateBundle, peekCommissionLedger, peekFormulaLookups, peekTemplateBundle, templateFormulaSources, type AppliedCalculation, type AppliedTemplateRules, type TemplateLogicStep, type TemplateParameterRecord } from './applyTemplateLogic';
+import { loadAllocationCatalog, loadAllocationLookups, loadAllocationHistory, loadAllocationOverrides } from '@/lib/template-payment-drift';
+import { templatePaymentsChanged } from '@/lib/commission-engine/drift';
+import { allocationCatalogFromConfig, allocationForReplay } from '@/lib/commission-engine/allocation';
+import { clearCommissionModuleCache, loadCommissionLedger, loadFormulaLookups, loadTemplateBundle, peekCommissionLedger, peekFormulaLookups, peekTemplateBundle } from './applyTemplateLogic';
+import { applyTemplateLogic, formulaDataNeeds, templateFormulaSources, type AppliedCalculation, type AppliedTemplateRules, type TemplateLogicStep, type TemplateParameterRecord } from '@/lib/commission-engine/template';
 import { isConfiguredOrExistingField, type FormulaLedgerRow, type FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
-import type { StoredCommissionItem } from '../commissionItemState';
+import type { StoredCommissionItem } from '@/lib/commission-engine/stored-lines';
 import type { CommissionEntityOption, FieldSetting, KnownAgentInfo } from '../types';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { cachedPaymentDrift, cachedSchema, cachedSubmissions, cachedTemplates, rememberPaymentDrift, rememberSchema, rememberSubmissions, rememberTemplates, type CachedSubmission } from './templateStatusCache';
@@ -1188,7 +1191,6 @@ export function CommissionTemplatePanel({
       ]);
       if (cancelled) return;
 
-      const saved = payoutSignature(savedPayouts(items, knownAgents, entityOptions));
       const [catalog, history, overrides] = await Promise.all([
         loadAllocationCatalog(clientId),
         loadAllocationHistory(clientId, knownAgents.map((agent) => agent.id)),
@@ -1207,29 +1209,21 @@ export function CommissionTemplatePanel({
         fieldTypes,
         lookups: allocationLookups,
       });
-      let changed = false;
-      for (const row of submittedRows) {
-        const bundle = bundleById.get(row.templateId);
-        if (!bundle) continue;
-        try {
-          const replayed = replayedPaymentSignature({
-            deal,
-            steps: bundle.steps,
-            parameters: row.parameters,
-            parameterTypes: bundle.parameterTypes,
-            items,
-            agents: knownAgents,
-            entities: entityOptions,
-            overviewFields,
-            ledger: ledgerRows,
-            lookups: lookupRows,
-            allocation,
-          });
-          if (replayed !== saved) changed = true;
-        } catch {
-          // A replay that cannot be calculated stays green.
-        }
-      }
+      const changed = templatePaymentsChanged({
+        deal,
+        // A submission whose template is not loaded is skipped.
+        submissions: submittedRows.flatMap((row) => {
+          const bundle = bundleById.get(row.templateId);
+          return bundle ? [{ steps: bundle.steps, parameters: row.parameters, parameterTypes: bundle.parameterTypes }] : [];
+        }),
+        items,
+        agents: knownAgents,
+        entities: entityOptions,
+        overviewFields,
+        ledger: ledgerRows,
+        lookups: lookupRows,
+        allocation,
+      });
       if (!cancelled) {
         setPaymentsWouldChange(changed);
         setPaymentDriftReady(true);
@@ -1406,21 +1400,7 @@ export function CommissionTemplatePanel({
         });
         const data = await response.json();
         if (!response.ok || data.success === false || cancelled) return;
-        const caps = (Array.isArray(data.teamCaps) ? data.teamCaps : []).flatMap((row: Record<string, unknown>) => {
-          const id = String(row.id || '').trim();
-          if (!id) return [];
-          return [{
-            id,
-            name: String(row.name || 'Team Cap'),
-            key: row.key ? String(row.key) : null,
-            enabled: Boolean(row.enabled),
-            qualifyingFormula: row.qualifying_formula ? String(row.qualifying_formula) : null,
-            splitPercentFieldKey: row.split_percent_field_key ? String(row.split_percent_field_key) : null,
-            capAmountFieldKey: row.cap_amount_field_key ? String(row.cap_amount_field_key) : null,
-            resetDateFieldKey: row.reset_date_field_key ? String(row.reset_date_field_key) : null,
-            recipientAgentId: row.recipient_agent_id ? String(row.recipient_agent_id) : null,
-          } satisfies TeamCapRule];
-        });
+        const caps = allocationCatalogFromConfig(data).teamCaps;
         setTeamCaps(caps);
       } catch {
         if (!cancelled) setTeamCaps([]);

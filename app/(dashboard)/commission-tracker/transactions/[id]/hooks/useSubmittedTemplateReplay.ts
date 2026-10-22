@@ -1,17 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { TEAM_CAP_SELECTION_KEY } from '@/lib/agent-allocations';
+import { formulaParameters } from '@/lib/commission-engine/submit';
 import type { FormulaLedgerRow, FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
-import {
-  formulaDataNeeds,
-  loadCommissionLedger,
-  loadFormulaLookups,
-  loadTemplateBundle,
-  peekFormulaLookups,
-  peekTemplateBundle,
-  templateFormulaSources,
-  type NamedParty,
-  type TemplateLogicStep,
-} from '../components/applyTemplateLogic';
+import { loadCommissionLedger, loadFormulaLookups, loadTemplateBundle, peekFormulaLookups, peekTemplateBundle } from '../components/applyTemplateLogic';
+import { formulaDataNeeds, templateFormulaSources, type NamedParty, type TemplateLogicStep } from '@/lib/commission-engine/template';
 
 export type SubmittedTemplateReplay = {
   steps: TemplateLogicStep[];
@@ -32,22 +23,6 @@ export type PendingTemplateReplay = {
   template_id?: string | null;
   submitted_parameters?: Record<string, string> | null;
 };
-
-function parameterRecord(value: unknown): Record<string, string> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-  const record: Record<string, string> = {};
-  Object.entries(value as Record<string, unknown>).forEach(([key, raw]) => {
-    record[key] = raw === undefined || raw === null ? '' : String(raw);
-  });
-  return record;
-}
-
-function stripParameters(value: unknown): Record<string, string> {
-  const saved = parameterRecord(value);
-  const { [TEAM_CAP_SELECTION_KEY]: omittedCapSelection, ...parameters } = saved;
-  void omittedCapSelection;
-  return parameters;
-}
 
 function sameParameters(left: Record<string, string>, right: Record<string, string>): boolean {
   const leftKeys = Object.keys(left);
@@ -96,7 +71,7 @@ export function useSubmittedTemplateReplay({
   const entityKey = entities.map((entity) => entity.id).join(',');
   const pendingTemplateId = String(pendingSubmission?.template_id || '').trim();
   const pendingParameters = pendingSubmission?.submitted_parameters
-    ? stripParameters(pendingSubmission.submitted_parameters)
+    ? formulaParameters(pendingSubmission.submitted_parameters)
     : null;
   const requestKey = `${clientId}|${transactionId}|${entitiesReady ? entityKey : '…'}|${revision}|${pendingTemplateId}`;
 
@@ -127,14 +102,14 @@ export function useSubmittedTemplateReplay({
       const pendingId = String(pending?.template_id || '').trim();
       const headers = { 'x-client-id': clientId };
       let templateId = pendingId;
-      let parameters = pending?.submitted_parameters ? stripParameters(pending.submitted_parameters) : null;
+      let parameters = pending?.submitted_parameters ? formulaParameters(pending.submitted_parameters) : null;
       if (!templateId) {
         const submissionResponse = await fetch(`/api/commission-template-submissions?client_id=${encodeURIComponent(clientId)}&transaction_id=${encodeURIComponent(transactionId)}`, { headers, cache: 'no-store' });
         const submissionData = await submissionResponse.json();
         if (!submissionResponse.ok || submissionData.success === false) throw new Error(submissionData.error || 'Failed to load the template submission.');
         const submitted = Array.isArray(submissionData.submissions) ? submissionData.submissions[0] : null;
         templateId = String(submitted?.template_id || '').trim();
-        parameters = stripParameters(submitted?.submitted_parameters);
+        parameters = formulaParameters(submitted?.submitted_parameters);
       }
       if (!templateId) {
         if (!cancelled) setLoaded(null);
@@ -174,7 +149,7 @@ export function useSubmittedTemplateReplay({
       const latestPending = pendingRef.current;
       const latestPendingId = String(latestPending?.template_id || '').trim();
       const resolvedParameters = latestPendingId === templateId && latestPending?.submitted_parameters
-        ? stripParameters(latestPending.submitted_parameters)
+        ? formulaParameters(latestPending.submitted_parameters)
         : (parameters ?? {});
       setLoaded({
         transactionId,

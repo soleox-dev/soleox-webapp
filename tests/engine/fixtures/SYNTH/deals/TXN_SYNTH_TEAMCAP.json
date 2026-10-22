@@ -1,0 +1,178 @@
+{
+  "deal": {
+    "id": "TXN_SYNTH_TEAMCAP",
+    "client_id": "SYNTH",
+    "tms_id": null,
+    "transaction_status": "Closed",
+    "transaction_side": "Buyer",
+    "property_address": "CAP Example Street",
+    "client_name": "Client",
+    "lead_source": "#Agent Lead",
+    "sales_price": 1000000,
+    "gci_perc": 0.03,
+    "gci_amount": 30000,
+    "total_commission": 30000,
+    "closing_date": "2026-06-15",
+    "agent_id": "AGT_000000000003",
+    "custom_attributes": {},
+    "archived": false
+  },
+  "items": [
+    {
+      "id": "TCI_EAMCAP000004",
+      "client_id": "SYNTH",
+      "transaction_id": "TXN_SYNTH_TEAMCAP",
+      "submission_id": null,
+      "step_number": 1,
+      "section": "PRE_SPLIT",
+      "split_type": "AMOUNT",
+      "split_value": 250,
+      "payee_type": "ENTITY",
+      "payee_entity_id": "ENT_00000000000C",
+      "agent_id": null,
+      "final_amount": 250,
+      "archived": false,
+      "custom_attributes": {}
+    },
+    {
+      "id": "TCI_EAMCAP000005",
+      "client_id": "SYNTH",
+      "transaction_id": "TXN_SYNTH_TEAMCAP",
+      "submission_id": null,
+      "step_number": 2,
+      "section": "AGENT_SPLIT",
+      "split_type": "PERCENT",
+      "split_value": 0.6,
+      "payee_type": "AGENT",
+      "payee_entity_id": null,
+      "agent_id": "AGT_000000000003",
+      "final_amount": 13850,
+      "archived": false,
+      "custom_attributes": {}
+    },
+    {
+      "id": "TCI_EAMCAP000006",
+      "client_id": "SYNTH",
+      "transaction_id": "TXN_SYNTH_TEAMCAP",
+      "submission_id": null,
+      "step_number": 3,
+      "section": "AGENT_SPLIT",
+      "split_type": "PERCENT",
+      "split_value": 0.4,
+      "payee_type": "AGENT",
+      "payee_entity_id": null,
+      "agent_id": "AGT_000000000005",
+      "final_amount": 11800,
+      "archived": false,
+      "custom_attributes": {}
+    },
+    {
+      "id": "TCI_EAMCAP000007",
+      "client_id": "SYNTH",
+      "transaction_id": "TXN_SYNTH_TEAMCAP",
+      "submission_id": null,
+      "step_number": 4,
+      "section": "AGENT_SPLIT",
+      "split_type": "AMOUNT",
+      "split_value": 4100,
+      "payee_type": "AGENT",
+      "payee_entity_id": null,
+      "agent_id": "AGT_000000000001",
+      "final_amount": 4100,
+      "archived": false,
+      "custom_attributes": {}
+    },
+    {
+      "id": "TCI_EAMCAP000008",
+      "client_id": "SYNTH",
+      "transaction_id": "TXN_SYNTH_TEAMCAP",
+      "submission_id": null,
+      "step_number": 5,
+      "section": "POST_SPLIT",
+      "split_type": "PERCENT",
+      "split_value": 0.0866,
+      "payee_type": "ENTITY",
+      "payee_entity_id": "ENT_00000000000A",
+      "agent_id": "AGT_000000000003",
+      "final_amount": 1200,
+      "archived": false,
+      "custom_attributes": {}
+    },
+    {
+      "id": "TCI_EAMCAP000009",
+      "client_id": "SYNTH",
+      "transaction_id": "TXN_SYNTH_TEAMCAP",
+      "submission_id": null,
+      "step_number": 6,
+      "section": "POST_SPLIT",
+      "split_type": "PERCENT",
+      "split_value": 0.2,
+      "payee_type": "ENTITY",
+      "payee_entity_id": "ENT_00000000000A",
+      "agent_id": "AGT_000000000005",
+      "final_amount": 2360,
+      "archived": false,
+      "custom_attributes": {}
+    }
+  ],
+  "submissions": [
+    {
+      "id": "CTS__TEAMCAP",
+      "client_id": "SYNTH",
+      "transaction_id": "TXN_SYNTH_TEAMCAP",
+      "template_id": "TPL_SYNTH0000001",
+      "submitted_parameters": {
+        "agent_1": "AGT_000000000003",
+        "a1_split_percent": "60%",
+        "agent_2": "AGT_000000000005",
+        "a2_split_percent": "40%",
+        "team_lead": "AGT_000000000001",
+        "referral_amount": "",
+        "a1_cap_reset": "2026-03-01",
+        "stock_option": "No"
+      },
+      "status": "SUBMITTED",
+      "archived": false
+    }
+  ],
+  "teamCapRows": [],
+  "allocationRows": [],
+  "ledger": [
+    [
+      3000,
+      "AGT_000000000003",
+      "ENT_00000000000A",
+      "POST_SPLIT",
+      "TXN_SYNTH_L0",
+      "2026-04-01",
+      "Closed"
+    ],
+    [
+      800,
+      "AGT_000000000003",
+      "ENT_00000000000A",
+      "POST_SPLIT",
+      "TXN_SYNTH_L1",
+      "2026-05-01",
+      "Closed"
+    ],
+    [
+      999,
+      "AGT_000000000003",
+      "ENT_00000000000A",
+      "POST_SPLIT",
+      "TXN_SYNTH_L2",
+      "2026-05-02",
+      "Pending"
+    ],
+    [
+      2000,
+      "AGT_000000000003",
+      "ENT_00000000000A",
+      "POST_SPLIT",
+      "TXN_SYNTH_L3",
+      "2025-12-01",
+      "Closed"
+    ]
+  ]
+}

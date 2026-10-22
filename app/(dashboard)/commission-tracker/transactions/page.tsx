@@ -31,9 +31,12 @@ import {
   type TransactionSortRule,
   type TransactionView,
 } from '@/lib/transaction-default-view';
-import { allocationForReplay, loadAllocationCatalog, loadAllocationLookups, loadAllocationHistory, loadAllocationOverrides, payoutSignature, replayedPaymentSignature, savedPayouts } from '@/lib/template-payment-drift';
-import { clearCommissionModuleCache, formulaDataNeeds, invalidateCommissionLedger, loadCommissionLedger, loadFormulaLookups, templateFormulaSources, type TemplateLogicStep } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/applyTemplateLogic';
-import type { StoredCommissionItem } from '@/app/(dashboard)/commission-tracker/transactions/[id]/commissionItemState';
+import { loadAllocationCatalog, loadAllocationLookups, loadAllocationHistory, loadAllocationOverrides } from '@/lib/template-payment-drift';
+import { templatePaymentsChanged } from '@/lib/commission-engine/drift';
+import { allocationForReplay } from '@/lib/commission-engine/allocation';
+import { clearCommissionModuleCache, invalidateCommissionLedger, loadCommissionLedger, loadFormulaLookups } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/applyTemplateLogic';
+import { formulaDataNeeds, templateFormulaSources, type TemplateLogicStep } from '@/lib/commission-engine/template';
+import type { StoredCommissionItem } from '@/lib/commission-engine/stored-lines';
 import type { CommissionEntityOption, FieldSetting, KnownAgentInfo, VisibilityRulesConfig } from '@/app/(dashboard)/commission-tracker/transactions/[id]/types';
 import { transactionDealLabel } from '@/lib/transaction-label';
 import { BulkUpdateDialog } from '@/app/(dashboard)/commission-tracker/transactions/components/BulkUpdateDialog';
@@ -1425,7 +1428,6 @@ export default function TransactionsListPage() {
           allChecked.add(transactionId);
           const group = itemGroups.find((item) => item.transactionId === transactionId);
           const items = group?.items || [];
-          const saved = payoutSignature(savedPayouts(items, agents, entities));
           const allocation = allocationForReplay({
             catalog,
             history,
@@ -1437,29 +1439,21 @@ export default function TransactionsListPage() {
             lookups: allocationLookups,
           });
           const submitted = submittedTemplates.get(transactionId) || [];
-          let changed = false;
-          for (const row of submitted) {
-            const bundle = bundleById.get(row.templateId);
-            if (!bundle) continue;
-            try {
-              const replayed = replayedPaymentSignature({
-                deal,
-                steps: bundle.steps,
-                parameters: row.parameters,
-                parameterTypes: bundle.parameterTypes,
-                items,
-                agents,
-                entities,
-                overviewFields,
-                ledger,
-                lookups,
-                allocation,
-              });
-              if (replayed !== saved) changed = true;
-            } catch {
-              // A replay that cannot be calculated stays green.
-            }
-          }
+          const changed = templatePaymentsChanged({
+            deal,
+            // A submission whose template is not loaded is skipped.
+            submissions: submitted.flatMap((row) => {
+              const bundle = bundleById.get(row.templateId);
+              return bundle ? [{ steps: bundle.steps, parameters: row.parameters, parameterTypes: bundle.parameterTypes }] : [];
+            }),
+            items,
+            agents,
+            entities,
+            overviewFields,
+            ledger,
+            lookups,
+            allocation,
+          });
           if (changed) drifted.add(transactionId);
           // Transaction Detail shows this on its template button right away, while it checks again.
           rememberPaymentDrift(clientId, transactionId, changed);
