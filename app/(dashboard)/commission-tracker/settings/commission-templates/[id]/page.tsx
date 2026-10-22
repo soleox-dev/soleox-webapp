@@ -2,6 +2,7 @@
 
 import { phoneSheet, phoneSheetFlush } from '@/lib/page-frame';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { parameterInUseMessage, parameterUsedBy } from '@/lib/template-parameter-usage';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -1174,6 +1175,15 @@ export default function CommissionTemplateDetailPage() {
       setIsSaving(false);
     }
   };
+
+  // A parameter that rules or other parameters still use can't be deleted; the dialog says where it is used.
+  const deleteBlockedBy = (() => {
+    if (confirmDelete?.kind !== 'parameter') return '';
+    const parameter = parameters.find((item) => item.id === confirmDelete.id);
+    if (!parameter) return '';
+    const usedBy = parameterUsedBy(parameter.parameter_key, logicSteps, parameters);
+    return usedBy.length ? parameterInUseMessage(parameter.parameter_name, usedBy) : '';
+  })();
 
   const runDelete = async () => {
     if (!confirmDelete) return;
@@ -2833,16 +2843,18 @@ export default function CommissionTemplateDetailPage() {
                   ? `Delete parameter "${confirmDelete.label}"?`
                   : `Delete step "${confirmDelete.label}"?`}
             </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-300">
+            <p className={`text-xs ${deleteBlockedBy ? 'font-semibold text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}`}>
               {confirmDelete.kind === 'template'
                 ? 'This removes the template, including its parameters and calculation steps.'
                 : confirmDelete.kind === 'parameter'
-                  ? 'This removes the parameter from the template.'
+                  ? deleteBlockedBy || 'This removes the parameter from the template.'
                   : 'This removes the calculation step from the template.'}
             </p>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setConfirmDelete(null)} disabled={isSaving} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer disabled:opacity-50">Cancel</button>
-              <button type="button" onClick={() => void runDelete()} disabled={isSaving} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-rose-600 text-white cursor-pointer disabled:opacity-50">{isSaving ? 'Deleting...' : 'Delete'}</button>
+              <button type="button" onClick={() => setConfirmDelete(null)} disabled={isSaving} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer disabled:opacity-50">{deleteBlockedBy ? 'Close' : 'Cancel'}</button>
+              {!deleteBlockedBy && (
+                <button type="button" onClick={() => void runDelete()} disabled={isSaving} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-rose-600 text-white cursor-pointer disabled:opacity-50">{isSaving ? 'Deleting...' : 'Delete'}</button>
+              )}
             </div>
           </div>
         </div>,

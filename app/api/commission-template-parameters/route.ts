@@ -4,6 +4,7 @@ import { requireSessionClient, apiError } from '@/lib/session';
 import { recordAudit } from '@/lib/audit';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { parameterInUseMessage, parameterUsedBy, type UsageParameter, type UsageRule } from '@/lib/template-parameter-usage';
 
 // GET: Fetch non-archived template parameters
 export async function GET(request: Request) {
@@ -246,6 +247,38 @@ export async function DELETE(request: Request) {
     }
 
     const { clientId, supabase } = await requireSessionClient();
+
+    // A parameter a rule or another parameter still uses stays: deleting it would break those formulas.
+    const { data: parameter, error: lookupError } = await supabase
+      .from('commission_template_parameters')
+      .select('template_id, parameter_name, parameter_key')
+      .eq('id', id)
+      .eq('client_id', clientId)
+      .maybeSingle();
+    if (lookupError) throw lookupError;
+    if (parameter?.parameter_key) {
+      const [rulesResult, parametersResult] = await Promise.all([
+        supabase
+          .from('commission_template_rules')
+          .select('rule_name, agent_key, from_agent_key, paid_by_agent_keys, payee_formula, apply_condition, custom_baseline, calculation_formula, show_when_formula')
+          .eq('template_id', parameter.template_id)
+          .eq('client_id', clientId)
+          .or('archived.is.null,archived.eq.false'),
+        supabase
+          .from('commission_template_parameters')
+          .select('parameter_name, parameter_key, autofill_formula, validation_rule')
+          .eq('template_id', parameter.template_id)
+          .eq('client_id', clientId)
+          .or('archived.is.null,archived.eq.false'),
+      ]);
+      if (rulesResult.error) throw rulesResult.error;
+      if (parametersResult.error) throw parametersResult.error;
+      const usedBy = parameterUsedBy(parameter.parameter_key, (rulesResult.data || []) as UsageRule[], (parametersResult.data || []) as UsageParameter[]);
+      if (usedBy.length) {
+        return NextResponse.json({ error: parameterInUseMessage(parameter.parameter_name, usedBy) }, { status: 409 });
+      }
+    }
+
     const { error } = await supabase
       .from('commission_template_parameters')
       .update({
