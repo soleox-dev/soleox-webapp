@@ -304,12 +304,18 @@ function parseBoolean(raw: string): boolean | null | 'invalid' {
   return 'invalid';
 }
 
+/** Text made only of dashes and spaces, in any dash style. */
+const DASH_ONLY = /^[\s\-\u2010-\u2015\u2212]+$/;
+
 export function coerceSyncValue(
   raw: string,
   fieldKey: string,
   fieldType: string,
 ): { ok: true; value: unknown } | { ok: false; message: string } {
-  const text = raw.trim();
+  // A cell holding only dashes ("-", "- -", "—") is the sheet's way of saying "nothing here": it is stored blank,
+  // so formulas, filters, and reports treat it as empty. See migration 064 for values stored before this.
+  const trimmed = raw.trim();
+  const text = DASH_ONLY.test(trimmed) ? '' : trimmed;
   if (ARRAY_COLUMNS.has(fieldKey)) {
     if (!text) return { ok: true, value: null };
     const items = text.split(/[,;]/).map((item) => item.trim()).filter(Boolean);
