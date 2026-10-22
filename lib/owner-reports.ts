@@ -839,26 +839,28 @@ export type ReportDefinition = {
   group: string;
   ready: boolean;
   note?: string;
+  /** What the report shows and which transactions it counts, for the info icon beside its title. */
+  about: string;
 };
 
 /** Section headings of the Owner Reports menu, in display order. */
 export const OWNER_REPORT_GROUPS = ['Your Business', 'Your Agents', 'Transactions', 'Add-ons', 'My Custom Reports'];
 
 export const OWNER_REPORTS: ReportDefinition[] = [
-  { id: 'owner-summary', name: 'Owner Summary', group: 'Your Business', ready: true },
-  { id: 'operating-expenses', name: 'Operating Expenses', group: 'Your Business', ready: false, note: 'Operating expenses are not recorded in Soleox yet, so net income and expense ROI stay out of this report.' },
-  { id: 'lead-source-roi', name: 'Lead Source ROI Analysis', group: 'Your Business', ready: false, note: 'Lead spend is not recorded yet. The lead source leaderboard shows production by source.' },
-  { id: 'lead-source-leaderboard', name: 'Leaderboard by Date', group: 'Your Business', ready: true },
-  { id: 'team-performance', name: 'Team Performance', group: 'Your Agents', ready: true },
-  { id: 'net-commission-income', name: 'Agent Earnings', group: 'Your Agents', ready: true },
-  { id: 'team-caps', name: 'Caps', group: 'Your Agents', ready: true },
-  { id: 'transaction-list', name: 'Transaction List', group: 'Transactions', ready: true },
-  { id: 'transaction-map', name: 'Transaction Map', group: 'Transactions', ready: true },
-  { id: 'goal-assessment', name: 'Goal Assessment', group: 'Add-ons', ready: false, note: 'Goals are not recorded yet, so there is no target to compare with production.' },
-  { id: 'lead-conversion', name: 'Lead Conversion Funnel', group: 'Add-ons', ready: false, note: 'Lead counts are not recorded yet, so conversion from lead to closing cannot be calculated.' },
-  { id: 'team-productivity', name: 'Team Productivity', group: 'Add-ons', ready: true },
-  { id: 'daily-management', name: 'Daily Management Report', group: 'My Custom Reports', ready: true },
-  { id: 'net-agent-leaderboard', name: 'NET Agent Leaderboard', group: 'My Custom Reports', ready: true },
-  { id: 'listings-by-list-date', name: 'Listings by List Date', group: 'My Custom Reports', ready: true },
-  { id: 'price-change', name: 'Sold vs. List Price', group: 'My Custom Reports', ready: true },
+  { id: 'owner-summary', name: 'Owner Summary', group: 'Your Business', ready: true, about: 'Your brokerage’s bottom line for the date range. Total commission minus the cost of sales (agent and other payouts) gives net commission income; operating expenses then give net income, ROI, and the net income to total commission ratio. Below are average listing and buyer figures and month-over-month production. Every figure compares with the same dates last year.' },
+  { id: 'operating-expenses', name: 'Operating Expenses', group: 'Your Business', ready: false, note: 'Operating expenses are not recorded in Soleox yet, so net income and expense ROI stay out of this report.', about: 'Your operating expenses by month and category, and the return they produce. Available once expenses are recorded in Soleox.' },
+  { id: 'lead-source-roi', name: 'Lead Source ROI Analysis', group: 'Your Business', ready: false, note: 'Lead spend is not recorded yet. The lead source leaderboard shows production by source.', about: 'What each lead source costs against the commission it brings in. Available once lead spend is recorded in Soleox.' },
+  { id: 'lead-source-leaderboard', name: 'Leaderboard by Date', group: 'Your Business', ready: true, about: 'Ranks closed and pending transactions by any field you pick in the title (lead source by default), side by side by sales volume and by units, with the change from the same dates last year. The date in the title chooses closing date or pending date.' },
+  { id: 'team-performance', name: 'Team Performance', group: 'Your Agents', ready: true, about: 'Your team’s closed and pending production by month against the same months last year: sales volume, gross commission income, units, team commission, average sales price, and gross commission percentage. Click Total, Closed, or Pending to focus every chart on that status.' },
+  { id: 'net-commission-income', name: 'Agent Earnings', group: 'Your Agents', ready: true, about: 'What each agent earned: their payment amounts on closed and pending transactions, by month, by closing date. Earnings Type can add post-split dollars an agent sends to equity or income entities. Click any amount for a timeline and the transactions behind it.' },
+  { id: 'team-caps', name: 'Caps', group: 'Your Agents', ready: true, about: 'Where each agent stands on a team or agent cap in their current or previous cap year: closed and pending contributions, the goal, and what is left. Each agent’s cap year starts on their own reset date. Click an agent to see the transactions that count toward the cap.' },
+  { id: 'transaction-list', name: 'Transaction List', group: 'Transactions', ready: true, about: 'Every transaction closing in the date range, plus pending ones that went pending in it, with the main details of each. Click a status in a scorecard to narrow the table to it.' },
+  { id: 'transaction-map', name: 'Transaction Map', group: 'Transactions', ready: true, about: 'Each transaction as a bubble at its property address, sized by sales price and colored by status, side, or agent. The map opens on the area with the most deals; Show All frames every bubble. Addresses are placed with the US Census geocoder.' },
+  { id: 'goal-assessment', name: 'Goal Assessment', group: 'Add-ons', ready: false, note: 'Goals are not recorded yet, so there is no target to compare with production.', about: 'Production against each agent’s and the team’s goals. Available once goals are recorded in Soleox.' },
+  { id: 'lead-conversion', name: 'Lead Conversion Funnel', group: 'Add-ons', ready: false, note: 'Lead counts are not recorded yet, so conversion from lead to closing cannot be calculated.', about: 'How leads move from first contact to closing. Available once lead counts are recorded in Soleox.' },
+  { id: 'team-productivity', name: 'Team Productivity', group: 'Add-ons', ready: true, about: 'One metric of your choice for closed transactions by month against last year, with each agent’s totals below.' },
+  { id: 'daily-management', name: 'Daily Management Report', group: 'My Custom Reports', ready: true, about: 'A daily snapshot of the date range: transactions closed, transactions that went pending, and listings taken.' },
+  { id: 'net-agent-leaderboard', name: 'NET Agent Leaderboard', group: 'My Custom Reports', ready: true, about: 'Agents ranked by what they were paid on closed transactions in the date range, with each deal’s payment split across the agents on it.' },
+  { id: 'listings-by-list-date', name: 'Listings by List Date', group: 'My Custom Reports', ready: true, about: 'Every listing-side transaction with a list date in the range, whatever its status, with list and sales prices, over or under asking, and days on market (list date to pending date).' },
+  { id: 'price-change', name: 'Sold vs. List Price', group: 'My Custom Reports', ready: true, about: 'How closed and pending listings sold against their list price: the price change on each, how many sold over or under asking, and the average change by month against last year. Only listings with both a list price and a sales price count.' },
 ];

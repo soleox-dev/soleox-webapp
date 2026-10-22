@@ -14,6 +14,8 @@ When a new chat should follow this before editing reports, say: read `.cursor/ru
 
 ### Navigation
 
+Every report title has an info icon beside it. Clicking or hovering it explains what the report shows and which transactions it counts (`about` on each entry in `OWNER_REPORTS`, `lib/owner-reports.ts`). Add one for every new report.
+
 On a report page the top navigation is hidden. Hovering the top of the page slides it into view. It hides again when the pointer leaves it.
 
 On phones and narrow screens (below `md`, 768px), the top navigation is a normal header at the top of the page that scrolls away with it; it does not hide or listen for the pointer. Its menu button opens the phone navigation sheet.
@@ -34,7 +36,7 @@ Group, Status, Side, Primary agent, and Lead source use the multi-select control
 
 Date range is a single-select dropdown in that same underline field.
 
-Filters live in a slim bar above the report, not a card of dropdowns. At `md` and wider the bar holds a Filters button with a count of filters in use, the date range (or Cap year) dropdown, From and To when Custom is selected, a chip for each filter that differs from its default (such as "Side: 3 sides", or "Exclude Team Leads" for a checkbox) with an × that clears it, and Reset Filters on the right. A filter on its report default, such as Status on Closed and Pending, has no chip. The Filters button opens a panel that slides in from the right with every filter stacked full width; inside it a dropdown opens in place below its field. Done, the ×, Escape, or a click outside closes it. Changes apply as they are made.
+At `md` and wider the filters sit in the report title row, not in a card: a one-line date pill (the field label, such as Closing Date, then the preset name, opening the presets; Cap Year on Caps) and a Filters button with a count of filters in use. On extra-wide screens (`xl`) the reports menu, the title, and those controls share one row; narrower, the menu and the controls share the top row and the title is centered under them. Under the title, a row appears only while it has something to show: From and To when Custom is selected, and a chip for each filter that differs from its default (such as "Side: 3 sides", or "Exclude Team Leads" for a checkbox) with an × that clears it, followed by Reset Filters. A filter on its report default, such as Status on Closed and Pending, has no chip. The Filters button opens a panel that slides in from the right with every filter stacked full width; inside it a dropdown opens in place below its field. Done, the ×, Escape, or a click outside closes it. Changes apply as they are made.
 
 Below `md` the bar is one row: Filters, the date range (or cap year), and the count. It opens a sheet from the bottom, up to 85% of the screen: date presets as large chips (with the dates of the chosen one under them), then every filter stacked full width, and a footer that stays in view with Reset Filters and a button that reads Show N Transactions (Show Results on Caps). Dragging the top of the sheet down, tapping outside, or the × closes it. Changes apply as they are made; the button closes the sheet.
 

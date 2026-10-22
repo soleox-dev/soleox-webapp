@@ -1568,6 +1568,7 @@ function ReportView(props: {
   // Below md, or on a short screen, the page scrolls natively instead.
   // A phone in landscape is wide but short, so the full-screen layout also needs a tall screen.
   const locked = screenFitReport(props.reportId);
+  const reportAbout = OWNER_REPORTS.find((item) => item.id === props.reportId)?.about;
   const [filterSlot, setFilterSlot] = useState<HTMLDivElement | null>(null);
   const fitsScreen = useFitsScreen();
   const chromeRef = useRef<HTMLDivElement>(null);
@@ -1665,11 +1666,15 @@ function ReportView(props: {
     <div className={locked ? 'screenfit:flex screenfit:min-h-0 screenfit:flex-1 screenfit:flex-col' : undefined}>
       <div ref={chromeRef} className={`z-40 shrink-0 border-b border-slate-200/80 px-0 dark:border-slate-700/80 ${reportCanvas} ${locked ? '' : 'sticky top-0'} ${capSection ? 'pb-3' : 'pb-4'}`}>
         {/* Below md the report menu moves into the header's menu sheet, so the title gets the full row. */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-6 max-md:grid-cols-1 max-md:gap-2 max-md:py-3">
-          <div className="z-50 min-w-0 justify-self-start max-md:hidden">
+        {/* Extra-wide screens: menu, title, and the date and Filters controls share one row. Narrower: the menu and
+            the controls share the top row and the title is centered under them. Phones: the title alone. */}
+        <div className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3 py-5 [grid-template-areas:'nav_filters'_'title_title'] xl:grid-cols-[1fr_auto_1fr] xl:py-6 xl:[grid-template-areas:'nav_title_filters'] max-md:grid-cols-1 max-md:gap-2 max-md:py-3 max-md:[grid-template-areas:'title']">
+          <div className="z-50 min-w-0 justify-self-start [grid-area:nav] max-md:hidden">
             <OwnerReportNav reportId={props.reportId} onSelect={props.onSelectReport} />
           </div>
-          <div className="min-w-0 px-2 text-center">
+          <div className="relative z-40 min-w-0 px-2 text-center [grid-area:title]">
+            {/* The info icon sits outside the heading so its note keeps the body type size. */}
+            <div className="flex items-center justify-center gap-2">
             <h2 className="text-balance text-2xl font-extrabold leading-tight tracking-tight">
               {props.reportId === 'lead-source-leaderboard' ? (
                 <>
@@ -1699,10 +1704,14 @@ function ReportView(props: {
                 <TitleCaps options={props.capChoices} picked={props.capPicked} onChange={props.onCaps} />
               ) : props.reportName}
             </h2>
+            {reportAbout ? (
+              <ScoreNote label={props.reportName} text={reportAbout} className="relative inline-flex shrink-0" align="right" wide iconClass="text-slate-400 transition hover:text-brand-600 dark:hover:text-brand-300" />
+            ) : null}
+            </div>
             <p className="mt-1.5 text-sm text-slate-500 max-md:mt-1 max-md:text-xs">{props.reportId === 'team-caps' ? 'Each agent’s cap year comes from that cap’s reset date.' : `${formatRange(range)} compared with ${formatRange(priorRange)}`}</p>
           </div>
           {/* The date and Filters controls render here from FilterBar on wider screens. */}
-          <div ref={setFilterSlot} className="relative z-50 min-w-0 justify-self-end max-md:hidden" />
+          <div ref={setFilterSlot} className="relative z-50 min-w-0 justify-self-end [grid-area:filters] max-md:hidden" />
         </div>
         <FilterBar
           {...props}
@@ -5575,9 +5584,11 @@ const SCORE_NOTES: Record<string, string> = {
   'buyer:Avg. GCI %': `Total GCI divided by total sales price for Closed Buyer transactions whose closing date is in this date range.${VERSUS_LAST_YEAR}`,
 };
 
-function ScoreNote({ label, text, onOpenChange, className = 'absolute right-1.5 top-1.5 z-20', align = 'right', iconClass = 'text-slate-400 transition hover:text-emerald-600 dark:hover:text-emerald-300' }: {
+function ScoreNote({ label, text, onOpenChange, className = 'absolute right-1.5 top-1.5 z-20', align = 'right', iconClass = 'text-slate-400 transition hover:text-emerald-600 dark:hover:text-emerald-300', wide = false }: {
   label: string;
   text: string;
+  /** A larger icon and a wider note in body text, for a report's description beside its title. */
+  wide?: boolean;
   onOpenChange?: (open: boolean) => void;
   className?: string;
   align?: 'left' | 'right';
@@ -5637,10 +5648,10 @@ function ScoreNote({ label, text, onOpenChange, className = 'absolute right-1.5 
         }}
         className={`cursor-pointer rounded-full p-0.5 [outline:none] focus-visible:[outline:none] focus-visible:shadow-[0_0_0_2px_rgb(16_185_129/0.45)] ${iconClass}`}
       >
-        <Info className="h-3.5 w-3.5" aria-hidden="true" />
+        <Info className={wide ? 'h-4.5 w-4.5' : 'h-3.5 w-3.5'} aria-hidden="true" />
       </button>
       {open ? (
-        <p role="tooltip" className={`absolute top-full z-30 mt-1 w-56 rounded-lg border border-slate-200 bg-white p-2.5 text-left text-2xs font-medium normal-case leading-snug tracking-normal text-slate-600 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 ${align === 'left' ? 'left-0' : 'right-0'}`}>
+        <p role="tooltip" className={`absolute top-full z-30 mt-1 ${wide ? 'w-80 max-w-[calc(100vw-2rem)] p-3 text-xs' : 'w-56 p-2.5 text-2xs'} rounded-lg border border-slate-200 bg-white text-left font-medium normal-case leading-snug tracking-normal text-slate-600 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 ${align === 'left' ? 'left-0' : 'right-0'}`}>
           {text}
         </p>
       ) : null}
