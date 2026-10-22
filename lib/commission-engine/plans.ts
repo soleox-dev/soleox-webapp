@@ -258,6 +258,18 @@ export interface PlanDealInput {
   offTheTop?: OffTheTopItem[];
   bonuses?: PlanBonus[];
   agents: PlanAgentInput[];
+  /**
+   * Sides already worked out by the waterfall (template splits, bonuses and credits), by agent id. When given,
+   * offTheTop and bonuses are not applied again; each agent's splitPercent still shares the per-deal fees.
+   */
+  sides?: Record<string, PlanSide>;
+}
+
+/** An agent's side from the waterfall: before bonuses, after bonuses and credits, and how it was reached. */
+export interface PlanSide {
+  side: number;
+  sideAfterBonuses: number;
+  notes: string[];
 }
 
 /** One plan line already paid on an earlier deal. */
@@ -503,6 +515,20 @@ function workOutSides(deal: PlanDealInput) {
   return { side, afterBonuses, notes };
 }
 
+function sidesGiven(deal: PlanDealInput, sides: Record<string, PlanSide>) {
+  const side = new Map<string, number>();
+  const afterBonuses = new Map<string, number>();
+  const notes = new Map<string, string[]>();
+  for (const agent of deal.agents) {
+    const given = sides[agent.id];
+    if (!given) throw new Error(`The waterfall has no split for ${agent.name}.`);
+    side.set(agent.id, roundHalfUpCents(given.side));
+    afterBonuses.set(agent.id, roundHalfUpCents(given.sideAfterBonuses));
+    notes.set(agent.id, [...given.notes]);
+  }
+  return { side, afterBonuses, notes };
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // Lines
 // ---------------------------------------------------------------------------------------------------------------
@@ -668,7 +694,7 @@ export function planNeedsCapYear(plan: CommissionPlan): boolean {
 /** Runs every team agent's plan on one deal. `history` holds plan lines paid on earlier deals. */
 export function computePlanDeal(deal: PlanDealInput, history: PlanHistoryLine[] = []): PlanDealResult {
   const feeSharePercent = deal.feeSharePercent ?? 100;
-  const { side, afterBonuses, notes } = workOutSides(deal);
+  const { side, afterBonuses, notes } = deal.sides ? sidesGiven(deal, deal.sides) : workOutSides(deal);
   const payeeTotals: Record<string, number> = {};
   const addPayee = (payee: string | undefined, amount: number) => {
     const name = payee || 'Other';

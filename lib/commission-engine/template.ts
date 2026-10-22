@@ -55,6 +55,29 @@ export interface TemplateLogicStep {
   popup_section?: string | null;
   show_when_formula?: string | null;
   divider_below?: boolean | null;
+  /** 'BONUS' (Agent Splits): moves the amount from from_agent_key's agent to this rule's agent. */
+  rule_kind?: string | null;
+  from_agent_key?: string | null;
+  /** Off-the-top or Pre-splits: the credit comes out of these agents' splits instead of off the top. */
+  paid_by_agent_keys?: string[] | null;
+  /** How the Paid By agents share the credit: 'split' (default) or 'equal'. */
+  paid_share_by?: string | null;
+}
+
+/** A bonus line: dollars moved from one agent's split to another's. */
+export interface AppliedBonus {
+  name: string;
+  from: string;
+  to: string;
+  amount: number;
+}
+
+/** A credit paid by chosen agents: one agent's share, taken from their split before their other post-splits. */
+export interface AppliedAgentCredit {
+  name: string;
+  agentName: string;
+  entity: string;
+  amount: number;
 }
 
 export interface NamedParty {
@@ -91,6 +114,10 @@ export interface AppliedTemplateRules {
   postSplit2RulesByAgent?: Record<string, DynamicRule[]>;
   agentSplits?: AppliedAgentSplit[];
   calculations?: AppliedCalculation[];
+  /** Present only when the template has bonus lines that applied. */
+  bonuses?: AppliedBonus[];
+  /** Present only when the template has credits paid by chosen agents that applied. */
+  agentCredits?: AppliedAgentCredit[];
 }
 
 type Bucket = 'offTheTop' | 'preSplit' | 'postSplit' | 'postSplit2' | 'agentSplit';
@@ -265,6 +292,10 @@ export function applyTemplateLogic({
   let agentSplitNetsFlushed = false;
   const postSums: Record<string, number> = {};
   const post2Sums: Record<string, number> = {};
+  const pendingBonuses: AppliedBonus[] = [];
+  const pendingCredits: { name: string; entity: string; amount: number; payers: string[]; shareBy: 'split' | 'equal' }[] = [];
+  const bonuses: AppliedBonus[] = [];
+  const agentCredits: AppliedAgentCredit[] = [];
 
   const ruleResults: Record<string, FormulaValue> = {};
   const suppressedKeys = new Set<string>();
@@ -370,6 +401,51 @@ export function applyTemplateLogic({
     if (agentSplitNetsFlushed) return;
     agentSplitNetsFlushed = true;
     agentSplitNets.forEach((net, key) => rememberRule(key, net));
+    applyBonusesAndCredits();
+  };
+  const splitPool = () => (waterfallPool
+    ? roundCurrency(waterfallPool.afterPreSplits)
+    : roundCurrency(totalCommission - offTopSum - preSplitSum));
+  const moveSplit = (agentName: string, delta: number, label: string) => {
+    const entry = agentSplits.find((split) => split.name.trim().toLowerCase() === agentName.trim().toLowerCase());
+    const pool = splitPool();
+    if (!entry) {
+      if (delta < 0) throw new Error(`${agentName} pays "${label}" but has no agent split.`);
+      agentSplits.push({ name: agentName, splitType: 'AMOUNT', splitVal: delta, amount: delta });
+    } else {
+      entry.amount = roundCurrency(entry.amount + delta);
+      entry.splitVal = appliedSplitValue(entry.splitType, entry.amount, pool);
+    }
+    const key = Object.keys(agentAmounts).find((name) => name.trim().toLowerCase() === agentName.trim().toLowerCase()) || agentName;
+    agentAmounts[key] = roundCurrency((agentAmounts[key] || 0) + delta);
+  };
+  // Credits are shared by the payers' splits before bonuses; bonuses then move dollars between splits.
+  // Both run once every agent split is known and before any post-split.
+  const applyBonusesAndCredits = () => {
+    for (const credit of pendingCredits.splice(0)) {
+      const splits = credit.payers.map((name) => recorded(agentAmounts, name));
+      const splitTotal = splits.reduce((sum, amount) => sum + amount, 0);
+      const shares = credit.payers.map((_, index) => roundCurrency(
+        credit.amount * (credit.shareBy === 'split' && splitTotal > 0 ? splits[index] / splitTotal : 1 / credit.payers.length),
+      ));
+      // The credit is paid in full: a rounding cent goes to the first payer.
+      shares[0] = roundCurrency(shares[0] + credit.amount - shares.reduce((sum, amount) => sum + amount, 0));
+      credit.payers.forEach((agentName, index) => {
+        if (!shares[index]) return;
+        const pool = recorded(agentAmounts, agentName);
+        postSplitRulesByAgent[agentName] = [
+          { id: `tpl_credit_${credit.name}_${index}`, name: credit.name, entity: credit.entity, type: 'AMOUNT', value: appliedSplitValue('AMOUNT', shares[index], pool) },
+          ...(postSplitRulesByAgent[agentName] || []),
+        ];
+        postSums[agentName] = roundCurrency((postSums[agentName] || 0) + shares[index]);
+        agentCredits.push({ name: credit.name, agentName, entity: credit.entity, amount: shares[index] });
+      });
+    }
+    for (const bonus of pendingBonuses.splice(0)) {
+      moveSplit(bonus.from, -bonus.amount, bonus.name);
+      moveSplit(bonus.to, bonus.amount, bonus.name);
+      bonuses.push(bonus);
+    }
   };
   const namedParty = (value: FormulaValue | null, list: NamedParty[]) => {
     const text = readText(value);
@@ -519,6 +595,21 @@ export function applyTemplateLogic({
       return;
     }
     const formulaAmount = roundCurrency(evaluateNumber(formula, `Amount for "${ruleName}"`));
+    const kind = String(step.rule_kind || '').trim().toUpperCase();
+    if (kind === 'BONUS' && bucket === 'agentSplit') {
+      rememberRule(step.rule_key, formulaAmount);
+      // A bonus slot with nothing in it (no agent, or $0) does nothing.
+      if (formulaAmount === 0) return;
+      const fromKey = step.from_agent_key?.trim() || '';
+      const fromResult = fromKey ? resolve(fromKey) : null;
+      const fromName = fromResult && fromResult.type !== 'error' ? agentNameFrom(fromResult) : '';
+      if (!fromName) throw new Error(`"${ruleName}" needs the agent who pays the bonus.`);
+      if (!agentName) throw new Error(`"${ruleName}" needs the agent who receives the bonus.`);
+      if (fromName.trim().toLowerCase() === agentName.trim().toLowerCase()) throw new Error(`"${ruleName}" pays the bonus to the agent who pays it.`);
+      pendingBonuses.push({ name: ruleName, from: fromName, to: agentName, amount: formulaAmount });
+      if (agentSplitNetsFlushed) applyBonusesAndCredits();
+      return;
+    }
     // A later agent split, such as a team-lead remainder, needs the share
     // before this cap is taken off. Post-splits need the net share, so that
     // amount is stored and written back once every agent split has run.
@@ -570,6 +661,21 @@ export function applyTemplateLogic({
       if (!result || result.type === 'error' || !agentName) {
         throw new Error(`Agent for "${ruleName}" could not be calculated.`);
       }
+    }
+
+    const payerKeys = (step.paid_by_agent_keys || []).map((key) => key.trim()).filter(Boolean);
+    if (payerKeys.length && (bucket === 'offTheTop' || bucket === 'preSplit')) {
+      if (!entityName) throw new Error(`"${ruleName}" needs an entity.`);
+      const payers = payerKeys.flatMap((key) => {
+        const result = resolve(key);
+        const name = result && result.type !== 'error' ? agentNameFrom(result) : '';
+        return name ? [name] : [];
+      });
+      // A Paid By slot with no agent on this deal (an empty agent_3) simply does not pay.
+      if (!payers.length) throw new Error(`"${ruleName}" is paid by agents who are not on this deal.`);
+      pendingCredits.push({ name: ruleName, entity: entityName, amount: formulaAmount, payers, shareBy: step.paid_share_by === 'equal' ? 'equal' : 'split' });
+      if (agentSplitNetsFlushed) applyBonusesAndCredits();
+      return;
     }
 
     const splitType = splitKind(step.split_type);
@@ -653,6 +759,7 @@ export function applyTemplateLogic({
     }
   }
   flushShown();
+  applyBonusesAndCredits();
 
   return {
     offTheTopRules,
@@ -661,6 +768,8 @@ export function applyTemplateLogic({
     postSplit2RulesByAgent,
     agentSplits,
     calculations,
+    ...(bonuses.length ? { bonuses } : {}),
+    ...(agentCredits.length ? { agentCredits } : {}),
   };
 }
 
