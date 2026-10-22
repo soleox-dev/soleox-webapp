@@ -223,23 +223,54 @@ function signTone(value: number): string {
 
 const scoreBand = 'grid gap-y-3 rounded-xl border border-slate-200 bg-white px-2 py-3 dark:border-slate-800 dark:bg-slate-900';
 
-const STATUS_TONES = {
-  closed: 'text-emerald-600 dark:text-emerald-400',
-  pending: 'text-amber-600 dark:text-amber-400',
-  cancelled: 'text-rose-600 dark:text-rose-400',
-} as const;
+const STATUS_ORDER = [
+  { key: 'closed', label: 'Closed', dot: 'bg-emerald-500', bar: 'bg-emerald-500 dark:bg-emerald-400' },
+  { key: 'pending', label: 'Pending', dot: 'bg-amber-400', bar: 'bg-amber-400 dark:bg-amber-400' },
+  { key: 'cancelled', label: 'Cancelled', dot: 'bg-rose-400', bar: 'bg-rose-400 dark:bg-rose-400' },
+] as const;
 
-function StatusSplit({ deals, read, format }: { deals: ReportDeal[]; read: (deal: ReportDeal) => number; format: (value: number) => string }) {
+/**
+ * A Transaction List scorecard: the figure, a thin bar showing each status's share of it, and the amount per status.
+ * Only statuses that have transactions in the report are listed, so a Closed + Pending view shows no Cancelled $0.
+ */
+function StatusTile({ label, value, deals, read, format, footer }: {
+  label: string;
+  value: string;
+  deals: ReportDeal[];
+  read: (deal: ReportDeal) => number;
+  format: (value: number) => string;
+  footer?: React.ReactNode;
+}) {
+  const parts = STATUS_ORDER
+    .map((status) => {
+      const rows = deals.filter((deal) => deal.status.trim().toLowerCase() === status.key);
+      return { ...status, present: rows.length > 0, amount: sum(rows, read) };
+    })
+    .filter((part) => part.present);
+  const total = parts.reduce((all, part) => all + Math.max(0, part.amount), 0);
   return (
-    <div className="mt-1 grid grid-cols-3 gap-1">
-      {(['closed', 'pending', 'cancelled'] as const).map((status) => (
-        <div key={status} className="min-w-0">
-          <p className={`text-2xs font-medium ${STATUS_TONES[status]}`}>{status === 'closed' ? 'Closed' : status === 'pending' ? 'Pending' : 'Cancelled'}</p>
-          <p className={`truncate text-sm font-semibold tabular-nums ${STATUS_TONES[status]}`}>
-            {format(sum(deals.filter((deal) => deal.status.trim().toLowerCase() === status), read))}
-          </p>
-        </div>
-      ))}
+    <div className="flex min-w-0 flex-col rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
+      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-0.5 truncate text-xl font-bold tabular-nums text-slate-900 dark:text-slate-50">{value}</p>
+      {parts.length > 0 ? (
+        <>
+          <div className="mt-2.5 flex h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" aria-hidden>
+            {parts.map((part) => (total > 0 && part.amount > 0 ? (
+              <span key={part.key} className={`h-full ${part.bar} first:rounded-l-full last:rounded-r-full`} style={{ width: `${(part.amount / total) * 100}%` }} />
+            ) : null))}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            {parts.map((part) => (
+              <span key={part.key} className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                <span aria-hidden className={`h-2 w-2 rounded-full ${part.dot}`} />
+                {part.label}
+                <span className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">{format(part.amount)}</span>
+              </span>
+            ))}
+          </div>
+        </>
+      ) : null}
+      {footer ? <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">{footer}</div> : null}
     </div>
   );
 }
@@ -251,6 +282,7 @@ function compactDollars(value: number): string {
 export function TransactionListReport({ deals, names }: { deals: ReportDeal[]; names: Map<string, string> }) {
   const volume = sum(deals, (deal) => deal.salesPrice);
   const gci = sum(deals, (deal) => deal.gciAmount);
+  const priced = deals.filter((deal) => deal.salesPrice > 0);
   const columns: Column[] = [
     { key: 'status', label: 'Status', sortValue: (deal) => deal.status, cell: (deal) => <StatusChip status={deal.status} /> },
     { key: 'agent', label: 'Primary Agent', width: 'min-w-32', sortValue: (deal) => names.get(deal.agentId) || '', cell: (deal) => names.get(deal.agentId) || '—' },
@@ -266,16 +298,23 @@ export function TransactionListReport({ deals, names }: { deals: ReportDeal[]; n
   ];
   return (
     <div className={fitReport}>
-      <div className={`${scoreBand} shrink-0 grid-cols-1 md:grid-cols-[1fr_2fr_2fr]`}>
-        <Score label="Transactions" value={deals.length.toLocaleString()} />
-        <div className="min-w-0 px-2 text-center">
-          <Score label="Sales Volume" value={fullMoney(volume)} />
-          <StatusSplit deals={deals} read={(deal) => deal.salesPrice} format={compactDollars} />
-        </div>
-        <div className="min-w-0 px-2 text-center">
-          <Score label="GCI" value={fullMoney(gci)} />
-          <StatusSplit deals={deals} read={(deal) => deal.gciAmount} format={fullMoney} />
-        </div>
+      <div className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatusTile label="Transactions" value={deals.length.toLocaleString()} deals={deals} read={() => 1} format={(value) => value.toLocaleString()} />
+        <StatusTile label="Sales Volume" value={fullMoney(volume)} deals={deals} read={(deal) => deal.salesPrice} format={compactDollars} />
+        <StatusTile label="GCI" value={fullMoney(gci)} deals={deals} read={(deal) => deal.gciAmount} format={compactDollars} />
+        <StatusTile
+          label="Avg. Sales Price"
+          value={priced.length ? fullMoney(sum(priced, (deal) => deal.salesPrice) / priced.length) : '—'}
+          deals={[]}
+          read={() => 0}
+          format={compactDollars}
+          footer={(
+            <span className="inline-flex flex-wrap gap-x-4 gap-y-1">
+              <span>Avg. GCI % <span className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">{rate(volume ? gci / volume : null)}</span></span>
+              <span>Avg. GCI <span className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">{deals.length ? compactDollars(gci / deals.length) : '—'}</span></span>
+            </span>
+          )}
+        />
       </div>
       <DealListTable
         deals={deals}
