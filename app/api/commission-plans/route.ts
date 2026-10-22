@@ -20,6 +20,8 @@ export type PlanSettingsDto = {
   capAmountFieldKeys: Record<string, string>;
   /** Deal statuses that count toward caps and yearly limits. */
   countingStatuses: string[];
+  /** Plan line key -> the entity earlier deals paid that line to; those saved lines count toward caps. */
+  historyEntityIds: Record<string, string>;
   /** The switch: plans calculate this client's deals with a Cap Date on or after calculateFrom. */
   calculateDeals: boolean;
   calculateFrom: string;
@@ -78,6 +80,7 @@ export async function PUT(request: Request) {
         opt_in_field_keys: fieldMap(settings.optInFieldKeys),
         cap_amount_field_keys: fieldMap(settings.capAmountFieldKeys),
         counting_statuses: statusList(settings.countingStatuses).length ? statusList(settings.countingStatuses) : null,
+        history_entity_ids: fieldMap(settings.historyEntityIds),
         calculate_deals: Boolean(settings.calculateDeals),
         calculate_from: settings.calculateFrom && DAY.test(settings.calculateFrom) ? settings.calculateFrom : null,
         updated_at: now,

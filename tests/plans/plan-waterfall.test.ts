@@ -134,6 +134,15 @@ describe('Commission Plans in the deal waterfall', () => {
     expect(saved).toMatchObject({ final_amount: 700, custom_attributes: { plan_typed: true } });
   });
 
+  it('a template line paying the same entity as a plan line blocks Save', () => {
+    const waterfall = templateWaterfall();
+    // The template still charges Winston an eXp line of its own.
+    waterfall.postSplitRulesByAgent.Winston = [...(waterfall.postSplitRulesByAgent.Winston || []), { id: 'tpl_old', name: 'Company Comm', entity: 'eXp', type: 'AMOUNT', value: 3255 }];
+    const result = run(waterfall, context());
+    expect(result.save.blockers.blocked).toBe(true);
+    expect(result.save.blockers.reason).toContain("Winston pays eXp twice: once by the plan and once by a template or typed line. Remove the template's eXp rule before saving.");
+  });
+
   it('an agent without a plan blocks Save with the reason', () => {
     const { AGT_K: _kyle, ...rest } = context().agents;
     const result = run(templateWaterfall(), { ...context(), agents: rest });
