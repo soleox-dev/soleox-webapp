@@ -167,12 +167,17 @@ export function defaultTransactionView(config: TransactionViewsConfig): Transact
   return config.views.find((view) => view.id === config.defaultViewId) || config.views[0];
 }
 
+/** The client's Finished view: its id or its name is "finished". Deals in it are done and keep their saved lines. */
+export function transactionViewKeyIsFinished(view: Pick<TransactionView, 'id' | 'name'>): boolean {
+  return view.id === 'finished' || transactionViewNameKey(view.name) === 'finished';
+}
+
 /** A saved list tab, or the default view when the saved name is no longer a view. */
 export function resolveStoredLedgerView(stored: string, config: TransactionViewsConfig): string {
   if (stored === 'ALL' || stored === 'SYNCED' || stored === 'DELETED') return stored;
   if (config.views.some((view) => view.id === stored)) return stored;
   if (stored === 'FINISHED') {
-    const finished = config.views.find((view) => view.id === 'finished' || transactionViewNameKey(view.name) === 'finished');
+    const finished = config.views.find(transactionViewKeyIsFinished);
     if (finished) return finished.id;
   }
   return config.defaultViewId;

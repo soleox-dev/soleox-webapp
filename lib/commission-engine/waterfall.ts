@@ -243,6 +243,7 @@ export function computeTransactionWaterfall({
           value: r.value,
           amount: amt,
           level: 1,
+          ...planFields(r),
         });
       });
 
@@ -268,6 +269,7 @@ export function computeTransactionWaterfall({
           value: r2.value,
           amount: amt2,
           level: 2,
+          ...planFields(r2),
         });
       });
 
@@ -348,6 +350,17 @@ export function computeTransactionWaterfall({
 }
 
 export type WaterfallResult = ReturnType<typeof computeTransactionWaterfall>;
+
+/** Commission Plan markers a post-split carries into the result and the save, present only when set. */
+function planFields(rule: DynamicRule): Partial<Pick<DynamicRule, 'planLineKey' | 'planVersionId' | 'planTyped' | 'planWaived' | 'beforePlan'>> {
+  return {
+    ...(rule.planLineKey ? { planLineKey: rule.planLineKey } : {}),
+    ...(rule.planVersionId ? { planVersionId: rule.planVersionId } : {}),
+    ...(rule.planTyped ? { planTyped: true } : {}),
+    ...(rule.planWaived ? { planWaived: true } : {}),
+    ...(rule.beforePlan ? { beforePlan: true } : {}),
+  };
+}
 
 function rulesForAgent(rules: Record<string, DynamicRule[]>, agentName: string): DynamicRule[] {
   return rules[agentName]

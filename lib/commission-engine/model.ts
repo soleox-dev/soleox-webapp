@@ -52,6 +52,11 @@ export interface AgentConfig {
    * (shown as EDITED) until the template is submitted again. Saved as custom_attributes.manual_split.
    */
   manualSplit?: boolean;
+  /**
+   * Dollars bonus lines moved to this agent on the deal (negative when the agent paid them). Commission Plans share
+   * per-deal fees by the split without them. Saved as custom_attributes.bonus_net on the agent's split line.
+   */
+  bonusNet?: number;
   brokerCapLimit: number;
   brokerCapPaidYTD: number;
   riskCapLimit: number;
@@ -67,6 +72,16 @@ export interface DynamicRule {
   value: number;
   /** This rule's formula reads a team cap amount, so the waterfall recalculates it after the cap. */
   fromTeamCapBaseline?: boolean;
+  /** A Commission Plan line: its key, saved as plan_line_key. */
+  planLineKey?: string;
+  /** The plan version it was calculated with, saved as commission_plan_version_id. */
+  planVersionId?: string;
+  /** The plan line's amount was typed by hand: it wins over the plan and counts as paid. */
+  planTyped?: boolean;
+  /** The deal waives this plan line. */
+  planWaived?: boolean;
+  /** A credit paid by this agent: it comes off the side before the plan's lines. */
+  beforePlan?: boolean;
 }
 
 /** A transaction field as the engine reads it: Total Commission may have a formula. */
@@ -100,6 +115,8 @@ export interface StoredCommissionItem {
   calculated_amount?: number | string | null;
   final_amount?: number | string | null;
   custom_attributes?: Record<string, unknown> | null;
+  plan_line_key?: string | null;
+  commission_plan_version_id?: string | null;
 }
 
 /** Total Commission's formula from Settings, evaluated against the deal's fields. */

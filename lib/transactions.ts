@@ -303,6 +303,10 @@ export async function createTransaction(
           ? roundCurrency(Number(item.final_amount))
           : roundCurrency(Number(item.calculated_amount ?? item.amount ?? 0)),
         custom_attributes: item.custom_attributes || {},
+        // A Commission Plan line records its line key and plan version (both or neither, as migration 065 checks).
+        ...(item.plan_line_key && item.commission_plan_version_id
+          ? { plan_line_key: String(item.plan_line_key), commission_plan_version_id: String(item.commission_plan_version_id) }
+          : {}),
         created_by: userId,
         updated_at: new Date().toISOString(),
         updated_by: userId,

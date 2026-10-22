@@ -79,6 +79,10 @@ export function waterfallAfterTemplate(
     const previous = previousAgents.find((agent) => namesMatch(agent.name, name));
     const split = orderedSplits.find((item) => namesMatch(item.name, name));
     const keptPrimary = orderedSplits.length === 0 && primary && namesMatch(primary.name, name) ? primary : null;
+    const bonusNet = (applied.bonuses || []).reduce(
+      (sum, bonus) => sum + (namesMatch(bonus.to, name) ? bonus.amount : 0) - (namesMatch(bonus.from, name) ? bonus.amount : 0),
+      0,
+    );
     return {
       id: known?.id || previous?.id || `AGT_${name.trim()}`,
       name: known?.name || previous?.name || name.trim(),
@@ -89,6 +93,7 @@ export function waterfallAfterTemplate(
       brokerCapPaidYTD: 0,
       riskCapLimit: 0,
       riskPaidYTD: 0,
+      ...(Math.abs(bonusNet) >= 0.005 ? { bonusNet: Math.round(bonusNet * 100) / 100 } : {}),
     };
   });
   const primaryIndex = templateAgents.findIndex((agent) => isPrimaryAgent(agent, primaryAgentId));
