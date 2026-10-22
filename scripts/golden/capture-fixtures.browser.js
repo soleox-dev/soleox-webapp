@@ -215,21 +215,18 @@
     }
     return next;
   };
-  const keepEntityName = (name) => templateText.includes(name) || /broker/i.test(name);
-  const entityPseudo = new Map();
+  // Every entity name is masked word by word; generic words (Company, Comm, Fee, Broker, ...) are in ENGINE_WORDS.
+  const keepEntityName = () => false;
+  // Entity names often hold a person's name ("TC: <name>"), and a template matches them against text parameters
+  // holding the same name. Their words are masked word by word below, the same way everywhere, so they still match.
+  const entityWords = new Set();
   const maskEntity = (entity) => {
     const name = String(entity.entity_name || '');
-    let masked = name;
     if (name && !keepEntityName(name)) {
-      const asAgent = variants.get(name.trim().toLowerCase());
-      if (asAgent) masked = asAgent;
-      else {
-        if (!entityPseudo.has(name)) entityPseudo.set(name, `Entity ${pad(entityPseudo.size + 1)}`);
-        masked = entityPseudo.get(name);
-        realNames.add(name);
-      }
+      [...name.matchAll(/[A-Za-z][A-Za-z'.-]+/g), ...String(entity.contact_name || '').matchAll(/[A-Za-z][A-Za-z'.-]+/g)]
+        .forEach((match) => entityWords.add(match[0]));
     }
-    return { ...entity, entity_name: masked, contact_name: null, contact_email: null, tax_id: null,
+    return { ...entity, contact_name: null, contact_email: null, tax_id: null,
       created_by: filled(entity.created_by) ? MASKED_EMAIL : entity.created_by, updated_by: filled(entity.updated_by) ? MASKED_EMAIL : entity.updated_by };
   };
   const maskWho = (row) => ({ ...row, ...(filled(row.created_by) ? { created_by: MASKED_EMAIL } : {}), ...(filled(row.updated_by) ? { updated_by: MASKED_EMAIL } : {}) });
@@ -257,11 +254,7 @@
       allocationRows: entry.allocationRows,
     }])),
   };
-  // Masked entity names are replaced wherever they appear (stored rule names, labels).
   let text = JSON.stringify(output);
-  entityPseudo.forEach((replacement, real) => {
-    if (real.length >= 4) text = text.replace(new RegExp(`(?<![A-Za-z])${escape(real)}(?![A-Za-z])`, 'g'), replacement);
-  });
   text = replaceNames(text);
   text = text.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, (email) => (email === MASKED_EMAIL ? email : MASKED_EMAIL));
   // First and last names left on their own (dropdown options, labels, text parameters, entity names) are replaced
@@ -273,6 +266,11 @@
     if (word.length < 3 || !/^[A-Za-z][A-Za-z'.-]*$/.test(word) || ENGINE_WORDS.has(word.toLowerCase())) return;
     if (!loneTokens.has(word.toLowerCase())) loneTokens.set(word.toLowerCase(), `Nm${pad(loneTokens.size + 1)}`);
   }));
+  entityWords.forEach((part) => {
+    const word = part.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, '');
+    if (word.length < 3 || ENGINE_WORDS.has(word.toLowerCase())) return;
+    if (!loneTokens.has(word.toLowerCase())) loneTokens.set(word.toLowerCase(), `Nm${pad(loneTokens.size + 1)}`);
+  });
   // Words in the app's own keys (sales_price, final_amount, ...) are replaced only as whole words, so a name that is
   // also such a word never breaks a key the engine reads. Every other name is also replaced inside keys, such as a
   // custom field named custom_<first>_team_cap_split. CODE_WORDS: snake_case segments from lib/, app/ and db/migrations.
@@ -327,12 +325,12 @@
   const lower = text.toLowerCase();
   const hits = (set) => [...set].filter((value) => value.trim().length >= 5 && lower.includes(value.trim().toLowerCase())).length;
   const loneNameHits = new Set();
-  allAgents.forEach((agent) => [agent.first_name, agent.last_name].forEach((part) => {
-    const word = String(part || '').trim();
+  [...allAgents.flatMap((agent) => [agent.first_name, agent.last_name]), ...entityWords].forEach((part) => {
+    const word = String(part || '').trim().replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, '');
     if (word.length < 3 || ENGINE_WORDS.has(word.toLowerCase())) return;
     const boundary = keySegments.has(word.toLowerCase()) ? 'A-Za-z0-9_' : 'A-Za-z';
     if (new RegExp(`(?<![${boundary}])${escape(word)}(?![${boundary}])`, 'i').test(text)) loneNameHits.add(word);
-  }));
+  });
   const report = {
     deals: Object.keys(final.deals).length,
     agentsKept: final.agents.length,
