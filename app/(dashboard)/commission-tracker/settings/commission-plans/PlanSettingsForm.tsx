@@ -4,7 +4,7 @@ import React from 'react';
 import type { PlanDto, PlanSettingsDto } from '@/app/api/commission-plans/route';
 import type { PlanLine } from '@/lib/commission-engine';
 import type { AllocationSchemaField } from '../allocation-fields';
-import { MenuField } from './plan-inputs';
+import { HintedLabel, MenuField } from './plan-inputs';
 import { PillMultiSelect } from '@/components/ui/pill-multi-select';
 
 
@@ -86,13 +86,13 @@ export function PlanSettingsForm({
       <section className="space-y-3">
         <h3 className="text-sm font-bold text-slate-900 dark:text-white">Cap Year</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <MenuField label="Cap Date (Orders Deals for Caps)" value={settings.capDateFieldKey} options={options(transactionDates, DATE_TYPES, settings.capDateFieldKey, 'Closing Date').filter((option) => option.value !== '')} onChange={(value) => onChange({ ...settings, capDateFieldKey: value || 'closing_date' })} />
-          <MenuField label="Cap Year Start (Agent Field)" value={settings.capYearStartFieldKey} options={options(agentFields, DATE_TYPES, settings.capYearStartFieldKey, 'Not Set')} onChange={(value) => onChange({ ...settings, capYearStartFieldKey: value })} />
-          <MenuField label="Starting Balances For (Agent Field)" value={settings.startingBalancesForFieldKey} options={options(agentFields, DATE_TYPES, settings.startingBalancesForFieldKey, 'Not Set')} onChange={(value) => onChange({ ...settings, startingBalancesForFieldKey: value })} />
+          <MenuField label="Cap Date (Orders Deals for Caps)" hint={"The deal date that puts deals in order for caps: a deal counts after every deal with an earlier Cap Date. Usually Closing Date; choose a Payment or Settlement Date field if the brokerage counts by that date."} value={settings.capDateFieldKey} options={options(transactionDates, DATE_TYPES, settings.capDateFieldKey, 'Closing Date').filter((option) => option.value !== '')} onChange={(value) => onChange({ ...settings, capDateFieldKey: value || 'closing_date' })} />
+          <MenuField label="Cap Year Start (Agent Field)" hint={"The agent date field with each agent's cap anniversary. Only the month and day are used: 07/01 means every cap year runs July 1 to June 30. Caps, tiers and yearly limits start over on it."} value={settings.capYearStartFieldKey} options={options(agentFields, DATE_TYPES, settings.capYearStartFieldKey, 'Not Set')} onChange={(value) => onChange({ ...settings, capYearStartFieldKey: value })} />
+          <MenuField label="Starting Balances For (Agent Field)" hint={"Which cap year the agent's starting balances belong to: any date inside that year. Example: Maria joins on 03/01/2026 with $6,000 of company dollar already paid at her old team, and her cap year starts July 1. With 03/01/2026 here, the $6,000 counts toward her July 2025 \u2013 June 2026 cap and stops counting on July 1, 2026. Not set: starting balances count in no year."} value={settings.startingBalancesForFieldKey} options={options(agentFields, DATE_TYPES, settings.startingBalancesForFieldKey, 'Not Set')} onChange={(value) => onChange({ ...settings, startingBalancesForFieldKey: value })} />
         </div>
         <div className="sm:max-w-md">
           <PillMultiSelect
-            label="Statuses That Count Toward Caps"
+            label={<HintedLabel label="Statuses That Count Toward Caps" hint="Only deals with these statuses count toward each agent's caps, tiers and yearly limits. A cancelled deal should not." />}
             values={settings.countingStatuses}
             options={transactionFields.find((field) => field.field_key === 'transaction_status')?.dropdown_options || []}
             placeholder="Add a Status"
@@ -113,7 +113,7 @@ export function PlanSettingsForm({
             const selected = settings.historyEntityIds[line.key] || '';
             const choices = [{ value: '', label: 'None' }, ...entities.map((entity) => ({ value: entity.id, label: entity.name }))];
             if (selected && !entities.some((entity) => entity.id === selected)) choices.push({ value: selected, label: selected });
-            return <MenuField key={`history-${line.key}`} label={`${line.name} Was Paid To`} value={selected} options={choices} onChange={(value) => setMap('historyEntityIds', line.key, value)} />;
+            return <MenuField key={`history-${line.key}`} label={`${line.name} Was Paid To`} hint={"The entity the template paid this line to before plans calculated deals. Saved lines to it on earlier deals count toward the agent's yearly total for this line, so caps carry over from before the switch."} value={selected} options={choices} onChange={(value) => setMap('historyEntityIds', line.key, value)} />;
           })}
         </div>
       </section>
@@ -124,7 +124,7 @@ export function PlanSettingsForm({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {yearly.length === 0 && <span className="text-xs text-slate-400">No plan line keeps a yearly total yet.</span>}
           {yearly.map((line) => (
-            <MenuField key={line.key} label={`Starting ${line.name}`} value={settings.startingBalanceFieldKeys[line.key] || ''} options={options(agentFields, AMOUNT_TYPES, settings.startingBalanceFieldKeys[line.key] || '', 'None')} onChange={(value) => setMap('startingBalanceFieldKeys', line.key, value)} />
+            <MenuField key={line.key} label={`Starting ${line.name}`} hint={"The agent field (an amount) with what the agent had paid on this line in the cap year before their deals were in the app. It counts in the cap year set by Starting Balances For."} value={settings.startingBalanceFieldKeys[line.key] || ''} options={options(agentFields, AMOUNT_TYPES, settings.startingBalanceFieldKeys[line.key] || '', 'None')} onChange={(value) => setMap('startingBalanceFieldKeys', line.key, value)} />
           ))}
         </div>
       </section>
@@ -133,10 +133,10 @@ export function PlanSettingsForm({
         <h3 className="text-sm font-bold text-slate-900 dark:text-white">Opt-Ins and Agent Caps</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {optIns.map((line) => (
-            <MenuField key={`opt-${line.key}`} label={`${line.name} (Yes/No Agent Field)`} value={settings.optInFieldKeys[line.key] || ''} options={options(agentFields, YES_NO_TYPES, settings.optInFieldKeys[line.key] || '', 'Nobody Opts In')} onChange={(value) => setMap('optInFieldKeys', line.key, value)} />
+            <MenuField key={`opt-${line.key}`} label={`${line.name} (Yes/No Agent Field)`} hint={"The agent field that says whether the agent takes this line: Yes, or a rate above zero, counts as taking it."} value={settings.optInFieldKeys[line.key] || ''} options={options(agentFields, YES_NO_TYPES, settings.optInFieldKeys[line.key] || '', 'Nobody Opts In')} onChange={(value) => setMap('optInFieldKeys', line.key, value)} />
           ))}
           {capped.map((line) => (
-            <MenuField key={`cap-${line.key}`} label={`${line.name} Cap Override (Agent Field)`} value={settings.capAmountFieldKeys[line.key] || ''} options={options(agentFields, AMOUNT_TYPES, settings.capAmountFieldKeys[line.key] || '', 'Plan Cap for Everyone')} onChange={(value) => setMap('capAmountFieldKeys', line.key, value)} />
+            <MenuField key={`cap-${line.key}`} label={`${line.name} Cap Override (Agent Field)`} hint={"Optional: an agent field (an amount) with a different cap for that agent. Empty or not set: the plan's cap."} value={settings.capAmountFieldKeys[line.key] || ''} options={options(agentFields, AMOUNT_TYPES, settings.capAmountFieldKeys[line.key] || '', 'Plan Cap for Everyone')} onChange={(value) => setMap('capAmountFieldKeys', line.key, value)} />
           ))}
           {optIns.length === 0 && capped.length === 0 && <span className="text-xs text-slate-400">Add a plan first.</span>}
         </div>

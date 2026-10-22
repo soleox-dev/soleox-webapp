@@ -7,7 +7,7 @@ import { OptionMenu } from '@/components/ui/option-menu';
 import { FieldChevron, UnderlineField, underlineControl } from '@/components/ui/underline-field';
 import { FormulaEditor, type FormulaName } from '../commission-templates/FormulaEditor';
 import { planFormulaNames, type CommissionPlan, type FeeTier, type PlanLine } from '@/lib/commission-engine';
-import { LINE_TYPES, MenuField, NumberField, TextField, fromPoints, lineTypeLabel, newLine, toPoints } from './plan-inputs';
+import { HintedLabel, LINE_TYPES, MenuField, NumberField, TextField, fromPoints, lineTypeLabel, newLine, toPoints } from './plan-inputs';
 
 const FORMULA_LABELS: Record<string, string> = {
   gci: 'GCI',
@@ -80,10 +80,10 @@ function TierList({
         const last = i === rows.length - 1;
         return (
           <div key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem] items-end gap-3">
-            <NumberField label={rows.length > 1 ? `Tier ${i + 1}: Amount per Deal` : 'Amount per Deal'} prefix="$" value={row.amount} onChange={(value) => setRow(i, { amount: value ?? 0 })} />
+            <NumberField label={rows.length > 1 ? `Tier ${i + 1}: Amount per Deal` : 'Amount per Deal'} hint={"The fee per deal at this tier, shared among the agents by their split % (and times the Fee Share when ticked)."} prefix="$" value={row.amount} onChange={(value) => setRow(i, { amount: value ?? 0 })} />
             {last ? (
               // The last tier's For the Next is an amount typed in, or No Limit picked from the field's menu.
-              <UnderlineField label="For the Next">
+              <UnderlineField label={<HintedLabel label="For the Next" hint="The last tier runs with no limit: choose No Limit. A number here means the tiers end there, which is not allowed." />}>
                 <OptionMenu
                   allowCustom
                   className={`${underlineControl} overview-field-select`}
@@ -102,7 +102,7 @@ function TierList({
                 <FieldChevron />
               </UnderlineField>
             ) : (
-              <NumberField label="For the Next" prefix="$" value={row.width} onChange={(value) => setRow(i, { width: value ?? 0 })} />
+              <NumberField label="For the Next" hint={"How many dollars of this fee, paid in the cap year, this tier lasts before the next tier starts."} prefix="$" value={row.width} onChange={(value) => setRow(i, { width: value ?? 0 })} />
             )}
             {rows.length > 1 ? (
               <button type="button" onClick={() => remove(i)} className="mb-1 cursor-pointer rounded p-1 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600" aria-label={`Remove Tier ${i + 1}`} title={`Remove Tier ${i + 1}`}>
@@ -176,28 +176,28 @@ export function PlanEditor({
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <TextField label="Name" value={line.name} onChange={(name) => setLine(index, { name })} />
+              <TextField label="Name" hint={"What this line is called on deals, payments and explanations."} value={line.name} onChange={(name) => setLine(index, { name })} />
               {lockedKeys.has(line.key) ? (
                 <div title="Saved keys stay fixed: year-to-date totals and the plan settings use them.">
-                  <TextField label="Key (Saved)" mono readOnly value={line.key} onChange={() => undefined} />
+                  <TextField label="Key (Saved)" hint={"The line's permanent code. Yearly totals, starting balances and Plan Settings refer to it, so it cannot change once saved."} mono readOnly value={line.key} onChange={() => undefined} />
                 </div>
               ) : (
-                <TextField label="Key" mono value={line.key} onChange={(key) => setLine(index, { key: key.trim() })} />
+                <TextField label="Key" hint={"The line's permanent code, lowercase with underscores. Yearly totals, starting balances and Plan Settings refer to it; it cannot change once saved."} mono value={line.key} onChange={(key) => setLine(index, { key: key.trim() })} />
               )}
-              <MenuField label="Payee" value={line.payee} options={payeeOptions.some((option) => option.value === line.payee) || !line.payee ? payeeOptions : [{ value: line.payee, label: line.payee }, ...payeeOptions]} onChange={(payee) => setLine(index, { payee })} placeholder="Choose an Entity" />
+              <MenuField label="Payee" hint={"The entity this line pays: one of your Commission Entities."} value={line.payee} options={payeeOptions.some((option) => option.value === line.payee) || !line.payee ? payeeOptions : [{ value: line.payee, label: line.payee }, ...payeeOptions]} onChange={(payee) => setLine(index, { payee })} placeholder="Choose an Entity" />
 
               {line.type === 'capped_percent' && (
                 <>
-                  <NumberField label="Rate" suffix="%" value={toPoints(line.rate)} onChange={(points) => setLine(index, { rate: fromPoints(points ?? 0) })} />
-                  <NumberField label="Yearly Cap" prefix="$" allowEmpty placeholder="No Cap" value={line.capAmount ?? null} onChange={(capAmount) => setLine(index, { capAmount })} />
+                  <NumberField label="Rate" hint={"The share charged on this line."} suffix="%" value={toPoints(line.rate)} onChange={(points) => setLine(index, { rate: fromPoints(points ?? 0) })} />
+                  <NumberField label="Yearly Cap" hint={"The most this line takes from an agent in one cap year. The deal that reaches it pays only what is left. Empty: no cap."} prefix="$" allowEmpty placeholder="No Cap" value={line.capAmount ?? null} onChange={(capAmount) => setLine(index, { capAmount })} />
                 </>
               )}
 
               {line.type === 'per_deal_fee' && (
                 <>
-                  <NumberField label="Yearly Limit" prefix="$" allowEmpty placeholder="No Limit" value={line.yearlyLimit ?? null} onChange={(limit) => setLine(index, { yearlyLimit: limit ?? undefined })} />
+                  <NumberField label="Yearly Limit" hint={"The most this line takes from an agent in one cap year; the deal that reaches it pays only what is left. Empty: no limit."} prefix="$" allowEmpty placeholder="No Limit" value={line.yearlyLimit ?? null} onChange={(limit) => setLine(index, { yearlyLimit: limit ?? undefined })} />
                   <NumberField
-                    label="No More Than (of the Split)"
+                    label="No More Than (of the Split)" hint={"The fee is never more than this share of the agent's split before bonuses. Example: at 20%, an agent alone on a $300 split pays at most $60."}
                     suffix="%"
                     allowEmpty
                     placeholder="No Limit"
@@ -205,7 +205,7 @@ export function PlanEditor({
                     onChange={(points) => setLine(index, { maxPercentOfSide: points === null ? undefined : fromPoints(points) })}
                   />
                   <MenuField
-                    label="Only on the Part Past the Cap Of"
+                    label="Only on the Part Past the Cap Of" hint={"Charge this fee only on the part of the agent's side already past that line's cap: nothing before the cap, all of it after, and a share on the deal that reaches the cap."}
                     value={line.multiplierFrom || ''}
                     placeholder="Not Multiplied"
                     options={[{ value: '', label: 'Not Multiplied' }, ...capped.map((other) => ({ value: other.key, label: other.name }))]}
@@ -223,7 +223,7 @@ export function PlanEditor({
                       Skip the Tiers
                     </label>
                   ) : null}
-                  <label className="flex items-center gap-2 self-end pb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <label title="Multiply this fee by the deal's Fee Share: 100% when the team carries the whole transaction, 50% for a double end booked as one deal, less when an outside brokerage agent takes a share." className="flex items-center gap-2 self-end pb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
                     <input
                       type="checkbox"
                       className="h-4 w-4 cursor-pointer accent-brand-600"
@@ -237,7 +237,7 @@ export function PlanEditor({
 
               {line.type === 'percent_of_net' && (
                 <>
-                  <NumberField label="Rate" suffix="%" value={toPoints(line.rate)} onChange={(points) => setLine(index, { rate: fromPoints(points ?? 0) })} />
+                  <NumberField label="Rate" hint={"The share charged on this line."} suffix="%" value={toPoints(line.rate)} onChange={(points) => setLine(index, { rate: fromPoints(points ?? 0) })} />
                   <label className="flex items-center gap-2 self-end pb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
                     <input type="checkbox" className="h-4 w-4 cursor-pointer accent-brand-600" checked={Boolean(line.optIn)} onChange={(event) => setLine(index, { optIn: event.target.checked || undefined })} />
                     Only agents who opt in
@@ -264,9 +264,9 @@ export function PlanEditor({
 
               {line.type === 'formula' && (
                 <>
-                  <NumberField label="Yearly Limit" prefix="$" allowEmpty placeholder="No Limit" value={line.yearlyLimit ?? null} onChange={(limit) => setLine(index, { yearlyLimit: limit ?? undefined })} />
+                  <NumberField label="Yearly Limit" hint={"The most this line takes from an agent in one cap year; the deal that reaches it pays only what is left. Empty: no limit."} prefix="$" allowEmpty placeholder="No Limit" value={line.yearlyLimit ?? null} onChange={(limit) => setLine(index, { yearlyLimit: limit ?? undefined })} />
                   <MenuField
-                    label="Counts Toward the Cap Of"
+                    label="Counts Toward the Cap Of" hint={"This line's amounts also fill that line's yearly cap."}
                     value={line.countsTowardCap || ''}
                     placeholder="No Cap"
                     options={[{ value: '', label: 'No Cap' }, ...plan.lines.filter((other) => other.type === 'capped_percent').map((other) => ({ value: other.key, label: other.name }))]}

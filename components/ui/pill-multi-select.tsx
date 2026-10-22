@@ -15,7 +15,7 @@ export function PillMultiSelect({
   onChange,
   placeholder = 'Add…',
 }: {
-  label: string;
+  label: React.ReactNode;
   values: string[];
   options: string[];
   onChange: (values: string[]) => void;
