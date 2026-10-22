@@ -138,15 +138,15 @@ function DealListTable({ deals, columns, initialSort, totalLabelColumn, empty }:
       <table className="pin-col-2 w-full text-xs">
         <thead className="report-head">
           <tr>
-            <th className="w-10 px-3 py-2.5 text-left font-semibold">#</th>
+            <th className="w-10 px-3 py-2.5 text-left align-middle font-semibold">#</th>
             {columns.map((column) => {
               const active = sort.key === column.key;
               return (
-                <th key={column.key} aria-sort={active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className={`px-3 py-2.5 align-bottom font-semibold ${alignClass(column.align)} ${column.width ?? ''}`}>
+                <th key={column.key} aria-sort={active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'} className={`px-3 py-2.5 align-middle font-semibold ${alignClass(column.align)} ${column.width ?? ''}`}>
                   <button
                     type="button"
                     onClick={() => toggle(column.key)}
-                    className={`inline-flex cursor-pointer items-end gap-0.5 ${column.align === 'right' ? 'flex-row-reverse text-right' : 'text-left'}`}
+                    className={`inline-flex cursor-pointer items-center gap-0.5 ${column.align === 'right' ? 'flex-row-reverse text-right' : 'text-left'}`}
                   >
                     <span>{column.label}</span>
                     {active ? (sort.direction === 'asc' ? <ChevronUp className="h-3.5 w-3.5 shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0" />) : null}
