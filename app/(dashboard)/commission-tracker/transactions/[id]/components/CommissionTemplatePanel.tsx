@@ -2078,8 +2078,13 @@ export function CommissionTemplatePanel({
                   for (const row of rows) next[row.parameter.id] = row.raw;
                   liveValues.current = next;
                   setValues(next);
+                  // Team caps go back to their default too: checked when they pass their qualifying formula.
+                  setCheckedCapIds(qualifyingCaps.map((cap) => cap.id));
                 }}
-                disabled={!rows.some((row) => !parameterValuesMatch(row.parameter, values[row.parameter.id] ?? '', row.raw, uniqueAgents))}
+                disabled={
+                  !rows.some((row) => !parameterValuesMatch(row.parameter, values[row.parameter.id] ?? '', row.raw, uniqueAgents))
+                  && qualifyingCaps.every((cap) => checkedCapIds.includes(cap.id))
+                }
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 text-slate-600 transition hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
