@@ -2936,7 +2936,7 @@ export default function TransactionsListPage() {
                         ? 'bg-brand-100 hover:bg-[color-mix(in_srgb,var(--color-brand-200)_70%,white)] dark:bg-[color-mix(in_srgb,var(--color-brand-500)_22%,var(--color-slate-800))] dark:hover:bg-[color-mix(in_srgb,var(--color-brand-500)_30%,var(--color-slate-800))]'
                         // Opaque colors, so the pinned columns cover what scrolls under them.
                         // Below md the stripes are stronger, so a row is easy to follow across a narrow screen.
-                        : 'bg-white even:bg-slate-50 max-md:even:bg-slate-100 hover:bg-slate-100 dark:bg-slate-800 dark:even:bg-[color-mix(in_srgb,var(--color-slate-900)_30%,var(--color-slate-800))] dark:max-md:even:bg-[color-mix(in_srgb,var(--color-slate-900)_60%,var(--color-slate-800))] dark:hover:bg-[color-mix(in_srgb,var(--color-slate-700)_50%,var(--color-slate-800))]'
+                        : 'bg-white even:bg-slate-50 max-md:even:bg-slate-100 hover:bg-slate-100 dark:bg-slate-800 dark:even:bg-[color-mix(in_srgb,var(--color-slate-900)_45%,var(--color-slate-800))] dark:max-md:even:bg-[color-mix(in_srgb,var(--color-slate-900)_60%,var(--color-slate-800))] dark:hover:bg-[color-mix(in_srgb,var(--color-slate-700)_50%,var(--color-slate-800))]'
                       } ${rowNavigates || bulkMode ? 'cursor-pointer' : ''}`}
                     >
                       {pinAddress && (
