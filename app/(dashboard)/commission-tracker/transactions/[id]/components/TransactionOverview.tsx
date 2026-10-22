@@ -384,7 +384,7 @@ export function TransactionOverview({
                               )
                             ) : (
                               <span
-                                className={`text-xs leading-5 whitespace-normal break-words ${
+                                className={`text-xs leading-5 whitespace-normal break-words text-balance ${
                                   showWarning
                                     ? 'text-amber-600 dark:text-amber-400 font-semibold'
                                     : fieldData.text === '—'
