@@ -154,7 +154,11 @@
     addVariant(`${agent.last_name || ''}, ${agent.first_name || ''}`, comma);
   });
   // First names of team cap recipients appear in field keys and cap names (custom_<first>_team_cap_split).
-  const ENGINE_WORDS = new Set(['closed', 'pending', 'active', 'cancelled', 'expired', 'incomplete', 'broker', 'brokerage', 'yes', 'no', 'true', 'false', 'buyer', 'seller', 'landlord', 'tenant', 'referral', 'referred', 'percent', 'credit', 'custom', 'option', 'zillow', 'flex', 'before', 'after', 'pay', 'paid', 'amount', 'calculation', 'section', 'entity', 'parameter', 'number', 'text', 'select', 'currency', 'boolean', 'sales', 'price', 'gci', 'perc', 'amount', 'total', 'commission', 'closing', 'date', 'agent', 'split', 'team', 'cap', 'lead', 'source', 'side', 'transaction', 'status', 'fee', 'baseline', 'prior', 'units', 'custom', 'stock', 'liability', 'company', 'comm', 'flat', 'exp', 'reset', 'join', 'name', 'first', 'last', 'level', 'post', 'pre', 'off', 'top']);
+  const ENGINE_WORDS = new Set([
+    // Formula functions and literals (formula-evaluator.ts): a name like Max must not turn MAX(...) into Nm001(...).
+    'and', 'countifs', 'if', 'iferror', 'isnull', 'isnumber', 'len', 'max', 'min', 'not', 'numbervalue', 'or', 'round', 'rounddown',
+    'roundup', 'search', 'substitute', 'sumifs', 'textafter', 'textbefore', 'today', 'trim', 'xlookup', 'year', 'usd', 'blank',
+    'closed', 'pending', 'active', 'cancelled', 'expired', 'incomplete', 'broker', 'brokerage', 'yes', 'no', 'true', 'false', 'buyer', 'seller', 'landlord', 'tenant', 'referral', 'referred', 'percent', 'credit', 'custom', 'option', 'zillow', 'flex', 'before', 'after', 'pay', 'paid', 'amount', 'calculation', 'section', 'entity', 'parameter', 'number', 'text', 'select', 'currency', 'boolean', 'sales', 'price', 'gci', 'perc', 'amount', 'total', 'commission', 'closing', 'date', 'agent', 'split', 'team', 'cap', 'lead', 'source', 'side', 'transaction', 'status', 'fee', 'baseline', 'prior', 'units', 'custom', 'stock', 'liability', 'company', 'comm', 'flat', 'exp', 'reset', 'join', 'name', 'first', 'last', 'level', 'post', 'pre', 'off', 'top']);
   const firstTokens = new Map();
   const skippedTokens = [];
   capRecipients.forEach((id) => {
