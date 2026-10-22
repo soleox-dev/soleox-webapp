@@ -116,14 +116,14 @@ export function PlanEditor({
                   {line.tiers?.length ? (
                     <>
                       <NumberField label="Until Paid This Year" prefix="$" value={line.tiers[0].untilPaid} onChange={(untilPaid) => setLine(index, { tiers: [{ amount: line.tiers![0].amount, untilPaid: untilPaid ?? 0 }] })} />
-                      <label className="flex items-center gap-2 self-end pb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      <label title="Agents marked Team Lead on Agents pay the Amount per Deal from the start, without the first tier." className="flex items-center gap-2 self-end pb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
                         <input
                           type="checkbox"
                           className="h-4 w-4 cursor-pointer accent-brand-600"
                           checked={Boolean(line.skipTiersForRoles?.includes('team_lead'))}
                           onChange={(event) => setLine(index, { skipTiersForRoles: event.target.checked ? ['team_lead'] : undefined })}
                         />
-                        Team Leads Skip the Tier
+                        Skip the Tier
                       </label>
                     </>
                   ) : null}
