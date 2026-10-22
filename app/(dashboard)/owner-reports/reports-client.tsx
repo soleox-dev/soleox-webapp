@@ -78,6 +78,11 @@ import {
 
 const GROUPS = OWNER_REPORT_GROUPS;
 
+/** Reports whose table fills the rest of the screen and scrolls on its own (on screens tall and wide enough). */
+function screenFitReport(reportId: string | null): boolean {
+  return reportId === 'net-commission-income' || reportId === 'team-caps' || reportId === 'transaction-list' || reportId === 'listings-by-list-date' || reportId === 'price-change';
+}
+
 type BoardField = { id: string; label: string; type: string };
 
 /** Dropdowns that never make sense as a closing-date leaderboard metric. */
@@ -937,11 +942,11 @@ export default function OwnerReportsPage() {
   }, [reportId]);
 
   return (
-    <main onClick={!report && !loading ? launch : undefined} className={`[overflow-anchor:none] [touch-action:manipulation] text-slate-900 dark:text-slate-100 ${reportCanvas} ${!report && !loading ? 'cursor-pointer' : ''} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'min-h-screen screenfit:min-h-0 screenfit:h-dvh screenfit:overflow-hidden' : 'min-h-screen'}`}>
+    <main onClick={!report && !loading ? launch : undefined} className={`[overflow-anchor:none] [touch-action:manipulation] text-slate-900 dark:text-slate-100 ${reportCanvas} ${!report && !loading ? 'cursor-pointer' : ''} ${screenFitReport(reportId) ? 'min-h-screen screenfit:min-h-0 screenfit:h-dvh screenfit:overflow-hidden' : 'min-h-screen'}`}>
       <SwipeHint ref={hintRef} />
       {reportId ? <EdgeReportButtons reportId={reportId} onPage={(dir) => pageToRef.current(dir)} /> : null}
-      <div className={`${widePageFrame} ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'pb-3 screenfit:flex screenfit:h-full screenfit:min-h-0 screenfit:flex-col screenfit:overflow-hidden' : 'pb-4'}`}>
-        <section ref={swipeRef} className={`min-w-0 ${reportId === 'net-commission-income' || reportId === 'team-caps' ? 'screenfit:flex screenfit:min-h-0 screenfit:flex-1 screenfit:flex-col' : `space-y-4 ${reveal ? 'report-arrive' : ''}`}`}>
+      <div className={`${widePageFrame} ${screenFitReport(reportId) ? 'pb-3 screenfit:flex screenfit:h-full screenfit:min-h-0 screenfit:flex-col screenfit:overflow-hidden' : 'pb-4'}`}>
+        <section ref={swipeRef} className={`min-w-0 ${screenFitReport(reportId) ? 'screenfit:flex screenfit:min-h-0 screenfit:flex-1 screenfit:flex-col' : `space-y-4 ${reveal ? 'report-arrive' : ''}`}`}>
           {loading ? (
             <LoadingDataPage
               progress={loadProgress}
@@ -1561,7 +1566,7 @@ function ReportView(props: {
   // Agent Earnings and Team Caps fill the screen and scroll inside their tables on desktop.
   // Below md, or on a short screen, the page scrolls natively instead.
   // A phone in landscape is wide but short, so the full-screen layout also needs a tall screen.
-  const locked = props.reportId === 'net-commission-income' || props.reportId === 'team-caps';
+  const locked = screenFitReport(props.reportId);
   const fitsScreen = useFitsScreen();
   const chromeRef = useRef<HTMLDivElement>(null);
   useEffect(() => {

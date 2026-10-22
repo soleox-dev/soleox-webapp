@@ -36,6 +36,12 @@ type Column = {
 type Sort = { key: string; direction: 'asc' | 'desc' };
 
 const tableWrap = 'report-table rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900';
+/**
+ * Transaction List and Listings fill the rest of the screen on wide, tall screens: the page stops scrolling and the
+ * table scrolls on its own, header pinned on top and Grand Total at the bottom (screenFitReport in reports-client).
+ */
+const fitTableWrap = 'report-table report-table-fit min-h-0 rounded-xl border border-slate-200 bg-white screenfit:flex-1 dark:border-slate-800 dark:bg-slate-900';
+const fitReport = 'flex flex-col gap-4 screenfit:min-h-0 screenfit:flex-1';
 
 function dayLabel(date: Date | null): string {
   return date ? date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
@@ -107,13 +113,17 @@ function AddressLink({ deal }: { deal: ReportDeal }) {
 }
 
 /** Sortable deal table with row numbers and a Grand Total row. */
-function DealListTable({ deals, columns, initialSort, totalLabelColumn, empty }: {
+function DealListTable({ deals, columns, initialSort, totalLabelColumn, empty, fit = false, fitClass = '' }: {
   deals: ReportDeal[];
   columns: Column[];
   initialSort: Sort;
   /** Column whose Grand Total cell holds the "Grand Total" label (the cell before the first total). */
   totalLabelColumn: string;
   empty: string;
+  /** Fill the screen and scroll inside (see fitTableWrap). */
+  fit?: boolean;
+  /** Extra sizing for a fitted table that shares its row with other panels. */
+  fitClass?: string;
 }) {
   const [sort, setSort] = useState<Sort>(initialSort);
   const ordered = useMemo(() => {
@@ -132,9 +142,11 @@ function DealListTable({ deals, columns, initialSort, totalLabelColumn, empty }:
   const toggle = (key: string) => setSort((current) => (
     current.key === key ? { key, direction: current.direction === 'asc' ? 'desc' : 'asc' } : { key, direction: 'asc' }
   ));
+  // In a fitted table the Grand Total row stays pinned to the bottom while the rows scroll.
+  const footCell = `border-t-2 border-slate-200 bg-slate-100 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800 ${fit ? 'sticky bottom-0 z-[3]' : ''}`;
   const alignClass = (align?: Align) => (align === 'right' ? 'text-right' : 'text-left');
   return (
-    <div className={tableWrap}>
+    <div className={fit ? `${fitTableWrap} ${fitClass}` : tableWrap}>
       <table className="pin-col-2 w-full text-xs">
         <thead className="report-head">
           <tr>
@@ -174,10 +186,10 @@ function DealListTable({ deals, columns, initialSort, totalLabelColumn, empty }:
         </tbody>
         {ordered.length > 0 ? (
           <tfoot>
-            <tr className="border-t-2 border-slate-200 bg-slate-100 font-semibold dark:border-slate-700 dark:bg-slate-800">
-              <td className="px-3 py-2.5" />
+            <tr className="font-semibold">
+              <td className={footCell} />
               {columns.map((column) => (
-                <td key={column.key} className={`whitespace-nowrap px-3 py-2.5 tabular-nums ${alignClass(column.align)}`}>
+                <td key={column.key} className={`${footCell} whitespace-nowrap tabular-nums ${alignClass(column.align)}`}>
                   {column.key === totalLabelColumn ? 'Grand Total' : column.total ?? null}
                 </td>
               ))}
@@ -247,8 +259,8 @@ export function TransactionListReport({ deals, names }: { deals: ReportDeal[]; n
     { key: 'gci', label: 'GCI', align: 'right', sortValue: (deal) => deal.gciAmount, cell: (deal) => cents(deal.gciAmount), total: cents(gci) },
   ];
   return (
-    <div className="space-y-4">
-      <div className={`${scoreBand} grid-cols-1 md:grid-cols-[1fr_2fr_2fr]`}>
+    <div className={fitReport}>
+      <div className={`${scoreBand} shrink-0 grid-cols-1 md:grid-cols-[1fr_2fr_2fr]`}>
         <Score label="Transactions" value={deals.length.toLocaleString()} />
         <div className="min-w-0 px-2 text-center">
           <Score label="Sales Volume" value={fullMoney(volume)} />
@@ -265,8 +277,9 @@ export function TransactionListReport({ deals, names }: { deals: ReportDeal[]; n
         initialSort={{ key: 'closing', direction: 'desc' }}
         totalLabelColumn="closing"
         empty="No transactions match these filters."
+        fit
       />
-      <p className="text-xs text-slate-500 dark:text-slate-400">Every transaction closing in the date range, and pending ones that went pending in it.</p>
+      <p className="shrink-0 text-xs text-slate-500 dark:text-slate-400">Every transaction closing in the date range, and pending ones that went pending in it.</p>
     </div>
   );
 }
@@ -308,8 +321,8 @@ export function ListingsReport({ deals, names }: { deals: ReportDeal[]; names: M
     { key: 'dom', label: 'DOM', align: 'right', sortValue: daysOnMarket, cell: (deal) => daysOnMarket(deal)?.toLocaleString() ?? '—', total: avgDom == null ? '—' : Math.round(avgDom).toLocaleString() },
   ];
   return (
-    <div className="space-y-4">
-      <div className={`${scoreBand} grid-cols-2 md:grid-cols-4 xl:grid-cols-8`}>
+    <div className={fitReport}>
+      <div className={`${scoreBand} shrink-0 grid-cols-2 md:grid-cols-4 xl:grid-cols-8`}>
         <Score label="Listings" value={deals.length.toLocaleString()} tone="text-pink-600 dark:text-pink-400" />
         <Score label="List Volume" value={fullMoney(listVolume)} tone="text-teal-600 dark:text-teal-400" />
         <Score label="Avg. List Price" value={listed.length ? fullMoney(listVolume / listed.length) : '—'} tone="text-purple-600 dark:text-purple-400" />
@@ -325,8 +338,9 @@ export function ListingsReport({ deals, names }: { deals: ReportDeal[]; names: M
         initialSort={{ key: 'list', direction: 'asc' }}
         totalLabelColumn="closing"
         empty="No listings were taken in this date range."
+        fit
       />
-      <div className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+      <div className="shrink-0 space-y-1 text-xs text-slate-500 dark:text-slate-400">
         <p>Every listing-side transaction with a list date in the range, whatever its status. Sales figures count closed and pending listings.</p>
         <p><span className="text-rose-500">*</span> Leaves out transactions where the list price has not been recorded.</p>
         <p>DOM (days on market) runs from the list date to the pending date.</p>
@@ -479,23 +493,27 @@ export function PriceChangeReport({ deals, priorDeals, names, range }: {
     },
   ];
   return (
-    <div className="space-y-4">
-      <div className={`${scoreBand} grid-cols-2 md:grid-cols-5`}>
+    <div className={fitReport}>
+      <div className={`${scoreBand} shrink-0 grid-cols-2 md:grid-cols-5`}>
         <Score label="Listings" value={now.count.toLocaleString()} sub={<Delta current={now.count} prior={before.count} format={(value) => value.toLocaleString()} suffix=" from prior year" />} />
         <Score label="Avg. List Price" value={now.list == null ? '—' : fullMoney(now.list)} sub={<RelativeDelta current={now.list} prior={before.list} />} />
         <Score label="Avg. Sales Price" value={now.sale == null ? '—' : fullMoney(now.sale)} sub={<RelativeDelta current={now.sale} prior={before.sale} />} />
         <Score label="Avg. Price Change" value={now.dollars == null ? '—' : signedMoney(now.dollars)} sub={<RelativeDelta current={now.dollars} prior={before.dollars} />} />
         <Score label="Avg. Price Change %" value={rate(now.change)} sub={<Delta current={now.change} prior={before.change} format={(value) => rate(value)} />} />
       </div>
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+      {/* Wide screens: table and side panels side by side, each scrolling in the space left. Narrower fitted screens
+          stack them and scroll this area, with the table capped to it so its header and total stay in view. */}
+      <div className="grid items-start gap-4 screenfit:min-h-0 screenfit:flex-1 max-xl:screenfit:grid-rows-[100%_auto] max-xl:screenfit:overflow-y-auto xl:grid-cols-[minmax(0,1fr)_24rem] xl:screenfit:grid-rows-[minmax(0,1fr)] xl:screenfit:items-stretch">
         <DealListTable
           deals={shown}
           columns={columns}
           initialSort={{ key: 'change', direction: 'desc' }}
           totalLabelColumn="status"
           empty="No closed or pending listings with both a list price and a sales price in this date range."
+          fit
+          fitClass="screenfit:h-full"
         />
-        <div className="space-y-4">
+        <div className="space-y-4 xl:screenfit:min-h-0 xl:screenfit:overflow-y-auto">
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
             <div className="grid grid-cols-2 bg-slate-200 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
               <p className="px-4 py-2.5">Price Change</p>
@@ -526,7 +544,7 @@ export function PriceChangeReport({ deals, priorDeals, names, range }: {
           </div>
         </div>
       </div>
-      <p className="text-xs text-slate-500 dark:text-slate-400">Closed and pending listing-side transactions closing in the date range, with both a list price and a sales price. Price change is the sales price minus the list price; the prior year covers the same dates a year earlier.</p>
+      <p className="shrink-0 text-xs text-slate-500 dark:text-slate-400">Closed and pending listing-side transactions closing in the date range, with both a list price and a sales price. Price change is the sales price minus the list price; the prior year covers the same dates a year earlier.</p>
     </div>
   );
 }
