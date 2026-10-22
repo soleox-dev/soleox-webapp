@@ -1142,6 +1142,13 @@ export function CommissionWaterfall({
                             Lead
                           </span>
                         )}
+                        {agent.manualSplit && (
+                          <HoverNote label="Typed by hand. It replaces the template's formula for this agent until the template is submitted again.">
+                            <span tabIndex={0} className="text-2xs bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded-full font-bold cursor-help outline-none">
+                              EDITED
+                            </span>
+                          </HoverNote>
+                        )}
 
                       </div>
 

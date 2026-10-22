@@ -66,6 +66,11 @@ export interface AgentConfig {
   isTeamLead: boolean;
   splitType: 'PERCENT' | 'AMOUNT';
   splitVal: number;
+  /**
+   * The split was typed by hand in the waterfall: it wins over the submitted template's formula for this agent
+   * (shown as EDITED) until the template is submitted again. Saved as custom_attributes.manual_split.
+   */
+  manualSplit?: boolean;
   brokerCapLimit: number;
   brokerCapPaidYTD: number;
   riskCapLimit: number;

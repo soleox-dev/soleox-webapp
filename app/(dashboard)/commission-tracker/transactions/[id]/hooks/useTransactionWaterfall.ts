@@ -148,6 +148,7 @@ export function computeTransactionWaterfall({
         amount: dollarAmt,
         overAllocated,
         isPrimary: false,
+        manualSplit: Boolean(ag.manualSplit),
       };
     });
 
@@ -440,6 +441,9 @@ type WaterfallSplit = {
   grossAmount?: number;
   displayPercent?: number;
   capAdjusted?: boolean;
+  /** Typed by hand in the waterfall: the template's formula does not replace it. */
+  manualSplit?: boolean;
+  isPrimary?: boolean;
 };
 
 function applyFormulaAgentSplits(splits: WaterfallSplit[], replayed: AppliedAgentSplit[], netToSplit: number) {
@@ -451,7 +455,11 @@ function applyFormulaAgentSplits(splits: WaterfallSplit[], replayed: AppliedAgen
     const normalized = normalizeAgentName(split.name).trim().toLowerCase();
     if (normalized && normalized !== key) dollars.set(normalized, roundCurrency((dollars.get(normalized) || 0) + split.amount));
   });
+  // Once a split was typed by hand, the primary agent keeps the remaining balance worked out from the splits as they
+  // stand, not the template's figure, so the splits still add up to the pool.
+  const anyManual = splits.some((item) => item.manualSplit);
   splits.forEach((item) => {
+    if (item.manualSplit || (anyManual && item.isPrimary)) return;
     const name = String(item.agentName || '').trim().toLowerCase();
     const normalized = normalizeAgentName(name).trim().toLowerCase();
     const nextAmount = dollars.get(name) ?? dollars.get(normalized);
@@ -461,6 +469,21 @@ function applyFormulaAgentSplits(splits: WaterfallSplit[], replayed: AppliedAgen
     item.capAdjusted = true;
     item.amount = nextAmount;
   });
+}
+
+// With a split typed by hand, the primary agent gets what the other splits leave of the pool, as they stand after
+// the template and team caps, so the splits still add up to the pool.
+function balancePrimaryAfterManualSplits(splits: WaterfallSplit[], netToSplit: number) {
+  if (!splits.some((item) => item.manualSplit)) return;
+  const primary = splits.find((item) => item.isPrimary);
+  if (!primary) return;
+  const others = roundCurrency(splits.reduce((sum, item) => (item === primary ? sum : sum + (Number(item.amount) || 0)), 0));
+  const nextAmount = roundCurrency(Math.max(0, netToSplit - others));
+  if (Math.abs(nextAmount - Number(primary.amount || 0)) <= 0.009) return;
+  primary.grossAmount = primary.amount;
+  primary.displayPercent = netToSplit > 0 ? roundPercentRate(nextAmount / netToSplit) : 0;
+  primary.capAdjusted = true;
+  primary.amount = nextAmount;
 }
 
 // The saved split after team caps, the same shape the replay gives, until the replay is ready.
@@ -506,6 +529,7 @@ function assignEngineCapReceipts(
     if (normalized) replayedNames.add(normalized);
   });
   splits.forEach((item) => {
+    if (item.manualSplit) return;
     const name = String(item.agentName || '').trim().toLowerCase();
     const normalized = normalizeAgentName(name).trim().toLowerCase();
     if (!name || replayedNames.has(name) || (normalized && replayedNames.has(normalized))) return;
@@ -574,6 +598,7 @@ function repriceTeamCapBaselines({
     });
     applyFormulaAgentSplits(splits, applied.agentSplits || [], netToSplit);
     assignEngineCapReceipts(splits, applied.agentSplits || [], credits, replay.steps, netToSplit);
+    balancePrimaryAfterManualSplits(splits, netToSplit);
     return {
       level1: mergeTeamCapRules(level1, applied.postSplitRulesByAgent || {}, false),
       level2: mergeTeamCapRules(level2, applied.postSplit2RulesByAgent || {}, false),

@@ -1122,10 +1122,34 @@ export default function Dashboard() {
   const templateQualifies = useTemplateQualification(selectedDeal?.client_id, qualificationDeal);
   const paymentsShortOfCommission = templateQualifies !== false
     && commissionTotal > 0.009 && roundCurrency(commissionTotal - totalPayments) > 0.009;
-  const saveBlocked = agentSplitsExceedCommission || paymentsShortOfCommission;
+  // An agent who receives team cap money must have at least that much in Agent Splits: if two agents each pay $500
+  // into a team cap, its recipient needs $1,000 or more. Money paid into a cap by the recipient themself is not counted.
+  const capRecipientShortfalls = (() => {
+    const caps = allocationInput?.teamCaps ?? [];
+    const owed = new Map<string, number>();
+    for (const line of (dealResult.allocationLines || []) as { kind: string; agent_id: string; amount: number; team_cap_id?: string | null }[]) {
+      if (line.kind !== 'team_cap') continue;
+      const recipientId = caps.find((cap) => cap.id === line.team_cap_id)?.recipientAgentId;
+      if (!recipientId || recipientId === line.agent_id) continue;
+      owed.set(recipientId, roundCurrency((owed.get(recipientId) || 0) + (Number(line.amount) || 0)));
+    }
+    return [...owed].flatMap(([recipientId, receives]) => {
+      const split = (dealResult.agentSplitItems || []).find((item: { agentId?: string }) => item.agentId === recipientId);
+      const has = roundCurrency(Number(split?.amount) || 0);
+      if (receives - has <= 0.009) return [];
+      const name = split?.agentName || knownAgents.find((agent) => agent.id === recipientId)?.name || 'A team cap recipient';
+      return [{ recipientId, name: String(name), receives, has }];
+    });
+  })();
+  const capRecipientsShort = capRecipientShortfalls.length > 0;
+  const capShortfallMessage = capRecipientShortfalls
+    .map(({ name, receives, has }) => `${name}'s agent split is $${has.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}, less than the $${receives.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} team caps move to them.`)
+    .join(' ');
+  const saveBlocked = agentSplitsExceedCommission || paymentsShortOfCommission || capRecipientsShort;
   const saveBlockedReason = [
     agentSplitsExceedCommission ? 'Agent splits are more than the remaining balance.' : '',
     paymentsShortOfCommission ? 'The entire commission has to be allocated among agents and entities.' : '',
+    capShortfallMessage,
   ].filter(Boolean).join(' ');
 
   const persistDealAllocations = (transactionId: string): Promise<boolean> => {
@@ -1142,6 +1166,10 @@ export default function Dashboard() {
     }
     if (paymentsShortOfCommission) {
       showToast('This transaction cannot be saved until the entire commission is allocated among agents and entities.', 'error');
+      return;
+    }
+    if (capRecipientsShort) {
+      showToast(`${capShortfallMessage} Raise their split before saving.`, 'error');
       return;
     }
     if (!activeClientId && !isNewTransaction) {
@@ -1309,6 +1337,8 @@ export default function Dashboard() {
           payee_entity_id: null,
           agent_id: matchedAgent?.id || item.agentId || null,
           final_amount: item.amount,
+          // A split typed by hand keeps winning over the template's formula after reload.
+          custom_attributes: item.manualSplit ? { manual_split: true } : {},
         };
       }),
       ...dealResult.postSplitItems.filter((item: any) => !isIdleAgentItem(item)).map((item: any, idx: number) => {
@@ -2039,7 +2069,7 @@ export default function Dashboard() {
               const newType = a.splitType === 'PERCENT' ? 'AMOUNT' : 'PERCENT';
               return { ...a, splitType: newType };
             }))}
-            onSplitValueChange={(id, val) => setAgents((p) => p.map((a) => a.id === id ? { ...a, splitVal: val } : a))}
+            onSplitValueChange={(id, val) => setAgents((p) => p.map((a) => a.id === id ? { ...a, splitVal: val, manualSplit: true } : a))}
             dealResult={dealResult}
             offTheTopRules={offTheTopRules}
             onAddOffTopRule={(rule) => setOffTheTopRules((p) => [...p, rule])}

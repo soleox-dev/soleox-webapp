@@ -14,6 +14,7 @@ export interface StoredCommissionItem {
   agent_id?: string | null;
   calculated_amount?: number | string | null;
   final_amount?: number | string | null;
+  custom_attributes?: Record<string, unknown> | null;
 }
 
 export interface WaterfallState {
@@ -208,7 +209,7 @@ export function waterfallFromCommissionItems(
     const allocation = allocationOf(item);
     const config = agentConfig(item, knownAgents, allocation.splitType, allocation.splitVal);
     if (agents.some((agent) => agent.id === config.id)) return;
-    addAgent(config);
+    addAgent(item.custom_attributes?.manual_split === true ? { ...config, manualSplit: true } : config);
   });
 
   const groupPostSplits = (section: string): Record<string, DynamicRule[]> => {
