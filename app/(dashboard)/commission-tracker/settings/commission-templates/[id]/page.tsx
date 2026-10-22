@@ -19,7 +19,8 @@ import { Copy, ListChecks, Rows3 } from 'lucide-react';
 import { HoverNote } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/HoverNote';
 import { copyKey } from '@/lib/id';
 import { useRegisterSave } from '@/components/save-leave-guard';
-import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ConfirmDialog, useConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { BulkUpdateDialog, type BulkDialogField } from '@/app/(dashboard)/commission-tracker/transactions/components/BulkUpdateDialog';
 import type { RuleKeyRenameCounts } from '@/app/api/commission-template-logic/rename-key/route';
 import { underlineControl } from '@/components/ui/underline-field';
 
@@ -354,6 +355,12 @@ export default function CommissionTemplateDetailPage() {
   const [bulkParameterRenameOpen, setBulkParameterRenameOpen] = useState(false);
   const [bulkParameterSaving, setBulkParameterSaving] = useState(false);
   const [bulkParameterError, setBulkParameterError] = useState<string | null>(null);
+  // Update and Delete for the selected rules or parameters, as on Agents.
+  const [bulkUpdateFor, setBulkUpdateFor] = useState<null | 'rule' | 'parameter'>(null);
+  const [bulkDeleteFor, setBulkDeleteFor] = useState<null | 'rule' | 'parameter'>(null);
+  const [bulkPending, setBulkPending] = useState(false);
+  const [bulkDialogError, setBulkDialogError] = useState<string | null>(null);
+  const [bulkNotice, setBulkNotice] = useState<string | null>(null);
   const [parameterSearch, setParameterSearch] = useState('');
   const [logicSearch, setLogicSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -987,6 +994,100 @@ export default function CommissionTemplateDetailPage() {
     );
   };
 
+  // The rules each bulk field applies to: an entity for rules that pay one, form settings for calculations.
+  const ruleTakesBulkField = (step: LogicStep, fieldKey: string) => {
+    const section = canonicalLogicSection(step.section || '');
+    if (fieldKey === 'payee_entity_id') return logicSectionShowsEntity(section);
+    if (fieldKey === 'popup_section') return section === 'Calculation' && Boolean(step.show_in_popup);
+    return section === 'Calculation';
+  };
+
+  const confirmBulkUpdate = async (fieldKey: string, value: string) => {
+    const kind = bulkUpdateFor;
+    if (!kind) return;
+    const ids = kind === 'rule'
+      ? logicSteps.filter((step) => selectedRuleIds.has(step.id) && ruleTakesBulkField(step, fieldKey)).map((step) => step.id)
+      : [...selectedParameterIds];
+    const selectedCount = kind === 'rule' ? selectedRuleIds.size : selectedParameterIds.size;
+    if (ids.length === 0) {
+      setBulkDialogError('None of the selected rules has that field.');
+      return;
+    }
+    setBulkPending(true);
+    setBulkDialogError(null);
+    try {
+      const response = await fetch(kind === 'rule' ? '/api/commission-template-logic' : '/api/commission-template-parameters', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template_id: templateId, ids, field: fieldKey, value }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || 'The update could not be saved.');
+      const skipped = selectedCount - ids.length;
+      const noun = (count: number) => `${kind}${count === 1 ? '' : 's'}`;
+      setBulkNotice(`Updated ${ids.length} ${noun(ids.length)}.${skipped > 0 ? ` ${skipped} selected ${noun(skipped)} ${skipped === 1 ? "doesn't" : "don't"} have that field and ${skipped === 1 ? 'was' : 'were'} left as is.` : ''}`);
+      setBulkUpdateFor(null);
+      await loadTemplate({ keepPlace: true });
+    } catch (err) {
+      setBulkDialogError(err instanceof Error ? err.message : 'The update could not be saved.');
+    } finally {
+      setBulkPending(false);
+    }
+  };
+
+  // Deletes the selection. Parameters that something outside the selection still uses stay selected, with the reason.
+  const confirmBulkDelete = async () => {
+    const kind = bulkDeleteFor;
+    if (!kind || bulkPending) return;
+    const ids = [...(kind === 'rule' ? selectedRuleIds : selectedParameterIds)];
+    setBulkPending(true);
+    setBulkDialogError(null);
+    try {
+      const response = await fetch(kind === 'rule' ? '/api/commission-template-logic' : '/api/commission-template-parameters', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template_id: templateId, ids }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || 'The delete could not be completed.');
+      const deleted = new Set<string>(Array.isArray(data.deleted) ? data.deleted : []);
+      const refused: string[] = Array.isArray(data.refused) ? data.refused : [];
+      const keep = (current: Set<string>) => new Set([...current].filter((id) => !deleted.has(id)));
+      if (kind === 'rule') setSelectedRuleIds(keep);
+      else setSelectedParameterIds(keep);
+      const noun = (count: number) => `${kind}${count === 1 ? '' : 's'}`;
+      if (deleted.size > 0) setBulkNotice(`Deleted ${deleted.size} ${noun(deleted.size)}.`);
+      if (refused.length > 0) setBulkDialogError(refused.join(' '));
+      else setBulkDeleteFor(null);
+      if (deleted.size > 0) await loadTemplate({ keepPlace: true });
+    } catch (err) {
+      setBulkDialogError(err instanceof Error ? err.message : 'The delete could not be completed.');
+    } finally {
+      setBulkPending(false);
+    }
+  };
+
+  const bulkFields: Record<'rule' | 'parameter', BulkDialogField[]> = {
+    parameter: [
+      { field_key: 'section', field_label: 'Section', field_type: 'SELECT', dropdown_options: [...new Set(parameters.map((parameter) => parameter.section?.trim()).filter((section): section is string => Boolean(section)))] },
+      { field_key: 'is_required', field_label: 'Required', field_type: 'BOOLEAN' },
+      { field_key: 'is_user_editable', field_label: 'User Editable', field_type: 'BOOLEAN' },
+    ],
+    rule: [
+      {
+        field_key: 'payee_entity_id',
+        field_label: 'Entity',
+        field_type: 'SELECT',
+        no_clear: true,
+        dropdown_options: entities.map((entity) => entity.id),
+        option_labels: Object.fromEntries(entities.map((entity) => [entity.id, entity.entity_name])),
+      },
+      { field_key: 'result_type', field_label: 'Result Type', field_type: 'SELECT', no_clear: true, dropdown_options: ['CURRENCY', 'NUMBER', 'PERCENT'], option_labels: { CURRENCY: resultTypeLabel('CURRENCY'), NUMBER: resultTypeLabel('NUMBER'), PERCENT: resultTypeLabel('PERCENT') } },
+      { field_key: 'show_in_popup', field_label: 'Show in Form', field_type: 'BOOLEAN' },
+      { field_key: 'popup_section', field_label: 'Form Section', field_type: 'SELECT', dropdown_options: [...new Set(logicSteps.map((step) => step.popup_section?.trim()).filter((section): section is string => Boolean(section)))] },
+    ],
+  };
+
   // In run order a rule keeps its section and moves to the dropped place in the order the engine runs rules.
   const dropLogicInRunOrder = async (sourceId: string, target: { stepId: string; placement: 'before' | 'after' }) => {
     if (isReordering || target.stepId === sourceId) return;
@@ -1608,6 +1709,7 @@ export default function CommissionTemplateDetailPage() {
           )}
         </div>
         {error && <p className="mt-3 text-xs text-rose-600 dark:text-rose-400">{error}</p>}
+        {bulkNotice && <p className="mt-3 text-xs text-slate-600 dark:text-slate-300">{bulkNotice}</p>}
       </div>
 
       {!isLoading && template && (
@@ -1636,16 +1738,17 @@ export default function CommissionTemplateDetailPage() {
                 </span>
               </button>
               <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0">
-                <HoverNote label="Select parameters to rename at once">
+                <HoverNote label="Select parameters to update or delete at once">
                   <button
                     type="button"
-                    aria-label="Select parameters to rename at once"
+                    aria-label="Select parameters to update or delete at once"
                     aria-pressed={selectingParameters}
                     onClick={() => {
                       setSelectingParameters((current) => !current);
                       setSelectedParameterIds(new Set());
                       lastToggledParameterId.current = null;
                       setBulkParameterRenameOpen(false);
+                      setBulkNotice(null);
                     }}
                     className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition cursor-pointer ${
                       selectingParameters
@@ -1671,6 +1774,26 @@ export default function CommissionTemplateDetailPage() {
                         className="h-9 px-3 rounded-lg text-xs font-bold border border-emerald-500/40 bg-emerald-500 text-white hover:bg-emerald-600 transition inline-flex items-center whitespace-nowrap cursor-pointer"
                       >
                         Rename {selectedParameterIds.size}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBulkDialogError(null);
+                          setBulkUpdateFor('parameter');
+                        }}
+                        className="h-9 px-3 rounded-lg text-xs font-bold border border-emerald-500/40 bg-emerald-500 text-white hover:bg-emerald-600 transition inline-flex items-center whitespace-nowrap cursor-pointer"
+                      >
+                        Update {selectedParameterIds.size}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBulkDialogError(null);
+                          setBulkDeleteFor('parameter');
+                        }}
+                        className="h-9 px-3 rounded-lg text-xs font-bold border border-rose-500/40 bg-rose-600 text-white hover:bg-rose-500 transition inline-flex items-center whitespace-nowrap cursor-pointer"
+                      >
+                        Delete {selectedParameterIds.size}
                       </button>
                       {withDivider < selected.length && (
                         <HoverNote label={`Add the horizontal divider below ${selected.length - withDivider} ${selected.length - withDivider === 1 ? 'parameter' : 'parameters'}.`}>
@@ -2005,16 +2128,17 @@ export default function CommissionTemplateDetailPage() {
                   ))}
                 </div>
                 {/* The same bulk actions button as on Transactions and Agents. */}
-                <HoverNote label="Select rules to rename at once">
+                <HoverNote label="Select rules to update or delete at once">
                   <button
                     type="button"
-                    aria-label="Select rules to rename at once"
+                    aria-label="Select rules to update or delete at once"
                     aria-pressed={selectingRules}
                     onClick={() => {
                       setSelectingRules((current) => !current);
                       setSelectedRuleIds(new Set());
                       lastToggledRuleId.current = null;
                       setBulkRenameOpen(false);
+                      setBulkNotice(null);
                     }}
                     className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition cursor-pointer ${
                       selectingRules
@@ -2035,6 +2159,30 @@ export default function CommissionTemplateDetailPage() {
                     className="h-9 px-3 rounded-lg text-xs font-bold border border-emerald-500/40 bg-emerald-500 text-white hover:bg-emerald-600 transition inline-flex items-center whitespace-nowrap cursor-pointer"
                   >
                     Rename {selectedRuleIds.size}
+                  </button>
+                )}
+                {selectingRules && selectedRuleIds.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkDialogError(null);
+                      setBulkUpdateFor('rule');
+                    }}
+                    className="h-9 px-3 rounded-lg text-xs font-bold border border-emerald-500/40 bg-emerald-500 text-white hover:bg-emerald-600 transition inline-flex items-center whitespace-nowrap cursor-pointer"
+                  >
+                    Update {selectedRuleIds.size}
+                  </button>
+                )}
+                {selectingRules && selectedRuleIds.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkDialogError(null);
+                      setBulkDeleteFor('rule');
+                    }}
+                    className="h-9 px-3 rounded-lg text-xs font-bold border border-rose-500/40 bg-rose-600 text-white hover:bg-rose-500 transition inline-flex items-center whitespace-nowrap cursor-pointer"
+                  >
+                    Delete {selectedRuleIds.size}
                   </button>
                 )}
                 {selectingRules && (() => {
@@ -2746,6 +2894,39 @@ export default function CommissionTemplateDetailPage() {
         />
       )}
       {confirmDialog}
+      {bulkUpdateFor && (
+        <BulkUpdateDialog
+          fields={bulkFields[bulkUpdateFor]}
+          agents={[]}
+          selectedDeals={[]}
+          selectedCount={bulkUpdateFor === 'rule' ? selectedRuleIds.size : selectedParameterIds.size}
+          isPending={bulkPending}
+          error={bulkDialogError}
+          recordNoun={bulkUpdateFor}
+          onCancel={() => {
+            if (!bulkPending) setBulkUpdateFor(null);
+          }}
+          onConfirm={(fieldKey, value) => void confirmBulkUpdate(fieldKey, value)}
+        />
+      )}
+      {bulkDeleteFor && (() => {
+        const count = bulkDeleteFor === 'rule' ? selectedRuleIds.size : selectedParameterIds.size;
+        const noun = bulkDeleteFor === 'rule' ? (count === 1 ? 'Rule' : 'Rules') : (count === 1 ? 'Parameter' : 'Parameters');
+        return (
+          <ConfirmDialog
+            title={`Delete ${count} ${noun}?`}
+            message={bulkDeleteFor === 'rule'
+              ? `This removes ${count === 1 ? 'the rule' : `these ${count} rules`} from the template.`
+              : `This removes ${count === 1 ? 'the parameter' : `these ${count} parameters`} from the template. A parameter that a rule or another parameter still uses stays.`}
+            error={bulkDialogError}
+            isPending={bulkPending}
+            onCancel={() => {
+              if (!bulkPending) setBulkDeleteFor(null);
+            }}
+            onConfirm={() => void confirmBulkDelete()}
+          />
+        );
+      })()}
       {bulkParameterRenameOpen && (
         <BulkRuleRename
           items={parameterGroups(parameters).flatMap((group) => group.items).filter((parameter) => selectedParameterIds.has(parameter.id)).map((parameter) => ({ id: parameter.id, name: parameter.parameter_name }))}
