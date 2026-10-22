@@ -16,6 +16,7 @@ export type AllocationSchemaField = {
   field_label?: string;
   field_type?: string;
   is_enabled?: boolean;
+  dropdown_options?: string[];
 };
 
 export function AllocationFieldMenu({
