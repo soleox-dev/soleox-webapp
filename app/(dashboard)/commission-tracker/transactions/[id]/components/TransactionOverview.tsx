@@ -48,9 +48,8 @@ interface TransactionOverviewProps {
   validateFieldValue: (field: FieldSetting, val: any) => { isValid: boolean; isLegacyUnmatched: boolean; isRequiredMissing?: boolean; message?: string };
 }
 
-/** Key Terms uses the same emerald as the amounts in them, tinted like the blue pills of the
-    other sections, so they read as their own sub-section. */
-const STRIP_PILL = 'flex items-center gap-2 rounded-full bg-emerald-500/15 px-3.5 py-1.5 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-400';
+/** The Key Terms pill: the same blue as every other section's; its large figures set it apart. */
+const STRIP_PILL = 'flex items-center gap-2 rounded-full bg-brand-500/10 px-3.5 py-1.5 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400';
 
 /**
  * A long value of an optional field, kept to one line to save room. When it does not fit, a "…" button opens the
