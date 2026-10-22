@@ -84,6 +84,16 @@ export async function POST(request: Request) {
       popup_section: logic.popup_section ? String(logic.popup_section).trim() || null : null,
       show_when_formula: logic.show_when_formula ? String(logic.show_when_formula).trim() || null : null,
       divider_below: Boolean(logic.divider_below),
+      // Bonus and credit lines (migration 066).
+      rule_kind: String(logic.rule_kind || '').trim().toUpperCase() === 'BONUS' ? 'BONUS' : null,
+      from_agent_key: logic.from_agent_key ? String(logic.from_agent_key).trim() || null : null,
+      paid_by_agent_keys: (() => {
+        const keys = Array.isArray(logic.paid_by_agent_keys)
+          ? logic.paid_by_agent_keys.map((key: unknown) => String(key || '').trim()).filter(Boolean)
+          : [];
+        return keys.length ? keys : null;
+      })(),
+      paid_share_by: logic.paid_share_by === 'equal' ? 'equal' : logic.paid_share_by === 'split' ? 'split' : null,
       archived: Boolean(logic.archived),
       created_by: logic.created_by || user,
       updated_at: new Date().toISOString(),

@@ -25,6 +25,12 @@ export interface LogicStepDraft {
   show_only_when: boolean;
   show_when_formula: string;
   divider_below: boolean;
+  /** 'BONUS' on an Agent Splits rule: moves the amount from from_agent_key's agent to this rule's agent. */
+  rule_kind: '' | 'BONUS';
+  from_agent_key: string;
+  /** Off-the-top or Pre-splits: the agents who pay this credit from their own splits. Empty: off the top. */
+  paid_by_agent_keys: string[];
+  paid_share_by: 'split' | 'equal';
 }
 
 export type CalculationResultType = 'CURRENCY' | 'NUMBER' | 'PERCENT';
@@ -143,6 +149,37 @@ function FormulaToggle({
     >
       <Sigma className="h-3.5 w-3.5" aria-hidden />
     </button>
+  );
+}
+
+/** A key whose value is an agent: a transaction field, a template parameter or a rule. */
+function AgentKeySelect({
+  id,
+  label,
+  value,
+  groups,
+  known,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  groups: { id: string; title: string; fields: FormulaName[] }[];
+  known: Set<string>;
+  onChange: (key: string) => void;
+}) {
+  return (
+    <div className={underlineShell}>
+      <ClearableSelect id={id} aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} className={`${underlineControl} overview-field-select cursor-pointer font-mono`}>
+        <option value="">{label}</option>
+        {value && !known.has(value) && <option value={value}>{value}</option>}
+        {/* ClearableSelect reads only direct <option> children, so the groups are flattened. */}
+        {groups.flatMap((group) => group.fields.map((field) => (
+          <option key={`${group.id}-${field.name}`} value={field.name}>{field.label} ({field.name})</option>
+        )))}
+      </ClearableSelect>
+      <FieldChevron />
+    </div>
   );
 }
 
@@ -326,9 +363,32 @@ export function LogicStepForm({
               <FieldChevron />
             </div>
           </LabeledRow>
+          {section === 'Agent Splits' && (
+            <LabeledRow
+              label="Line Type"
+              htmlFor="rule-kind"
+              note={<p className="text-2xs text-slate-500 dark:text-slate-400">{draft.rule_kind === 'BONUS'
+                ? 'Moves this amount from one agent\'s split to another\'s after every split is worked out. Commission Plans share fees by the split before bonuses.'
+                : 'This rule\'s amount is the agent\'s split.'}</p>}
+            >
+              <div className={underlineShell}>
+                <ClearableSelect
+                  id="rule-kind"
+                  aria-label="Line Type"
+                  value={draft.rule_kind}
+                  onChange={(event) => onChange({ ...draft, rule_kind: event.target.value === 'BONUS' ? 'BONUS' : '', from_agent_key: event.target.value === 'BONUS' ? draft.from_agent_key : '' })}
+                  className={`${underlineControl} overview-field-select cursor-pointer`}
+                >
+                  <option value="">Agent Split</option>
+                  <option value="BONUS">Bonus</option>
+                </ClearableSelect>
+                <FieldChevron />
+              </div>
+            </LabeledRow>
+          )}
           {showAgent && (
             <LabeledRow
-              label="Agent"
+              label={section === 'Agent Splits' && draft.rule_kind === 'BONUS' ? 'To Agent' : 'Agent'}
               htmlFor="rule-agent"
               note={<p className="text-2xs text-slate-500 dark:text-slate-400">The value of this key is the agent. Choose a transaction field, a template parameter, or another rule.</p>}
             >
@@ -353,6 +413,11 @@ export function LogicStepForm({
                 </ClearableSelect>
                 <FieldChevron />
               </div>
+            </LabeledRow>
+          )}
+          {section === 'Agent Splits' && draft.rule_kind === 'BONUS' && (
+            <LabeledRow label="From Agent" htmlFor="rule-from-agent" note={<p className="text-2xs text-slate-500 dark:text-slate-400">The agent whose split pays the bonus, often the team lead.</p>}>
+              <AgentKeySelect id="rule-from-agent" label="From Agent" value={draft.from_agent_key} groups={agentChoices} known={knownAgentKeys} onChange={(from_agent_key) => onChange({ ...draft, from_agent_key })} />
             </LabeledRow>
           )}
 
@@ -400,6 +465,50 @@ export function LogicStepForm({
                 )}
               </div>
             </div>
+          )}
+
+          {(section === 'Off-the-top' || section === 'Pre-splits') && (
+            <LabeledRow
+              label="Paid By"
+              note={<p className="text-2xs text-slate-500 dark:text-slate-400">{draft.paid_by_agent_keys.length
+                ? 'Comes out of only these agents\' splits, before their Commission Plan lines, instead of off the top.'
+                : 'Comes off the top, so every agent shares it by their split.'}</p>}
+            >
+              <div className="space-y-2">
+                {draft.paid_by_agent_keys.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {draft.paid_by_agent_keys.map((key) => (
+                      <span key={key} className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 font-mono text-2xs text-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                        {key}
+                        <button type="button" onClick={() => onChange({ ...draft, paid_by_agent_keys: draft.paid_by_agent_keys.filter((item) => item !== key) })} className="cursor-pointer text-slate-400 hover:text-rose-500" aria-label={`Remove ${key}`} title={`Remove ${key}`}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <AgentKeySelect
+                  id="rule-paid-by"
+                  label={draft.paid_by_agent_keys.length ? 'Add Another Agent' : 'Everyone (Off the Top)'}
+                  value=""
+                  groups={agentChoices}
+                  known={knownAgentKeys}
+                  onChange={(key) => key && !draft.paid_by_agent_keys.includes(key) && onChange({ ...draft, paid_by_agent_keys: [...draft.paid_by_agent_keys, key] })}
+                />
+                {draft.paid_by_agent_keys.length > 1 && (
+                  <div className={underlineShell}>
+                    <ClearableSelect
+                      aria-label="Share By"
+                      value={draft.paid_share_by}
+                      onChange={(event) => onChange({ ...draft, paid_share_by: event.target.value === 'equal' ? 'equal' : 'split' })}
+                      className={`${underlineControl} overview-field-select cursor-pointer`}
+                    >
+                      <option value="split">Shared by Their Split %</option>
+                      <option value="equal">Shared Equally</option>
+                    </ClearableSelect>
+                    <FieldChevron />
+                  </div>
+                )}
+              </div>
+            </LabeledRow>
           )}
 
           {!postsSplit && (

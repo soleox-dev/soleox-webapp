@@ -72,6 +72,10 @@ interface LogicStep {
   popup_section?: string | null;
   show_when_formula?: string | null;
   divider_below?: boolean | null;
+  rule_kind?: string | null;
+  from_agent_key?: string | null;
+  paid_by_agent_keys?: string[] | null;
+  paid_share_by?: string | null;
 }
 
 interface CommissionEntity {
@@ -261,6 +265,10 @@ const emptyLogic: LogicStepDraft = {
   show_only_when: false,
   show_when_formula: '',
   divider_below: false,
+  rule_kind: '',
+  from_agent_key: '',
+  paid_by_agent_keys: [],
+  paid_share_by: 'split',
 };
 
 /** The Commission Template form section a calculation rule shows in, or "" when it is not shown there. */
@@ -757,6 +765,10 @@ export default function CommissionTemplateDetailPage() {
           popup_section: step.popup_section || null,
           show_when_formula: step.show_when_formula || null,
           divider_below: Boolean(step.divider_below),
+          rule_kind: step.rule_kind || null,
+          from_agent_key: step.from_agent_key || null,
+          paid_by_agent_keys: step.paid_by_agent_keys || null,
+          paid_share_by: step.paid_share_by || null,
         },
       }),
     });
@@ -1047,6 +1059,14 @@ export default function CommissionTemplateDetailPage() {
       setFormError('Choose the agent for this rule.');
       return;
     }
+    if (section === 'Agent Splits' && logicForm.rule_kind === 'BONUS' && !logicForm.from_agent_key.trim()) {
+      setFormError('Choose the agent who pays the bonus.');
+      return;
+    }
+    if (section === 'Agent Splits' && logicForm.rule_kind === 'BONUS' && logicForm.from_agent_key.trim() === logicForm.agent_key.trim()) {
+      setFormError('A bonus moves money between two different agents.');
+      return;
+    }
     if (section && logicSectionShowsEntity(section) && logicForm.entity_mode === 'fixed' && !logicForm.payee_entity_id) {
       setFormError('Choose the entity for this rule.');
       return;
@@ -1099,6 +1119,8 @@ export default function CommissionTemplateDetailPage() {
           ...form,
           apply_condition: renameKey(form.apply_condition),
           agent_key: form.agent_key.trim().toLowerCase() === previousKey ? ruleKey : form.agent_key,
+          from_agent_key: form.from_agent_key.trim().toLowerCase() === previousKey ? ruleKey : form.from_agent_key,
+          paid_by_agent_keys: form.paid_by_agent_keys.map((key) => (key.trim().toLowerCase() === previousKey ? ruleKey : key)),
           payee_formula: renameKey(form.payee_formula),
           custom_baseline: renameKey(form.custom_baseline),
           calculation_formula: renameKey(form.calculation_formula),
@@ -1133,6 +1155,10 @@ export default function CommissionTemplateDetailPage() {
               ? normalizeFormula(form.show_when_formula).text.trim() || null
               : null,
             divider_below: !postsSplit && form.show_in_popup && form.divider_below,
+            rule_kind: section === 'Agent Splits' && form.rule_kind === 'BONUS' ? 'BONUS' : null,
+            from_agent_key: section === 'Agent Splits' && form.rule_kind === 'BONUS' ? form.from_agent_key.trim() || null : null,
+            paid_by_agent_keys: (section === 'Off-the-top' || section === 'Pre-splits') && form.paid_by_agent_keys.length ? form.paid_by_agent_keys : null,
+            paid_share_by: (section === 'Off-the-top' || section === 'Pre-splits') && form.paid_by_agent_keys.length > 1 ? form.paid_share_by : null,
           },
         }),
       });
@@ -1244,6 +1270,10 @@ export default function CommissionTemplateDetailPage() {
       show_only_when: Boolean(step.show_when_formula?.trim()),
       show_when_formula: step.show_when_formula || '',
       divider_below: Boolean(step.divider_below),
+      rule_kind: String(step.rule_kind || '').toUpperCase() === 'BONUS' ? 'BONUS' : '',
+      from_agent_key: step.from_agent_key?.trim() || '',
+      paid_by_agent_keys: (step.paid_by_agent_keys || []).filter(Boolean),
+      paid_share_by: step.paid_share_by === 'equal' ? 'equal' : 'split',
     });
   };
 
