@@ -131,7 +131,8 @@ export function OptionMenu({
         tabIndex={tabIndex}
         placeholder={placeholder}
         value={shown}
-        className={`${className}${showChevron ? ' dropdown-chevron' : ''}`}
+        // Every dropdown in the app shows a hand; a disabled one shows that it cannot be opened.
+        className={`${className}${showChevron ? ' dropdown-chevron' : ''} ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
         onChange={(event) => {
           const next = event.target.value;
           if (allowCustom) onChange(next);
