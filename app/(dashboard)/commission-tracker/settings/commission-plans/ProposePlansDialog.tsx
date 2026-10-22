@@ -151,14 +151,14 @@ export function ProposePlansDialog({
           <div>
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">Propose Plans</h3>
             <p className="mt-1 max-w-3xl text-xs text-slate-500 dark:text-slate-400">
-              Each agent&apos;s plan from today&apos;s cap fields: a $4,000 or $8,000 cap is that eXp plan; a $16,000 cap is eXp $16,000 with a $250 fee cap and eXp $16,000 Team Lead without one. Review and change any row; nothing is saved until Apply, and no deal is recalculated.
+              Proposes each agent&apos;s eXp plan from today&apos;s cap fields: a $4,000 or $8,000 cap is that eXp plan; a $16,000 cap is eXp $16,000 with a first tier limit and eXp $16,000 Team Lead without one. Review and change any row, or pick any of your plans; nothing is saved until Apply, and no deal is recalculated.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <MenuField label="Cap Field" value={capField} options={fieldChoices(agentFields, AMOUNT_TYPES, 'Not Set')} onChange={setCapField} />
-            <MenuField label="$250 Fee Cap Field" value={feeCapField} options={fieldChoices(agentFields, AMOUNT_TYPES, 'Not Set')} onChange={setFeeCapField} />
+            <MenuField label="First Tier Limit Field" value={feeCapField} options={fieldChoices(agentFields, AMOUNT_TYPES, 'Not Set')} onChange={setFeeCapField} />
             <MenuField label="Cap Year Start Field" value={capYearField} options={fieldChoices(agentFields, DATE_TYPES, 'Not Set')} onChange={setCapYearField} />
-            <MenuField label="Stock Field (Yes or a Rate)" value={stockField} options={fieldChoices(agentFields, null, 'Nobody Opts In')} onChange={setStockField} />
+            <MenuField label="Opt-In Field (Yes or a Rate)" value={stockField} options={fieldChoices(agentFields, null, 'Nobody Opts In')} onChange={setStockField} />
           </div>
           {error && <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">{error}</p>}
         </div>
@@ -172,7 +172,7 @@ export function ProposePlansDialog({
                   <th className="py-2 pr-3">Agent</th>
                   <th className="py-2 pr-3">Status</th>
                   <th className="py-2 pr-3 text-right">Cap</th>
-                  <th className="py-2 pr-3 text-right">$250 Fee Cap</th>
+                  <th className="py-2 pr-3 text-right">First Tier Limit</th>
                   <th className="py-2 pr-3">Current Plan</th>
                   <th className="py-2 pr-3">Plan</th>
                 </tr>
