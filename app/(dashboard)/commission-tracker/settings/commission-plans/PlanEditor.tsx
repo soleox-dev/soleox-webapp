@@ -30,39 +30,85 @@ function formulaNames(plan: CommissionPlan, index: number): FormulaName[] {
   return planFormulaNames(plan, index).map((name) => ({ name, label: formulaLabel(name), kind: 'field' }));
 }
 
+type TierRow = { amount: number; width: number | null };
+
 /**
- * A per-deal fee's tiers, in order: each charges its Amount per Deal For the Next dollars of this fee paid in the
- * cap year. They are stored as running yearly totals (untilPaid), as the engine reads them.
+ * A per-deal fee's rates, in order. Each tier charges its Amount per Deal For the Next dollars of this fee paid in the
+ * cap year; the last tier must have No Limit selected, and is the fee's amount once the tiers above are paid.
+ * Stored as the bounded tiers' running yearly totals (untilPaid) and the last tier as the line's amount; until No Limit
+ * is selected, every row stays in `tiers` with endsWithNoLimit false and the plan cannot be saved.
  */
-function TierList({ tiers, onChange }: { tiers: FeeTier[]; onChange: (tiers: FeeTier[]) => void }) {
-  const widths = tiers.map((tier, i) => tier.untilPaid - (i === 0 ? 0 : tiers[i - 1].untilPaid));
-  const rebuild = (amounts: number[], next: number[]) => {
+function TierList({
+  line,
+  onChange,
+}: {
+  line: Extract<PlanLine, { type: 'per_deal_fee' }>;
+  onChange: (patch: Partial<Extract<PlanLine, { type: 'per_deal_fee' }>>) => void;
+}) {
+  const tiers = line.tiers || [];
+  const open = line.endsWithNoLimit !== false;
+  const bounded: TierRow[] = tiers.map((tier, i) => ({ amount: tier.amount, width: tier.untilPaid - (i === 0 ? 0 : tiers[i - 1].untilPaid) }));
+  const rows: TierRow[] = open ? [...bounded, { amount: line.amount, width: null }] : bounded;
+  const save = (next: TierRow[], noLimit: boolean) => {
     let total = 0;
-    return amounts.map((amount, i) => {
-      total += next[i];
-      return { amount, untilPaid: total };
+    const toTiers = (list: TierRow[]) => list.map((row) => {
+      total += row.width ?? 0;
+      return { amount: row.amount, untilPaid: total };
     });
+    if (noLimit) {
+      const nextTiers = toTiers(next.slice(0, -1));
+      onChange({ tiers: nextTiers.length ? nextTiers : undefined, amount: next[next.length - 1].amount, endsWithNoLimit: undefined, ...(nextTiers.length ? {} : { skipTiersForRoles: undefined }) });
+    } else {
+      onChange({ tiers: toTiers(next), endsWithNoLimit: false });
+    }
   };
-  const amounts = tiers.map((tier) => tier.amount);
+  const setRow = (i: number, patch: Partial<TierRow>) => save(rows.map((row, j) => (j === i ? { ...row, ...patch } : row)), open);
+  const remove = (i: number) => {
+    const next = rows.filter((_, j) => j !== i);
+    // Removing the last row leaves the one above it last, still waiting for No Limit to be selected.
+    save(next, open && i !== rows.length - 1);
+  };
+  const setNoLimit = (checked: boolean) => {
+    if (checked) save(rows.map((row, j) => (j === rows.length - 1 ? { ...row, width: null } : row)), true);
+    else save(rows.map((row, j) => (j === rows.length - 1 ? { ...row, width: 0 } : row)), false);
+  };
   return (
     <div className="space-y-2 sm:col-span-3">
-      <div className="text-2xs font-bold text-slate-500 dark:text-slate-400">Tiers</div>
-      {tiers.length === 0 && <p className="text-xs text-slate-400">No tiers: every deal is charged the Amount per Deal.</p>}
-      {tiers.map((tier, i) => (
-        <div key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-3">
-          <NumberField label={`Tier ${i + 1}: Amount per Deal`} prefix="$" value={tier.amount} onChange={(amount) => onChange(rebuild(amounts.map((value, j) => (j === i ? amount ?? 0 : value)), widths))} />
-          <NumberField label="For the Next" prefix="$" value={widths[i]} onChange={(width) => onChange(rebuild(amounts, widths.map((value, j) => (j === i ? width ?? 0 : value))))} />
-          <button type="button" onClick={() => onChange(rebuild(amounts.filter((_, j) => j !== i), widths.filter((_, j) => j !== i)))} className="mb-1 cursor-pointer rounded p-1 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600" aria-label={`Remove Tier ${i + 1}`} title={`Remove Tier ${i + 1}`}>
-            <TrashIcon />
-          </button>
-        </div>
-      ))}
-      <button type="button" onClick={() => onChange(rebuild([...amounts, 0], [...widths, 0]))} className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-brand-500/10 hover:text-brand-700 dark:text-slate-400 dark:hover:bg-brand-500/15 dark:hover:text-brand-400">
+      <div className="text-2xs font-bold text-slate-500 dark:text-slate-400">{rows.length > 1 ? 'Tiers' : 'Amount'}</div>
+      {rows.map((row, i) => {
+        const last = i === rows.length - 1;
+        return (
+          <div key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_7rem_2rem] items-end gap-3">
+            <NumberField label={rows.length > 1 ? `Tier ${i + 1}: Amount per Deal` : 'Amount per Deal'} prefix="$" value={row.amount} onChange={(value) => setRow(i, { amount: value ?? 0 })} />
+            {last && open ? (
+              <TextField label="For the Next" readOnly value="No Limit" onChange={() => undefined} />
+            ) : (
+              <NumberField label="For the Next" prefix="$" value={row.width} onChange={(value) => setRow(i, { width: value ?? 0 })} />
+            )}
+            {last ? (
+              <label className="flex items-center gap-2 pb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                <input type="checkbox" className="h-4 w-4 cursor-pointer accent-brand-600" checked={open} onChange={(event) => setNoLimit(event.target.checked)} />
+                No Limit
+              </label>
+            ) : <span />}
+            {rows.length > 1 ? (
+              <button type="button" onClick={() => remove(i)} className="mb-1 cursor-pointer rounded p-1 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600" aria-label={`Remove Tier ${i + 1}`} title={`Remove Tier ${i + 1}`}>
+                <TrashIcon />
+              </button>
+            ) : <span />}
+          </div>
+        );
+      })}
+      <button
+        type="button"
+        onClick={() => save([...rows.map((row, j) => (j === rows.length - 1 && row.width === null ? { ...row, width: 0 } : row)), { amount: 0, width: 0 }], false)}
+        className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-brand-500/10 hover:text-brand-700 dark:text-slate-400 dark:hover:bg-brand-500/15 dark:hover:text-brand-400"
+      >
         <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden />
         Add Tier
       </button>
-      {tiers.length > 0 && (
-        <p className="text-2xs text-slate-500 dark:text-slate-400">Charged in order, by what the agent has paid on this fee in the cap year; a deal that finishes a tier is charged the rest at the next one. After the last tier, the Amount per Deal After the Tiers applies.</p>
+      {rows.length > 1 && (
+        <p className="text-2xs text-slate-500 dark:text-slate-400">Charged in order, by what the agent has paid on this fee in the cap year; a deal that finishes a tier is charged the rest at the next one. Select No Limit on the last tier.</p>
       )}
     </div>
   );
@@ -136,7 +182,6 @@ export function PlanEditor({
 
               {line.type === 'per_deal_fee' && (
                 <>
-                  <NumberField label={line.tiers?.length ? 'Amount per Deal After the Tiers' : 'Amount per Deal'} prefix="$" value={line.amount} onChange={(amount) => setLine(index, { amount: amount ?? 0 })} />
                   <NumberField label="Yearly Limit" prefix="$" allowEmpty placeholder="No Limit" value={line.yearlyLimit ?? null} onChange={(limit) => setLine(index, { yearlyLimit: limit ?? undefined })} />
                   <NumberField
                     label="No More Than (of the Split)"
@@ -153,12 +198,9 @@ export function PlanEditor({
                     options={[{ value: '', label: 'Not Multiplied' }, ...capped.map((other) => ({ value: other.key, label: other.name }))]}
                     onChange={(key) => setLine(index, { multiplierFrom: key || undefined })}
                   />
-                  <TierList
-                    tiers={line.tiers || []}
-                    onChange={(tiers) => setLine(index, tiers.length ? { tiers } : { tiers: undefined, skipTiersForRoles: undefined })}
-                  />
+                  <TierList line={line} onChange={(patch) => setLine(index, patch)} />
                   {line.tiers?.length ? (
-                    <label title="Agents marked Team Lead on Agents pay the Amount per Deal After the Tiers from the start." className="flex items-center gap-2 self-end pb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label title="Agents marked Team Lead on Agents pay the last tier's amount from the start." className="flex items-center gap-2 self-end pb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
                       <input
                         type="checkbox"
                         className="h-4 w-4 cursor-pointer accent-brand-600"
