@@ -1703,7 +1703,7 @@ export default function CommissionTemplateDetailPage() {
               </div>
             ) : (
               <div ref={parameterScrollRef} className="max-h-[calc(100dvh-11rem)] overflow-auto overscroll-none">
-                <table className={`pin-col-2 w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700 ${compactRows ? '[&_th]:!px-3 [&_th]:!py-1.5 [&_td]:!px-3 [&_td]:!py-1 [&_tbody_td]:!align-middle' : ''}`}>
+                <table className={`pin-col-2 w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700 ${compactRows ? '[&_th]:!px-3 [&_th]:!py-1.5 [&_td:not([colspan])]:!px-3 [&_td:not([colspan])]:!py-1 [&_tbody_td]:!align-middle' : ''}`}>
                   <thead className="text-2xs [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-200 dark:[&>tr>th]:bg-slate-700 text-slate-600 dark:text-slate-300 [&>tr>th:last-child]:z-30">
                     <tr>
                       <th className="px-4 py-3">
@@ -1759,7 +1759,7 @@ export default function CommissionTemplateDetailPage() {
                             if (sourceId) void dropParameter(sourceId, { sectionName: group.name });
                           }}
                         >
-                          <td colSpan={8} className={`px-4 py-2 ${dropTarget && 'sectionName' in dropTarget && dropTarget.sectionName === group.name ? (isUnsectioned ? 'bg-amber-500/20' : 'bg-brand-500/15') : 'bg-white dark:bg-slate-800'}`}>
+                          <td colSpan={8} className={`!p-2 ${dropTarget && 'sectionName' in dropTarget && dropTarget.sectionName === group.name ? (isUnsectioned ? 'bg-amber-500/20' : 'bg-brand-500/15') : 'bg-white dark:bg-slate-800'}`}>
                             {/* The section as a pill, like the Transaction Overview, with Rename beside it. */}
                             <div className={`flex items-center gap-2 rounded-full py-1 pl-3 pr-1.5 ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}>
                               {renamingSection === group.name ? (
@@ -2078,7 +2078,7 @@ export default function CommissionTemplateDetailPage() {
               </div>
             ) : (
               <div ref={logicScrollRef} className="max-h-[calc(100dvh-11rem)] overflow-auto overscroll-none">
-                <table className={`pin-col-2 w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700 ${compactRows ? '[&_th]:!px-3 [&_th]:!py-1.5 [&_td]:!px-3 [&_td]:!py-1 [&_tbody_td]:!align-middle' : ''}`}>
+                <table className={`pin-col-2 w-full border-separate border-spacing-0 text-left text-xs [&_th]:border-b [&_td]:border-b [&_th]:border-slate-200 [&_td]:border-slate-200 dark:[&_th]:border-slate-700 dark:[&_td]:border-slate-700 ${compactRows ? '[&_th]:!px-3 [&_th]:!py-1.5 [&_td:not([colspan])]:!px-3 [&_td:not([colspan])]:!py-1 [&_tbody_td]:!align-middle' : ''}`}>
                   <thead className="text-2xs [&>tr>th]:sticky [&>tr>th]:top-0 [&>tr>th]:z-20 [&>tr>th]:bg-slate-200 dark:[&>tr>th]:bg-slate-700 text-slate-600 dark:text-slate-300 [&>tr>th:last-child]:z-30">
                     <tr>
                       <th className="px-4 py-3">
@@ -2138,7 +2138,7 @@ export default function CommissionTemplateDetailPage() {
                             if (sourceId) void dropLogic(sourceId, { sectionName: group.name });
                           }}
                         >
-                          <td colSpan={11} className={`px-4 py-2 ${logicDropTarget && 'sectionName' in logicDropTarget && logicDropTarget.sectionName === group.name ? (isUnsectioned ? 'bg-amber-500/20' : 'bg-brand-500/15') : 'bg-white dark:bg-slate-800'}`}>
+                          <td colSpan={11} className={`!p-2 ${logicDropTarget && 'sectionName' in logicDropTarget && logicDropTarget.sectionName === group.name ? (isUnsectioned ? 'bg-amber-500/20' : 'bg-brand-500/15') : 'bg-white dark:bg-slate-800'}`}>
                             <div className={`flex items-center gap-2 rounded-full py-1 pl-3 pr-1.5 ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}>
                               {renamingRuleSection === group.name ? (
                                 <form
