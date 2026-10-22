@@ -9,6 +9,7 @@ import {
   type PlanAgentInput,
   type PlanAgentResult,
   type PlanDealInput,
+  type PlanLine,
 } from '@/lib/commission-engine';
 
 /**
@@ -109,10 +110,20 @@ describe('post-cap fee bucket', () => {
     expect(line(computePlanDeal(blendedDeal(exp16000, 5000)).agents[0], 'post_cap_fee').amount).toBe(32.5);
   });
 
-  it('Team Lead and $4,000 plans skip the bucket, and so does a team lead on the $16,000 plan', () => {
+  it('Team Lead and $4,000 plans skip the bucket', () => {
     expect(line(computePlanDeal(blendedDeal(teamLead, 0)).agents[0], 'post_cap_fee').amount).toBe(32.5);
     expect(line(computePlanDeal(blendedDeal(exp4000, 0)).agents[0], 'post_cap_fee').amount).toBe(32.5);
-    expect(line(computePlanDeal(blendedDeal(exp16000, 0, ['team_lead'])).agents[0], 'post_cap_fee').amount).toBe(32.5);
+  });
+
+  it('the plan decides, not the role: a team lead on the $16,000 plan pays the $250 tier', () => {
+    expect(line(computePlanDeal(blendedDeal(exp16000, 0, ['team_lead'])).agents[0], 'post_cap_fee').amount).toBe(108.34);
+  });
+
+  it('a plan can still let chosen roles skip its tiers', () => {
+    const fee = exp16000.lines[1] as Extract<PlanLine, { type: 'per_deal_fee' }>;
+    const skipping: CommissionPlan = { ...exp16000, lines: [exp16000.lines[0], { ...fee, skipTiersForRoles: ['team_lead'] }] };
+    expect(line(computePlanDeal(blendedDeal(skipping, 0, ['team_lead'])).agents[0], 'post_cap_fee').amount).toBe(32.5);
+    expect(line(computePlanDeal(blendedDeal(skipping, 0)).agents[0], 'post_cap_fee').amount).toBe(108.34);
   });
 });
 
