@@ -1913,17 +1913,18 @@ export function CommissionTemplatePanel({
               ) : rows.length === 0 ? (
                 <p className="text-xs text-slate-500">This template has no parameters.</p>
               ) : (
-                <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                // Each section is a block, its parameters in one column under its pill. Blocks flow top to bottom in
+                // newspaper columns about 19rem or wider, with wide gaps, as many as the popup fits; short or collapsed
+                // sections leave no holes. On a phone it is one column.
+                <div className="columns-[19rem] gap-x-12 py-2">
                   {groups.map((group) => {
                     const isUnsectioned = group.name === 'No Section';
                     // A section with any value in it stays open; only an empty one can collapse.
                     const canCollapse = group.rows.every(({ parameter }) => !(values[parameter.id] ?? '').trim());
                     const isCollapsed = canCollapse && collapsedSections[group.name] === true;
                     return (
-                    <div key={group.name} className="min-w-0 py-2.5 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:gap-x-4 @min-[720px]/params:gap-y-1.5">
-                      {/* Each section is one row: its name on the left, with a line on its right that runs to the bottom of the
-                          section, and its fields and rule text to the right. Faint lines separate the sections. */}
-                      <div className={`flex items-start gap-2 border-b pb-1.5 @min-[720px]/params:row-span-2 @min-[720px]/params:border-b-0 @min-[720px]/params:border-r @min-[720px]/params:pb-0 @min-[720px]/params:pr-3 @min-[720px]/params:pt-1 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-brand-500/50 dark:border-brand-400/50'}`}>
+                    <div key={group.name} className="mb-6 min-w-0 break-inside-avoid">
+                      <div className={`flex items-start gap-2 border-b pb-1.5 ${isUnsectioned ? 'border-amber-300 dark:border-amber-500/40' : 'border-brand-500/50 dark:border-brand-400/50'}`}>
                         {/* The pill holds the section's name, which collapses an empty section, and the info icon for its calculations. */}
                         <div className={`flex min-w-0 flex-1 items-center rounded-full ${isUnsectioned ? 'bg-amber-500/10' : 'bg-brand-500/10 dark:bg-brand-500/15'}`}>
                         <button
@@ -1954,10 +1955,8 @@ export function CommissionTemplatePanel({
                         </div>
                       </div>
                       {!isCollapsed && (
-                        // Rows flow left to right in columns about 17rem wide, so a name never sits far from its value. A
-                        // parameter set to add a divider ends its group: a line across every column, and the next one
-                        // starts a new row.
-                        <div className="mt-1.5 grid gap-x-8 px-1 [grid-template-columns:repeat(auto-fill,minmax(17rem,1fr))] @min-[720px]/params:mt-0 @min-[720px]/params:px-0">
+                        // One parameter per line, top to bottom. A parameter set to add a divider gets a line under it.
+                        <div className="mt-1 flex flex-col">
                           {group.rows.map(({ parameter, raw }, rowIndex) => (
                             <React.Fragment key={parameter.id}>
                             <div className="min-w-0">
@@ -1974,7 +1973,7 @@ export function CommissionTemplatePanel({
                             />
                             </div>
                             {parameter.divider_below && rowIndex < group.rows.length - 1 && (
-                              <div role="separator" className="col-span-full my-1 border-t border-brand-500/70 dark:border-brand-400/60" />
+                              <div role="separator" className="my-1 border-t border-brand-500/70 dark:border-brand-400/60" />
                             )}
                             </React.Fragment>
                           ))}
