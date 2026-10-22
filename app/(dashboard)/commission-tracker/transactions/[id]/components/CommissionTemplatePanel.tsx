@@ -1866,9 +1866,9 @@ export function CommissionTemplatePanel({
                 // The same card as Parameters below. Each cap is a pill: blue while checked, yellow once unchecked
                 // by hand (it passed its qualifying formula, so it starts checked).
                 <section className="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
-                  {/* Same columns as the parameter sections below, so the blue line under the title lines up with theirs. */}
-                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-3 py-2 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:gap-x-4">
-                    <span className="text-sm font-bold text-brand-600 dark:text-brand-400 @min-[720px]/params:self-stretch @min-[720px]/params:flex @min-[720px]/params:items-center @min-[720px]/params:border-r @min-[720px]/params:border-brand-500/50 @min-[720px]/params:pr-3 @min-[720px]/params:dark:border-brand-400/50">Team Caps</span>
+                  {/* The title, then the cap pills right after it. */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
+                    <span className="text-sm font-bold text-brand-600 dark:text-brand-400">Team Caps</span>
                     {/* The caps side by side, wrapping when they run out of room. Each cap's info icon lists what its
                         qualifying formula looked at on this deal. */}
                     <div className="flex flex-wrap items-center gap-2">
