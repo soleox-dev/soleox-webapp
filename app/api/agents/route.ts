@@ -170,6 +170,11 @@ export async function POST(request: Request) {
       updated_by: String(user),
     };
 
+    // The Commission Plan is sent only by screens that show it; leaving it out keeps the saved plan.
+    if (Object.prototype.hasOwnProperty.call(agent, 'commission_plan_id')) {
+      rowPayload.commission_plan_id = agent.commission_plan_id ? String(agent.commission_plan_id) : null;
+    }
+
     // Include ID ONLY if we are performing an UPDATE
     if (isUpdate) {
       rowPayload.id = existingId;

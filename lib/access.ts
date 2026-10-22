@@ -224,6 +224,7 @@ function isSettingsApi(pathname: string): boolean {
     '/api/commission-template-logic',
     '/api/commission-template-submissions',
     '/api/commission-entities',
+    '/api/commission-plans',
     '/api/client-lookup-values',
     '/api/transaction-scorecards',
     '/api/transaction-default-view',

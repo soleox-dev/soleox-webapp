@@ -10,6 +10,8 @@ const READ_ONLY_KEYS = new Set([
   'user_id',
   'archived',
   'custom_attributes',
+  // Set from the Edit Agent form, which checks the plan belongs to the client.
+  'commission_plan_id',
   'created_at',
   'created_by',
   'updated_at',

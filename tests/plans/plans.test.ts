@@ -5,6 +5,7 @@ import {
   computePlanDealsInOrder,
   loadPlanPresets,
   roundHalfUpCents,
+  validatePlan,
   type CommissionPlan,
   type PlanAgentInput,
   type PlanAgentResult,
@@ -391,5 +392,34 @@ describe('rounding', () => {
     expect(roundHalfUpCents(25 * 0.0075)).toBe(0.19);
     expect(roundHalfUpCents(1.005)).toBe(1.01);
     expect(roundHalfUpCents(2.344999)).toBe(2.34);
+  });
+});
+
+describe('plan validation', () => {
+  it('the four eXp presets are valid', () => {
+    for (const plan of Object.values(presets)) expect(validatePlan(plan)).toEqual([]);
+  });
+
+  it('names each problem: keys, references to earlier lines, rates and formulas', () => {
+    const plan: CommissionPlan = {
+      id: 'bad',
+      name: 'Bad',
+      lines: [
+        { key: 'fee', name: 'Fee', type: 'per_deal_fee', payee: 'eXp', amount: 75, multiplierFrom: 'company_dollar' },
+        { key: 'company_dollar', name: 'Company dollar', type: 'capped_percent', payee: 'eXp', rate: 1.2, capAmount: 4000 },
+        { key: 'fee', name: 'Fee again', type: 'per_deal_fee', payee: '', amount: 10 },
+        { key: 'Stock X', name: 'Stock', type: 'percent_of_net', payee: 'eXp', rate: 0.05, after: ['later'] },
+        { key: 'custom', name: 'Custom', type: 'formula', payee: 'Team', formula: 'line_custom + nope' },
+      ],
+    };
+    expect(validatePlan(plan)).toEqual([
+      'Fee: the post-cap fraction must come from a capped percentage line above it.',
+      'Company dollar: the rate must be between 0% and 100%.',
+      'Fee again: the key fee is used by another line.',
+      'Fee again needs a payee.',
+      'Stock: the key must start with a letter and use only a-z, 0-9 and _.',
+      'Stock: later must be lines above it.',
+      expect.stringMatching(/^Custom: /),
+    ]);
   });
 });

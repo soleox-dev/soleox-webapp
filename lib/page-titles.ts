@@ -24,6 +24,7 @@ export function titleForPath(pathname: string): string | null {
     return 'Commission Template';
   }
   if (path.startsWith('/commission-tracker/settings/commission-templates')) return 'Commission Templates';
+  if (path.startsWith('/commission-tracker/settings/commission-plans')) return 'Commission Plans';
   if (path.startsWith('/commission-tracker/settings/caps') || path.startsWith('/commission-tracker/settings/team-caps')) return 'Caps';
   if (path.startsWith('/commission-tracker/settings/lists')) return 'Dropdown Lists';
   if (path.startsWith('/commission-tracker/settings/commission-rules')) return 'Commission Rules';

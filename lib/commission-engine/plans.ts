@@ -14,6 +14,7 @@ import {
   evaluateFormula as evaluateTemplateFormula,
   type FormulaValue,
 } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
+import { validateFormula as validateTemplateFormula } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-validator';
 
 // ---------------------------------------------------------------------------------------------------------------
 // Plans
@@ -116,6 +117,79 @@ export const commissionPlanSchema: z.ZodType<CommissionPlan> = z.object({
     ]),
   ),
 });
+
+const LINE_KEY = /^[a-z][a-z0-9_]*$/;
+
+/** The names a Formula line at `index` can read: the deal, the agent, and the plan's lines before it. */
+export function planFormulaNames(plan: CommissionPlan, index: number): string[] {
+  const names = ['gci', 'side', 'side_after_bonuses', 'split_percent', 'fee_share'];
+  const earlier = plan.lines.slice(0, index);
+  if (earlier.some((line) => line.type === 'capped_percent')) names.push('post_cap_fraction');
+  for (const line of earlier) {
+    names.push(`line_${line.key}`);
+    if (line.type === 'capped_percent') names.push(`post_cap_fraction_${line.key}`);
+  }
+  for (const line of plan.lines) names.push(`ytd_${line.key}`);
+  return names;
+}
+
+/**
+ * What is wrong with a plan before it is saved, one message per problem: line keys (unique, lower_snake_case),
+ * references to earlier lines, rates, amounts, tiers and formulas. An empty list means the plan can be saved.
+ */
+export function validatePlan(plan: CommissionPlan): string[] {
+  const problems: string[] = [];
+  if (!plan.name.trim()) problems.push('The plan needs a name.');
+  const seen = new Set<string>();
+  plan.lines.forEach((line, index) => {
+    const label = line.name.trim() || `Line ${index + 1}`;
+    const earlier = plan.lines.slice(0, index);
+    const earlierLine = (key: string) => earlier.find((other) => other.key === key);
+    if (!line.name.trim()) problems.push(`Line ${index + 1} needs a name.`);
+    if (!LINE_KEY.test(line.key)) problems.push(`${label}: the key must start with a letter and use only a-z, 0-9 and _.`);
+    else if (seen.has(line.key)) problems.push(`${label}: the key ${line.key} is used by another line.`);
+    seen.add(line.key);
+    if (!line.payee.trim()) problems.push(`${label} needs a payee.`);
+    if (line.type === 'capped_percent' || line.type === 'percent_of_net') {
+      if (!(line.rate >= 0 && line.rate <= 1)) problems.push(`${label}: the rate must be between 0% and 100%.`);
+    }
+    if (line.type === 'capped_percent' && line.capAmount !== null && line.capAmount !== undefined && !(line.capAmount >= 0)) {
+      problems.push(`${label}: the cap cannot be negative.`);
+    }
+    if (line.type === 'per_deal_fee') {
+      if (!(line.amount >= 0)) problems.push(`${label}: the amount cannot be negative.`);
+      if (line.multiplierFrom && earlierLine(line.multiplierFrom)?.type !== 'capped_percent') {
+        problems.push(`${label}: the post-cap fraction must come from a capped percentage line above it.`);
+      }
+      let previous = 0;
+      for (const tier of line.tiers || []) {
+        if (!(tier.amount >= 0) || !(tier.untilPaid > previous)) {
+          problems.push(`${label}: each tier needs an amount and a yearly limit above the tier before it.`);
+          break;
+        }
+        previous = tier.untilPaid;
+      }
+    }
+    if ((line.type === 'per_deal_fee' || line.type === 'formula') && line.yearlyLimit !== undefined && !(line.yearlyLimit >= 0)) {
+      problems.push(`${label}: the yearly limit cannot be negative.`);
+    }
+    if (line.type === 'percent_of_net') {
+      const missing = line.after.filter((key) => !earlierLine(key));
+      if (missing.length) problems.push(`${label}: ${missing.join(', ')} must be lines above it.`);
+    }
+    if (line.type === 'formula') {
+      if (!line.formula.trim()) problems.push(`${label} needs a formula.`);
+      else {
+        const error = validateTemplateFormula(line.formula, planFormulaNames(plan, index));
+        if (error) problems.push(`${label}: ${error}`);
+      }
+      if (line.countsTowardCap && !plan.lines.some((other) => other.key === line.countsTowardCap && other.type === 'capped_percent')) {
+        problems.push(`${label}: it can only count toward a capped percentage line.`);
+      }
+    }
+  });
+  return problems;
+}
 
 // ---------------------------------------------------------------------------------------------------------------
 // Deal input

@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Building2, ChartColumn, Gauge, Link2, ListFilter, PanelLeftClose, PanelLeftOpen, Scale, ScrollText, Settings2, Zap, type LucideIcon } from 'lucide-react';
+import { Building2, ChartColumn, ClipboardList, Gauge, Link2, ListFilter, PanelLeftClose, PanelLeftOpen, Scale, ScrollText, Settings2, Zap, type LucideIcon } from 'lucide-react';
 import { pageFrame, phoneSheet, phoneTitle } from '@/lib/page-frame';
 
 const COLLAPSED_KEY = 'soleox-settings-sidebar-collapsed';
@@ -31,6 +31,7 @@ const NAV: NavEntry[] = [
       { label: 'Entities', href: '/commission-tracker/settings/commission-entities', icon: Building2 },
       { label: 'Templates', href: '/commission-tracker/settings/commission-templates', icon: Zap },
       { label: 'Caps', href: '/commission-tracker/settings/caps', icon: Gauge },
+      { label: 'Plans', href: '/commission-tracker/settings/commission-plans', icon: ClipboardList },
       { label: 'Agent Allocations', href: '/commission-tracker/settings/agent-allocations', icon: Scale },
     ],
   },
