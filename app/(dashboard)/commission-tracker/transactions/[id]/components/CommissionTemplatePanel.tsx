@@ -15,7 +15,7 @@ import type { StoredCommissionItem } from '../commissionItemState';
 import type { CommissionEntityOption, FieldSetting, KnownAgentInfo } from '../types';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { cachedPaymentDrift, cachedSchema, cachedSubmissions, cachedTemplates, rememberPaymentDrift, rememberSchema, rememberSubmissions, rememberTemplates, type CachedSubmission } from './templateStatusCache';
-import { BooleanField, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
+import { BooleanCheckbox, BooleanField, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
 import { parameterValidationMessage } from '@/lib/parameter-validation';
 import { swallowNextClick } from '@/lib/swallow-click';
@@ -361,60 +361,57 @@ function LabeledParameter({
   flashToken?: number;
   children: React.ReactNode;
 }) {
+  const resetButton = onReset && (
+    <button
+      type="button"
+      onClick={onReset}
+      aria-label={`Reset ${label} to default`}
+      title="Reset to default"
+      className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center text-amber-600/80 transition hover:text-emerald-600 dark:text-amber-300/80 dark:hover:text-emerald-400 cursor-pointer"
+    >
+      <RotateCcw className="h-3 w-3" strokeWidth={1.75} aria-hidden />
+    </button>
+  );
+  const chevron = showChevron && (
+    <svg
+      viewBox="0 0 10 6"
+      aria-hidden
+      className="pointer-events-none absolute right-0 top-1/2 h-1.5 w-2.5 -translate-y-1/2 text-slate-500 dark:text-slate-400"
+    >
+      <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
   const labelTone = invalid
     ? 'text-rose-600 dark:text-rose-400'
     : locked
     ? 'text-slate-400 dark:text-slate-500'
     : 'text-slate-500 dark:text-slate-400 group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400';
-  const shellBorder = invalid
-    ? 'border-b-rose-400 dark:border-b-rose-500 focus-within:border-b-rose-600 focus-within:shadow-[0_1px_0_rgb(225_29_72/0.45),0_6px_12px_-6px_rgb(225_29_72/0.8)]'
-    : locked
-    ? 'border-b-slate-200 dark:border-b-slate-700'
-    : 'border-b-slate-300 dark:border-b-slate-600 focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)]';
+  const lineBorder = invalid
+    ? 'border-b-rose-400 dark:border-b-rose-500'
+    : 'border-b-slate-200 dark:border-b-slate-700/70 focus-within:border-b-brand-500';
 
+  // One line per parameter: its name on the left, its value on the right, edited in place. Empty values show a
+  // faint dash, so the filled ones stand out down the list.
   return (
-    <div key={flashToken || undefined} className={`group/field relative underline-field rounded-t-md pl-2.5 pr-2.5 pt-1 pb-0.5 border-b transition-colors ${locked ? 'is-locked' : ''} ${changed ? 'is-changed' : ''} ${flashToken ? 'is-recalculated' : ''} ${shellBorder}`}>
-      <div className="flex min-w-0 items-center gap-1">
-        <label htmlFor={id} title={typeof label === 'string' ? label : undefined} className={`min-w-0 line-clamp-2 break-words text-2xs leading-3 font-medium ${labelTone}`}>
+    <div key={flashToken || undefined} className={`group/field relative underline-field parameter-line flex min-h-8 flex-wrap items-center gap-x-3 rounded-md border-b py-1 pl-2.5 pr-2 transition-colors ${locked ? 'is-locked' : ''} ${changed ? 'is-changed' : ''} ${flashToken ? 'is-recalculated' : ''} ${lineBorder}`}>
+      <div className="flex min-w-0 flex-1 items-center gap-1">
+        <label htmlFor={id} title={label} className={`min-w-0 truncate text-xs leading-4 ${labelTone}`}>
           {label}
         </label>
-        {onReset && (
-          <button
-            type="button"
-            onClick={onReset}
-            aria-label={`Reset ${label} to default`}
-            title="Reset to default"
-            className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center text-amber-600/80 transition hover:text-emerald-600 dark:text-amber-300/80 dark:hover:text-emerald-400 cursor-pointer"
-          >
-            <RotateCcw className="h-3 w-3" strokeWidth={1.75} aria-hidden />
-          </button>
-        )}
+        {resetButton}
       </div>
-      <div className="flex h-5 items-center">
+      <div className={`relative flex w-[48%] max-w-[13rem] shrink-0 items-center justify-end [&_input]:text-right [&_input]:placeholder:text-slate-400 dark:[&_input]:placeholder:text-slate-500 [&_select]:[text-align-last:right] ${showChevron ? 'pr-4' : ''}`}>
         {children ?? (
           <span className={`parameter-recalc-value truncate text-xs leading-4 font-medium ${invalid ? 'text-rose-600 dark:text-rose-400' : locked ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'}`}>
-            {mirror}
+            {mirror || '—'}
           </span>
         )}
+        {chevron}
       </div>
-      {showChevron && (
-        <svg
-          viewBox="0 0 10 6"
-          aria-hidden
-          className="pointer-events-none absolute right-2.5 top-1/2 h-1.5 w-2.5 -translate-y-1/2 text-slate-600 dark:text-slate-300"
-        >
-          <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      )}
-      {message && <p className="mt-0.5 text-2xs leading-3 font-medium text-rose-600 dark:text-rose-400">{message}</p>}
+      {message && <p className="basis-full pb-0.5 text-right text-2xs leading-3 font-medium text-rose-600 dark:text-rose-400">{message}</p>}
     </div>
   );
 }
-
-/** Parameter types whose values can be long: agent names and free text. */
-const WIDE_PARAMETER_TYPES = new Set<string>(['TEXT', 'AGENT_PICKER']);
-/** About what fits in one narrow column of the template popup. */
-const NARROW_FIELD_CHARS = 14;
 
 /** Roughly how wide a label is at the popup's 10px label size: capitals and digits run wider than lowercase. */
 function labelWidthPx(label: string): number {
@@ -428,20 +425,6 @@ const NARROW_LABEL_PX = 100;
 /** True when a label does not fit on one line of a narrow column. */
 function labelNeedsRoom(label: string): boolean {
   return labelWidthPx(label.trim()) > NARROW_LABEL_PX;
-}
-
-/**
- * True when a parameter takes two columns: its label does not fit on one line, or an agent or text value
- * shows more than a narrow column fits.
- */
-function parameterNeedsRoom(parameter: { data_type?: string | null; parameter_name?: string | null }, value: string, agents: { id: string; name: string }[]): boolean {
-  if (labelNeedsRoom(parameter.parameter_name || '')) return true;
-  const type = canonicalParameterType(parameter.data_type);
-  if (!WIDE_PARAMETER_TYPES.has(type)) return false;
-  const shown = type === 'AGENT_PICKER'
-    ? (agents.find((agent) => agent.id === value || agent.name === value)?.name ?? value)
-    : value;
-  return shown.trim().length > NARROW_FIELD_CHARS;
 }
 
 function canonicalParameterType(value?: string | null): ParameterControlType {
@@ -558,6 +541,7 @@ function NumericParameterInput({
   invalid = false,
   onChange,
   className = '',
+  placeholder,
 }: {
   id: string;
   kind: 'CURRENCY' | 'PERCENT' | 'NUMBER';
@@ -566,6 +550,7 @@ function NumericParameterInput({
   invalid?: boolean;
   onChange: (next: string) => void;
   className?: string;
+  placeholder?: string;
 }) {
   const core = numericCore(value);
   const shown = core === null ? value : formatCommitted(kind, core);
@@ -580,6 +565,7 @@ function NumericParameterInput({
     <input
       id={id}
       inputMode="decimal"
+      placeholder={placeholder}
       readOnly={readOnly}
       aria-invalid={invalid}
       value={focused ? draft : shown}
@@ -642,17 +628,9 @@ function ParameterControl({
   const id = `template-parameter-${parameter.id}`;
   if (control === 'BOOLEAN') {
     return (
-      <div>
-        <BooleanField
-          id={id}
-          label={parameter.parameter_name}
-          required={Boolean(parameter.is_required)}
-          checked={isBooleanChecked(value)}
-          disabled={locked}
-          onChange={(checked) => onChange(checked ? 'TRUE' : 'FALSE')}
-        />
-        {message && <p className="mt-0.5 text-2xs leading-3 font-medium text-rose-600 dark:text-rose-400">{message}</p>}
-      </div>
+      <LabeledParameter id={id} label={parameter.is_required ? `${parameter.parameter_name} *` : parameter.parameter_name} locked={locked} changed={Boolean(onReset)} invalid={invalid} message={message} showChevron={false} onReset={onReset} flashToken={flashToken}>
+        <BooleanCheckbox id={id} checked={isBooleanChecked(value)} disabled={locked} onChange={(checked) => onChange(checked ? 'TRUE' : 'FALSE')} />
+      </LabeledParameter>
     );
   }
   const isSelect = control === 'SELECT' || control === 'AGENT_PICKER';
@@ -700,10 +678,10 @@ function ParameterControl({
       <NativeDateInput id={id} value={date} disabled={locked} aria-invalid={invalid} onChange={(event) => onChange(event.target.value)} className={`${controlClass(locked, false, invalid)} dark:[color-scheme:dark]`} />
     );
   } else if (control === 'CURRENCY' || control === 'PERCENT' || control === 'NUMBER') {
-    field = <NumericParameterInput id={id} kind={control} value={value} readOnly={locked} invalid={invalid} onChange={onChange} />;
+    field = <NumericParameterInput id={id} kind={control} value={value} readOnly={locked} invalid={invalid} onChange={onChange} placeholder="—" />;
   } else {
     field = (
-      <input id={id} value={value} readOnly={locked} aria-invalid={invalid} onChange={(event) => onChange(event.target.value)} className={controlClass(locked, false, invalid)} />
+      <input id={id} value={value} readOnly={locked} aria-invalid={invalid} placeholder="—" onChange={(event) => onChange(event.target.value)} className={controlClass(locked, false, invalid)} />
     );
   }
 
@@ -1491,8 +1469,6 @@ export function CommissionTemplatePanel({
     }));
   }, [qualifyingCaps, overviewFields, deal, fieldTypes, agents, capLookups]);
 
-  // Every listed cap passed its qualifying formula, so its box should be checked; an unchecked one was overridden by hand.
-  const capChoiceOverridden = qualifyingCaps.some((cap) => !checkedCapIds.includes(cap.id));
 
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
@@ -1887,11 +1863,9 @@ export function CommissionTemplatePanel({
               {qualifyingCaps.length > 0 && (
                 // Yellow, like a parameter changed by hand, when a box doesn't match its cap's qualifying formula;
                 // otherwise the brand blue while any team cap is checked.
-                <section className={`rounded-xl border shadow-xs transition-colors ${capChoiceOverridden
-                  ? 'border-amber-400/70 bg-amber-400/15 ring-1 ring-amber-400/25 dark:border-amber-400/50 dark:bg-amber-400/12'
-                  : qualifyingCaps.some((cap) => checkedCapIds.includes(cap.id))
-                  ? 'border-brand-500/60 bg-brand-500/10 ring-1 ring-brand-500/20 dark:border-brand-400/60 dark:bg-brand-500/15'
-                  : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800'}`}>
+                // The same card as Parameters below. Each cap is a pill: blue while checked, yellow once unchecked
+                // by hand (it passed its qualifying formula, so it starts checked).
+                <section className="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
                   {/* Same columns as the parameter sections below, so the blue line under the title lines up with theirs. */}
                   <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-3 py-2 @min-[720px]/params:grid @min-[720px]/params:grid-cols-[11rem_minmax(0,1fr)] @min-[720px]/params:gap-x-4">
                     <span className="text-sm font-bold text-brand-600 dark:text-brand-400 @min-[720px]/params:self-stretch @min-[720px]/params:flex @min-[720px]/params:items-center @min-[720px]/params:border-r @min-[720px]/params:border-brand-500/50 @min-[720px]/params:pr-3 @min-[720px]/params:dark:border-brand-400/50">Team Caps</span>
@@ -1904,7 +1878,12 @@ export function CommissionTemplatePanel({
                       '@min-[720px]/params:grid-cols-3',
                     ][qualifyingCaps.length] ?? '@min-[720px]/params:grid-cols-4'}`}>
                     {qualifyingCaps.map((cap) => (
-                      <div key={cap.id} className="flex min-w-0 items-center gap-1.5">
+                      <div
+                        key={cap.id}
+                        className={`flex min-w-0 items-center justify-between gap-1.5 rounded-full py-1 pl-3 pr-1 transition-colors ${checkedCapIds.includes(cap.id)
+                          ? 'bg-brand-500/10 dark:bg-brand-500/15'
+                          : 'bg-amber-500/15 ring-1 ring-amber-400/40 dark:bg-amber-400/12'}`}
+                      >
                         <BooleanField
                           id={`team-cap-${cap.id}`}
                           label={cap.name.trim() || 'Team Cap'}
@@ -1975,11 +1954,13 @@ export function CommissionTemplatePanel({
                         </div>
                       </div>
                       {!isCollapsed && (
-                        <div className="mt-1.5 grid gap-x-3 gap-y-1.5 px-1 [grid-template-columns:repeat(auto-fill,minmax(7.5rem,1fr))] @min-[720px]/params:mt-0 @min-[720px]/params:px-0">
-                          {group.rows.map(({ parameter, raw }) => (
-                            // Every field starts in one narrow column. It widens to two when its label doesn't fit on one line,
-                            // or when an agent or text value doesn't fit.
-                            <div key={parameter.id} className={parameterNeedsRoom(parameter, values[parameter.id] ?? '', uniqueAgents) ? 'col-span-2' : 'min-w-0'}>
+                        // Rows flow left to right in columns about 17rem wide, so a name never sits far from its value. A
+                        // parameter set to add a divider ends its group: a line across every column, and the next one
+                        // starts a new row.
+                        <div className="mt-1.5 grid gap-x-8 px-1 [grid-template-columns:repeat(auto-fill,minmax(17rem,1fr))] @min-[720px]/params:mt-0 @min-[720px]/params:px-0">
+                          {group.rows.map(({ parameter, raw }, rowIndex) => (
+                            <React.Fragment key={parameter.id}>
+                            <div className="min-w-0">
                             <ParameterControl
                               parameter={parameter}
                               value={values[parameter.id] ?? ''}
@@ -1992,6 +1973,10 @@ export function CommissionTemplatePanel({
                                 : () => publishParameterValue(parameter.id, raw)}
                             />
                             </div>
+                            {parameter.divider_below && rowIndex < group.rows.length - 1 && (
+                              <div role="separator" className="col-span-full my-1 border-t border-brand-500/70 dark:border-brand-400/60" />
+                            )}
+                            </React.Fragment>
                           ))}
                         </div>
                       )}

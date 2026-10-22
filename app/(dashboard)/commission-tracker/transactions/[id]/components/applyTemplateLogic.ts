@@ -22,6 +22,8 @@ export interface TemplateParameterRecord {
   is_user_editable?: boolean | null;
   sort_order?: number | null;
   section?: string | null;
+  /** A line under this parameter in the Commission Template form, starting a new group. */
+  divider_below?: boolean | null;
   dropdown_options?: string[] | null;
 }
 
