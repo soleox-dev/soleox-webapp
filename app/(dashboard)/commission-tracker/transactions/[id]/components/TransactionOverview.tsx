@@ -384,7 +384,7 @@ export function TransactionOverview({
                               )
                             ) : (
                               <span
-                                className={`text-xs leading-4 ${spansBoth ? 'whitespace-normal' : 'truncate'} ${
+                                className={`text-xs leading-5 whitespace-normal break-words ${
                                   showWarning
                                     ? 'text-amber-600 dark:text-amber-400 font-semibold'
                                     : fieldData.text === '—'
@@ -400,12 +400,14 @@ export function TransactionOverview({
                       return (
                         <div
                           key={field.id}
-                          className={`group/field relative underline-field parameter-line flex min-h-7 flex-wrap items-center gap-x-3 rounded-md border-b py-0.5 pl-2.5 pr-2 transition-colors ${
+                          className={`group/field relative underline-field parameter-line flex flex-wrap items-start gap-x-3 rounded-md border-b py-1 pl-2.5 pr-2 transition-colors ${
                             showError ? 'border-b-rose-500' : showWarning ? 'border-b-amber-500' : 'border-b-slate-200 dark:border-b-slate-700/70 focus-within:border-b-brand-500'
                           } ${isInputDisabled && isEditing ? 'opacity-70' : ''}`}
                         >
-                          <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                            <span className={`min-w-0 truncate text-xs leading-4 ${labelTone} ${!showError && !showWarning ? 'group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400' : ''}`}>
+                          {/* Name and value boxes are both 20px tall per line, so a name lines up with the first line of a
+                              value that wraps. */}
+                          <div className={`flex min-h-5 min-w-0 items-center gap-1.5 ${isEditing ? 'flex-1' : 'max-w-[45%] flex-none'}`}>
+                            <span className={`min-w-0 break-words text-xs leading-4 ${labelTone} ${!showError && !showWarning ? 'group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400' : ''}`}>
                               {field.label}
                               {field.is_required && <span className="text-rose-500" title="Required field">*</span>}
                             </span>
@@ -413,10 +415,10 @@ export function TransactionOverview({
                               <span className="cursor-help text-xs shrink-0" title={validationResult.message}>⚠️</span>
                             )}
                           </div>
-                          {/* Values sit on the right. A long one (an address) wraps under its name instead. */}
+                          {/* Values sit on the right. A long one wraps onto more lines, still on the right. */}
                           <div
                             className={`relative flex min-w-0 items-center justify-end text-right [&_input]:text-right [&_input]:placeholder:text-slate-400 dark:[&_input]:placeholder:text-slate-500 ${
-                              spansBoth && !isEditing ? 'basis-full pb-0.5 [&>span]:whitespace-normal' : 'w-[55%] max-w-[16rem] shrink-0'
+                              isEditing ? 'min-h-5 w-[55%] max-w-[16rem] shrink-0' : 'min-h-5 min-w-0 flex-1'
                             } ${isEditing && (isDropdown || field.type === 'DATE') ? '[&_input]:pr-5' : ''} ${isSystemLocked && isEditing ? 'pr-12' : ''}`}
                           >
                             {control}
