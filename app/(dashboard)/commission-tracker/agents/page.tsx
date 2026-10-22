@@ -19,7 +19,10 @@ import { useAccess } from '@/components/access-provider';
 import { useRegisterSave } from '@/components/save-leave-guard';
 import { underlineControlPlain as underlineControl } from '@/components/ui/underline-field';
 
-type FieldType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
+type FieldType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN' | 'COMMISSION_PLAN';
+
+/** The agent's Commission Plan (agents.commission_plan_id): shown by name, picked from the client's plans. */
+const COMMISSION_PLAN_KEY = 'commission_plan_id';
 
 export interface ConditionRule {
   id: string;
@@ -344,6 +347,21 @@ export default function AgentsPage() {
     }
   };
 
+  // The client's Commission Plans. Before any plan exists (or before migration 065), the column stays hidden.
+  const [plans, setPlans] = useState<{ id: string; name: string }[]>([]);
+  const planNames = useMemo(() => new Map(plans.map((plan) => [plan.id, plan.name])), [plans]);
+  const loadPlans = async () => {
+    try {
+      const res = await fetch('/api/commission-plans');
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && Array.isArray(data.plans)) {
+        setPlans(data.plans.map((plan: { id: string; name: string }) => ({ id: String(plan.id), name: String(plan.name) })));
+      }
+    } catch {
+      // Without plans the column is simply not shown.
+    }
+  };
+
   const loadLiveAgents = async () => {
     setIsLoading(true);
     try {
@@ -363,6 +381,7 @@ export default function AgentsPage() {
   useEffect(() => {
     loadLiveSchema();
     loadLiveAgents();
+    void loadPlans();
   }, []);
 
   // Prevent accidental tab closure when modal is open
@@ -388,14 +407,36 @@ export default function AgentsPage() {
     }
   }, [isModalOpen]);
 
-  const activeConfigs = useMemo(() => fieldConfigs
-    .filter((f) => f.is_enabled && !isHiddenRecordId('agents', f.field_key))
-    .sort((a, b) => {
-      if (a.section_sort_order !== b.section_sort_order) {
-        return a.section_sort_order - b.section_sort_order;
-      }
-      return a.sort_order - b.sort_order;
-    }), [fieldConfigs]);
+  const activeConfigs = useMemo(() => {
+    const configs = fieldConfigs
+      .filter((f) => f.is_enabled && !isHiddenRecordId('agents', f.field_key))
+      .map((f) => (f.field_key === COMMISSION_PLAN_KEY ? { ...f, field_label: 'Commission Plan', field_type: 'COMMISSION_PLAN' as const } : f))
+      .sort((a, b) => {
+        if (a.section_sort_order !== b.section_sort_order) {
+          return a.section_sort_order - b.section_sort_order;
+        }
+        return a.sort_order - b.sort_order;
+      });
+    // Once the client has plans, the column shows even if Fields does not list it yet: after the first section.
+    if (plans.length > 0 && configs.length > 0 && !configs.some((f) => f.field_key === COMMISSION_PLAN_KEY)) {
+      const first = configs[0];
+      const lastOfFirst = configs.reduce((index, f, i) => (f.section_sort_order === first.section_sort_order ? i : index), 0);
+      configs.splice(lastOfFirst + 1, 0, {
+        ...first,
+        id: COMMISSION_PLAN_KEY,
+        field_key: COMMISSION_PLAN_KEY,
+        storage_type: 'CORE_COLUMN',
+        sort_order: configs[lastOfFirst].sort_order + 1,
+        field_label: 'Commission Plan',
+        field_type: 'COMMISSION_PLAN',
+        is_required: false,
+        is_system: false,
+        dropdown_options: undefined,
+        visibility_rule: undefined,
+      });
+    }
+    return configs;
+  }, [fieldConfigs, plans.length]);
 
   const sectionHeaderGroups = useMemo(() => {
     if (activeConfigs.length === 0) return [];
@@ -473,6 +514,7 @@ export default function AgentsPage() {
   const cellFilterText = (agent: AgentRecord, field: FieldConfig): string => {
     const raw = agentFieldValue(agent, field.field_key);
     if (field.field_type === 'BOOLEAN') return isBooleanChecked(raw) ? 'Yes' : 'No';
+    if (field.field_type === 'COMMISSION_PLAN') return raw ? planNames.get(String(raw)) || String(raw) : BLANK_FILTER_VALUE;
     if (raw === undefined || raw === null || String(raw).trim() === '') return BLANK_FILTER_VALUE;
     if (field.field_type === 'CURRENCY') return formatColumnCurrency(Number(raw) || 0);
     if (field.field_type === 'PERCENT') return formatTablePercent(raw);
@@ -495,7 +537,7 @@ export default function AgentsPage() {
   const matchesColumns = (agent: AgentRecord, skipColumn?: string) => {
     for (const [key, picked] of Object.entries(colFilters)) {
       if (key === skipColumn || picked.length === 0) continue;
-      const field = fieldConfigs.find((item) => item.field_key === key);
+      const field = activeConfigs.find((item) => item.field_key === key);
       if (!field) continue;
       if (!matchesColumnFilter(cellFilterText(agent, field), picked)) return false;
     }
@@ -528,6 +570,9 @@ export default function AgentsPage() {
       } else if (sortField === 'group_id') {
         aVal = a.group_id || a.group || '';
         bVal = b.group_id || b.group || '';
+      } else if (sortField === COMMISSION_PLAN_KEY) {
+        aVal = planNames.get(String(a.commission_plan_id || '')) || '';
+        bVal = planNames.get(String(b.commission_plan_id || '')) || '';
       }
 
       if (aVal === undefined && a.custom_attributes?.[sortField] !== undefined) {
@@ -558,7 +603,7 @@ export default function AgentsPage() {
     });
 
     return result;
-  }, [agents, searchQuery, activeGroup, colFilters, fieldConfigs, sortField, sortOrder]);
+  }, [agents, searchQuery, activeGroup, colFilters, fieldConfigs, activeConfigs, planNames, sortField, sortOrder]);
 
   const visibleIds = useMemo(
     () => processedAgents.map((agent) => String(agent.id || '')).filter(Boolean),
@@ -1368,6 +1413,16 @@ export default function AgentsPage() {
                         );
                       }
 
+                      // Commission Plan Cell
+                      if (cfg.field_type === 'COMMISSION_PLAN') {
+                        const planName = rawVal ? planNames.get(String(rawVal)) || String(rawVal) : '';
+                        return (
+                          <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap ${planName ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400 italic'}`}>
+                            {planName || '—'}
+                          </td>
+                        );
+                      }
+
                       // Boolean Cell
                       if (cfg.field_type === 'BOOLEAN') {
                         return (
@@ -1531,6 +1586,32 @@ export default function AgentsPage() {
                                 disabled={isSubmitting}
                                 onChange={(checked) => setFormData({ ...formData, [cfg.field_key]: checked })}
                               />
+                            </div>
+                          );
+                        }
+
+                        // Commission Plan: one of the client's plans
+                        if (cfg.field_type === 'COMMISSION_PLAN') {
+                          const current = String(val || '');
+                          const options = current && !planNames.has(current) ? [{ id: current, name: current }, ...plans] : plans;
+                          return (
+                            <div key={cfg.field_key} className={underlineShell}>
+                              <label className={underlineLabel}>{cfg.field_label}</label>
+                              <div className="flex h-5 items-center">
+                                <ClearableSelect
+                                  disabled={isSubmitting}
+                                  value={current}
+                                  onChange={(e) => setFormData({ ...formData, [cfg.field_key]: e.target.value || null })}
+                                  className={`${underlineControl} overview-field-select cursor-pointer`}
+                                >
+                                  {options.map((plan) => (
+                                    <option key={plan.id} value={plan.id}>
+                                      {plan.name}
+                                    </option>
+                                  ))}
+                                </ClearableSelect>
+                              </div>
+                              <FieldChevron />
                             </div>
                           );
                         }

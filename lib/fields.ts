@@ -230,6 +230,7 @@ export const DB_AGENT_COLUMNS: DatabaseColumnDefinition[] = [
   { field_key: 'group_id', field_label: 'Group / Team', field_type: 'SELECT', section_name: 'Identity & Status', storage_type: 'CORE_COLUMN', is_system: true, is_required: true, is_enabled: true },
   { field_key: 'agent_status', field_label: 'Agent Status', field_type: 'SELECT', section_name: 'Identity & Status', storage_type: 'CORE_COLUMN', is_system: true, is_required: true, is_enabled: true },
   { field_key: 'is_team_lead', field_label: 'Team Lead', field_type: 'BOOLEAN', section_name: 'Identity & Status', storage_type: 'CORE_COLUMN', is_system: false, is_required: false, is_enabled: true },
+  { field_key: 'commission_plan_id', field_label: 'Commission Plan', field_type: 'TEXT', section_name: 'Identity & Status', storage_type: 'CORE_COLUMN', is_system: false, is_required: false, is_enabled: true },
   { field_key: 'agent_onboard_date', field_label: 'Onboard Date', field_type: 'DATE', section_name: 'Identity & Status', storage_type: 'CORE_COLUMN', is_system: false, is_required: false, is_enabled: true },
   { field_key: 'agent_offboard_date', field_label: 'Offboard Date', field_type: 'DATE', section_name: 'Identity & Status', storage_type: 'CORE_COLUMN', is_system: false, is_required: false, is_enabled: true },
   { field_key: 'created_at', field_label: 'Created At', field_type: 'DATE', section_name: 'System', storage_type: 'CORE_COLUMN', is_system: true, is_required: false, is_enabled: false },
