@@ -81,7 +81,7 @@ export function PlanSettingsForm({
         <div className="flex flex-wrap items-end gap-4">
           <label className="flex cursor-pointer items-center gap-2 pb-1 text-xs font-semibold text-slate-800 dark:text-slate-200">
             <input type="checkbox" className="h-4 w-4 cursor-pointer accent-brand-600" checked={settings.calculateDeals} onChange={(event) => onChange({ ...settings, calculateDeals: event.target.checked })} />
-            Calculate Deals With Commission Plans
+            Calculate deals with Commission Plans
           </label>
           {settings.calculateSince && (
             <span className="pb-1 text-xs text-slate-500 dark:text-slate-400">On since {new Date(settings.calculateSince).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span>
