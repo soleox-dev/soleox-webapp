@@ -49,12 +49,15 @@ export function PlanSettingsForm({
   plans,
   transactionFields,
   agentFields,
+  entities,
 }: {
   settings: PlanSettingsDto;
   onChange: (settings: PlanSettingsDto) => void;
   plans: PlanDto[];
   transactionFields: AllocationSchemaField[];
   agentFields: AllocationSchemaField[];
+  /** The client's commission entities, for the lines earlier deals paid. */
+  entities: { id: string; name: string }[];
 }) {
   const yearly = linesBy(plans, (line) =>
     (line.type === 'capped_percent' && line.capAmount !== null && line.capAmount !== undefined)
@@ -62,7 +65,7 @@ export function PlanSettingsForm({
     || (line.type === 'formula' && line.yearlyLimit !== undefined));
   const optIns = linesBy(plans, (line) => line.type === 'percent_of_net' && Boolean(line.optIn));
   const capped = linesBy(plans, (line) => line.type === 'capped_percent');
-  const setMap = (name: 'startingBalanceFieldKeys' | 'optInFieldKeys' | 'capAmountFieldKeys', key: string, value: string) => {
+  const setMap = (name: 'startingBalanceFieldKeys' | 'optInFieldKeys' | 'capAmountFieldKeys' | 'historyEntityIds', key: string, value: string) => {
     const next = { ...settings[name] };
     if (value) next[key] = value;
     else delete next[key];
@@ -106,6 +109,20 @@ export function PlanSettingsForm({
         <p className="max-w-3xl text-2xs text-slate-500 dark:text-slate-400">
           Deals with these statuses count toward each agent&apos;s cap year, in Cap Date order; deals on the same date count in the order they were first saved. An agent without Cap Year Start is not calculated; the deal asks for it.
         </p>
+      </section>
+
+      <section className="space-y-3">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Earlier Deals</h3>
+        <p className="max-w-3xl text-2xs text-slate-500 dark:text-slate-400">Deals saved before plans calculated them paid these lines to the template&apos;s entities. Name each entity, and its saved lines count toward the agent&apos;s caps and yearly limits like plan lines.</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {yearly.length === 0 && <span className="text-xs text-slate-400">No plan line keeps a yearly total yet.</span>}
+          {yearly.map((line) => {
+            const selected = settings.historyEntityIds[line.key] || '';
+            const choices = [{ value: '', label: 'None' }, ...entities.map((entity) => ({ value: entity.id, label: entity.name }))];
+            if (selected && !entities.some((entity) => entity.id === selected)) choices.push({ value: selected, label: selected });
+            return <MenuField key={`history-${line.key}`} label={`${line.name} Was Paid To`} value={selected} options={choices} onChange={(value) => setMap('historyEntityIds', line.key, value)} />;
+          })}
+        </div>
       </section>
 
       <section className="space-y-3">

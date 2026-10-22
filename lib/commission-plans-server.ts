@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: PlanSettingsDto = {
   optInFieldKeys: {},
   capAmountFieldKeys: {},
   countingStatuses: ['Closed', 'Pending'],
+  historyEntityIds: {},
   calculateDeals: false,
   calculateFrom: '',
 };
@@ -105,6 +106,7 @@ export async function loadPlans(supabase: SupabaseClient, clientId: string): Pro
           optInFieldKeys: fieldMap(stored.opt_in_field_keys),
           capAmountFieldKeys: fieldMap(stored.cap_amount_field_keys),
           countingStatuses: statusList(stored.counting_statuses).length ? statusList(stored.counting_statuses) : DEFAULT_SETTINGS.countingStatuses,
+          historyEntityIds: fieldMap(stored.history_entity_ids),
           calculateDeals: Boolean(stored.calculate_deals),
           calculateFrom: typeof stored.calculate_from === 'string' ? stored.calculate_from.slice(0, 10) : '',
         }

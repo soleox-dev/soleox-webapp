@@ -135,6 +135,24 @@ describe('year-to-date history from saved items', () => {
   });
 });
 
+describe('deals saved before plans', () => {
+  it('count toward caps through the entity each plan line was paid to', () => {
+    const history = planHistoryFromItems(
+      [
+        { transaction_id: 'TXN_OLD', agent_id: 'AGT_1', plan_line_key: null, payee_entity_id: 'ENT_BROKER_CAP', final_amount: 3000 },
+        { transaction_id: 'TXN_OLD', agent_id: 'AGT_1', plan_line_key: null, payee_entity_id: 'ENT_TC', final_amount: 300 },
+        { transaction_id: 'TXN_NEW', agent_id: 'AGT_1', plan_line_key: 'company_dollar', payee_entity_id: 'ENT_BROKER_CAP', final_amount: 500 },
+      ],
+      [
+        { id: 'TXN_OLD', transaction_status: 'Closed', closing_date: '2026-02-01' },
+        { id: 'TXN_NEW', transaction_status: 'Pending', closing_date: '2026-03-01' },
+      ],
+      { cap_date_field_key: 'closing_date', history_entity_ids: { company_dollar: 'ENT_BROKER_CAP' } },
+    );
+    expect(history.map((line) => `${line.dealId} ${line.lineKey} ${line.amount}`)).toEqual(['TXN_OLD company_dollar 3000', 'TXN_NEW company_dollar 500']);
+  });
+});
+
 describe('statuses that count', () => {
   const items = [
     { transaction_id: 'TXN_C', agent_id: 'AGT_1', plan_line_key: 'risk_management', final_amount: 60 },

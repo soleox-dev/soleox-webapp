@@ -158,5 +158,17 @@ export function applyPlansToWaterfall(state: WaterfallState, first: WaterfallRes
     level1[agent.name] = [...credits, ...lines, ...existing.filter((rule) => !rule.beforePlan)];
   }
 
+  // A plan line and another post-split paying the same entity would charge the agent twice: the template still has
+  // a rule the plan now covers. Save waits until that rule is removed.
+  for (const agent of plans.agents) {
+    const own = [...(base.postSplitRulesByAgent[agent.name] || []), ...(base.postSplit2RulesByAgent[agent.name] || [])]
+      .filter((rule) => !rule.beforePlan)
+      .map((rule) => rule.entity.trim().toLowerCase());
+    const twice = [...new Set(agent.lines.map((line) => line.payee).filter((payee) => own.includes(payee.trim().toLowerCase())))];
+    for (const payee of twice) {
+      problems.push(`${agent.name} pays ${payee} twice: once by the plan and once by a template or typed line. Remove the template's ${payee} rule before saving.`);
+    }
+  }
+
   return { waterfall: { ...base, postSplitRulesByAgent: level1 }, plans, problems };
 }

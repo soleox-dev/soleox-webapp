@@ -44,6 +44,7 @@ export async function GET(request: Request) {
       opt_in_field_keys: (stored.opt_in_field_keys as Record<string, string>) || {},
       cap_amount_field_keys: (stored.cap_amount_field_keys as Record<string, string>) || {},
       counting_statuses: (stored.counting_statuses as string[]) || null,
+      history_entity_ids: (stored.history_entity_ids as Record<string, string>) || {},
       calculate_deals: Boolean(stored.calculate_deals),
       calculate_from: (stored.calculate_from as string) || null,
     };
@@ -60,12 +61,14 @@ export async function GET(request: Request) {
         .eq('client_id', clientId)
         .or('archived.is.null,archived.eq.false')
         .range(offset, offset + limit - 1));
+    // Saved plan lines, and lines saved before plans to the entities Plan Settings maps to a plan line.
+    const mappedEntities = Object.values(settings.history_entity_ids || {}).filter((id) => /^[A-Za-z0-9_]+$/.test(id));
     const items = await fetchAllPages<PlanItemRow>((offset, limit, withCount) =>
       supabase
         .from('transaction_commission_items')
-        .select('transaction_id, agent_id, plan_line_key, final_amount, archived, custom_attributes', withCount ? { count: 'exact' } : undefined)
+        .select('transaction_id, agent_id, plan_line_key, payee_entity_id, final_amount, archived, custom_attributes', withCount ? { count: 'exact' } : undefined)
         .eq('client_id', clientId)
-        .not('plan_line_key', 'is', null)
+        .or(mappedEntities.length ? `plan_line_key.not.is.null,payee_entity_id.in.(${mappedEntities.join(',')})` : 'plan_line_key.not.is.null')
         .range(offset, offset + limit - 1));
     const dealIds = [...new Set(items.map((item) => item.transaction_id))];
     const deals: PlanTransactionRow[] = [];

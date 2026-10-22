@@ -34,6 +34,8 @@ export interface PlanSettingsRow {
   cap_amount_field_keys: Record<string, string>;
   /** Deal statuses that count toward year-to-date totals; null or empty means DEFAULT_COUNTING_STATUSES. */
   counting_statuses?: string[] | null;
+  /** Plan line key -> the entity earlier deals paid that line to (migration 071): those saved lines count too. */
+  history_entity_ids?: Record<string, string> | null;
   /** The switch (migration 070): plans calculate this client's deals from calculate_from on. */
   calculate_deals?: boolean | null;
   calculate_from?: string | null;
@@ -56,6 +58,8 @@ export interface PlanItemRow {
   transaction_id: string;
   agent_id: string | null;
   plan_line_key: string | null;
+  /** For lines saved before plans: the entity they were paid to, read through history_entity_ids. */
+  payee_entity_id?: string | null;
   final_amount: number | string | null;
   archived?: boolean | null;
   custom_attributes?: Record<string, unknown> | null;
@@ -157,19 +161,24 @@ export function planAgentFromRow(
  * Year-to-date history from saved plan lines. Each deal is placed by the client's Cap Date field and ordered
  * within a day by when the deal was first saved (transactions.created_at, which later edits do not move), so
  * same-day deals count in save order. Only deals whose status counts are included (Closed and Pending unless
- * the settings say otherwise). Saved amounts are final amounts, so a typed line counts as paid.
+ * the settings say otherwise). Saved amounts are final amounts, so a typed line counts as paid. Lines saved before
+ * plans calculated the client's deals count through history_entity_ids: a line paid to a mapped entity is that plan
+ * line.
  */
 export function planHistoryFromItems(
   items: PlanItemRow[],
   transactions: PlanTransactionRow[],
-  settings: Pick<PlanSettingsRow, 'cap_date_field_key' | 'counting_statuses'>,
+  settings: Pick<PlanSettingsRow, 'cap_date_field_key' | 'counting_statuses' | 'history_entity_ids'>,
 ): PlanHistoryLine[] {
+  // Lines saved before plans have no plan_line_key; the entity they paid says which plan line they were.
+  const keyByEntity = new Map(Object.entries(settings.history_entity_ids || {}).map(([lineKey, entityId]) => [entityId, lineKey]));
   const statuses = new Set((settings.counting_statuses?.length ? settings.counting_statuses : DEFAULT_COUNTING_STATUSES).map((status) => status.trim().toLowerCase()));
   const counts = (deal: PlanTransactionRow) => statuses.has(String(readTransactionField(deal, 'transaction_status') ?? '').trim().toLowerCase());
   const byId = new Map(transactions.filter(counts).map((row) => [row.id, row]));
   const history: PlanHistoryLine[] = [];
   for (const item of items) {
-    if (item.archived || !item.plan_line_key || !item.agent_id) continue;
+    const lineKey = item.plan_line_key || (item.payee_entity_id ? keyByEntity.get(item.payee_entity_id) : undefined);
+    if (item.archived || !lineKey || !item.agent_id) continue;
     const deal = byId.get(item.transaction_id);
     if (!deal) continue;
     let capDate: string;
@@ -185,7 +194,7 @@ export function planHistoryFromItems(
       agentId: item.agent_id,
       capDate,
       savedAt: deal.created_at ?? null,
-      lineKey: item.plan_line_key,
+      lineKey,
       amount: readNumber(item.final_amount) ?? 0,
       ...(typeof countsTowardCap === 'string' && countsTowardCap ? { countsTowardCap } : {}),
     });

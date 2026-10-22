@@ -44,7 +44,8 @@ export default function CommissionPlansPage() {
   const { confirm: confirmAction, dialog: confirmDialog } = useConfirmDialog();
 
   const [data, setData] = useState<PlansResponse | null>(null);
-  const [entityNames, setEntityNames] = useState<string[]>([]);
+  const [entities, setEntities] = useState<{ id: string; name: string }[]>([]);
+  const entityNames = useMemo(() => entities.map((entity) => entity.name), [entities]);
   const [tab, setTab] = useState<Tab>('plans');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [baseline, setBaseline] = useState('');
@@ -76,8 +77,8 @@ export default function CommissionPlansPage() {
         if (!plansResponse.ok || plansData.success === false) throw new Error(plansData.error || 'The commission plans could not be loaded.');
         if (cancelled) return;
         accept(plansData as PlansResponse);
-        const roster: { entity_name?: string }[] = Array.isArray(entityData.entities) ? entityData.entities : [];
-        setEntityNames(roster.map((entity) => String(entity.entity_name || '')).filter(Boolean));
+        const roster: { id?: string; entity_name?: string }[] = Array.isArray(entityData.entities) ? entityData.entities : [];
+        setEntities(roster.flatMap((entity: { id?: string; entity_name?: string }) => (entity.id && entity.entity_name ? [{ id: String(entity.id), name: String(entity.entity_name) }] : [])));
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'The commission plans could not be loaded.');
       }
@@ -255,7 +256,7 @@ export default function CommissionPlansPage() {
 
       {data && tab === 'settings' && settingsDraft && (
         <div className={SETTINGS_CARD}>
-          <PlanSettingsForm settings={settingsDraft} onChange={setSettingsDraft} plans={data.plans} transactionFields={transactionFields} agentFields={agentFields} />
+          <PlanSettingsForm settings={settingsDraft} onChange={setSettingsDraft} plans={data.plans} transactionFields={transactionFields} agentFields={agentFields} entities={entities} />
         </div>
       )}
 
