@@ -1254,7 +1254,9 @@ export default function AgentsPage() {
                       if (target?.closest('a, button, input, select, textarea, label')) return;
                       if (bulkMode) toggleRowSelection(String(ag.id || ''));
                     }}
-                    className={`group even:bg-slate-50 dark:even:bg-slate-900/30 max-md:even:bg-slate-100 dark:max-md:even:bg-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition ${bulkMode ? 'cursor-pointer' : ''}`}
+                    aria-selected={bulkMode ? selectedIds.has(String(ag.id || '')) : undefined}
+                    // A checked row is tinted with the brand sky across every cell, pinned ones too, as on Transactions.
+                    className={`group even:bg-slate-50 dark:even:bg-slate-900/30 max-md:even:bg-slate-100 dark:max-md:even:bg-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition ${bulkMode ? 'cursor-pointer' : ''} ${bulkMode && selectedIds.has(String(ag.id || '')) ? '[&>td]:!bg-brand-100 dark:[&>td]:!bg-[color-mix(in_srgb,var(--color-brand-500)_22%,var(--color-slate-800))]' : ''}`}
                   >
                     {bulkMode && (
                       <td className={`${pinCheckCell} ${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} text-center align-middle`}>
