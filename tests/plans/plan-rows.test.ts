@@ -112,10 +112,12 @@ describe('year-to-date history from saved items', () => {
         { transaction_id: 'TXN_A', agent_id: 'AGT_1', plan_line_key: null, final_amount: 500 },
         { transaction_id: 'TXN_A', agent_id: 'AGT_1', plan_line_key: 'risk_management', final_amount: 60, archived: true },
         { transaction_id: 'TXN_NO_DATE', agent_id: 'AGT_1', plan_line_key: 'company_dollar', final_amount: 100 },
+        { transaction_id: 'TXN_CANCELLED', agent_id: 'AGT_1', plan_line_key: 'company_dollar', final_amount: 900 },
       ],
       [
-        { id: 'TXN_A', created_at: '2026-01-05T10:00:00Z', closing_date: '2026-01-01', custom_attributes: { payment_date: '2026-02-01' } },
-        { id: 'TXN_NO_DATE', closing_date: '2026-01-01' },
+        { id: 'TXN_A', transaction_status: 'Closed', created_at: '2026-01-05T10:00:00Z', closing_date: '2026-01-01', custom_attributes: { payment_date: '2026-02-01' } },
+        { id: 'TXN_NO_DATE', transaction_status: 'Closed', closing_date: '2026-01-01' },
+        { id: 'TXN_CANCELLED', transaction_status: 'Cancelled', closing_date: '2026-01-15', custom_attributes: { payment_date: '2026-01-15' } },
       ],
       settings,
     );
@@ -125,6 +127,27 @@ describe('year-to-date history from saved items', () => {
     const agent = planAgentFromRow({ id: 'AGT_1', agent_name: 'Winston', custom_attributes: { custom_exp_cap_date: '2026-01-01' } }, { plan: planInForce(planRow, versions, '2026-06-15'), settings, splitPercent: 100 });
     const result = computePlanDeal({ id: 'TXN_B', gci: 10000, capDate: '2026-06-15', agents: [agent] }, history);
     expect(result.agents[0].lines[0].amount).toBe(1000);
+  });
+});
+
+describe('statuses that count', () => {
+  const items = [
+    { transaction_id: 'TXN_C', agent_id: 'AGT_1', plan_line_key: 'risk_management', final_amount: 60 },
+    { transaction_id: 'TXN_P', agent_id: 'AGT_1', plan_line_key: 'risk_management', final_amount: 60 },
+    { transaction_id: 'TXN_X', agent_id: 'AGT_1', plan_line_key: 'risk_management', final_amount: 60 },
+  ];
+  const deals = [
+    { id: 'TXN_C', transaction_status: 'Closed', closing_date: '2026-02-01' },
+    { id: 'TXN_P', transaction_status: 'pending', closing_date: '2026-02-02' },
+    { id: 'TXN_X', transaction_status: 'Cancelled', closing_date: '2026-02-03' },
+  ];
+
+  it('Closed and Pending by default, in any letter case; a cancelled deal never counts', () => {
+    expect(planHistoryFromItems(items, deals, { cap_date_field_key: 'closing_date' }).map((line) => line.dealId)).toEqual(['TXN_C', 'TXN_P']);
+  });
+
+  it('the client can choose the statuses', () => {
+    expect(planHistoryFromItems(items, deals, { cap_date_field_key: 'closing_date', counting_statuses: ['Closed'] }).map((line) => line.dealId)).toEqual(['TXN_C']);
   });
 });
 

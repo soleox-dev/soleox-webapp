@@ -31,7 +31,12 @@ export interface PlanSettingsRow {
   starting_balance_field_keys: Record<string, string>;
   opt_in_field_keys: Record<string, string>;
   cap_amount_field_keys: Record<string, string>;
+  /** Deal statuses that count toward year-to-date totals; null or empty means DEFAULT_COUNTING_STATUSES. */
+  counting_statuses?: string[] | null;
 }
+
+/** What TATH's template counted: a cancelled or lost deal never fills a cap or a yearly limit. */
+export const DEFAULT_COUNTING_STATUSES = ['Closed', 'Pending'];
 
 /** An agents row: columns plus custom_attributes, read the way transaction fields are. */
 export type PlanAgentRow = {
@@ -142,15 +147,18 @@ export function planAgentFromRow(
 
 /**
  * Year-to-date history from saved plan lines. Each deal is placed by the client's Cap Date field and ordered
- * within a day by when the deal was first saved (transactions.created_at, which later edits do not move).
- * Saved amounts are final amounts, so a typed line counts as paid.
+ * within a day by when the deal was first saved (transactions.created_at, which later edits do not move), so
+ * same-day deals count in save order. Only deals whose status counts are included (Closed and Pending unless
+ * the settings say otherwise). Saved amounts are final amounts, so a typed line counts as paid.
  */
 export function planHistoryFromItems(
   items: PlanItemRow[],
   transactions: PlanTransactionRow[],
-  settings: Pick<PlanSettingsRow, 'cap_date_field_key'>,
+  settings: Pick<PlanSettingsRow, 'cap_date_field_key' | 'counting_statuses'>,
 ): PlanHistoryLine[] {
-  const byId = new Map(transactions.map((row) => [row.id, row]));
+  const statuses = new Set((settings.counting_statuses?.length ? settings.counting_statuses : DEFAULT_COUNTING_STATUSES).map((status) => status.trim().toLowerCase()));
+  const counts = (deal: PlanTransactionRow) => statuses.has(String(readTransactionField(deal, 'transaction_status') ?? '').trim().toLowerCase());
+  const byId = new Map(transactions.filter(counts).map((row) => [row.id, row]));
   const history: PlanHistoryLine[] = [];
   for (const item of items) {
     if (item.archived || !item.plan_line_key || !item.agent_id) continue;

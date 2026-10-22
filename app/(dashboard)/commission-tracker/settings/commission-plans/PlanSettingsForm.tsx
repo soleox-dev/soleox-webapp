@@ -4,7 +4,18 @@ import React from 'react';
 import type { PlanDto, PlanSettingsDto } from '@/app/api/commission-plans/route';
 import type { PlanLine } from '@/lib/commission-engine';
 import type { AllocationSchemaField } from '../allocation-fields';
-import { MenuField } from './plan-inputs';
+import { MenuField, TextField } from './plan-inputs';
+
+/** Comma-separated statuses, committed when the field loses focus so typing a comma does not jump. */
+function StatusesField({ statuses, onChange }: { statuses: string[]; onChange: (statuses: string[]) => void }) {
+  const [draft, setDraft] = React.useState(statuses.join(', '));
+  React.useEffect(() => setDraft(statuses.join(', ')), [statuses]);
+  return (
+    <div onBlur={() => onChange([...new Set(draft.split(',').map((status) => status.trim()).filter(Boolean))])}>
+      <TextField label="Statuses That Count Toward Caps" value={draft} onChange={setDraft} />
+    </div>
+  );
+}
 
 const DATE_TYPES = new Set(['DATE']);
 const AMOUNT_TYPES = new Set(['CURRENCY', 'NUMBER']);
@@ -69,8 +80,11 @@ export function PlanSettingsForm({
           <MenuField label="Cap Year Start (Agent Field)" value={settings.capYearStartFieldKey} options={options(agentFields, DATE_TYPES, settings.capYearStartFieldKey, 'Not Set')} onChange={(value) => onChange({ ...settings, capYearStartFieldKey: value })} />
           <MenuField label="Starting Balances For (Agent Field)" value={settings.startingBalancesForFieldKey} options={options(agentFields, DATE_TYPES, settings.startingBalancesForFieldKey, 'Not Set')} onChange={(value) => onChange({ ...settings, startingBalancesForFieldKey: value })} />
         </div>
+        <div className="sm:max-w-md">
+          <StatusesField statuses={settings.countingStatuses} onChange={(countingStatuses) => onChange({ ...settings, countingStatuses })} />
+        </div>
         <p className="max-w-3xl text-2xs text-slate-500 dark:text-slate-400">
-          Deals count toward each agent&apos;s cap year in Cap Date order, ties by when the deal was first saved. An agent without Cap Year Start is not calculated; the deal asks for it.
+          Deals with these statuses count toward each agent&apos;s cap year, in Cap Date order; deals on the same date count in the order they were first saved. An agent without Cap Year Start is not calculated; the deal asks for it.
         </p>
       </section>
 
