@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { fetchAllPages } from '@/lib/supabase-pagination';
 import { recordPlanAssignments } from '@/lib/commission-plans-server';
+import { capDateFieldKeys } from '@/lib/cap-date-fields';
 
 const NATIVE_AGENT_COLUMNS = new Set([
   'id',
@@ -114,7 +115,10 @@ export async function GET(request: Request) {
       (a.agent_name || '').localeCompare(b.agent_name || '', undefined, { sensitivity: 'base' })
     );
 
-    return NextResponse.json({ success: true, agents: deduplicatedAgents });
+    // Fields that hold a cap date, which the Agents page shows as month and day.
+    const capDateKeys = await capDateFieldKeys(supabase, clientId);
+
+    return NextResponse.json({ success: true, agents: deduplicatedAgents, capDateFieldKeys: capDateKeys });
   } catch (error: any) {
     return apiError(error, 'The request could not be completed.');
   }

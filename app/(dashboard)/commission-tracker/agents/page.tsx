@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
-import { ListChecks, Plus, Rows3 } from 'lucide-react';
+import { ListChecks, Plus, Rows3, Search, UserRoundMinus, X } from 'lucide-react';
 import { BulkUpdateDialog } from '@/app/(dashboard)/commission-tracker/transactions/components/BulkUpdateDialog';
 import { HoverNote } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/HoverNote';
 import { ConfirmDialog, useConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -13,6 +13,7 @@ import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { BLANK_FILTER_VALUE, ColumnHeader, columnFilterOptions, matchesColumnFilter, type ColumnFilterOption } from '@/components/ui/column-filter';
 import { BooleanField, BooleanMark, isBooleanChecked } from '@/components/ui/BooleanCheckbox';
 import { NativeDateInput } from '@/components/ui/NativeDateInput';
+import { MONTHS_SHORT, MONTH_DAYS, composeMonthDay, formatMonthDay, monthDayLabelSortKey, monthDayParts, monthDaySortKey } from '@/lib/month-day';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { useAccess } from '@/components/access-provider';
@@ -74,6 +75,13 @@ interface AgentRecord {
   has_transactions?: boolean;
   [key: string]: any;
 }
+
+function isReleasedAgent(agent: { agent_status?: string | null }): boolean {
+  return String(agent.agent_status || '').trim().toLowerCase() === 'released';
+}
+
+/** A Released agent's row is dimmed, all but the bulk checkbox. Cell backgrounds stay solid so pinned columns cover what scrolls under them. */
+const releasedRowTone = '[&>td:not([data-check])]:text-slate-400 dark:[&>td:not([data-check])]:text-slate-500 [&>td:not([data-check])>*]:opacity-60';
 
 const underlineShell =
   'group/field relative underline-field rounded-t-md border-b border-b-slate-300 pl-2.5 pr-2.5 pt-1 pb-0.5 transition-colors focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)] dark:border-b-slate-600';
@@ -137,6 +145,68 @@ function FieldCalendar({ label }: { label: string }) {
         <path d="M2.25 6.75h11.5M5.25 2v2.5M10.75 2v2.5" />
       </svg>
     </button>
+  );
+}
+
+/** A cap date: Month and Day pickers. The stored value stays a full date; its year is never shown. */
+function MonthDayInput({
+  label,
+  value,
+  required,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: unknown;
+  required?: boolean;
+  disabled?: boolean;
+  onChange: (next: string) => void;
+}) {
+  const parts = monthDayParts(value);
+  const month = parts?.month ?? 0;
+  const day = parts?.day ?? 0;
+  const dayCount = month ? MONTH_DAYS[month - 1] : 31;
+  return (
+    <div className="flex h-5 items-center gap-4">
+      <div className="relative w-24">
+        <ClearableSelect
+          aria-label={`${label} Month`}
+          required={required}
+          disabled={disabled}
+          value={month ? String(month) : ''}
+          onChange={(event) => {
+            const next = Number(event.target.value);
+            onChange(next ? composeMonthDay(next, day || 1, value) : '');
+          }}
+          className={`${underlineControl} overview-field-select cursor-pointer`}
+        >
+          <option value="">Month</option>
+          {MONTHS_SHORT.map((name, index) => (
+            <option key={name} value={String(index + 1)}>{name}</option>
+          ))}
+        </ClearableSelect>
+        <FieldChevron />
+      </div>
+      <div className="relative w-16">
+        <ClearableSelect
+          aria-label={`${label} Day`}
+          required={required}
+          disabled={disabled}
+          value={day ? String(day) : ''}
+          onChange={(event) => {
+            const next = Number(event.target.value);
+            onChange(next ? composeMonthDay(month || 1, next, value) : '');
+          }}
+          className={`${underlineControl} overview-field-select cursor-pointer`}
+        >
+          <option value="">Day</option>
+          {Array.from({ length: dayCount }, (_, index) => (
+            <option key={index + 1} value={String(index + 1)}>{index + 1}</option>
+          ))}
+        </ClearableSelect>
+        <FieldChevron />
+      </div>
+    </div>
   );
 }
 
@@ -264,6 +334,8 @@ export default function AgentsPage() {
   const canWriteTracker = Boolean(access?.permissions.commissionTrackerWrite);
   const [fieldConfigs, setFieldConfigs] = useState<FieldConfig[]>([]);
   const [agents, setAgents] = useState<AgentRecord[]>([]);
+  // Agent fields that hold a cap date (Settings > Caps reset dates, the plans' Cap Year Start): shown as month and day.
+  const [capDateKeys, setCapDateKeys] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -274,6 +346,12 @@ export default function AgentsPage() {
   // Client-side viewing: Quick search & column sorting
   const [searchQuery, setSearchQuery] = useState('');
   const [activeGroup, setActiveGroup] = useState('ALL');
+  // The search sits behind a magnifying glass; it stays open while it holds text.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchExpanded = searchOpen || searchQuery !== '';
+  // Released agents stay off the list until this is turned on.
+  const [showReleased, setShowReleased] = useState(false);
 
   // ?q= from the ⌘K search opens the list filtered to that agent.
   useLayoutEffect(() => {
@@ -281,6 +359,7 @@ export default function AgentsPage() {
     const query = params.get('q');
     if (!query) return;
     setSearchQuery(query);
+    setShowReleased(true);
   }, []);
 
   // Removing q is deferred and cancelled on cleanup, so a second effect pass (React dev mode runs
@@ -363,6 +442,7 @@ export default function AgentsPage() {
       const data = await res.json();
       if (data.success && Array.isArray(data.agents)) {
         setAgents(data.agents);
+        setCapDateKeys(new Set(Array.isArray(data.capDateFieldKeys) ? data.capDateFieldKeys.map(String) : []));
       }
     } catch (err) {
       console.error('Failed to load agents:', err);
@@ -468,16 +548,22 @@ export default function AgentsPage() {
     assignGroupTones([...groupOptions, ...agents.map((agent) => agentGroupValue(agent))]);
   }, [agents, groupOptions]);
 
+  /** The agents the list works from: everyone, or everyone but Released agents. */
+  const rosterAgents = useMemo(
+    () => (showReleased ? agents : agents.filter((agent) => !isReleasedAgent(agent))),
+    [agents, showReleased],
+  );
+
   const groupCounts = useMemo(() => {
     const counts = new Map<string, number>();
     groupOptions.forEach((option) => counts.set(option, 0));
-    agents.forEach((agent) => {
+    rosterAgents.forEach((agent) => {
       const value = agentGroupValue(agent).trim().toLowerCase();
       const match = groupOptions.find((option) => option.toLowerCase() === value);
       if (match) counts.set(match, (counts.get(match) || 0) + 1);
     });
     return counts;
-  }, [agents, groupOptions]);
+  }, [rosterAgents, groupOptions]);
 
   useEffect(() => {
     if (activeGroup !== 'ALL' && !groupOptions.some((option) => option.toLowerCase() === activeGroup.toLowerCase())) {
@@ -511,6 +597,7 @@ export default function AgentsPage() {
     if (raw === undefined || raw === null || String(raw).trim() === '') return BLANK_FILTER_VALUE;
     if (field.field_type === 'CURRENCY') return formatColumnCurrency(Number(raw) || 0);
     if (field.field_type === 'PERCENT') return formatTablePercent(raw);
+    if (field.field_type === 'DATE' && capDateKeys.has(field.field_key)) return formatMonthDay(raw);
     return String(raw).trim();
   };
 
@@ -538,19 +625,30 @@ export default function AgentsPage() {
   };
 
   const columnOptions = (field: FieldConfig): ColumnFilterOption[] => {
-    const texts = agents
+    const texts = rosterAgents
       .filter((agent) => matchesTabAndSearch(agent) && matchesColumns(agent, field.field_key))
       .map((agent) => cellFilterText(agent, field));
     const numeric = field.field_type === 'CURRENCY' || field.field_type === 'PERCENT' || field.field_type === 'NUMBER';
-    return columnFilterOptions(texts, numeric ? 'number' : 'text');
+    const options = columnFilterOptions(texts, numeric ? 'number' : 'text');
+    if (field.field_type !== 'DATE' || !capDateKeys.has(field.field_key)) return options;
+    // Cap dates list January to December; Blanks stays first.
+    return [...options].sort((a, b) => {
+      if (a.value === BLANK_FILTER_VALUE) return -1;
+      if (b.value === BLANK_FILTER_VALUE) return 1;
+      return monthDayLabelSortKey(a.label).localeCompare(monthDayLabelSortKey(b.label));
+    });
   };
 
   const processedAgents = useMemo(() => {
-    let result = agents.filter((agent) => matchesTabAndSearch(agent) && matchesColumns(agent));
+    let result = rosterAgents.filter((agent) => matchesTabAndSearch(agent) && matchesColumns(agent));
 
 
-    // Sort by selected column (in-memory viewing)
+    // Sort by selected column (in-memory viewing). Sorted by name, the default, Released agents go last.
     result.sort((a, b) => {
+      if (sortField === 'agent_name' || sortField === 'full_name') {
+        const released = Number(isReleasedAgent(a)) - Number(isReleasedAgent(b));
+        if (released !== 0) return released;
+      }
       let aVal = a[sortField] ?? (sortField === 'id' ? a.id : sortField === 'agent_id' ? (a.agent_id || a.id) : undefined);
       let bVal = b[sortField] ?? (sortField === 'id' ? b.id : sortField === 'agent_id' ? (b.agent_id || b.id) : undefined);
 
@@ -575,6 +673,12 @@ export default function AgentsPage() {
         bVal = b.custom_attributes[sortField];
       }
 
+      // A cap date sorts by month and day; its stored year means nothing.
+      if (capDateKeys.has(sortField)) {
+        aVal = aVal === undefined || aVal === null || aVal === '' ? undefined : monthDaySortKey(aVal);
+        bVal = bVal === undefined || bVal === null || bVal === '' ? undefined : monthDaySortKey(bVal);
+      }
+
       if (aVal === undefined || aVal === null) aVal = '';
       if (bVal === undefined || bVal === null) bVal = '';
 
@@ -596,7 +700,7 @@ export default function AgentsPage() {
     });
 
     return result;
-  }, [agents, searchQuery, activeGroup, colFilters, fieldConfigs, activeConfigs, planNames, sortField, sortOrder]);
+  }, [rosterAgents, searchQuery, activeGroup, colFilters, fieldConfigs, activeConfigs, planNames, sortField, sortOrder, capDateKeys]);
 
   const visibleIds = useMemo(
     () => processedAgents.map((agent) => String(agent.id || '')).filter(Boolean),
@@ -997,7 +1101,7 @@ export default function AgentsPage() {
   const pinCell = `sticky ${pinLeft} z-10 bg-white group-even:bg-slate-50 group-hover:bg-slate-100 dark:bg-slate-800 dark:group-even:bg-[color-mix(in_srgb,var(--color-slate-900)_45%,var(--color-slate-800))] dark:group-hover:bg-[color-mix(in_srgb,var(--color-slate-700)_50%,var(--color-slate-800))] max-md:group-even:bg-slate-100 dark:max-md:group-even:bg-[color-mix(in_srgb,var(--color-slate-900)_60%,var(--color-slate-800))] ${pinEdge} ${pinNarrow}`;
   const pinCheckHead = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-slate-100 dark:bg-slate-900';
   const pinCheckSection = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-slate-200 dark:bg-slate-700';
-  const pinCheckCell = 'sticky left-0 z-30 box-border w-8 min-w-8 max-w-8 bg-white group-even:bg-slate-50 group-hover:bg-slate-100 dark:bg-slate-800 dark:group-even:bg-[color-mix(in_srgb,var(--color-slate-900)_45%,var(--color-slate-800))] dark:group-hover:bg-[color-mix(in_srgb,var(--color-slate-700)_50%,var(--color-slate-800))] max-md:group-even:bg-slate-100 dark:max-md:group-even:bg-[color-mix(in_srgb,var(--color-slate-900)_60%,var(--color-slate-800))]';
+  const pinCheckCell = 'sticky left-0 z-10 box-border w-8 min-w-8 max-w-8 bg-white group-even:bg-slate-50 group-hover:bg-slate-100 dark:bg-slate-800 dark:group-even:bg-[color-mix(in_srgb,var(--color-slate-900)_45%,var(--color-slate-800))] dark:group-hover:bg-[color-mix(in_srgb,var(--color-slate-700)_50%,var(--color-slate-800))] max-md:group-even:bg-slate-100 dark:max-md:group-even:bg-[color-mix(in_srgb,var(--color-slate-900)_60%,var(--color-slate-800))]';
 
   return (
     <main className={`${widePageFrame} min-h-screen bg-slate-100 py-6 text-slate-900 transition-colors duration-200 space-y-6 dark:bg-slate-900 dark:text-slate-100 md:py-8`}>
@@ -1011,7 +1115,7 @@ export default function AgentsPage() {
             Search and manage the agent roster
             {!isLoading && (
               <span className="text-slate-400">
-                {' '}— Showing {processedAgents.length} of {agents.length}
+                {' '}— Showing {processedAgents.length} of {rosterAgents.length}
               </span>
             )}
           </p>
@@ -1034,9 +1138,11 @@ export default function AgentsPage() {
           <p className="text-xs text-slate-600 dark:text-slate-300">{bulkNotice}</p>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-700 pb-4">
-          <div className="flex max-w-full items-center gap-1 overflow-x-auto bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700 [scrollbar-width:none] md:flex-wrap">
-            {[{ key: 'ALL', label: 'All', count: agents.length }, ...groupOptions.map((option) => ({
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-slate-200 dark:border-slate-700 pb-4">
+          {/* The group tabs take what the controls leave and scroll sideways; the controls stay on the right. */}
+          <div className="min-w-24 flex-1">
+          <div className="flex w-fit max-w-full items-center gap-1 overflow-x-auto bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-700 [scrollbar-width:none]">
+            {[{ key: 'ALL', label: 'All', count: rosterAgents.length }, ...groupOptions.map((option) => ({
               key: option,
               label: option,
               count: groupCounts.get(option) || 0,
@@ -1067,10 +1173,11 @@ export default function AgentsPage() {
               );
             })}
           </div>
+          </div>
 
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-2 shrink-0">
+          <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
             {canWriteTracker && (
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2">
                 <HoverNote label="Select agents to update or delete at once">
                   <button
                     type="button"
@@ -1140,27 +1247,76 @@ export default function AgentsPage() {
                 <Rows3 className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
               </button>
             </HoverNote>
+            <HoverNote label="Show Released agents">
+              <button
+                type="button"
+                onClick={() => setShowReleased((current) => !current)}
+                aria-label="Show Released agents"
+                aria-pressed={showReleased}
+                className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition cursor-pointer ${
+                  showReleased
+                    ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
+                    : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
+              >
+                <UserRoundMinus className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+              </button>
+            </HoverNote>
             <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-slate-300 max-md:hidden dark:bg-slate-500" />
-            <div className="flex items-center gap-2">
-              <div className={`relative w-full max-w-full md:w-[20rem] ${underlineShell}`}>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search all fields..."
-                  className={`${underlineControl} pr-4`}
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
-                  >
-                    ✕
-                  </button>
-                )}
+            {searchExpanded ? (
+              <div className="w-40 sm:w-56 md:w-64">
+                <div className={`relative flex items-center gap-1.5 ${underlineShell}`}>
+                  <Search className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={1.75} aria-hidden />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    autoFocus={searchOpen}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onBlur={() => setSearchOpen(false)}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Escape') return;
+                      // Escape clears the text first, then closes the search.
+                      if (searchQuery) {
+                        setSearchQuery('');
+                        setSearchOpen(true);
+                      } else {
+                        e.currentTarget.blur();
+                      }
+                    }}
+                    placeholder="Search all fields…"
+                    aria-label="Search agents"
+                    className={`${underlineControl} pr-5`}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSearchOpen(true);
+                        searchInputRef.current?.focus();
+                      }}
+                      aria-label="Clear search"
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                    >
+                      <X className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <HoverNote label="Search agents">
+                <button
+                  type="button"
+                  onClick={() => setSearchOpen(true)}
+                  aria-label="Search agents"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition cursor-pointer bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700"
+                >
+                  <Search className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                </button>
+              </HoverNote>
+            )}
           </div>
         </div>
 
@@ -1294,10 +1450,10 @@ export default function AgentsPage() {
                     }}
                     aria-selected={bulkMode ? selectedIds.has(String(ag.id || '')) : undefined}
                     // A checked row is tinted with the brand sky across every cell, pinned ones too, as on Transactions.
-                    className={`group even:bg-slate-50 dark:even:bg-slate-900/45 max-md:even:bg-slate-100 dark:max-md:even:bg-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition ${bulkMode ? 'cursor-pointer' : ''} ${bulkMode && selectedIds.has(String(ag.id || '')) ? '[&>td]:!bg-brand-100 dark:[&>td]:!bg-[color-mix(in_srgb,var(--color-brand-500)_22%,var(--color-slate-800))]' : ''}`}
+                    className={`group ${isReleasedAgent(ag) ? releasedRowTone : ''} even:bg-slate-50 dark:even:bg-slate-900/45 max-md:even:bg-slate-100 dark:max-md:even:bg-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition ${bulkMode ? 'cursor-pointer' : ''} ${bulkMode && selectedIds.has(String(ag.id || '')) ? '[&>td]:!bg-brand-100 dark:[&>td]:!bg-[color-mix(in_srgb,var(--color-brand-500)_22%,var(--color-slate-800))]' : ''}`}
                   >
                     {bulkMode && (
-                      <td className={`${pinCheckCell} ${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} text-center align-middle`}>
+                      <td data-check className={`${pinCheckCell} ${compactRows ? 'px-1 py-0.5' : 'px-1 py-3'} text-center align-middle`}>
                         <span className="flex items-center justify-center">
                           <input
                             type="checkbox"
@@ -1429,7 +1585,7 @@ export default function AgentsPage() {
                       if (cfg.field_type === 'CURRENCY') {
                         return (
                           <td key={cfg.field_key} className={`${lead} ${cellPad} whitespace-nowrap text-right tabular-nums`}>
-                            {formatCurrency(Number(rawVal) || 0)}
+                            {rawVal === undefined || rawVal === null || String(rawVal).trim() === '' ? '—' : formatCurrency(Number(rawVal) || 0)}
                           </td>
                         );
                       }
@@ -1456,7 +1612,7 @@ export default function AgentsPage() {
                       if (cfg.field_type === 'DATE') {
                         return (
                           <td key={cfg.field_key} className={`${lead} ${cellPad} text-center tabular-nums text-slate-500 dark:text-slate-400 whitespace-nowrap`}>
-                            {rawVal ? String(rawVal) : '—'}
+                            {rawVal ? (capDateKeys.has(cfg.field_key) ? formatMonthDay(rawVal) : String(rawVal)) : '—'}
                           </td>
                         );
                       }
@@ -1671,6 +1827,25 @@ export default function AgentsPage() {
                                   />
                                 )}
                               </div>
+                            </div>
+                          );
+                        }
+
+                        // Cap date: month and day only
+                        if (cfg.field_type === 'DATE' && capDateKeys.has(cfg.field_key)) {
+                          return (
+                            <div key={cfg.field_key} className={underlineShell}>
+                              <label className={underlineLabel}>
+                                {cfg.field_label}
+                                {cfg.is_required && <span className="text-rose-500"> *</span>}
+                              </label>
+                              <MonthDayInput
+                                label={cfg.field_label}
+                                value={val}
+                                required={cfg.is_required}
+                                disabled={isSubmitting}
+                                onChange={(next) => setFormData({ ...formData, [cfg.field_key]: next })}
+                              />
                             </div>
                           );
                         }
