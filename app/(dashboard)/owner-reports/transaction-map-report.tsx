@@ -178,14 +178,31 @@ export function TransactionMapReport({ deals, names }: { deals: ReportDeal[]; na
     tilesRef.current?.setUrl(basemapUrl(dark));
   }, [dark, ready]);
 
-  // Fullscreen: the map frame fills the screen.
+  // Full screen: the map frame covers the window (CSS, not the browser's element full screen, which leaves the tiles
+  // undrawn in some browsers and does not exist for non-video elements on iPhone). Where the browser allows it, the
+  // whole page also goes full screen so the map fills the display. Esc, or leaving the browser's full screen, closes it.
   useEffect(() => {
-    const onChange = () => setFullscreen(document.fullscreenElement === frameRef.current);
+    if (!fullscreen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setFullscreen(false);
+    };
+    const onChange = () => {
+      if (!document.fullscreenElement) setFullscreen(false);
+    };
+    const html = document.documentElement;
+    const previousOverflow = html.style.overflow;
+    html.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
     document.addEventListener('fullscreenchange', onChange);
-    return () => document.removeEventListener('fullscreenchange', onChange);
-  }, []);
-  // Leaflet re-measures whenever the map's box changes size: entering or leaving fullscreen (which browsers animate,
-  // so a single re-measure can catch it mid-way at no size and load no tiles), turning the phone, resizing the window.
+    return () => {
+      html.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKey);
+      document.removeEventListener('fullscreenchange', onChange);
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    };
+  }, [fullscreen]);
+  // Leaflet re-measures whenever the map's box changes size: opening or closing full screen, turning the phone,
+  // resizing the window.
   useEffect(() => {
     const node = mapNode.current;
     if (!node || !ready) return;
@@ -194,8 +211,13 @@ export function TransactionMapReport({ deals, names }: { deals: ReportDeal[]; na
     return () => observer.disconnect();
   }, [ready]);
   const toggleFullscreen = () => {
-    if (document.fullscreenElement) void document.exitFullscreen();
-    else void frameRef.current?.requestFullscreen?.();
+    if (fullscreen) {
+      setFullscreen(false);
+      return;
+    }
+    setFullscreen(true);
+    // Optional: not every browser allows it (iPhone), and the map still covers the window without it.
+    document.documentElement.requestFullscreen?.().catch(() => {});
   };
 
   const placed = useMemo<Placed[]>(() => withAddress.flatMap((deal) => {
@@ -380,8 +402,12 @@ export function TransactionMapReport({ deals, names }: { deals: ReportDeal[]; na
       </div>
 
       <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1fr)_17rem]">
-        <div ref={frameRef} className="relative isolate overflow-clip rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900">
-          <div ref={mapNode} className={`z-0 w-full ${fullscreen ? 'h-screen' : 'h-[min(70vh,720px)] min-h-[360px]'}`} aria-label="Map of transactions" />
+        <div ref={frameRef} className={`isolate overflow-clip bg-slate-100 dark:bg-slate-900 ${fullscreen ? 'fixed inset-0 z-[200]' : 'relative rounded-xl border border-slate-200 dark:border-slate-700'}`}>
+          {/* The height lives on this wrapper: Leaflet adds its own classes to the map element, and React would wipe them
+              (and with them the tiles) if that element's className ever changed. */}
+          <div className={`relative z-0 w-full ${fullscreen ? 'h-dvh' : 'h-[min(70vh,720px)] min-h-[360px]'}`}>
+            <div ref={mapNode} className="absolute inset-0" aria-label="Map of transactions" />
+          </div>
 
           <div className="absolute left-14 top-3 z-[500] flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white/95 p-0.5 shadow-sm backdrop-blur dark:border-slate-600 dark:bg-slate-800/95" role="group" aria-label="Color By">
             {/* Phones drop the label (the group keeps it for screen readers) so Full Screen fits on the same row. */}
