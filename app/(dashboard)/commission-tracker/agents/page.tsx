@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
 import { ListChecks, Plus, Rows3, Search, UserRoundMinus, X } from 'lucide-react';
-import { BulkUpdateDialog } from '@/app/(dashboard)/commission-tracker/transactions/components/BulkUpdateDialog';
+import { BulkUpdateDialog, type BulkDialogField } from '@/app/(dashboard)/commission-tracker/transactions/components/BulkUpdateDialog';
 import { HoverNote } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/HoverNote';
 import { ConfirmDialog, useConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { PERCENT_POINT_DECIMALS, formatPercentPoints, formatTablePercent, fromPercentPoints, toPercentPoints } from '@/lib/percent';
@@ -842,6 +842,24 @@ export default function AgentsPage() {
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (access?.clientId) headers['x-client-id'] = access.clientId;
+      // The Commission Plan goes through the plan assignment route, which checks the plan is this client's and logs
+      // each agent's move. An empty value means No Plan. Saved deals are not recalculated.
+      if (fieldKey === COMMISSION_PLAN_KEY) {
+        const response = await fetch('/api/commission-plans/assign', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ assignments: [...selectedIds].map((agentId) => ({ agentId, planId: value || null })) }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || payload.success === false) throw new Error(payload.error || 'Could not assign that plan.');
+        await loadLiveAgents();
+        const updated = Number(payload.updated) || 0;
+        const planName = value ? planNames.get(value) || 'the plan' : 'No Plan';
+        setBulkNotice(`Moved ${updated} ${updated === 1 ? 'agent' : 'agents'} to ${planName}.`);
+        setSelectedIds(new Set());
+        setBulkDialogOpen(false);
+        return;
+      }
       const response = await fetch('/api/agents/bulk', {
         method: 'POST',
         headers,
@@ -1944,7 +1962,7 @@ export default function AgentsPage() {
       )}
       {bulkDialogOpen && (
         <BulkUpdateDialog
-          fields={fieldConfigs.filter((field) => isAgentBulkEditableField(field)).map((field) => ({
+          fields={fieldConfigs.filter((field) => isAgentBulkEditableField(field)).map((field): BulkDialogField => ({
             field_key: field.field_key,
             field_label: field.field_label,
             field_type: field.field_type,
@@ -1952,7 +1970,17 @@ export default function AgentsPage() {
             is_enabled: field.is_enabled,
             is_required: field.is_required,
             dropdown_options: field.dropdown_options,
-          }))}
+          })).concat(plans.length > 0 ? [{
+            // Not a field in Fields: the plan is picked by name and stored by id.
+            field_key: COMMISSION_PLAN_KEY,
+            field_label: 'Commission Plan',
+            field_type: 'SELECT',
+            storage_type: 'CORE_COLUMN',
+            is_enabled: true,
+            is_required: false,
+            dropdown_options: plans.map((plan) => plan.id),
+            option_labels: Object.fromEntries(plans.map((plan) => [plan.id, plan.name])),
+          }] : [])}
           agents={agents.filter((agent) => agent.id).map((agent) => ({ id: String(agent.id), agent_name: agent.agent_name }))}
           selectedDeals={agents.filter((agent) => selectedIds.has(String(agent.id)))}
           selectedCount={selectedIds.size}
