@@ -219,6 +219,16 @@ export function CommissionWaterfallTable({
     const received = capGroups.reduce((sum, group) => (capRecipient(group) === agent.id ? sum + capReceived(group, agent.id) : sum), 0);
     return Math.round((split + paid - received) * 100) / 100;
   };
+  /**
+   * The agent's line in a team cap, unless the agent only has money that team caps pay them (no split of their own)
+   * and pays nothing into this cap: there is nothing of theirs for it to take, so the cell shows a dash.
+   */
+  const paysIntoCap = (group: { lines: AgentAllocationLine[] }, agent: AgentConfig) => {
+    const line = group.lines.find((item) => item.agent_id === agent.id);
+    if (!line) return undefined;
+    const pays = Math.abs(Number(line.amount) || 0) >= 0.005;
+    return pays || Math.abs(splitBeforeCaps(agent)) >= 0.005 ? line : undefined;
+  };
   const formatPercentShare = (share: number) => (share * 100).toLocaleString('en-US', { maximumFractionDigits: 3 });
   const trashButton = 'shrink-0 text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition';
 
@@ -501,7 +511,7 @@ export function CommissionWaterfallTable({
                           <TeamCapReceived amount={capReceived(group, agent.id)} />
                         ) : (
                           <TeamCapAmount
-                            line={group.lines.find((item) => item.agent_id === agent.id)}
+                            line={paysIntoCap(group, agent)}
                             isEditing={isEditing}
                             onAmountChange={onTeamCapAmountChange}
                           />
