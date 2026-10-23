@@ -55,6 +55,36 @@ body {
   animation: scorecard-pulse 0.85s ease-in-out;
 }
 
+/* A tapped report arrow on phones lights up in the brand sky and fades, so the tap reads as received. */
+@keyframes tap-flash {
+  0% { background-color: color-mix(in srgb, var(--color-brand-500) 35%, transparent); transform: scale(0.9); }
+  100% { background-color: color-mix(in srgb, var(--color-brand-500) 0%, transparent); transform: scale(1.15); }
+}
+
+.tap-flash {
+  animation: tap-flash 0.45s ease-out forwards;
+}
+
+/* Press feedback, used sparingly on the controls people tap most. `press` shrinks a card or button a touch while it
+   is held; `press-tint` darkens a wide row (a bar, a menu choice) instead, since shrinking it would look odd. */
+.press {
+  /* Keeps the color and border changes a button already fades, alongside the press. */
+  transition: transform 120ms ease-out, color 150ms, background-color 150ms, border-color 150ms, opacity 150ms;
+}
+
+.press:active:not(:disabled) {
+  transform: scale(0.96);
+  transition-duration: 60ms;
+}
+
+.press-tint:active:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-slate-500) 14%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .press:active:not(:disabled) { transform: none; }
+}
+
 .report-turquoise {
   background-color: color-mix(in srgb, #0d9488 16%, transparent);
   color: #115e59;

@@ -1029,7 +1029,8 @@ export default function OwnerReportsPage() {
     const EDGE = 56;
     const neighbor = (dir: SwipeDirection) => OWNER_REPORTS[index + (dir === 'next' ? 1 : -1)] ?? null;
     const blocked = (target: EventTarget | null) => {
-      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"], [role="listbox"], [role="dialog"], .app-modal')) return true;
+      // The phone title arrows page on their own; two quick taps on one must not also count as an edge double tap.
+      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"], [role="listbox"], [role="dialog"], .app-modal, [data-report-arrow]')) return true;
       return Boolean(document.querySelector('[role="listbox"], [role="dialog"][aria-modal="true"], .app-modal'));
     };
     const timers: number[] = [];
@@ -1506,7 +1507,7 @@ function OwnerReportNav({ reportId, onSelect, onStep }: { reportId: string | nul
           aria-expanded={open}
           title="All Owner Reports"
           onClick={() => setOpen(true)}
-          className="inline-flex h-10 max-w-full cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-brand-400"
+          className="press inline-flex h-10 max-w-full cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-brand-400"
         >
           <Menu className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" strokeWidth={2} aria-hidden />
           <span className="truncate">Owner Reports</span>
@@ -1520,7 +1521,7 @@ function OwnerReportNav({ reportId, onSelect, onStep }: { reportId: string | nul
             onClick={() => onStep(dir)}
             aria-label={target ? `${dir === 'prev' ? 'Previous' : 'Next'} Report: ${target.name}` : `No ${dir === 'prev' ? 'Previous' : 'Next'} Report`}
             title={target ? `${dir === 'prev' ? 'Previous' : 'Next'}: ${target.name}` : undefined}
-            className="inline-flex h-10 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-brand-400 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 disabled:cursor-default disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:text-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-brand-400 dark:hover:text-white dark:disabled:hover:border-slate-600 dark:disabled:hover:text-slate-400"
+            className="press inline-flex h-10 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-brand-400 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 disabled:cursor-default disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:text-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-brand-400 dark:hover:text-white dark:disabled:hover:border-slate-600 dark:disabled:hover:text-slate-400"
           >
             {dir === 'prev' ? <ChevronLeft className="h-4 w-4" aria-hidden /> : <ChevronRight className="h-4 w-4" aria-hidden />}
           </button>
@@ -1579,7 +1580,7 @@ function OwnerReportNav({ reportId, onSelect, onStep }: { reportId: string | nul
                         data-report-item
                         aria-current={active ? 'page' : undefined}
                         onClick={() => choose(item.id)}
-                        className={`flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 ${
+                        className={`press-tint flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 ${
                           active
                             ? 'bg-brand-500/10 font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300'
                             : item.ready
@@ -1982,6 +1983,20 @@ function ReportView(props: {
   // A callback ref: the slot first appears once the report has loaded, after this view mounted.
   const [titleSlot, setTitleSlot] = useState<HTMLDivElement | null>(null);
   const titleTight = useTitleTight(titleSlot);
+  const reportIndex = OWNER_REPORTS.findIndex((item) => item.id === props.reportId);
+  const previousReport = reportIndex > 0 ? OWNER_REPORTS[reportIndex - 1] : null;
+  const nextReport = reportIndex >= 0 ? OWNER_REPORTS[reportIndex + 1] ?? null : null;
+  // The tapped phone arrow lights up (a fresh key restarts the flash on every tap), then the report changes.
+  const [arrowFlash, setArrowFlash] = useState<{ dir: SwipeDirection; tap: number } | null>(null);
+  const tapArrow = (dir: SwipeDirection) => {
+    setArrowFlash((current) => ({ dir, tap: (current?.tap ?? 0) + 1 }));
+    window.setTimeout(() => props.onStepReport(dir), 140);
+  };
+  useEffect(() => {
+    if (!arrowFlash) return;
+    const timer = window.setTimeout(() => setArrowFlash(null), 450);
+    return () => window.clearTimeout(timer);
+  }, [arrowFlash]);
   const [filterSlot, setFilterSlot] = useState<HTMLDivElement | null>(null);
   const fitsScreen = useFitsScreen();
   const chromeRef = useRef<HTMLDivElement>(null);
@@ -2091,12 +2106,30 @@ function ReportView(props: {
           <div className="relative z-40 min-w-0 px-2 text-center [grid-area:title]">
             {/* The info icon sits outside the heading so its note keeps the body type size. */}
             {/* Title slot: the report's name as in the reports menu, one line on every screen. On a narrow phone a name
-                that does not fit at 24px steps down to 20px (useTitleTight). */}
-            <div ref={setTitleSlot} className="flex h-8 items-center justify-center gap-2">
-            <h2 className={`whitespace-nowrap font-extrabold leading-tight tracking-tight ${titleTight ? 'text-xl' : 'text-2xl'}`}>{props.reportName}</h2>
+                that does not fit at 24px steps down to 20px (useTitleTight), and below 375px the longest end in "…".
+                Phones have the previous and next report arrows at the row's ends (desktop has them by Owner Reports). */}
+            <div className="relative">
+            <div ref={setTitleSlot} className="flex h-8 items-center justify-center gap-2 max-md:mx-7">
+            <h2 className={`min-w-0 truncate font-extrabold leading-tight tracking-tight ${titleTight ? 'text-xl' : 'text-2xl'}`}>{props.reportName}</h2>
             {reportAbout ? (
               <ScoreNote label={props.reportName} text={reportAbout} className="relative inline-flex shrink-0" align="right" wide iconClass="text-slate-400 transition hover:text-brand-600 dark:hover:text-brand-300" />
             ) : null}
+            </div>
+            {([['prev', previousReport], ['next', nextReport]] as const).map(([dir, target]) => (
+              <button
+                key={dir}
+                type="button"
+                disabled={!target}
+                data-report-arrow
+                onClick={() => tapArrow(dir)}
+                aria-label={target ? `${dir === 'prev' ? 'Previous' : 'Next'} Report: ${target.name}` : `No ${dir === 'prev' ? 'Previous' : 'Next'} Report`}
+                className={`absolute -top-1.5 inline-flex h-11 w-11 cursor-pointer items-center transition-colors [-webkit-tap-highlight-color:transparent] disabled:cursor-default disabled:opacity-30 md:hidden ${arrowFlash?.dir === dir ? 'text-brand-500 dark:text-brand-300' : 'text-slate-400'} ${dir === 'prev' ? '-left-4 justify-start pl-4' : '-right-4 justify-end pr-4'}`}
+              >
+                {/* The tap area is 44px and reaches out toward the screen edge, not over the title; the icon stays put. */}
+                {arrowFlash?.dir === dir ? <span key={arrowFlash.tap} aria-hidden className={`tap-flash pointer-events-none absolute top-1/2 -mt-4 h-8 w-8 rounded-full ${dir === 'prev' ? 'left-2.5' : 'right-2.5'}`} /> : null}
+                {dir === 'prev' ? <ChevronLeft className="relative h-5 w-5" aria-hidden /> : <ChevronRight className="relative h-5 w-5" aria-hidden />}
+              </button>
+            ))}
             </div>
             {/* Picker slot: what the report shows (a leaderboard's field and date, the cap). Kept, empty, on reports
                 without pickers so every header is the same height. */}
@@ -2561,7 +2594,7 @@ function FilterBar(props: {
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
-        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 py-2.5 pl-3 pr-2 text-left"
+        className="press-tint flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-l-xl py-2.5 pl-3 pr-2 text-left"
       >
         <SlidersHorizontal className="h-4 w-4 shrink-0 text-slate-500" strokeWidth={2.25} aria-hidden />
         <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Filters</span>
@@ -2574,13 +2607,13 @@ function FilterBar(props: {
           type="button"
           onClick={() => props.onRefresh?.()}
           aria-label="New data available. Refresh."
-          className="mr-1 inline-flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-full bg-brand-600 px-2.5 text-2xs font-semibold text-white"
+          className="press mr-1 inline-flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-full bg-brand-600 px-2.5 text-2xs font-semibold text-white"
         >
           <RotateCcw className="h-3 w-3 [transform:scaleX(-1)]" strokeWidth={2.5} aria-hidden />
           New
         </button>
       ) : null}
-      <button type="button" onClick={() => setOpen(true)} aria-label="Show Filters" className="inline-flex h-10 w-9 shrink-0 cursor-pointer items-center justify-center text-slate-400">
+      <button type="button" onClick={() => setOpen(true)} aria-label="Show Filters" className="press-tint inline-flex h-10 w-9 shrink-0 cursor-pointer items-center justify-center rounded-r-xl text-slate-400">
         <ChevronDown className="h-4 w-4" strokeWidth={2.25} aria-hidden />
       </button>
     </div>
@@ -2799,10 +2832,10 @@ function formatFilterSpan(range: DateRange): string {
 }
 
 /** A picker in the line under a report's title: the line's size and weight, in the brand color for something to act on. */
-const titlePickerClass = 'inline-flex max-w-full cursor-pointer appearance-none items-center gap-0.5 whitespace-nowrap border-0 bg-transparent p-0 text-brand-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-brand-700 focus:[outline:none] focus-visible:[outline:none] dark:text-brand-400 dark:hover:text-brand-300';
+const titlePickerClass = 'press inline-flex max-w-full cursor-pointer appearance-none items-center gap-0.5 whitespace-nowrap border-0 bg-transparent p-0 text-brand-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-brand-700 focus:[outline:none] focus-visible:[outline:none] dark:text-brand-400 dark:hover:text-brand-300';
 
 /** The metric picker in a leaderboard's section pill: the pill's own text, with a chevron. */
-const boardPickerClass = 'inline-flex max-w-full cursor-pointer appearance-none items-center gap-0.5 whitespace-nowrap border-0 bg-transparent p-0 font-semibold text-inherit shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:opacity-80 focus:[outline:none] focus-visible:[outline:none]';
+const boardPickerClass = 'press inline-flex max-w-full cursor-pointer appearance-none items-center gap-0.5 whitespace-nowrap border-0 bg-transparent p-0 font-semibold text-inherit shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:opacity-80 focus:[outline:none] focus-visible:[outline:none]';
 
 function TitleMetric({ value, options, onChange, buttonClass = titlePickerClass, label = 'Metric' }: { value: string; options: BoardField[]; onChange: (id: string) => void; buttonClass?: string; label?: string }) {
   const [open, setOpen] = useState(false);
@@ -2874,7 +2907,7 @@ function TitleMetric({ value, options, onChange, buttonClass = titlePickerClass,
                 role="option"
                 aria-selected={field.id === selected.id}
                 onClick={() => choose(field.id)}
-                className={`block w-full cursor-pointer rounded-md px-2 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800 ${divider ? 'mb-1 border-b border-slate-200 pb-2 dark:border-slate-700' : ''} ${field.id === selected.id ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200' : ''}`}
+                className={`press-tint block w-full cursor-pointer rounded-md px-2 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800 ${divider ? 'mb-1 border-b border-slate-200 pb-2 dark:border-slate-700' : ''} ${field.id === selected.id ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200' : ''}`}
               >
                 {field.label}
               </button>
@@ -2967,7 +3000,7 @@ function TitleCaps({ options, picked, onChange }: {
                   role="option"
                   aria-selected={option.value === selected?.value}
                   onClick={() => choose(option.value)}
-                  className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800 ${option.value === selected?.value ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200' : ''}`}
+                  className={`press-tint flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800 ${option.value === selected?.value ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200' : ''}`}
                 >
                   <span className="min-w-0 flex-1 truncate">{option.label}</span>
                   <span className="shrink-0 text-xs tabular-nums text-slate-400">{option.count.toLocaleString()}</span>
@@ -3340,7 +3373,7 @@ function DateRangeFilter({ preset, range, onPreset, onRange, label = 'Date Range
                 role="option"
                 aria-selected={active}
                 onClick={() => choose(item.id)}
-                className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800 ${active ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200' : ''}`}
+                className={`press-tint flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800 ${active ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200' : ''}`}
               >
                 <span className="shrink-0">{item.label}</span>
                 {span ? <span className="tabular-nums text-slate-400 dark:text-slate-500">{span}</span> : null}
@@ -4377,7 +4410,7 @@ function TrendScore({ tone, label, amount, compactAmount, toneClass, dollar, com
       aria-pressed={selected}
       onClick={onSelect}
       data-score-card
-      className={`w-full min-w-0 cursor-pointer appearance-none rounded-xl border px-1.5 py-2 text-center md:px-3 shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? `ring-2 ring-inset ${metricEdge(label, tone)} ${selectedFill}` : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
+      className={`press w-full min-w-0 cursor-pointer appearance-none rounded-xl border px-1.5 py-2 text-center md:px-3 shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? `ring-2 ring-inset ${metricEdge(label, tone)} ${selectedFill}` : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
     >
       <p className={`text-2xs font-medium md:text-sm ${toneClass || 'text-slate-500 dark:text-white'}`}>{label}</p>
       <FitText full={amount} compact={isDesktop ? undefined : compactAmount} className={`mt-0.5 whitespace-nowrap text-base font-extrabold tabular-nums md:whitespace-normal md:text-xl ${toneClass}`} />
@@ -5339,7 +5372,7 @@ function BoardScore({ tone, label, amount, compactAmount, dollar, compactDollar,
       aria-pressed={selected}
       onClick={onSelect}
       data-score-card
-      className={`flex h-full w-full min-w-0 flex-col justify-start cursor-pointer appearance-none rounded-xl border px-1.5 py-2 text-center md:px-3 shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? `ring-inset ${selectedClass}` : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
+      className={`press flex h-full w-full min-w-0 flex-col justify-start cursor-pointer appearance-none rounded-xl border px-1.5 py-2 text-center md:px-3 shadow-sm [outline:none] focus-visible:ring-2 ${focusClass} ${selected ? `ring-inset ${selectedClass}` : 'border-slate-200/90 bg-white/80 dark:border-slate-700 dark:bg-slate-900/80'}`}
     >
         <p className={`text-2xs font-medium md:text-sm ${toneClass || 'text-slate-500 dark:text-white'}`}>{label}</p>
         <FitText full={amount} compact={isDesktop ? undefined : compactAmount} className={`mt-0.5 whitespace-nowrap text-base font-extrabold tabular-nums md:whitespace-normal md:text-xl ${toneClass}`} />
