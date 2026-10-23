@@ -438,6 +438,16 @@ export default function Navbar() {
           >
             <Search className="h-5 w-5" strokeWidth={2} aria-hidden />
           </button>
+          {/* Users with more than one client see which one they are in. Switching stays in the profile menu. On phones it sits just left of the menu button. */}
+          {multiClient && access?.clientName ? (
+            <span
+              title={`Client: ${access.clientName}`}
+              className="inline-flex h-7 max-w-[8.5rem] shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 text-xs font-medium text-slate-600 desktop-nav:max-w-[14rem] dark:bg-slate-800 dark:text-slate-300"
+            >
+              <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={2} aria-hidden />
+              <span className="truncate">{access.clientName}</span>
+            </span>
+          ) : null}
           {/* Phone menu button. Desktop keeps the pill nav and the avatar menu. */}
           <button
             type="button"
@@ -452,16 +462,6 @@ export default function Navbar() {
             <Menu className="h-5 w-5" strokeWidth={2} aria-hidden />
           </button>
 
-          {/* Users with more than one client see which one they are in. Switching stays in the profile menu. */}
-          {multiClient && access?.clientName ? (
-            <span
-              title={`Client: ${access.clientName}`}
-              className="order-first inline-flex h-7 max-w-[8.5rem] shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 text-xs font-medium text-slate-600 desktop-nav:order-none desktop-nav:max-w-[14rem] dark:bg-slate-800 dark:text-slate-300"
-            >
-              <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={2} aria-hidden />
-              <span className="truncate">{access.clientName}</span>
-            </span>
-          ) : null}
 
           {/* User Badge & Sign Out Dropdown */}
           <div className="relative hidden desktop-nav:block" ref={dropdownRef}>
