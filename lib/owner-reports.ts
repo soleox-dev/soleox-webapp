@@ -192,6 +192,16 @@ export function formatRange(range: DateRange): string {
   return `${startLabel} – ${endLabel}`;
 }
 
+/** The same range in numbers, for a line too narrow for formatRange: 1/1 – 10/23/26, or 11/1/25 – 2/28/26. */
+export function formatRangeCompact(range: DateRange): string {
+  const start = parseKey(range.start);
+  const end = parseKey(range.end);
+  const sameYear = start.getFullYear() === end.getFullYear();
+  const startLabel = start.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: sameYear ? undefined : '2-digit' });
+  const endLabel = end.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' });
+  return `${startLabel} – ${endLabel}`;
+}
+
 export function isBuyerSide(side: string): boolean {
   const value = side.trim().toLowerCase();
   return value === 'buyer' || value === 'tenant';

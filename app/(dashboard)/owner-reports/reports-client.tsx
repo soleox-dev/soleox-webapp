@@ -28,6 +28,7 @@ import {
   dateKey,
   formatMetric,
   formatRange,
+  formatRangeCompact,
   fullMoney,
   inRange,
   isListingSide,
@@ -1741,25 +1742,59 @@ function SortHead({ column, label, sort, onSort, align = 'left', title, width, c
   );
 }
 
-/**
- * Under the report title: "Updated 3 min ago", "Updating…" while new data downloads, or "New data available ·
- * Refresh" when the data changed while the report was on screen.
- */
-function DataFreshness({ savedAt, refreshing, newDataAvailable, onRefresh }: { savedAt: string | null; refreshing: boolean; newDataAvailable: boolean; onRefresh: () => void }) {
+/** "just now", "3 min ago", "2 hr ago", or the date: how old the data on screen is, kept current. */
+function useUpdatedAge(savedAt: string | null): string {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const tick = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(tick);
   }, []);
-  if (!savedAt) return null;
+  if (!savedAt) return '';
   const minutes = Math.max(0, Math.floor((now - Date.parse(savedAt)) / 60_000));
-  const age = minutes < 1
-    ? 'just now'
-    : minutes < 60
-      ? `${minutes} min ago`
-      : minutes < 60 * 24
-        ? `${Math.floor(minutes / 60)} hr ago`
-        : new Date(savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 60 * 24) return `${Math.floor(minutes / 60)} hr ago`;
+  return new Date(savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+/**
+ * Under the report title: "Updated 3 min ago", "Updating…" while new data downloads, or "New data available ·
+ * Refresh" when the data changed while the report was on screen.
+ */
+/** One line of text showing the first of `options` (longest first) that fits its width; the last one truncates. */
+function FitLine({ options, className }: { options: string[]; className?: string }) {
+  const lineRef = useRef<HTMLParagraphElement>(null);
+  const measureRef = useRef<HTMLSpanElement>(null);
+  const [chosen, setChosen] = useState(0);
+  const key = options.join('\n');
+  useLayoutEffect(() => {
+    const line = lineRef.current;
+    const measure = measureRef.current;
+    if (!line || !measure) return;
+    const pick = () => {
+      const room = line.clientWidth;
+      const widths = Array.from(measure.children, (child) => (child as HTMLElement).offsetWidth);
+      const fit = widths.findIndex((width) => width <= room);
+      setChosen(fit === -1 ? widths.length - 1 : fit);
+    };
+    pick();
+    const observer = new ResizeObserver(pick);
+    observer.observe(line);
+    return () => observer.disconnect();
+  }, [key]);
+  return (
+    <p ref={lineRef} className={`relative truncate ${className || ''}`}>
+      {options[Math.min(chosen, options.length - 1)]}
+      <span ref={measureRef} aria-hidden="true" className="pointer-events-none invisible absolute left-0 top-0 flex flex-col items-start whitespace-nowrap">
+        {options.map((option) => <span key={option}>{option}</span>)}
+      </span>
+    </p>
+  );
+}
+
+function DataFreshness({ savedAt, refreshing, newDataAvailable, onRefresh }: { savedAt: string | null; refreshing: boolean; newDataAvailable: boolean; onRefresh: () => void }) {
+  const age = useUpdatedAge(savedAt);
+  if (!savedAt) return null;
   return (
     <p className="inline-flex h-4 items-center gap-1.5 text-2xs text-slate-400 dark:text-slate-500">
       {refreshing ? (
@@ -2017,10 +2052,19 @@ function ReportView(props: {
               <ScoreNote label={props.reportName} text={reportAbout} className="relative inline-flex shrink-0" align="right" wide iconClass="text-slate-400 transition hover:text-brand-600 dark:hover:text-brand-300" />
             ) : null}
             </div>
-            {/* Date line slot: one line from md, two on phones. */}
-            <p className="mt-1.5 h-5 truncate text-sm text-slate-500 max-md:mt-1 max-md:line-clamp-2 max-md:h-8 max-md:whitespace-normal max-md:text-xs">{props.reportId === 'team-caps' ? 'Each agent’s cap year comes from that cap’s reset date.' : `${formatRange(range)} compared with ${formatRange(priorRange)}`}</p>
-            {/* Updated line slot: kept even before the first download. */}
-            <div className="mt-1 h-4">
+            {/* Date line slot: always one line; the dates shorten to fit before the line truncates. */}
+            <FitLine
+              className="mt-1.5 h-5 text-sm text-slate-500 max-md:mt-1 max-md:h-4 max-md:text-xs"
+              options={props.reportId === 'team-caps'
+                ? ['Each agent’s cap year comes from that cap’s reset date.']
+                : [
+                  `${formatRange(range)} compared with ${formatRange(priorRange)}`,
+                  `${formatRange(range)} vs. ${formatRange(priorRange)}`,
+                  `${formatRangeCompact(range)} vs. ${formatRangeCompact(priorRange)}`,
+                ]}
+            />
+            {/* Updated line slot: kept even before the first download. Phones show it in the Filters bar and sheet. */}
+            <div className="mt-1 h-4 max-md:hidden">
               <DataFreshness savedAt={props.dataSavedAt} refreshing={props.refreshing} newDataAvailable={props.newDataAvailable} onRefresh={props.onRefresh} />
             </div>
           </div>
@@ -2208,7 +2252,13 @@ function FilterBar(props: {
   resultCount?: number;
   /** The right side of the report title row: on wider screens the date and Filters controls render there. */
   headerSlot?: HTMLElement | null;
+  /** How fresh the data is, shown in the phone bar and the panel (the title row shows it on wider screens). */
+  dataSavedAt?: string | null;
+  refreshing?: boolean;
+  newDataAvailable?: boolean;
+  onRefresh?: () => void;
 }) {
+  const updatedAge = useUpdatedAge(props.dataSavedAt ?? null);
   const isDesktop = useIsDesktop();
   const [open, setOpen] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -2442,24 +2492,44 @@ function FilterBar(props: {
   const bar = isDesktop ? (
     props.headerSlot ? createPortal(headerControls, props.headerSlot) : headerControls
   ) : (
-    <button
-      type="button"
-      onClick={() => setOpen(true)}
-      aria-haspopup="dialog"
-      className="relative z-30 flex w-full cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left dark:border-slate-800 dark:bg-slate-900"
-    >
-      <SlidersHorizontal className="h-4 w-4 shrink-0 text-slate-500" strokeWidth={2.25} aria-hidden />
-      <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Filters</span>
-      <span className="min-w-0 flex-1 truncate text-xs tabular-nums text-slate-500 dark:text-slate-400">{span}</span>
-      {countBadge}
-      <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" strokeWidth={2.25} aria-hidden />
-    </button>
+    // Phones: the bar also says, only when something is happening, that data is updating or that new data is ready.
+    <div className="relative z-30 flex w-full items-center rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 py-2.5 pl-3 pr-2 text-left"
+      >
+        <SlidersHorizontal className="h-4 w-4 shrink-0 text-slate-500" strokeWidth={2.25} aria-hidden />
+        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Filters</span>
+        <span className="min-w-0 flex-1 truncate text-xs tabular-nums text-slate-500 dark:text-slate-400">{span}</span>
+        {countBadge}
+        {props.refreshing ? <RotateCcw className="h-3.5 w-3.5 shrink-0 animate-spin text-slate-400 [animation-direction:reverse]" strokeWidth={2.25} aria-label="Updating" /> : null}
+      </button>
+      {props.newDataAvailable && !props.refreshing ? (
+        <button
+          type="button"
+          onClick={() => props.onRefresh?.()}
+          aria-label="New data available. Refresh."
+          className="mr-1 inline-flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-full bg-brand-600 px-2.5 text-2xs font-semibold text-white"
+        >
+          <RotateCcw className="h-3 w-3 [transform:scaleX(-1)]" strokeWidth={2.5} aria-hidden />
+          New
+        </button>
+      ) : null}
+      <button type="button" onClick={() => setOpen(true)} aria-label="Show Filters" className="inline-flex h-10 w-9 shrink-0 cursor-pointer items-center justify-center text-slate-400">
+        <ChevronDown className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+      </button>
+    </div>
   );
 
   const close = () => setOpen(false);
   const header = (
     <div className="flex shrink-0 items-center justify-between gap-3 px-5 pb-3 pt-4">
-      <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">Filters</p>
+      <p className="flex items-baseline gap-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
+        Filters
+        {updatedAge ? <span className="text-2xs font-normal text-slate-400 dark:text-slate-500">{props.refreshing ? 'Updating…' : `Updated ${updatedAge}`}</span> : null}
+      </p>
       <button
         type="button"
         onClick={close}
@@ -6161,6 +6231,9 @@ function Score({ label, amount, changeAmount, value, change, tone = 'plain', pul
   );
 }
 
+/** Space (px) a full scorecard amount keeps clear on each side before the compact amount is shown. */
+const SCORE_SIDE_ROOM = 8;
+
 function FitText({ full, compact, className }: { full: string; compact?: string; className: string }) {
   const ref = useRef<HTMLParagraphElement>(null);
   const [text, setText] = useState(full);
@@ -6188,7 +6261,8 @@ function FitText({ full, compact, className }: { full: string; compact?: string;
       probe.remove();
       const cardStyle = getComputedStyle(card);
       const pad = parseFloat(cardStyle.paddingLeft) + parseFloat(cardStyle.paddingRight);
-      const room = card.clientWidth - pad;
+      // A full amount must leave clear space on both sides inside the padding, or it reads as cramped.
+      const room = card.clientWidth - pad - 2 * SCORE_SIDE_ROOM;
       const next = room > 0 && needed > room ? compact : full;
       setText((current) => (current === next ? current : next));
     };
