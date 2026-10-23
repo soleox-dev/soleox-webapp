@@ -3903,7 +3903,13 @@ function axisLabelSpace(labels: string[], fontSize: number): number {
   return widest + 3;
 }
 
-/** The width of a chart's frame in pixels, kept current as the layout changes; `fallback` until it is measured. */
+/**
+ * The width a chart draws at: its frame's width in pixels, kept current as the layout changes, but no wider than
+ * CHART_MAX_WIDTH so a very wide panel does not stretch the months apart (the chart then centers). `fallback` until
+ * it is measured.
+ */
+const CHART_MAX_WIDTH = 860;
+
 function useMeasuredWidth(fallback: number): [React.RefObject<HTMLDivElement | null>, number] {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(fallback);
@@ -3912,7 +3918,7 @@ function useMeasuredWidth(fallback: number): [React.RefObject<HTMLDivElement | n
     if (!el) return;
     const read = () => {
       const measured = Math.round(el.clientWidth);
-      if (measured > 0) setWidth(Math.max(280, measured));
+      if (measured > 0) setWidth(Math.min(CHART_MAX_WIDTH, Math.max(280, measured)));
     };
     read();
     const observer = new ResizeObserver(read);
@@ -3934,7 +3940,7 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
   const [hover, setHover] = useState<number | null>(null);
   // Phones draw on a narrower canvas so axis labels keep a readable size after the chart scales to fit.
   const isDesktop = useIsDesktop();
-  // The chart draws at its panel's real width, so it fills wide screens and its text stays at its set size.
+  // The chart draws at its panel's width (up to CHART_MAX_WIDTH), so its text stays at its set size.
   const [chartFrame, width] = useMeasuredWidth(isDesktop ? 640 : 340);
   const height = 250;
   const currentValues = months.map((row) => trendValue(row, metric));
@@ -4083,7 +4089,7 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
   const [hover, setHover] = useState<number | null>(null);
   // Phones draw on a narrower canvas so axis labels keep a readable size after the chart scales to fit.
   const isDesktop = useIsDesktop();
-  // The chart draws at its panel's real width, so it fills wide screens and its text stays at its set size.
+  // The chart draws at its panel's width (up to CHART_MAX_WIDTH), so its text stays at its set size.
   const [chartFrame, width] = useMeasuredWidth(isDesktop ? 640 : 340);
   const height = 250;
   const currentValues = months.map((row) => trendValue(row, metric));
@@ -4200,7 +4206,7 @@ function LineChart({ title, metric, current, previous }: { title: string; metric
   const [hover, setHover] = useState<number | null>(null);
   // Phones draw on a narrower canvas so axis labels keep a readable size after the chart scales to fit.
   const isDesktop = useIsDesktop();
-  // The chart draws at its panel's real width, so it fills wide screens and its text stays at its set size.
+  // The chart draws at its panel's width (up to CHART_MAX_WIDTH), so its text stays at its set size.
   const [chartFrame, width] = useMeasuredWidth(isDesktop ? 640 : 340);
   const height = 220;
   const pad = isDesktop ? { left: 12, right: 12, top: 16, bottom: 28 } : { left: 6, right: 6, top: 16, bottom: 28 };
@@ -4846,7 +4852,7 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
   const [hover, setHover] = useState<number | null>(null);
   // Phones draw on a narrower canvas so axis labels keep a readable size after the chart scales to fit.
   const isDesktop = useIsDesktop();
-  // The chart draws at its panel's real width, so it fills wide screens and its text stays at its set size.
+  // The chart draws at its panel's width (up to CHART_MAX_WIDTH), so its text stays at its set size.
   const [chartFrame, width] = useMeasuredWidth(isDesktop ? 640 : 340);
   const height = 250;
   const previous = columns.map((_, index) => priorValues[index] || 0);
