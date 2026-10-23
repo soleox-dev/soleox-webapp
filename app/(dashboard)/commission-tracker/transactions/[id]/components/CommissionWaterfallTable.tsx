@@ -7,7 +7,7 @@ import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { toPercentPoints } from '@/lib/percent';
 import { orderPostSplitNames } from '@/lib/post-split-order';
-import { AgentAllocationNotes, TeamCapAmount, TeamCapReceived, adjustedSplitView, teamCapGroups, teamCapReceived, type AgentAllocationLine } from './AgentAllocationNotes';
+import { AgentAllocationNotes, TeamCapAmount, TeamCapReceived, adjustedSplitView, teamCapGroups, teamCapReceived, teamCapReceivedNote, type AgentAllocationLine } from './AgentAllocationNotes';
 import type { TeamCapRecipient } from '@/lib/agent-allocations';
 import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
 
@@ -511,7 +511,7 @@ export function CommissionWaterfallTable({
                     <td key={agent.id} className="min-w-[14.5rem] border-b border-slate-200 bg-slate-100/55 px-2 py-2 text-center align-middle dark:border-slate-700 dark:bg-slate-800/55">
                       <div className="flex w-full justify-end">
                         {!group.lines.some((item) => item.agent_id === agent.id) && isCapRecipient(group, agent.id) ? (
-                          <TeamCapReceived amount={capReceived(group, agent.id)} />
+                          <TeamCapReceived amount={capReceived(group, agent.id)} note={teamCapReceivedNote(group.lines, capRecipients(group), agent.id)} />
                         ) : (
                           <TeamCapAmount
                             line={paysIntoCap(group, agent)}

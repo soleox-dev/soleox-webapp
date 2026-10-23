@@ -33,13 +33,16 @@ type CapBase = {
 /** One agent the cap pays. The share is kept as typed; the shares add up to 100. */
 type RecipientForm = { agentId: string; share: string };
 
-/** Who the cap pays on deals where the condition is true (blank: every deal). `id` only keys the card on screen. */
-type PayoutRuleForm = { id: string; condition: string; recipients: RecipientForm[] };
+/**
+ * Who the cap pays on deals where the condition is true (blank: every deal). The name is optional and shown as
+ * typed. `id` only keys the card on screen.
+ */
+type PayoutRuleForm = { id: string; name: string; condition: string; recipients: RecipientForm[] };
 
 let payoutRuleSeq = 0;
-function newPayoutRule(recipients: RecipientForm[] = [{ agentId: '', share: '100' }], condition = ''): PayoutRuleForm {
+function newPayoutRule(recipients: RecipientForm[] = [{ agentId: '', share: '100' }], condition = '', name = ''): PayoutRuleForm {
   payoutRuleSeq += 1;
-  return { id: `rule-${payoutRuleSeq}`, condition, recipients };
+  return { id: `rule-${payoutRuleSeq}`, name, condition, recipients };
 }
 
 type TeamCapForm = CapBase & {
@@ -140,7 +143,7 @@ function teamCapFromRow(row: Record<string, unknown>): TeamCapForm {
     resetDateFieldKey: String(row.reset_date_field_key || ''),
     payoutRules: (() => {
       const rules = capPayoutRulesFromRow(row.payout_rules, row.recipients, row.recipient_agent_id)
-        .map((rule) => newPayoutRule(rule.recipients.map((recipient) => ({ agentId: recipient.agentId, share: String(recipient.share) })), rule.condition || ''));
+        .map((rule) => newPayoutRule(rule.recipients.map((recipient) => ({ agentId: recipient.agentId, share: String(recipient.share) })), rule.condition || '', rule.name || ''));
       return rules.length > 0 ? rules : [newPayoutRule()];
     })(),
     progressCapId: String(row.progress_cap_id || ''),
@@ -851,7 +854,7 @@ function PayoutRuleList({
       {rules.map((rule, index) => (
         <div key={rule.id} className="space-y-3 rounded-lg border border-slate-200 p-4 dark:border-slate-700">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{`Payout Rule ${index + 1}`}</span>
+            <span className="min-w-0 truncate text-sm font-semibold text-slate-700 dark:text-slate-200">{rule.name.trim() || `Payout Rule ${index + 1}`}</span>
             <button
               type="button"
               onClick={() => onChange(moveItem(rules, index, index - 1))}
@@ -882,6 +885,14 @@ function PayoutRuleList({
               <TrashIcon />
             </button>
           </div>
+          <UnderlineField label="Name">
+            <input
+              className={underlineControl}
+              value={rule.name}
+              placeholder={`Payout Rule ${index + 1}`}
+              onChange={(event) => update(rule.id, { name: event.target.value })}
+            />
+          </UnderlineField>
           <FormulaEditor
             label="Applies When"
             value={rule.condition}

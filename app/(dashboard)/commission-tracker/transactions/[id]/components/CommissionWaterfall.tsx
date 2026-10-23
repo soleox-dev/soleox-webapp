@@ -33,7 +33,7 @@ import { CommissionTemplatePanel, type TemplateSubmissionDraft } from './Commiss
 import { CalculatingCommission } from './CalculatingCommission';
 import type { AppliedTemplateRules } from '@/lib/commission-engine/template';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
-import { AgentAllocationNotes, AgentCapNote, TeamCapAmount, TeamCapReceived, adjustedSplitView, teamCapGroups, teamCapReceived, type AgentAllocationLine } from './AgentAllocationNotes';
+import { AgentAllocationNotes, AgentCapNote, TeamCapAmount, TeamCapReceived, adjustedSplitView, teamCapGroups, teamCapReceived, teamCapReceivedNote, type AgentAllocationLine } from './AgentAllocationNotes';
 import type { TeamCapRecipient } from '@/lib/agent-allocations';
 import { formatAgentCapLine, type AgentCapCell } from '@/lib/agent-cap-progress';
 import type { PlanCapCell } from '@/lib/commission-engine/plan-caps';
@@ -183,7 +183,7 @@ function AgentCapStrips({
               <span title={group.name} className="min-w-0 truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{group.name}</span>
             </span>
             {isRecipient ? (
-              <TeamCapReceived amount={received(group)} />
+              <TeamCapReceived amount={received(group)} note={teamCapReceivedNote(group.lines, recipientsOf(group), agentId)} />
             ) : (
               <TeamCapAmount
                 line={shownLine}

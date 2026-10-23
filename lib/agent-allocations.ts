@@ -127,11 +127,23 @@ export type TeamCapRule = {
 /** An agent a team cap pays and their share, in percent, of what the cap collects. Shares add up to 100. */
 export type TeamCapRecipient = { agentId: string; share: number };
 
-/** One way a team cap pays out: on deals where `condition` is true (or blank), to these recipients. */
-export type CapPayoutRule = { condition: string | null; recipients: TeamCapRecipient[] };
+/**
+ * One way a team cap pays out: on deals where `condition` is true (or blank), to these recipients. `name` is
+ * optional and shown as typed; see payoutRuleLabel.
+ */
+export type CapPayoutRule = { name: string | null; condition: string | null; recipients: TeamCapRecipient[] };
 
-/** A team cap with the recipients of the payout rule this deal matches (dealTeamCaps). Empty when none matches. */
-export type DealTeamCap = TeamCapRule & { recipients: TeamCapRecipient[] };
+/**
+ * A team cap with the recipients of the payout rule this deal matches (dealTeamCaps), empty when none matches,
+ * and that rule's label when the cap has more than one rule.
+ */
+export type DealTeamCap = TeamCapRule & { recipients: TeamCapRecipient[]; payoutRuleLabel: string | null };
+
+/** A payout rule's name, or "Payout Rule N" by its place. A cap with one rule has nothing to tell apart: null. */
+export function payoutRuleLabel(cap: { payoutRules: CapPayoutRule[] }, rule: CapPayoutRule | null): string | null {
+  if (!rule || cap.payoutRules.length < 2) return null;
+  return rule.name?.trim() || `Payout Rule ${cap.payoutRules.indexOf(rule) + 1}`;
+}
 
 /**
  * A stored cap's payout rules: `payout_rules` (migration 078), each { condition, recipients }. Before it, one rule
@@ -141,13 +153,14 @@ export function capPayoutRulesFromRow(payoutRules: unknown, recipients: unknown,
   if (Array.isArray(payoutRules)) {
     return payoutRules.flatMap((item) => {
       if (!item || typeof item !== 'object') return [];
-      const row = item as { condition?: unknown; recipients?: unknown };
+      const row = item as { name?: unknown; condition?: unknown; recipients?: unknown };
+      const name = String(row.name ?? '').trim() || null;
       const condition = String(row.condition ?? '').trim() || null;
-      return [{ condition, recipients: capRecipientsFromRow(Array.isArray(row.recipients) ? row.recipients : [], null) }];
+      return [{ name, condition, recipients: capRecipientsFromRow(Array.isArray(row.recipients) ? row.recipients : [], null) }];
     });
   }
   const single = capRecipientsFromRow(recipients, recipientAgentId);
-  return single.length > 0 ? [{ condition: null, recipients: single }] : [];
+  return single.length > 0 ? [{ name: null, condition: null, recipients: single }] : [];
 }
 
 /** Every agent any of the cap's payout rules pays. */
@@ -172,7 +185,10 @@ export function dealTeamCaps(
   fieldTypes: Record<string, string>,
   lookups?: FormulaLookups | null,
 ): DealTeamCap[] {
-  return caps.map((cap) => ({ ...cap, recipients: dealPayoutRule(cap, deal, fieldTypes, lookups)?.recipients ?? [] }));
+  return caps.map((cap) => {
+    const rule = dealPayoutRule(cap, deal, fieldTypes, lookups);
+    return { ...cap, recipients: rule?.recipients ?? [], payoutRuleLabel: payoutRuleLabel(cap, rule) };
+  });
 }
 
 /**
@@ -361,6 +377,8 @@ export type DealAllocationLine = {
   prior_amount?: number | null;
   /** Percent of this agent's split paid toward the cap. */
   team_percent?: number | null;
+  /** The payout rule this deal matched, when the cap has more than one (payoutRuleLabel). */
+  payout_rule?: string | null;
 };
 
 function dealField(deal: Record<string, unknown> | null, key: string): string {
@@ -490,6 +508,7 @@ export function planDealAllocations(
             period_start: result.periodStart,
             team_cap_id: cap.id,
             cap_name: capName,
+            ...(cap.payoutRuleLabel ? { payout_rule: cap.payoutRuleLabel } : {}),
             tracked: true,
             cap_amount: hasCap ? input.capAmount : null,
             prior_amount: hasCap ? input.alreadyCounted : null,
@@ -506,6 +525,7 @@ export function planDealAllocations(
             period_start: null,
             team_cap_id: cap.id,
             cap_name: capName,
+            ...(cap.payoutRuleLabel ? { payout_rule: cap.payoutRuleLabel } : {}),
             tracked: false,
           });
         }

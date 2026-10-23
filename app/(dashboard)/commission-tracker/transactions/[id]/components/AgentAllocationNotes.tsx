@@ -22,6 +22,8 @@ export type AgentAllocationLine = {
   cap_amount?: number | null;
   prior_amount?: number | null;
   team_percent?: number | null;
+  /** The payout rule this deal matched, when the cap has more than one. */
+  payout_rule?: string | null;
 };
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
@@ -54,7 +56,8 @@ export function teamCapStanding(line: AgentAllocationLine): { label: string; amo
   const percent = line.team_percent == null || !Number.isFinite(Number(line.team_percent))
     ? ''
     : `Pays ${Number(line.team_percent).toLocaleString('en-US', { maximumFractionDigits: 2 })}% of the agent split until ${money.format(cap)}.\n`;
-  const detail = `${percent}Before this transaction: ${money.format(prior)}\nThis transaction: ${money.format(current)}\nIncluding this transaction: ${money.format(after)} of ${money.format(cap)}`;
+  const rule = line.payout_rule ? `Payout rule: ${line.payout_rule}\n` : '';
+  const detail = `${rule}${percent}Before this transaction: ${money.format(prior)}\nThis transaction: ${money.format(current)}\nIncluding this transaction: ${money.format(after)} of ${money.format(cap)}`;
   return { label: progress.label, amount: progress.amount, limit: progress.limit, detail, share: progress.share, exceeded };
 }
 
@@ -81,12 +84,35 @@ export function teamCapReceived(lines: AgentAllocationLine[], recipients: TeamCa
   return capReceipt(recipients, agentId, roundCurrency(total));
 }
 
+/**
+ * The hover note on what a recipient receives: the payout rule this deal matched, when the cap has several, and
+ * the recipient's share, when the rule pays several agents. Empty when there is nothing to add.
+ */
+export function teamCapReceivedNote(lines: AgentAllocationLine[], recipients: TeamCapRecipient[], agentId: string): string {
+  const rule = lines.find((line) => line.payout_rule)?.payout_rule;
+  const shares = recipients.reduce((sum, recipient) => sum + recipient.share, 0);
+  const share = recipients.find((recipient) => recipient.agentId === agentId)?.share;
+  const parts = [
+    rule ? `Payout rule: ${rule}` : '',
+    recipients.length > 1 && share != null && shares > 0
+      ? `Receives ${(share / shares * 100).toLocaleString('en-US', { maximumFractionDigits: 2 })}% of what the cap collects on this transaction.`
+      : '',
+  ].filter(Boolean);
+  return parts.join('\n');
+}
+
 /** What a team cap's recipient receives on this deal: their share of the payments every other agent makes into that cap. */
-export function TeamCapReceived({ amount }: { amount: number }) {
-  return (
+export function TeamCapReceived({ amount, note = '' }: { amount: number; note?: string }) {
+  const value = (
     <span className="inline-flex w-[6.5rem] justify-end pr-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
       +{money.format(amount)}
     </span>
+  );
+  if (!note) return value;
+  return (
+    <HoverNote label={note}>
+      <span tabIndex={0} className="cursor-help outline-none">{value}</span>
+    </HoverNote>
   );
 }
 

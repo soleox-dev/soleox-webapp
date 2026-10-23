@@ -27,7 +27,7 @@ const dylanCap: TeamCapRule = {
   splitPercentFieldKey: 'team_split',
   capAmountFieldKey: 'team_cap_amount',
   resetDateFieldKey: 'cap_date',
-  payoutRules: [{ condition: null, recipients: [{ agentId: DYLAN, share: 100 }] }],
+  payoutRules: [{ name: null, condition: null, recipients: [{ agentId: DYLAN, share: 100 }] }],
   progressCapId: null,
 };
 
@@ -36,7 +36,7 @@ const vegasCap: TeamCapRule = {
   id: 'CTC_000000000002',
   name: 'Las Vegas Team Cap',
   key: 'las_vegas_team_cap',
-  payoutRules: [{ condition: null, recipients: [{ agentId: DYLAN, share: 50 }, { agentId: YVONNE, share: 35 }, { agentId: PAUL, share: 15 }] }],
+  payoutRules: [{ name: null, condition: null, recipients: [{ agentId: DYLAN, share: 50 }, { agentId: YVONNE, share: 35 }, { agentId: PAUL, share: 15 }] }],
   progressCapId: dylanCap.id,
 };
 
@@ -124,8 +124,8 @@ describe('payout rules on one team cap', () => {
     key: 'team_cap',
     progressCapId: null,
     payoutRules: [
-      { condition: 'region = "Las Vegas"', recipients: vegasCap.payoutRules[0].recipients },
-      { condition: null, recipients: [{ agentId: DYLAN, share: 100 }] },
+      { name: 'Las Vegas', condition: 'region = "Las Vegas"', recipients: vegasCap.payoutRules[0].recipients },
+      { name: null, condition: null, recipients: [{ agentId: DYLAN, share: 100 }] },
     ],
   };
   const vegas = { region: 'Las Vegas' };
@@ -135,14 +135,21 @@ describe('payout rules on one team cap', () => {
 
   it('reads stored rules, or the recipients from before rules as one rule with no condition', () => {
     expect(capPayoutRulesFromRow([{ condition: ' region = "Las Vegas" ', recipients: [{ agent_id: PAUL, share: 100 }] }], null, null))
-      .toEqual([{ condition: 'region = "Las Vegas"', recipients: [{ agentId: PAUL, share: 100 }] }]);
-    expect(capPayoutRulesFromRow(null, [{ agent_id: DYLAN, share: 100 }], null)).toEqual([{ condition: null, recipients: [{ agentId: DYLAN, share: 100 }] }]);
-    expect(capPayoutRulesFromRow(null, null, DYLAN)).toEqual([{ condition: null, recipients: [{ agentId: DYLAN, share: 100 }] }]);
+      .toEqual([{ name: null, condition: 'region = "Las Vegas"', recipients: [{ agentId: PAUL, share: 100 }] }]);
+    expect(capPayoutRulesFromRow(null, [{ agent_id: DYLAN, share: 100 }], null)).toEqual([{ name: null, condition: null, recipients: [{ agentId: DYLAN, share: 100 }] }]);
+    expect(capPayoutRulesFromRow(null, null, DYLAN)).toEqual([{ name: null, condition: null, recipients: [{ agentId: DYLAN, share: 100 }] }]);
   });
 
   it('uses the first rule whose condition is true', () => {
     expect(dealTeamCaps([oneCap], vegas, { region: 'TEXT' })[0].recipients.map((item) => item.agentId)).toEqual([DYLAN, YVONNE, PAUL]);
     expect(dealTeamCaps([oneCap], elsewhere, { region: 'TEXT' })[0].recipients).toEqual([{ agentId: DYLAN, share: 100 }]);
+  });
+
+  it('labels the matching rule by name, or by its place, only when there are several', () => {
+    expect(dealTeamCaps([oneCap], vegas, { region: 'TEXT' })[0].payoutRuleLabel).toBe('Las Vegas');
+    expect(dealTeamCaps([oneCap], elsewhere, { region: 'TEXT' })[0].payoutRuleLabel).toBe('Payout Rule 2');
+    expect(dealTeamCaps([dylanCap], {}, {})[0].payoutRuleLabel).toBeNull();
+    expect(run(vegas).lines[0].payout_rule).toBe('Las Vegas');
   });
 
   it('pays nothing when no rule matches', () => {

@@ -21,7 +21,7 @@ type CapBody = {
   /** The agents a team cap pays and their shares in percent, adding up to 100. Used when payoutRules is absent. */
   recipients?: RecipientBody[] | null;
   /** Who a team cap pays, in order: a deal uses the first rule whose condition is true or blank. */
-  payoutRules?: { condition?: string | null; recipients?: RecipientBody[] | null }[] | null;
+  payoutRules?: { name?: string | null; condition?: string | null; recipients?: RecipientBody[] | null }[] | null;
   /** Another team cap this one counts toward. */
   progressCapId?: string | null;
   hideOverAllocations?: boolean;
@@ -97,10 +97,10 @@ function recipientsFromBody(listed: RecipientBody[] | null | undefined) {
 /** A team cap's payout rules from the request, or one rule with no condition from its recipients. */
 function bodyPayoutRules(body: CapBody): CapPayoutRule[] {
   if (Array.isArray(body.payoutRules)) {
-    return body.payoutRules.map((rule) => ({ condition: clean(rule?.condition), recipients: recipientsFromBody(rule?.recipients) }));
+    return body.payoutRules.map((rule) => ({ name: clean(rule?.name), condition: clean(rule?.condition), recipients: recipientsFromBody(rule?.recipients) }));
   }
   const recipients = Array.isArray(body.recipients) ? recipientsFromBody(body.recipients) : capRecipientsFromRow(null, clean(body.recipientAgentId));
-  return recipients.length > 0 ? [{ condition: null, recipients }] : [];
+  return recipients.length > 0 ? [{ name: null, condition: null, recipients }] : [];
 }
 
 /** What is wrong with a team cap's payout rules, or null. */
@@ -157,7 +157,7 @@ function capRow(clientId: string, body: CapBody, user: string, key: string, capT
       return {
         recipient_agent_id: first[0]?.agentId ?? null,
         recipients: stored(first),
-        payout_rules: rules.map((rule) => ({ condition: rule.condition, recipients: stored(rule.recipients) })),
+        payout_rules: rules.map((rule) => ({ name: rule.name, condition: rule.condition, recipients: stored(rule.recipients) })),
         progress_cap_id: capId(body.progressCapId),
       };
     })()),
