@@ -4,7 +4,7 @@
  * yearly cap of its own. When both are there and differ, the agent is on a plan their record does not describe.
  * Propose Plans suggests the plan that agrees on every such line; the Plans and deal pages warn when one does not.
  */
-import type { CommissionPlan, PlanLine } from './plans';
+import type { CommissionPlan, PlanDealResult, PlanLine } from './plans';
 
 /** An agent cap from Settings > Caps: the entity it tracks and the agent field with each agent's amount. */
 export interface AgentCapSource {
@@ -102,4 +102,38 @@ export function capText(amount: number | null): string {
 /** "Broker Cap: the plan's $16,000 is used; the agent's Broker Cap field says $8,000." */
 export function capMismatchText(mismatch: PlanCapMismatch): string {
   return `${mismatch.lineName}: the plan's ${capText(mismatch.planCap)} is used; the agent's ${mismatch.capName} field says ${capText(mismatch.agentCap)}.`;
+}
+
+/** A plan line's bar on the deal: the cap the plan applies to the agent (none when null) and what was paid before. */
+export interface PlanCapCell {
+  capAmount: number | null;
+  prior: number;
+}
+
+/**
+ * The cap bars for a deal calculated with plans, by agent ID and then by payee (lowercased): each plan line's cap
+ * as the plan applies it (an agent's Cap Amounts override for a percentage line) and the line's year-to-date before
+ * this deal, as the engine counted it. A payee a plan line pays shows this bar, not the one from Settings > Caps.
+ */
+export function planCapCells(
+  results: PlanDealResult,
+  agents: Record<string, { plan: CommissionPlan; capAmounts?: Record<string, number> }>,
+): Record<string, Record<string, PlanCapCell>> {
+  const cells: Record<string, Record<string, PlanCapCell>> = {};
+  for (const agent of results.agents) {
+    const input = agents[agent.agentId];
+    if (!input) continue;
+    const own: Record<string, PlanCapCell> = {};
+    for (const line of agent.lines) {
+      const definition = input.plan.lines.find((item) => item.key === line.key);
+      if (!definition) continue;
+      const planCap = planLineCap(definition);
+      const cap = definition.type === 'capped_percent' ? input.capAmounts?.[line.key] ?? planCap ?? null : planCap ?? null;
+      const payee = line.payee.trim().toLowerCase();
+      if (own[payee]?.capAmount != null) continue;
+      own[payee] = { capAmount: cap, prior: line.ytdBefore };
+    }
+    cells[agent.agentId] = own;
+  }
+  return cells;
 }

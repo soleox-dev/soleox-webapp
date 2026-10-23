@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadPlanPresets, planCapMismatches, proposePlanFor, type AgentCapSource } from '@/lib/commission-engine';
+import { loadPlanPresets, planCapCells, planCapMismatches, proposePlanFor, type AgentCapSource, type PlanDealResult } from '@/lib/commission-engine';
 
 const presets = loadPlanPresets();
 // Demo's agent caps: the entity each tracks and the agent field with the amount.
@@ -36,5 +36,29 @@ describe('plan caps against the agent record', () => {
     ]);
     expect(planCapMismatches(asClient('exp-16000'), laura, sources, new Set(['company_dollar'])).mismatches).toEqual([]);
     expect(planCapMismatches(asClient('exp-4000'), laura, sources).mismatches.map((item) => item.lineKey)).toEqual(['company_dollar', 'post_cap_fee']);
+  });
+});
+
+describe('plan cap bars on the deal', () => {
+  it('uses the plan cap (or the agent override) and the year-to-date the engine counted', () => {
+    const plan = asClient('exp-8000');
+    const results = {
+      agents: [{
+        agentId: 'AGT_L',
+        lines: [
+          { key: 'company_dollar', payee: 'Broker Cap', ytdBefore: 10144.96 },
+          { key: 'post_cap_fee', payee: 'Flat Cap Fee', ytdBefore: 1901.96 },
+          { key: 'broker_review', payee: plan.lines.find((line) => line.key === 'broker_review')!.payee, ytdBefore: 0 },
+        ],
+      }],
+    } as unknown as PlanDealResult;
+    expect(planCapCells(results, { AGT_L: { plan } })).toEqual({
+      AGT_L: {
+        'broker cap': { capAmount: 8000, prior: 10144.96 },
+        'flat cap fee': { capAmount: 5000, prior: 1901.96 },
+        [plan.lines.find((line) => line.key === 'broker_review')!.payee.toLowerCase()]: { capAmount: null, prior: 0 },
+      },
+    });
+    expect(planCapCells(results, { AGT_L: { plan, capAmounts: { company_dollar: 16000 } } }).AGT_L['broker cap']).toEqual({ capAmount: 16000, prior: 10144.96 });
   });
 });
