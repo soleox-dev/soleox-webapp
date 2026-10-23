@@ -162,13 +162,13 @@ export function AgentCapNote({ amount, limit, detail, share }: { amount: string;
   const barRef = useRef<HTMLSpanElement>(null);
   const width = Math.min(100, Math.max(0, share * 100));
   const over = share > 1;
-  const fill = over ? 'bg-rose-400 dark:bg-rose-500/50' : 'bg-emerald-400 dark:bg-emerald-500/50';
+  const fill = over ? 'bg-rose-300 dark:bg-rose-500/50' : 'bg-emerald-300 dark:bg-emerald-500/50';
   // Quiet text in the bar's own colour, so the bar reads as a hint rather than a figure.
   // The empty part of the bar: a faint wash and thin outline in the bar's colour, so its full length shows.
   const track = over
     ? 'bg-rose-500/10 ring-1 ring-inset ring-rose-600/25 dark:bg-rose-400/10 dark:ring-rose-400/25'
     : 'bg-emerald-500/10 ring-1 ring-inset ring-emerald-600/25 dark:bg-emerald-400/10 dark:ring-emerald-400/25';
-  const text = over ? 'text-rose-900/75 dark:text-rose-200/75' : 'text-emerald-900/75 dark:text-emerald-200/75';
+  const text = over ? 'text-rose-900/90 dark:text-rose-200/75' : 'text-emerald-900/90 dark:text-emerald-200/75';
   useLayoutEffect(() => {
     const bar = barRef.current;
     if (!bar) return;
