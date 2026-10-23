@@ -109,6 +109,7 @@ export default function AgentAllocationsPage() {
     <div className="space-y-6">
       <div className={SETTINGS_CARD}>
         <SettingsHeader
+          status={message}
           title="Agent Allocations"
           description="One rule for the amount allocated to the agents on a deal. It can follow sales price, or sales price times units. It does not change the agent splits. A blank qualifying formula applies to every deal."
           actions={
@@ -123,7 +124,6 @@ export default function AgentAllocationsPage() {
           }
         />
       </div>
-      {message && <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{message}</p>}
       {error && <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">{error}</p>}
 
       <section className={`space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-700 dark:bg-slate-800 ${phoneSheet}`}>

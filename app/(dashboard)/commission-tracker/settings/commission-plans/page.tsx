@@ -239,6 +239,7 @@ export default function CommissionPlansPage() {
       )}
       <div className={SETTINGS_CARD}>
         <SettingsHeader
+          status={message}
           title="Commission Plans"
           description="What each agent owes the brokerage on a deal (company dollar, fees, stock), written once per plan and applied to every agent on it."
           actions={canEdit ? (
@@ -267,7 +268,6 @@ export default function CommissionPlansPage() {
         </div>
       </div>
 
-      {message && <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{message}</p>}
       {error && <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">{error}</p>}
       {!data && !error && <p className="text-xs text-slate-400">Loading…</p>}
       {tab !== 'presets' && capWarnings.length > 0 && (

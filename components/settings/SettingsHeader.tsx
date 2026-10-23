@@ -12,11 +12,14 @@ export function SettingsHeader({
   title,
   description,
   actions,
+  status,
   className = '',
 }: {
   title: string;
   description?: React.ReactNode;
   actions?: React.ReactNode;
+  /** A short confirmation such as "Caps saved.", shown just left of the actions. */
+  status?: React.ReactNode;
   className?: string;
 }) {
   return (
@@ -25,7 +28,12 @@ export function SettingsHeader({
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{title}</h2>
         {description && <p className="mt-1 max-w-3xl text-sm text-slate-600 dark:text-slate-400">{description}</p>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {(actions || status) && (
+        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+          {status && <p role="status" className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{status}</p>}
+          {actions}
+        </div>
+      )}
     </div>
   );
 }

@@ -362,6 +362,7 @@ export default function CapsPage() {
       {confirmDialog}
       <div className={SETTINGS_CARD}>
       <SettingsHeader
+        status={message}
         title="Caps"
         description="Team caps move part of an agent's split to their team until a yearly limit is reached. Agent caps limit what a post-split entity takes from one agent."
         actions={
@@ -394,7 +395,6 @@ export default function CapsPage() {
           ? 'A client can use several team caps. A deal uses every enabled cap whose formula is true, and the agent cannot pay more than their share. The agent split is that share before the cut paid to the selected agent. A blank qualifying formula applies to every deal. The selected agent has to be on the agent splits to receive the payment.'
           : 'An agent cap follows a post-split the commission template already calculates. It does not change the split. The report uses the name, the cap amount field, and the reset date. Hide Over-Allocations keeps the report and the waterfall at the cap amount when that fee continues past it.'}
       </p>
-      {message && <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{message}</p>}
       {error && <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">{error}</p>}
 
       {tab === 'team' ? (
