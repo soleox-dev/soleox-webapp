@@ -1818,8 +1818,8 @@ function DataFreshness({ savedAt, refreshing, newDataAvailable, onRefresh }: { s
 }
 
 /**
- * Whether the report title must step down from 24px to 20px to stay within its two-line phone slot. Measured on a
- * hidden copy at 24px, so the title goes back up as soon as it fits again. Never on md and up (one line, no wrap).
+ * Whether the report title must step down from 24px to 20px to fit its one line on a narrow phone. Measured on a
+ * hidden copy at 24px, so the title goes back up as soon as it fits again. Never on md and up.
  */
 function useTitleTight(slot: HTMLDivElement | null): boolean {
   const [tight, setTight] = useState(false);
@@ -1839,11 +1839,11 @@ function useTitleTight(slot: HTMLDivElement | null): boolean {
       // The copy goes in the page body, not the slot, so measuring does not wake the observer below.
       const probe = title.cloneNode(true) as HTMLElement;
       probe.setAttribute('aria-hidden', 'true');
-      Object.assign(probe.style, { position: 'absolute', visibility: 'hidden', left: '0', top: '0', width: `${room}px`, fontSize: '1.5rem', lineHeight: '1.25' });
+      Object.assign(probe.style, { position: 'absolute', visibility: 'hidden', left: '0', top: '0', fontSize: '1.5rem' });
       document.body.appendChild(probe);
-      const fullHeight = probe.offsetHeight;
+      const fullWidth = probe.offsetWidth;
       probe.remove();
-      setTight(fullHeight > slot.clientHeight + 1);
+      setTight(fullWidth > room);
     };
     measure();
     // Observer callbacks already come once per frame, so they measure directly.
@@ -2064,41 +2064,31 @@ function ReportView(props: {
           </div>
           <div className="relative z-40 min-w-0 px-2 text-center [grid-area:title]">
             {/* The info icon sits outside the heading so its note keeps the body type size. */}
-            {/* Title slot: one line from md (h-8), two lines on phones (h-15), centered in it. A title that would take three
-                lines on a narrow phone steps down to 20px (useTitleTight). */}
-            <div ref={setTitleSlot} className="flex h-15 items-center justify-center gap-2 md:h-8">
-            <h2 className={`text-balance font-extrabold leading-tight tracking-tight md:whitespace-nowrap ${titleTight ? 'text-xl' : 'text-2xl'}`}>
-              {props.reportId === 'lead-source-leaderboard' ? (
-                <>
-                  <TitleMetric
-                    value={props.boardMetric}
-                    options={props.boardMetrics}
-                    onChange={props.onBoardMetric}
-                  />
-                  {' '}
-                  Leaderboard by{' '}
-                  <TitleMetric
-                    value={props.boardDate}
-                    options={props.dateBases}
-                    onChange={(id) => props.onBoardDate(id === 'acceptance' ? 'acceptance' : 'closing')}
-                  />
-                </>
-              ) : props.reportId === 'team-performance' ? (
-                <>
-                  Team Performance by{' '}
-                  <TitleMetric
-                    value={props.boardDate}
-                    options={props.dateBases}
-                    onChange={(id) => props.onBoardDate(id === 'acceptance' ? 'acceptance' : 'closing')}
-                  />
-                </>
-              ) : props.reportId === 'team-caps' ? (
-                <TitleCaps options={props.capChoices} picked={props.capPicked} onChange={props.onCaps} />
-              ) : props.reportName}
-            </h2>
+            {/* Title slot: the report's name as in the reports menu, one line on every screen. On a narrow phone a name
+                that does not fit at 24px steps down to 20px (useTitleTight). */}
+            <div ref={setTitleSlot} className="flex h-8 items-center justify-center gap-2">
+            <h2 className={`whitespace-nowrap font-extrabold leading-tight tracking-tight ${titleTight ? 'text-xl' : 'text-2xl'}`}>{props.reportName}</h2>
             {reportAbout ? (
               <ScoreNote label={props.reportName} text={reportAbout} className="relative inline-flex shrink-0" align="right" wide iconClass="text-slate-400 transition hover:text-brand-600 dark:hover:text-brand-300" />
             ) : null}
+            </div>
+            {/* Picker slot: what the report shows (a leaderboard's field and date, the cap). Kept, empty, on reports
+                without pickers so every header is the same height. */}
+            <div className="mt-1 flex h-6 items-center justify-center gap-1.5 whitespace-nowrap text-base font-semibold text-slate-500 dark:text-slate-400">
+              {props.reportId === 'lead-source-leaderboard' ? (
+                <>
+                  <TitleMetric value={props.boardMetric} options={props.boardMetrics} onChange={props.onBoardMetric} />
+                  <span>by</span>
+                  <TitleMetric value={props.boardDate} options={props.dateBases} onChange={(id) => props.onBoardDate(id === 'acceptance' ? 'acceptance' : 'closing')} />
+                </>
+              ) : props.reportId === 'team-performance' ? (
+                <>
+                  <span>by</span>
+                  <TitleMetric value={props.boardDate} options={props.dateBases} onChange={(id) => props.onBoardDate(id === 'acceptance' ? 'acceptance' : 'closing')} />
+                </>
+              ) : props.reportId === 'team-caps' ? (
+                <TitleCaps options={props.capChoices} picked={props.capPicked} onChange={props.onCaps} />
+              ) : null}
             </div>
             {/* Date line slot: always one line; "compared with" becomes "vs." before the line truncates. */}
             <FitLine
@@ -2782,10 +2772,14 @@ function formatFilterSpan(range: DateRange): string {
   return `${formatFilterDate(range.start)} - ${formatFilterDate(range.end)}`;
 }
 
+/** A picker in the line under a report's title: the line's size and weight, in the brand color for something to act on. */
+const titlePickerClass = 'inline-flex max-w-full cursor-pointer appearance-none items-center gap-0.5 whitespace-nowrap border-0 bg-transparent p-0 text-brand-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-brand-700 focus:[outline:none] focus-visible:[outline:none] dark:text-brand-400 dark:hover:text-brand-300';
+
 function TitleMetric({ value, options, onChange }: { value: string; options: BoardField[]; onChange: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   useDropdownScrollLock(listRef, open);
+  useKeepOnScreen(listRef, open);
   const [query, setQuery] = useState('');
   const ref = useRef<HTMLSpanElement>(null);
   const selected = options.find((field) => field.id === value) || options[0];
@@ -2824,9 +2818,10 @@ function TitleMetric({ value, options, onChange }: { value: string; options: Boa
         aria-haspopup="listbox"
         aria-label={`Metric ${selected.label}`}
         onClick={() => setOpen((current) => !current)}
-        className="cursor-pointer appearance-none whitespace-nowrap border-0 bg-transparent p-0 font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
+        className={titlePickerClass}
       >
         {selected.label}
+        <ChevronDown className={`h-4 w-4 shrink-0 transition ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
       {open ? (
         <div ref={listRef} role="listbox" aria-label="Metric" className="absolute left-0 top-full z-50 mt-2 max-h-[min(36rem,calc(100dvh-14rem))] w-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
@@ -2870,6 +2865,7 @@ function TitleCaps({ options, picked, onChange }: {
   const [open, setOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   useDropdownScrollLock(listRef, open);
+  useKeepOnScreen(listRef, open);
   const [query, setQuery] = useState('');
   const ref = useRef<HTMLSpanElement>(null);
   const selected = options.find((option) => option.value === picked?.[0]) || options[0];
@@ -2912,9 +2908,10 @@ function TitleCaps({ options, picked, onChange }: {
         aria-haspopup="listbox"
         aria-label={`Cap ${selected?.label || 'Caps'}`}
         onClick={() => setOpen((current) => !current)}
-        className="cursor-pointer appearance-none border-0 bg-transparent p-0 font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
+        className={titlePickerClass}
       >
-        {selected?.label || 'Caps'}
+        <span className="min-w-0 truncate">{selected?.label || 'Caps'}</span>
+        <ChevronDown className={`h-4 w-4 shrink-0 transition ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
       {open ? (
         <div ref={listRef} role="listbox" aria-label="Cap" className="absolute left-1/2 top-full z-50 mt-2 max-h-[min(36rem,calc(100dvh-14rem))] w-72 -translate-x-1/2 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
@@ -3065,6 +3062,23 @@ function useViewportClamp(ref: React.RefObject<HTMLDivElement | null>, open: boo
  * While a dropdown is open, wheel and touch scrolling move only that dropdown, never the report behind it.
  * A list too short to scroll swallows the gesture as well.
  */
+/** Slides an open menu sideways so it stays 16px inside the screen (a picker near the edge of a phone). */
+function useKeepOnScreen(ref: React.RefObject<HTMLElement | null>, open: boolean) {
+  useLayoutEffect(() => {
+    const list = ref.current;
+    if (!open || !list) return;
+    list.style.left = '';
+    const rect = list.getBoundingClientRect();
+    const margin = 16;
+    // The body's width, not the window's: something else overflowing the page must not widen the room.
+    const room = document.body.clientWidth;
+    const shift = rect.right > room - margin ? room - margin - rect.right : rect.left < margin ? margin - rect.left : 0;
+    // Moves the box itself (not a transform), so the page gets no sideways scroll. offsetLeft leaves out any
+    // centering translate, which keeps applying on top.
+    if (shift) list.style.left = `${list.offsetLeft + shift}px`;
+  }, [ref, open]);
+}
+
 function useDropdownScrollLock(ref: React.RefObject<HTMLElement | null>, open: boolean) {
   useEffect(() => {
     if (!open) return;
@@ -6283,41 +6297,37 @@ const SCORE_SIDE_ROOM = 8;
 /** Told to a row of scorecards when one card's amount changes, so the others decide again. */
 const SCORE_FIT_EVENT = 'score-fit';
 
-/** Whether `el`'s full text leaves the side room inside its scorecard. */
-function fitsScoreCard(el: HTMLElement, full: string): boolean {
+/** Whether `text`, styled with `className` (the amount's own size, never the stepped-down one), leaves the side room inside `el`'s scorecard. */
+function fitsScoreCard(el: HTMLElement, text: string, className: string): boolean {
   const card = el.closest('[data-score-card]') as HTMLElement | null;
   if (!card) return true;
   const probe = document.createElement('span');
-  const style = getComputedStyle(el);
-  probe.style.position = 'absolute';
-  probe.style.visibility = 'hidden';
-  probe.style.whiteSpace = 'nowrap';
-  probe.style.font = style.font;
-  probe.style.letterSpacing = style.letterSpacing;
-  probe.style.fontVariantNumeric = style.fontVariantNumeric;
-  probe.textContent = full;
+  probe.className = className;
+  Object.assign(probe.style, { position: 'absolute', visibility: 'hidden', whiteSpace: 'nowrap', left: '0', top: '0' });
+  probe.textContent = text;
   document.body.appendChild(probe);
   const needed = probe.offsetWidth;
   probe.remove();
   const cardStyle = getComputedStyle(card);
   const pad = parseFloat(cardStyle.paddingLeft) + parseFloat(cardStyle.paddingRight);
-  // A full amount must leave clear space on both sides inside the padding, or it reads as cramped.
+  // An amount must leave clear space on both sides inside the padding, or it reads as cramped.
   const room = card.clientWidth - pad - 2 * SCORE_SIDE_ROOM;
   return room <= 0 || needed <= room;
 }
 
 /**
- * A scorecard amount (or change) shown in full, or compact when it would crowd its card. Cards side by side show one
- * metric, so they switch together: when any card in the row needs the compact amount, every card in the row uses it.
+ * A scorecard amount (or change) shown in full, or compact when it would crowd its card, or compact one size smaller
+ * (phones only) when even that would. Cards side by side show one metric, so they switch together: the step any card
+ * in the row needs, every card in the row uses.
  */
 function FitText({ full, compact, className, role = 'amount' }: { full: string; compact?: string; className: string; role?: 'amount' | 'change' }) {
   const ref = useRef<HTMLParagraphElement>(null);
-  const [text, setText] = useState(full);
+  const [step, setStep] = useState<'full' | 'compact' | 'smaller'>('full');
 
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el || !compact || compact === full) {
-      setText(full);
+      setStep('full');
       return;
     }
     const card = el.closest('[data-score-card]') as HTMLElement | null;
@@ -6326,9 +6336,10 @@ function FitText({ full, compact, className, role = 'amount' }: { full: string; 
       const peers = row
         ? Array.from(row.querySelectorAll<HTMLElement>(`:scope > [data-score-card] [data-fit-role="${role}"][data-fit-compact]`))
         : [el];
-      const allFit = peers.every((peer) => fitsScoreCard(peer, peer.dataset.fitFull || ''));
-      const next = allFit ? full : compact;
-      setText((current) => (current === next ? current : next));
+      const next = peers.every((peer) => fitsScoreCard(peer, peer.dataset.fitFull || '', className))
+        ? 'full'
+        : peers.every((peer) => fitsScoreCard(peer, peer.dataset.fitCompact || '', className)) ? 'compact' : 'smaller';
+      setStep((current) => (current === next ? current : next));
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -6340,9 +6351,20 @@ function FitText({ full, compact, className, role = 'amount' }: { full: string; 
       observer.disconnect();
       row?.removeEventListener(SCORE_FIT_EVENT, measure);
     };
-  }, [compact, full, role]);
+  }, [className, compact, full, role]);
 
-  return <p ref={ref} data-fit-role={role} data-fit-full={full} data-fit-compact={compact && compact !== full ? '' : undefined} className={className}>{text}</p>;
+  const shown = step === 'full' || !compact ? full : compact;
+  return (
+    <p
+      ref={ref}
+      data-fit-role={role}
+      data-fit-full={full}
+      data-fit-compact={compact && compact !== full ? compact : undefined}
+      className={`${className} ${step === 'smaller' ? 'max-md:text-sm' : ''}`}
+    >
+      {shown}
+    </p>
+  );
 }
 
 function formattedZero(change: string | undefined): string {

@@ -183,7 +183,7 @@ One type scale, by role. Use these sizes and nothing else; no arbitrary `text-[N
 ### Tables & Owner Reports
 Detailed filter, table, and per-report requirements for Owner/Agent/Office Reports live in `.cursor/rules/report-requirements.mdc`; read it before changing any report.
 
-- Every report's top section (title, date line, Updated line, controls, divider) is identical in height and placement on all reports, current and future; nothing a report or a filter adds may change it. Details: "Report header" in `report-requirements.mdc`.
+- Every report's top section (fixed title, picker line, date line, Updated line, controls, divider) is identical in height and placement on all reports, current and future; nothing a report or a filter adds may change it. Details: "Report header" in `report-requirements.mdc`.
 - Top navigation slides into view on hover on report pages and hides when the pointer leaves.
 - Wrap wide report tables in a `.report-table` scroll container for horizontal scrolling.
 - Never set `overflow: hidden` on a table wrapper.
