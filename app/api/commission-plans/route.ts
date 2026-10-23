@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { apiError, requireSessionClient, TenantAccessError } from '@/lib/session';
 import { DAY, badRequest, copyPresetIntoClient, fieldKey, fieldMap, freeName, loadPlans, presetKeyFrom, statusList } from '@/lib/commission-plans-server';
-import { commissionPlanSchema, validatePlan, type PlanLine } from '@/lib/commission-engine';
+import { commissionPlanSchema, unknownPayeeProblems, validatePlan, type PlanLine } from '@/lib/commission-engine';
 
 /**
  * Commission Plans (migration 065): the client's plans, the platform preset library, and the client's plan
@@ -116,6 +116,16 @@ export async function PUT(request: Request) {
     if (!parsed.success) badRequest('Some plan lines are incomplete. Check each line and try again.');
     const problems = validatePlan(parsed.data);
     if (problems.length) badRequest(problems[0]);
+    if (owner) {
+      const { data: entityRows, error: entityError } = await supabase
+        .from('commission_entities')
+        .select('entity_name')
+        .eq('client_id', owner)
+        .or('archived.is.null,archived.eq.false');
+      if (entityError) throw entityError;
+      const unknown = unknownPayeeProblems(parsed.data, (entityRows || []).map((row) => String(row.entity_name || '')));
+      if (unknown.length) badRequest(unknown[0]);
+    }
 
     let planId = String(input.id || '');
     if (planId) {

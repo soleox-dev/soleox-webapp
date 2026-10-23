@@ -132,11 +132,14 @@ export function PlanEditor({
   plan,
   onChange,
   entityNames,
+  checkPayees = false,
   lockedKeys,
 }: {
   plan: CommissionPlan;
   onChange: (plan: CommissionPlan) => void;
   entityNames: string[];
+  /** Marks a payee that is not one of the client's Commission Entities (client plans, not presets). */
+  checkPayees?: boolean;
   /** Keys of lines already saved: year-to-date totals and the plan settings refer to them, so they stay fixed. */
   lockedKeys: Set<string>;
 }) {
@@ -184,7 +187,7 @@ export function PlanEditor({
               ) : (
                 <TextField label="Key" hint={"The line's permanent code, lowercase with underscores. Yearly totals, starting balances and Plan Settings refer to it; it cannot change once saved."} mono value={line.key} onChange={(key) => setLine(index, { key: key.trim() })} />
               )}
-              <MenuField label="Payee" hint={"The entity this line pays: one of your Commission Entities."} value={line.payee} options={payeeOptions.some((option) => option.value === line.payee) || !line.payee ? payeeOptions : [{ value: line.payee, label: line.payee }, ...payeeOptions]} onChange={(payee) => setLine(index, { payee })} placeholder="Choose an Entity" />
+              <MenuField label="Payee" hint={"The entity this line pays: one of your Commission Entities."} value={line.payee} options={payeeOptions.some((option) => option.value === line.payee) || !line.payee ? payeeOptions : [{ value: line.payee, label: checkPayees ? `${line.payee} (Not an Entity)` : line.payee }, ...payeeOptions]} onChange={(payee) => setLine(index, { payee })} placeholder="Choose an Entity" />
 
               {line.type === 'capped_percent' && (
                 <>

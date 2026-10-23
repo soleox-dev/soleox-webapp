@@ -7,7 +7,7 @@ import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { useAccess } from '@/components/access-provider';
 import { SettingsHeader, SETTINGS_CARD, SETTINGS_PRIMARY_BUTTON } from '@/components/settings/SettingsHeader';
-import { validatePlan, type CommissionPlan, type PlanLine } from '@/lib/commission-engine';
+import { unknownPayeeProblems, validatePlan, type CommissionPlan, type PlanLine } from '@/lib/commission-engine';
 import type { PlanDto, PlanSettingsDto, PlansResponse } from '@/app/api/commission-plans/route';
 import { useAllocationSchema } from '../allocation-fields';
 import { PlanEditor } from './PlanEditor';
@@ -98,7 +98,9 @@ export default function CommissionPlansPage() {
     () => (draft ? { id: draft.id || 'draft', name: draft.name, lines: draft.lines } : null),
     [draft],
   );
-  const problems = enginePlan ? validatePlan(enginePlan) : [];
+  // A client plan pays only the client's Commission Entities; presets name payees generically.
+  const checkPayees = tab === 'plans' && entityNames.length > 0;
+  const problems = enginePlan ? [...validatePlan(enginePlan), ...(checkPayees ? unknownPayeeProblems(enginePlan, entityNames) : [])] : [];
   const lockedKeys = useMemo(() => new Set((selected?.versions || []).flatMap((version) => version.lines.map((line) => line.key))), [selected]);
 
   const call = async (init: RequestInit & { url?: string }, done: string) => {
@@ -314,7 +316,7 @@ export default function CommissionPlansPage() {
                     <span>Saving with a new date adds a version from that date; deals before it keep the earlier lines.</span>
                   </div>
                 )}
-                <PlanEditor plan={enginePlan} lockedKeys={lockedKeys} entityNames={entityNames} onChange={(plan) => setDraft({ ...draft, name: plan.name, lines: plan.lines })} />
+                <PlanEditor plan={enginePlan} lockedKeys={lockedKeys} entityNames={entityNames} checkPayees={checkPayees} onChange={(plan) => setDraft({ ...draft, name: plan.name, lines: plan.lines })} />
                 {problems.length > 0 && (
                   <ul className="list-disc space-y-0.5 pl-5 text-xs text-amber-700 dark:text-amber-400">
                     {problems.map((problem) => <li key={problem}>{problem}</li>)}

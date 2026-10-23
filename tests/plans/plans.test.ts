@@ -5,6 +5,7 @@ import {
   computePlanDealsInOrder,
   loadPlanPresets,
   roundHalfUpCents,
+  unknownPayeeProblems,
   validatePlan,
   type CommissionPlan,
   type FormulaPlanLine,
@@ -535,6 +536,22 @@ describe('plan validation', () => {
       'Stock: the key must start with a letter and use only a-z, 0-9 and _.',
       'Stock: later must be lines above it.',
       expect.stringMatching(/^Custom: /),
+    ]);
+  });
+});
+
+describe('unknownPayeeProblems', () => {
+  it('flags a payee that is not one of the client entities, ignoring case and spaces', () => {
+    const plan = {
+      id: 'p',
+      name: 'Plan',
+      lines: [
+        { key: 'review', name: 'Broker Review', payee: ' broker review ', type: 'per_deal_fee', amount: 25 },
+        { key: 'stock', name: 'Stock', payee: 'eXp Stock', type: 'percent_of_net', rate: 0.05 },
+      ],
+    } as unknown as CommissionPlan;
+    expect(unknownPayeeProblems(plan, ['Broker Review', 'Stock'])).toEqual([
+      "Stock pays eXp Stock, which isn't one of your Commission Entities. Choose an entity.",
     ]);
   });
 });
