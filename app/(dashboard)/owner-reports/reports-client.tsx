@@ -3721,7 +3721,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
       <div className="flex flex-wrap items-stretch gap-6">
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
           <SectionHeading>Closed Net Commission Income to Owner(s)</SectionHeading>
-          <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
+          <div className="grid w-full items-stretch gap-x-2 [&>span]:row-span-3 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Total Commission" amount={totalCommission} changeAmount={totalCommission - priorCommission} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">−</span>
             <Score pulse={pulse} label="Cost of Sales" amount={costOfSales} changeAmount={costOfSales - priorCost} />
@@ -3731,7 +3731,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
         </div>
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
           <SectionHeading>Closed Net Income to Owner(s)</SectionHeading>
-          <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
+          <div className="grid w-full items-stretch gap-x-2 [&>span]:row-span-3 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Net Commission Income" amount={shownNet} changeAmount={shownNet - shownPriorNet} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">−</span>
             <Score pulse={pulse} label="Operating Expenses" amount={operatingExpenses} change="—" />
@@ -3743,7 +3743,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
       <div className="flex flex-wrap items-stretch gap-6">
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
           <SectionHeading tone="slate">Return on Investment (ROI)</SectionHeading>
-          <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
+          <div className="grid w-full items-stretch gap-x-2 [&>span]:row-span-3 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Net Income" amount={netIncome} changeAmount={netIncome - priorIncome} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">/</span>
             <Score pulse={pulse} label="Operating Expenses" amount={operatingExpenses} change="—" />
@@ -3753,7 +3753,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
         </div>
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
           <SectionHeading tone="slate">Net Income to Total Commission Ratio (NI/TC)</SectionHeading>
-          <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
+          <div className="grid w-full items-stretch gap-x-2 [&>span]:row-span-3 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Net Income" amount={netIncome} changeAmount={netIncome - priorIncome} />
             <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">/</span>
             <Score pulse={pulse} label="Total Commission" amount={totalCommission} changeAmount={totalCommission - priorCommission} />
@@ -3765,7 +3765,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
       <div className="flex flex-wrap items-stretch gap-6">
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
           <SectionHeading tone="listing">Average Listing Metrics</SectionHeading>
-          <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
+          <div className="grid w-full items-stretch gap-x-2 [&>span]:row-span-3 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Avg. Sales Price" tone="listing" {...averageFigures(sellerTotals.volume, sellerTotals.units, priorSellerTotals.volume, priorSellerTotals.units)} />
             <span className="invisible text-lg font-semibold" aria-hidden="true">−</span>
             <Score pulse={pulse} label="Avg. GCI" tone="listing" {...averageFigures(sellerTotals.gci, sellerTotals.units, priorSellerTotals.gci, priorSellerTotals.units)} />
@@ -3775,7 +3775,7 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
         </div>
         <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
           <SectionHeading tone="buyer">Average Buyer Metrics</SectionHeading>
-          <div className="grid w-full items-stretch gap-2 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
+          <div className="grid w-full items-stretch gap-x-2 [&>span]:row-span-3 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Score pulse={pulse} label="Avg. Sales Price" tone="buyer" {...averageFigures(buyerTotals.volume, buyerTotals.units, priorBuyerTotals.volume, priorBuyerTotals.units)} />
             <span className="invisible text-lg font-semibold" aria-hidden="true">−</span>
             <Score pulse={pulse} label="Avg. GCI" tone="buyer" {...averageFigures(buyerTotals.gci, buyerTotals.units, priorBuyerTotals.gci, priorBuyerTotals.units)} />
@@ -6092,11 +6092,11 @@ function Score({ label, amount, changeAmount, value, change, tone = 'plain', pul
     : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900';
   const amountClass = tone === 'result' ? 'text-emerald-800 dark:text-emerald-200' : '';
   return (
-    <div key={pulse} data-score-card className={`relative flex h-full min-w-0 w-full flex-col justify-start rounded-xl border px-1.5 py-3 text-center md:px-3 ${noteOpen ? 'z-30' : ''} ${shell} ${pulse > 0 ? 'scorecard-pulse' : ''}`}>
+    // The card spans three rows of its group's grid (label, amount, change) through a subgrid, so cards side by side
+    // share each row's height: the longest label sets it, shorter labels sit at its bottom, and every amount lines up.
+    <div key={pulse} data-score-card className={`relative row-span-3 grid min-w-0 w-full grid-rows-subgrid content-center rounded-xl border px-1.5 py-3 text-center md:px-3 ${noteOpen ? 'z-30' : ''} ${shell} ${pulse > 0 ? 'scorecard-pulse' : ''}`}>
       {note ? <ScoreNote label={label} text={note} onOpenChange={setNoteOpen} /> : null}
-      {/* Every label takes the same height (three lines on phones, two wider) and sits at its bottom, so the amounts
-          of cards side by side line up however their labels wrap. */}
-      <p className="flex min-h-[4.125em] items-end justify-center px-3 text-2xs font-medium leading-snug text-slate-500 md:min-h-[2.75em] md:px-4 md:text-sm dark:text-slate-400">{label}</p>
+      <p className="flex items-end justify-center px-3 text-2xs font-medium leading-snug text-slate-500 md:px-4 md:text-sm dark:text-slate-400">{label}</p>
       <FitText full={full} compact={compact} className={`mt-1 text-base font-extrabold tabular-nums whitespace-nowrap md:text-xl ${amountClass}`} />
       {changeFull ? <FitText full={changeFull} compact={changeCompact} className={changeClass} /> : null}
     </div>
