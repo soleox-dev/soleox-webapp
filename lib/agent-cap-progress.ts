@@ -29,11 +29,15 @@ const reachedAmount = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2,
 const wholeDollars = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 
 /** Reached amount and cap limit for the progress bar. A round thousand is 8K. */
-export function capProgressLabel(shown: number, cap: number): { label: string; share: number } {
+export function capProgressLabel(shown: number, cap: number): { label: string; amount: string; limit: string; share: number } {
   const reached = roundCurrency(Math.max(0, shown));
   const limit = roundCurrency(Math.max(0, cap));
+  const amount = `$${reachedAmount.format(reached)}`;
+  const limitText = `$${compactLimit(limit)}`;
   return {
-    label: `$${reachedAmount.format(reached)} of $${compactLimit(limit)}`,
+    label: `${amount} of ${limitText}`,
+    amount,
+    limit: limitText,
     share: limit > 0 ? reached / limit : 0,
   };
 }
@@ -107,7 +111,7 @@ export function buildAgentCapCells(args: {
 }
 
 /** The line under the post-split. Hide over-allocations stops the shown total at the cap. */
-export function formatAgentCapLine(cell: AgentCapCell, current: number): { label: string; detail: string; share: number } {
+export function formatAgentCapLine(cell: AgentCapCell, current: number): { label: string; amount: string; limit: string; detail: string; share: number } {
   const prior = roundCurrency(Math.max(0, cell.prior));
   const now = roundCurrency(Math.max(0, current));
   const after = roundCurrency(prior + now);
@@ -116,5 +120,5 @@ export function formatAgentCapLine(cell: AgentCapCell, current: number): { label
   const shownPrior = cell.hideOverAllocations ? roundCurrency(Math.min(prior, cap)) : prior;
   const progress = capProgressLabel(shown, cap);
   const detail = `Before this transaction: ${money.format(shownPrior)}\nThis transaction: ${money.format(now)}\nIncluding this transaction: ${money.format(shown)} of ${money.format(cap)}`;
-  return { label: progress.label, detail, share: progress.share };
+  return { label: progress.label, amount: progress.amount, limit: progress.limit, detail, share: progress.share };
 }

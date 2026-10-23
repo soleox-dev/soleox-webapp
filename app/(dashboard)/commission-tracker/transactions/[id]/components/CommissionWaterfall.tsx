@@ -261,7 +261,7 @@ export function CommissionWaterfall({
       return sum + (Number(item.amount) || 0);
     }, 0);
     const line = formatAgentCapLine(cell, current);
-    return <AgentCapNote label={line.label} detail={line.detail} share={line.share} />;
+    return <AgentCapNote amount={line.amount} limit={line.limit} detail={line.detail} share={line.share} />;
   };
 
   const baselineTotalCommission = dealResult.totalCommission || dealResult.grossCommission || 0;

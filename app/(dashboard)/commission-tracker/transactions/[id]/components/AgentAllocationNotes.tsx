@@ -41,7 +41,7 @@ export type TeamCapGroup = {
   lines: AgentAllocationLine[];
 };
 
-export function teamCapStanding(line: AgentAllocationLine): { label: string; detail: string; share: number; exceeded: boolean } | null {
+export function teamCapStanding(line: AgentAllocationLine): { label: string; amount: string; limit: string; detail: string; share: number; exceeded: boolean } | null {
   if (line.kind !== 'team_cap' || line.tracked === false) return null;
   const cap = line.cap_amount == null ? null : Number(line.cap_amount);
   if (cap == null || !Number.isFinite(cap) || Math.abs(cap) < 0.005) return null;
@@ -54,7 +54,7 @@ export function teamCapStanding(line: AgentAllocationLine): { label: string; det
     ? ''
     : `Pays ${Number(line.team_percent).toLocaleString('en-US', { maximumFractionDigits: 2 })}% of the agent split until ${money.format(cap)}.\n`;
   const detail = `${percent}Before this transaction: ${money.format(prior)}\nThis transaction: ${money.format(current)}\nIncluding this transaction: ${money.format(after)} of ${money.format(cap)}`;
-  return { label: progress.label, detail, share: progress.share, exceeded };
+  return { label: progress.label, amount: progress.amount, limit: progress.limit, detail, share: progress.share, exceeded };
 }
 
 export function teamCapGroups(allocations: AgentAllocationLine[]): TeamCapGroup[] {
@@ -92,7 +92,7 @@ export function TeamCapAmount({
   // In edit mode the bar lines up with the input's text, which sits inside its padding.
   const standingNote = standing ? (
     <span className={canEdit ? 'pr-2' : undefined}>
-      <AgentCapNote label={standing.label} detail={standing.detail} share={standing.share} />
+      <AgentCapNote amount={standing.amount} limit={standing.limit} detail={standing.detail} share={standing.share} />
     </span>
   ) : null;
   if (!canEdit) {
@@ -156,7 +156,8 @@ function matchCapBarWidths(bar: HTMLElement) {
   for (const item of bars) item.style.width = px;
 }
 
-export function AgentCapNote({ label, detail, share }: { label: string; detail: string; share: number }) {
+/** The cap standing: the amount reached so far inside the bar, and the cap's limit in small, light text after it. */
+export function AgentCapNote({ amount, limit, detail, share }: { amount: string; limit: string; detail: string; share: number }) {
   const barRef = useRef<HTMLSpanElement>(null);
   const width = Math.min(100, Math.max(0, share * 100));
   const over = share > 1;
@@ -175,12 +176,15 @@ export function AgentCapNote({ label, detail, share }: { label: string; detail: 
     });
     observer.observe(bar);
     return () => observer.disconnect();
-  }, [label]);
+  }, [amount]);
   return (
     <HoverNote label={detail}>
-      <span ref={barRef} data-cap-bar tabIndex={0} className="relative mt-0.5 inline-flex h-4 shrink-0 cursor-help items-center justify-end overflow-hidden rounded-sm bg-slate-200 outline-none dark:bg-slate-800">
-        <span aria-hidden className={`absolute inset-y-0 left-0 z-0 ${fill}`} style={{ width: `${width}%` }} />
-        <span className={`relative z-10 px-1 text-right text-2xs font-bold leading-none tabular-nums text-slate-950 ${text}`}>{label}</span>
+      <span tabIndex={0} aria-label={`${amount} of ${limit}`} className="mt-0.5 inline-flex cursor-help items-center gap-1 outline-none">
+        <span ref={barRef} data-cap-bar className="relative inline-flex h-4 shrink-0 items-center justify-end overflow-hidden rounded-sm bg-slate-200 dark:bg-slate-800">
+          <span aria-hidden className={`absolute inset-y-0 left-0 z-0 ${fill}`} style={{ width: `${width}%` }} />
+          <span aria-hidden className={`relative z-10 px-1 text-right text-2xs font-medium leading-none tabular-nums text-slate-800 ${text}`}>{amount}</span>
+        </span>
+        <span aria-hidden className="w-8 shrink-0 text-left text-2xs font-light leading-none tabular-nums text-slate-400 dark:text-slate-500">{limit}</span>
       </span>
     </HoverNote>
   );
