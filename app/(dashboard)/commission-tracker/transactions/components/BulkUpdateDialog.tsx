@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { OptionMenu } from '@/components/ui/option-menu';
 import { FieldChevron, UnderlineField, underlineControl } from '@/components/ui/underline-field';
 import {
   isOverviewFieldVisible,
@@ -72,7 +73,8 @@ export function BulkUpdateDialog({
       .sort((left, right) => left.fieldLabel.localeCompare(right.fieldLabel));
   }, [fields]);
 
-  const [fieldKey, setFieldKey] = useState(choices[0]?.fieldKey || '');
+  // No field is chosen at first: an empty value clears, so a preselected field would be one click from clearing.
+  const [fieldKey, setFieldKey] = useState('');
   const [value, setValue] = useState('');
   const [touched, setTouched] = useState(false);
   const selected = choices.find((choice) => choice.fieldKey === fieldKey) || null;
@@ -82,7 +84,11 @@ export function BulkUpdateDialog({
   const isText = Boolean(selected && selected.fieldType === 'TEXT' && !isTmsId);
   const choosingClear = value === CLEAR_VALUE;
   const textClear = isText && value.trim() === '';
-  const clearing = Boolean(selected && (isTmsId || choosingClear || (value.trim() === '' && (textClear || touched))));
+  // A field typed into (text, number, percent, currency, date) clears when its value is left empty. A menu starts
+  // on its "Choose" line, which is not a choice; it clears through its Clear option, or by going back to that line.
+  const isMenu = Boolean(selected && (selected.fieldType === 'AGENT_PICKER' || selected.fieldKey === 'agent_id'
+    || selected.fieldType === 'SELECT' || selected.fieldType === 'BOOLEAN'));
+  const clearing = Boolean(selected && (isTmsId || choosingClear || (value.trim() === '' && (!isMenu || touched))));
   const requiredCount = useMemo(() => {
     if (!selected?.isRequired || !clearing) return 0;
     return selectedDeals.filter((deal) => isOverviewFieldVisible(
@@ -91,7 +97,7 @@ export function BulkUpdateDialog({
       (key) => readTransactionField(deal, key),
     )).length;
   }, [selected, selectedDeals, clearing]);
-  const requiredNoun = requiredCount === 1 ? 'transaction' : 'transactions';
+  const requiredNoun = requiredCount === 1 ? recordNoun : `${recordNoun}s`;
   const canSubmit = Boolean(selected) && selectedCount > 0 && (clearing || (value.trim() !== '' && !choosingClear));
 
   const summary = !selected
@@ -133,22 +139,18 @@ export function BulkUpdateDialog({
         </div>
 
         <UnderlineField label="Field">
-          <ClearableSelect
-            allowBlank={false}
+          <OptionMenu
             value={fieldKey}
+            placeholder={choices.length === 0 ? 'No editable fields' : 'Choose a field'}
             disabled={isPending || choices.length === 0}
-            onChange={(event) => {
-              setFieldKey(event.target.value);
+            options={choices.map((choice) => ({ value: choice.fieldKey, label: choice.fieldLabel }))}
+            onChange={(next) => {
+              setFieldKey(next);
               setValue('');
               setTouched(false);
             }}
             className={`${underlineControl} overview-field-select`}
-          >
-            {choices.length === 0 ? <option value="">No editable fields</option> : null}
-            {choices.map((choice) => (
-              <option key={choice.fieldKey} value={choice.fieldKey}>{choice.fieldLabel}</option>
-            ))}
-          </ClearableSelect>
+          />
           <FieldChevron />
         </UnderlineField>
 
@@ -191,7 +193,8 @@ export function BulkUpdateDialog({
             }}
             disabled={!canSubmit || isPending}
             className={`px-3 py-2 rounded-lg text-xs font-bold border cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-              isTmsId || requiredCount > 0
+              // Clearing erases values with no undo, so it reads as a warning rather than an update.
+              isTmsId || clearing || requiredCount > 0
                 ? 'border-amber-500/50 bg-amber-500/15 text-amber-800 hover:bg-amber-500/25 dark:text-amber-300'
                 : 'border-emerald-500/40 bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/30'
             }`}
