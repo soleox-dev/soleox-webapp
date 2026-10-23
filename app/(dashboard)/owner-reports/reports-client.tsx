@@ -1792,6 +1792,7 @@ function ReportView(props: {
             dateBasis={props.boardDate}
             sidePicked={props.sidePicked}
             statusPicked={props.statusPicked}
+            onStatus={props.onStatus}
             cumulative={props.reportId === 'team-performance' && cumulative}
             preset={props.preset}
             capSections={props.capSections}
@@ -3047,6 +3048,7 @@ function ReportBody(props: {
   dateBasis: LeaderboardDate;
   sidePicked: string[] | null;
   statusPicked: string[] | null;
+  onStatus: (value: string[] | null) => void;
   cumulative: boolean;
   preset: RangePreset;
   capSections: Array<{ cap: TeamCapDefinition; rows: CapStanding[]; count: number }>;
@@ -3089,7 +3091,7 @@ function ReportBody(props: {
       />
     );
   }
-  if (id === 'team-performance') return <TeamPerformance deals={deals} range={range} priorRange={priorRange} dateBasis={dateBasis} sidePicked={sidePicked} statusPicked={props.statusPicked} cumulative={cumulative} />;
+  if (id === 'team-performance') return <TeamPerformance deals={deals} range={range} priorRange={priorRange} dateBasis={dateBasis} sidePicked={sidePicked} statusPicked={props.statusPicked} onStatus={props.onStatus} cumulative={cumulative} />;
   if (id === 'net-commission-income') return <AgentEarnings deals={deals} payments={payments} names={names} range={range} priorRange={priorRange} excludeTeamLeads={excludeTeamLeads} teamLeadIds={teamLeadIds} payeePicked={payeePicked} preset={preset} />;
   if (id === 'team-productivity') {
     return (
@@ -3701,7 +3703,7 @@ const TREND_PRIOR = 'text-[#b3bbc5] dark:text-slate-400';
 const TREND_CLOSED = 'text-emerald-700 dark:text-emerald-300';
 const TREND_PENDING = 'text-amber-600 dark:text-amber-400';
 
-function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, statusPicked, cumulative }: { deals: ReportDeal[]; range: DateRange; priorRange: DateRange; dateBasis: LeaderboardDate; sidePicked: string[] | null; statusPicked: string[] | null; cumulative: boolean }) {
+function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, statusPicked, onStatus, cumulative }: { deals: ReportDeal[]; range: DateRange; priorRange: DateRange; dateBasis: LeaderboardDate; sidePicked: string[] | null; statusPicked: string[] | null; onStatus: (value: string[] | null) => void; cumulative: boolean }) {
   const [chosenStatus, setStatusFilter] = useState<'all' | 'closed' | 'pending'>('all');
   // A Status filter that keeps only Closed or only Pending selects that scorecard, and the charts follow it
   // (amber for Pending), the same as clicking the scorecard.
@@ -3711,6 +3713,13 @@ function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, stat
     setStatusFilter('all');
   }, [dateBasis]);
   const selectStatus = (status: 'all' | 'closed' | 'pending') => {
+    // While the Status filter keeps a single status, a scorecard click changes the filter to match: Total, or the
+    // selected scorecard again, restores the default (Closed and Pending); the other status keeps only that one.
+    if (filterOnly === 'closed' || filterOnly === 'pending') {
+      onStatus(status === 'all' || status === filterOnly ? null : [status === 'closed' ? 'Closed' : 'Pending']);
+      setStatusFilter('all');
+      return;
+    }
     setStatusFilter((value) => (value === status ? 'all' : status));
   };
   const currentDeals = useMemo(() => closedOrPendingOnDate(deals, range, dateBasis), [dateBasis, deals, range]);
