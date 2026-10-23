@@ -2919,6 +2919,7 @@ export default function TransactionsListPage() {
                     <ColumnHeader
                       label={field.field_label}
                       align={isNumericColumn(field) ? 'right' : isDateColumn(field) || isBooleanColumn(field) ? 'center' : 'left'}
+                      range={isDateColumn(field) ? 'date' : isNumericColumn(field) || field.field_type === 'NUMBER' ? 'number' : undefined}
                       picked={colFilters[field.field_key] || []}
                       loadOptions={() => columnOptions(field)}
                       onChange={(picked) => setColumnFilter(field.field_key, picked)}

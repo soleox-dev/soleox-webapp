@@ -39,12 +39,70 @@ export function columnFilterOptions(texts: string[], kind: 'text' | 'number' | '
   return blank > 0 ? [{ value: BLANK_FILTER_VALUE, label: BLANK_LABEL, count: blank }, ...options] : options;
 }
 
-/** True when the row's shown value is one of the picked values. Nothing picked (all ticked) lets every row through. */
+/** A number or date column can be filtered by a From and To range instead of ticked values. */
+export type ColumnRangeKind = 'number' | 'date';
+type ColumnRange = { kind: ColumnRangeKind; min: string; max: string };
+const RANGE_PREFIX = '__range__';
+
+/** A range is stored as the filter's only picked value, so saved filters keep their shape. */
+function rangeFilterValue(range: ColumnRange): string {
+  return `${RANGE_PREFIX}${JSON.stringify(range)}`;
+}
+
+function readRange(picked: string[] | undefined): ColumnRange | null {
+  const value = picked?.length === 1 ? picked[0] : '';
+  if (!value.startsWith(RANGE_PREFIX)) return null;
+  try {
+    const parsed = JSON.parse(value.slice(RANGE_PREFIX.length)) as Partial<ColumnRange>;
+    if (parsed.kind !== 'number' && parsed.kind !== 'date') return null;
+    return { kind: parsed.kind, min: String(parsed.min ?? ''), max: String(parsed.max ?? '') };
+  } catch {
+    return null;
+  }
+}
+
+/** "$1,250.50" → 1250.5, "(300.00)" → -300, "3.00%" → 3. Null when the text holds no number. */
+function shownNumber(text: string): number | null {
+  const negative = /^\(.*\)$/.test(text.trim()) || text.includes('-');
+  const digits = text.replace(/[^0-9.]/g, '');
+  if (!digits) return null;
+  const value = Number(digits);
+  if (!Number.isFinite(value)) return null;
+  return negative ? -value : value;
+}
+
+function inRange(text: string, range: ColumnRange): boolean {
+  if (text === BLANK_FILTER_VALUE) return false;
+  if (range.kind === 'date') {
+    const day = text.slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+    return (!range.min || day >= range.min) && (!range.max || day <= range.max);
+  }
+  const value = shownNumber(text);
+  if (value === null) return false;
+  const min = range.min.trim() === '' ? null : shownNumber(range.min);
+  const max = range.max.trim() === '' ? null : shownNumber(range.max);
+  return (min === null || value >= min) && (max === null || value <= max);
+}
+
+/**
+ * True when the row's shown value is one of the picked values, or inside the picked range. Nothing picked (all
+ * ticked) lets every row through.
+ */
 export function matchesColumnFilter(text: string, picked: string[] | undefined): boolean {
-  return !picked || picked.length === 0 || picked.includes(text);
+  if (!picked || picked.length === 0) return true;
+  const range = readRange(picked);
+  return range ? inRange(text, range) : picked.includes(text);
+}
+
+function rangeLabel(range: ColumnRange): string {
+  if (range.min && range.max) return `${range.min} to ${range.max}`;
+  return range.min ? `From ${range.min}` : `Up to ${range.max}`;
 }
 
 function pickedLabel(value: string): string {
+  const range = readRange([value]);
+  if (range) return rangeLabel(range);
   return value === BLANK_FILTER_VALUE ? BLANK_LABEL : value;
 }
 
@@ -63,9 +121,12 @@ export function ColumnHeader({
   onChange,
   sortDirection,
   onSort,
+  range,
 }: {
   label: string;
   align?: 'left' | 'center' | 'right';
+  /** A number or date column: the menu also offers From and To. */
+  range?: ColumnRangeKind;
   picked: string[];
   /** Called when the menu opens, so the options reflect the rows other filters leave. */
   loadOptions: () => ColumnFilterOption[];
@@ -77,6 +138,7 @@ export function ColumnHeader({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const filtered = picked.length > 0;
   const none = picked.length === 1 && picked[0] === NONE_FILTER_VALUE;
+  const activeRange = readRange(picked);
   const summary = !filtered ? '' : none ? 'None' : picked.length <= 3 ? picked.map(pickedLabel).join(', ') : `${picked.length} selected`;
 
   return (
@@ -103,7 +165,10 @@ export function ColumnHeader({
           >
             {label}
           </span>
-          {filtered ? (
+          {filtered && activeRange ? (
+            // A range has no count: a dot says the column is filtered.
+            <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-brand-600" />
+          ) : filtered ? (
             <span className={`inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-2xs font-bold leading-none text-white ${none ? 'bg-amber-500' : 'bg-brand-600'}`}>
               {none ? 0 : picked.length}
             </span>
@@ -129,6 +194,7 @@ export function ColumnHeader({
         <ColumnFilterMenu
           anchor={buttonRef}
           label={label}
+          range={range}
           picked={picked}
           loadOptions={loadOptions}
           onChange={onChange}
@@ -168,9 +234,10 @@ export function SortButton({ label, direction, onSort, pushAway = true }: {
   );
 }
 
-function ColumnFilterMenu({ anchor, label, picked, loadOptions, onChange, onClose }: {
+function ColumnFilterMenu({ anchor, label, range, picked, loadOptions, onChange, onClose }: {
   anchor: React.RefObject<HTMLButtonElement | null>;
   label: string;
+  range?: ColumnRangeKind;
   picked: string[];
   loadOptions: () => ColumnFilterOption[];
   onChange: (next: string[]) => void;
@@ -184,12 +251,16 @@ function ColumnFilterMenu({ anchor, label, picked, loadOptions, onChange, onClos
   const [options] = useState(loadOptions);
   const pickedSet = useMemo(() => new Set(picked), [picked]);
   const allTicked = picked.length === 0;
-  const isChecked = (value: string) => allTicked || pickedSet.has(value);
+  const activeRange = readRange(picked);
+  // The From and To boxes; typing applies the range at once. Ticking values replaces it.
+  const [rangeMin, setRangeMin] = useState(activeRange?.min || '');
+  const [rangeMax, setRangeMax] = useState(activeRange?.max || '');
+  const isChecked = (value: string) => allTicked || (activeRange ? inRange(value, activeRange) : pickedSet.has(value));
   const needle = query.trim().toLowerCase();
   const matches = needle ? options.filter((option) => option.label.toLowerCase().includes(needle)) : options;
   const shown = matches.slice(0, MAX_SHOWN);
   // Picked values the rows no longer have still show, so they can be unticked.
-  const stale = picked.filter((value) => value !== NONE_FILTER_VALUE && !options.some((option) => option.value === value));
+  const stale = activeRange ? [] : picked.filter((value) => value !== NONE_FILTER_VALUE && !options.some((option) => option.value === value));
 
   useLayoutEffect(() => {
     const place = () => {
@@ -257,9 +328,29 @@ function ColumnFilterMenu({ anchor, label, picked, loadOptions, onChange, onClos
     else onChange(next);
   };
   const toggle = (value: string) => {
-    const current = allTicked ? allValues : picked.filter((item) => item !== NONE_FILTER_VALUE);
+    setRangeMin('');
+    setRangeMax('');
+    const current = allTicked
+      ? allValues
+      : activeRange
+        ? allValues.filter((item) => inRange(item, activeRange))
+        : picked.filter((item) => item !== NONE_FILTER_VALUE);
     commit(current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
   };
+
+  const applyRange = (min: string, max: string) => {
+    setRangeMin(min);
+    setRangeMax(max);
+    if (!range) return;
+    if (min.trim() || max.trim()) onChange([rangeFilterValue({ kind: range, min: min.trim(), max: max.trim() })]);
+    else if (activeRange) onChange([]);
+  };
+  const clearAll = () => {
+    setRangeMin('');
+    setRangeMax('');
+    onChange([]);
+  };
+  const rangeInput = 'h-8 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 text-sm font-medium text-slate-800 outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:[color-scheme:dark]';
 
   return createPortal(
     <div
@@ -273,20 +364,48 @@ function ColumnFilterMenu({ anchor, label, picked, loadOptions, onChange, onClos
         <div className="flex items-center justify-between gap-2">
           <button
             type="button"
-            onClick={() => onChange([])}
+            onClick={clearAll}
             className="cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-950"
           >
             Select All
           </button>
           <button
             type="button"
-            onClick={() => onChange([])}
+            onClick={clearAll}
             disabled={allTicked}
             className="cursor-pointer rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent dark:hover:bg-slate-800"
           >
             Reset
           </button>
         </div>
+        {range ? (
+          <div className="grid grid-cols-2 gap-2 pb-1">
+            <label className="block">
+              <span className="mb-0.5 block text-2xs font-semibold text-slate-500 dark:text-slate-400">From</span>
+              <input
+                type={range === 'date' ? 'date' : 'text'}
+                inputMode={range === 'number' ? 'decimal' : undefined}
+                value={rangeMin}
+                onChange={(event) => applyRange(event.target.value, rangeMax)}
+                placeholder={range === 'number' ? 'Min' : undefined}
+                aria-label={`${label} From`}
+                className={rangeInput}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-0.5 block text-2xs font-semibold text-slate-500 dark:text-slate-400">To</span>
+              <input
+                type={range === 'date' ? 'date' : 'text'}
+                inputMode={range === 'number' ? 'decimal' : undefined}
+                value={rangeMax}
+                onChange={(event) => applyRange(rangeMin, event.target.value)}
+                placeholder={range === 'number' ? 'Max' : undefined}
+                aria-label={`${label} To`}
+                className={rangeInput}
+              />
+            </label>
+          </div>
+        ) : null}
         <label className="flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 focus-within:border-brand-500 dark:border-slate-700 dark:bg-slate-950">
           <Search className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={2} aria-hidden />
           <input
