@@ -389,7 +389,6 @@ export default function Dashboard() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [pendingTemplateSubmission, setPendingTemplateSubmission] = useState<TemplateSubmissionDraft | null>(null);
   const [selectedTeamCapIds, setSelectedTeamCapIds] = useState<string[] | null>(null);
-  const [suspendCapAutoSave, setSuspendCapAutoSave] = useState(false);
   const [templateSubmissionRevision, setTemplateSubmissionRevision] = useState(0);
   const [templateReplayReset, setTemplateReplayReset] = useState(0);
   const pendingTemplateSubmissionRef = useRef<TemplateSubmissionDraft | null>(null);
@@ -442,10 +441,6 @@ export default function Dashboard() {
     return left.every((id) => rightIds.has(id));
   };
 
-  const holdCapAutoSave = (ids: string[] | null) => {
-    setSuspendCapAutoSave(teamCapsClearedRef.current || !sameTeamCapSelection(ids, savedTeamCapIdsRef.current));
-  };
-
   const handleStartWaterfallEdit = () => {
     clearCommissionModuleCache();
     void reloadAgents();
@@ -463,7 +458,6 @@ export default function Dashboard() {
 
   const handleCancelWaterfallEdit = () => {
     clearCommissionModuleCache();
-    const restoredCaps = waterfallEditSnapshot ? waterfallEditSnapshot.teamCapIds : selectedTeamCapIds;
     if (waterfallEditSnapshot) {
       setAgents(waterfallEditSnapshot.agents.map((a) => ({ ...a })));
       setOffTheTopRules(cloneWaterfallRules(waterfallEditSnapshot.offTheTopRules));
@@ -474,7 +468,6 @@ export default function Dashboard() {
     }
     if (capOverrideActions.current.baseline) capOverrideActions.current.replace(capOverrideActions.current.baseline);
     capOverrideActions.current.setBaseline(null);
-    holdCapAutoSave(restoredCaps);
     setWaterfallEditSnapshot(null);
     setIsEditingWaterfall(false);
     setIsAddAgentModalOpen(false);
@@ -504,7 +497,6 @@ export default function Dashboard() {
     setIsEditingWaterfall(false);
     setIsAddAgentModalOpen(false);
     if (selectionChanged && selectedTeamCapIds) stageTeamCapSelection(selectedTeamCapIds);
-    holdCapAutoSave(selectedTeamCapIds);
     if (unchanged && !capChanged && !selectionChanged) return;
 
     // Local apply only — DB persistence happens via Save Transaction
@@ -513,7 +505,6 @@ export default function Dashboard() {
 
   const releaseTeamCapClear = () => {
     teamCapsClearedRef.current = false;
-    setSuspendCapAutoSave(false);
   };
 
   const rememberStoredSubmission = (submission: TemplateSubmissionDraft | null) => {
@@ -838,7 +829,6 @@ export default function Dashboard() {
     capOverrideActions.current.replace(
       capOverrideActions.current.current.filter((row) => !(row.kind === 'team_cap' && (row.teamCapId || '') === removedId)),
     );
-    setSuspendCapAutoSave(true);
   };
 
   const { replay: templateReplay, settling: templateReplaySettling } = useSubmittedTemplateReplay({
@@ -985,7 +975,7 @@ export default function Dashboard() {
   const idleAgentIds = new Set<string>(dealResult.idleAgentIds || []);
   const waterfallAgents = isEditingWaterfall ? agents : agents.filter((agent) => !idleAgentIds.has(agent.id));
   // True until the deal, its submitted template, and its caps and allocations have loaded. The
-  // waterfall computed before then is not final, so allocation auto-save waits for it.
+  // waterfall computed before then is not final, so Save waits for it.
   const commissionSettling = !isNewTransaction && (!selectedDeal || templateReplaySettling || !allocationSettled || (dealPlans.settling && planMode !== 'off'));
   // What the screen waits for is less: the saved waterfall, including each agent's split after team caps,
   // shows as soon as the deal and its caps and allocations load. The replay of the submitted template
@@ -1047,23 +1037,14 @@ export default function Dashboard() {
     return ok;
   };
 
+  // Team cap and allocation rows are written only when the user saves the deal (persistDealAllocations), never by
+  // opening it: viewing a deal must not change what is stored. Another deal opened here starts with nothing saved.
   useEffect(() => {
     const transactionId = selectedDeal?.id ? String(selectedDeal.id) : '';
-    if (allocationSaveTransactionRef.current !== transactionId) {
-      allocationSaveTransactionRef.current = transactionId;
-      savedAllocationKey.current = '';
-    }
-    const featuresOn = Boolean(allocationInput?.teamCaps.some((cap) => cap.enabled) || allocationInput?.salesVolume?.enabled);
-    if (!allocationReady || !canWriteTracker || !transactionId || suspendCapAutoSave || commissionSettling) return;
-    if (!featuresOn && !hasStoredAllocations) return;
-    if (allocationSaveKey === savedAllocationKey.current) return;
-    const timer = window.setTimeout(() => {
-      const requestTransactionId = allocationSaveTransactionRef.current;
-      if (!requestTransactionId) return;
-      void enqueueAllocationWrite(() => sendAllocationWrite(requestTransactionId, activeClientId));
-    }, 400);
-    return () => window.clearTimeout(timer);
-  }, [allocationReady, allocationSaveKey, canWriteTracker, selectedDeal?.id, activeClientId, suspendCapAutoSave, hasStoredAllocations, commissionSettling]);
+    if (allocationSaveTransactionRef.current === transactionId) return;
+    allocationSaveTransactionRef.current = transactionId;
+    savedAllocationKey.current = '';
+  }, [selectedDeal?.id]);
 
   useEffect(() => {
     if (isNewTransaction) {
@@ -1496,7 +1477,6 @@ export default function Dashboard() {
     setAgents(nextAgents);
     if (!capsAlreadyCleared) {
       teamCapsClearedRef.current = true;
-      setSuspendCapAutoSave(true);
       setSelectedTeamCapIds([]);
       stageClearedTeamCaps();
     }
