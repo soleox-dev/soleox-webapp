@@ -33,7 +33,7 @@ import { CommissionTemplatePanel, type TemplateSubmissionDraft } from './Commiss
 import { CalculatingCommission } from './CalculatingCommission';
 import type { AppliedTemplateRules } from '@/lib/commission-engine/template';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
-import { AgentAllocationNotes, AgentCapNote, TeamCapAmount, adjustedSplitView, teamCapGroups, type AgentAllocationLine } from './AgentAllocationNotes';
+import { AgentAllocationNotes, AgentCapNote, TeamCapAmount, TeamCapReceived, adjustedSplitView, teamCapGroups, type AgentAllocationLine } from './AgentAllocationNotes';
 import { formatAgentCapLine, type AgentCapCell } from '@/lib/agent-cap-progress';
 import type { PlanCapCell } from '@/lib/commission-engine/plan-caps';
 import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
@@ -123,42 +123,72 @@ function AgentCapStrips({
   agentId,
   allocations,
   isEditing,
+  splitAmount,
+  recipients = {},
   onTeamCapAmountChange,
   onRemoveTeamCap,
 }: {
   agentId: string;
   allocations: AgentAllocationLine[];
   isEditing: boolean;
+  /** The agent's Agent Split, after team caps. */
+  splitAmount: number;
+  /** Each team cap's id and the agent it pays. */
+  recipients?: Record<string, string>;
   onTeamCapAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
   onRemoveTeamCap?: (teamCapId: string) => void;
 }) {
   const groups = teamCapGroups(allocations);
   if (groups.length === 0) return null;
+  // The same reading as the table view: the share before caps, then each cap taking money out (-) or paying it in (+).
+  const recipientOf = (group: { lines: AgentAllocationLine[] }) => {
+    const capId = group.lines.find((line) => line.team_cap_id)?.team_cap_id || '';
+    return capId ? recipients[capId] || '' : '';
+  };
+  const received = (group: { lines: AgentAllocationLine[] }) =>
+    group.lines.reduce((sum, line) => (line.agent_id === agentId ? sum : sum + (Number(line.amount) || 0)), 0);
+  const paid = groups.reduce((sum, group) => sum + group.lines.reduce((inner, line) => (line.agent_id === agentId ? inner + (Number(line.amount) || 0) : inner), 0), 0);
+  const gets = groups.reduce((sum, group) => (recipientOf(group) === agentId ? sum + received(group) : sum), 0);
+  const before = Math.round((splitAmount + paid - gets) * 100) / 100;
+  const rowClass = 'flex items-start justify-between gap-3 rounded-md bg-slate-100/70 py-1.5 pl-3 pr-1 sm:pl-2.5 sm:pr-0.5 shadow-[inset_3px_0_0_var(--color-slate-300)] sm:px-2.5 dark:bg-slate-800/55 dark:shadow-[inset_3px_0_0_var(--color-slate-600)]';
   return (
     <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-3 py-1 pl-3 pr-1 text-xs sm:pl-2.5 sm:pr-0.5">
+        <span className="font-semibold text-slate-700 dark:text-slate-200">Split Before Caps</span>
+        <span className="pr-2 font-bold text-slate-700 dark:text-slate-200">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(before)}</span>
+      </div>
       {groups.map((group) => {
         const capId = group.lines.find((line) => line.team_cap_id)?.team_cap_id || '';
+        const line = group.lines.find((item) => item.agent_id === agentId);
+        const isRecipient = !line && recipientOf(group) === agentId;
+        // An agent with no split of their own pays nothing into a cap: a dash, not a $0 payment.
+        const shownLine = line && (Math.abs(Number(line.amount) || 0) >= 0.005 || Math.abs(before) >= 0.005) ? line : undefined;
         return (
-          <div key={group.id} className="flex items-start justify-between gap-3 rounded-md bg-amber-50 px-3 py-1.5 sm:px-2.5 dark:bg-amber-950/40">
+          <div key={group.id} className={rowClass}>
             <span className="flex min-w-0 items-center gap-1.5">
               {isEditing && onRemoveTeamCap && capId && (
                 <button
                   type="button"
                   onClick={() => onRemoveTeamCap(capId)}
-                  className="shrink-0 rounded p-0.5 text-rose-500 transition hover:bg-rose-500/10 hover:text-rose-600 cursor-pointer"
+                  className="shrink-0 rounded p-0.5 text-slate-400 transition hover:bg-rose-500/10 hover:text-rose-600 cursor-pointer dark:text-slate-500 dark:hover:text-rose-400"
                   title={`Remove ${group.name}`}
                   aria-label={`Remove ${group.name}`}
                 >
                   <TrashIcon />
                 </button>
               )}
-              <span className="text-xs font-semibold text-amber-900 dark:text-amber-200">{group.name}</span>
+              <span className="shrink-0 whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-2xs font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700">Team Cap</span>
+              <span title={group.name} className="min-w-0 truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{group.name}</span>
             </span>
-            <TeamCapAmount
-              line={group.lines.find((item) => item.agent_id === agentId)}
-              isEditing={isEditing}
-              onAmountChange={onTeamCapAmountChange}
-            />
+            {isRecipient ? (
+              <TeamCapReceived amount={received(group)} />
+            ) : (
+              <TeamCapAmount
+                line={shownLine}
+                isEditing={isEditing}
+                onAmountChange={onTeamCapAmountChange}
+              />
+            )}
           </div>
         );
       })}
@@ -1118,7 +1148,7 @@ export function CommissionWaterfall({
                         />
                         </div>
                       </div>
-                      <AgentCapStrips agentId={agent.id} allocations={allocations} isEditing={isEditing} onTeamCapAmountChange={onTeamCapAmountChange} onRemoveTeamCap={onRemoveTeamCap} />
+                      <AgentCapStrips agentId={agent.id} allocations={allocations} isEditing={isEditing} splitAmount={Number(computedSplitItem?.amount) || 0} recipients={teamCapRecipients} onTeamCapAmountChange={onTeamCapAmountChange} onRemoveTeamCap={onRemoveTeamCap} />
                     </div>
                   );
                 }
@@ -1201,7 +1231,7 @@ export function CommissionWaterfall({
                       />
                       </div>
                     </div>
-                    <AgentCapStrips agentId={agent.id} allocations={allocations} isEditing={isEditing} onTeamCapAmountChange={onTeamCapAmountChange} onRemoveTeamCap={onRemoveTeamCap} />
+                    <AgentCapStrips agentId={agent.id} allocations={allocations} isEditing={isEditing} splitAmount={Number(computedSplitItem?.amount) || 0} recipients={teamCapRecipients} onTeamCapAmountChange={onTeamCapAmountChange} onRemoveTeamCap={onRemoveTeamCap} />
                     <AgentAllocationNotes agentId={agent.id} allocations={allocations} />
                   </div>
                 );
@@ -1269,10 +1299,10 @@ export function CommissionWaterfall({
                 >
                   {/* Agent Sub-Card Header */}
                   {/* A pill, like the section headers on the Fields settings page: the agent, then their split. */}
-                  <div className="rounded-full bg-brand-500/10 py-1.5 pl-2.5 pr-3 sm:pl-3 sm:pr-4 dark:bg-brand-500/15">
+                  <div className="rounded-full bg-slate-200/70 py-1.5 pl-2.5 pr-3 sm:pl-3 sm:pr-4 dark:bg-slate-700/60">
                     <div className="flex w-full items-center gap-1.5 sm:gap-2">
                       <span aria-hidden className="shrink-0 text-sm">👤</span>
-                      <span className="min-w-0 truncate text-sm font-bold text-brand-800 dark:text-brand-300">
+                      <span className="min-w-0 truncate text-sm font-bold text-slate-800 dark:text-white">
                         {agentName}
                       </span>
                       {agentObj?.isTeamLead && (
@@ -1477,8 +1507,8 @@ export function CommissionWaterfall({
                     </div>
 
                     {/* Level 1 Subtotal */}
-                    {/* In the Level 1 pill's colors; the band reaches into the padding so its amount keeps the rows' right edge. */}
-                    <div className="-mx-3 flex justify-between items-center rounded-lg bg-yellow-400/25 px-3 py-2 text-xs text-yellow-900 dark:bg-yellow-400/15 dark:text-yellow-200">
+                    {/* A plain bold line, as in the table view. */}
+                    <div className="flex justify-between items-center border-t border-slate-200 pt-2 text-xs text-slate-900 dark:border-slate-700 dark:text-white">
                       <span className="font-semibold">
                         Net After Level 1 Post-Splits
                       </span>
@@ -1684,12 +1714,12 @@ export function CommissionWaterfall({
                     </div>
 
                     {/* Level 2 Subtotal */}
-                    {/* In the Level 2 pill's colors. */}
-                    <div className="-mx-3 flex justify-between items-center rounded-lg bg-slate-300/50 px-3 py-2 text-xs text-slate-700 dark:bg-slate-400/20 dark:text-slate-200">
+                    {/* The bottom line, as in the table view: a firmer rule above and the amount in green. */}
+                    <div className="flex justify-between items-center border-t border-slate-300 pt-2 text-xs text-slate-900 dark:border-slate-600 dark:text-white">
                       <span className="font-semibold">
                         Net Payout to {agentName}
                       </span>
-                      <span className="font-bold">
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">
                         {formatCurrency(finalAgentPayout)}
                       </span>
                     </div>
