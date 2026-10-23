@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { formatThousands } from '@/components/ui/number-input';
 import { PERCENT_POINT_DECIMALS, roundPercentPoints } from '@/lib/percent';
 import { evaluateArithmetic, isArithmeticExpression, mayBeArithmetic, percentPointsFromArithmetic } from '@/lib/arithmetic';
 import { formatPercentageClean, roundCurrency } from '../types';
@@ -63,6 +64,22 @@ export const DecimalInput = React.forwardRef<HTMLInputElement, DecimalInputProps
   const [isFocused, setIsFocused] = useState<boolean>(false);
   const history = useUndoHistory();
   const lastEmitted = useRef(value);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  // Characters other than commas left of the cursor after an edit, to keep it after the same digit as commas move.
+  const caretTokens = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const input = inputRef.current;
+    const tokens = caretTokens.current;
+    if (!input || tokens === null || document.activeElement !== input) return;
+    caretTokens.current = null;
+    let position = 0;
+    let seen = 0;
+    while (position < localStr.length && seen < tokens) {
+      if (localStr[position] !== ',') seen += 1;
+      position += 1;
+    }
+    input.setSelectionRange(position, position);
+  }, [localStr]);
 
   const emit = (raw: string) => {
     const parsed = parseFloat(raw.replace(/[$,%\s]/g, ''));
@@ -116,8 +133,12 @@ export const DecimalInput = React.forwardRef<HTMLInputElement, DecimalInputProps
     }
 
     if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
-      history.record(localStr, raw);
-      setLocalStr(raw);
+      // Amounts show their thousands commas while typing too.
+      const shown = useCommas && !isPercent ? formatThousands(raw) : raw;
+      const caret = e.target.selectionStart ?? e.target.value.length;
+      caretTokens.current = e.target.value.slice(0, caret).replace(/,/g, '').length;
+      history.record(localStr, shown);
+      setLocalStr(shown);
       emit(raw);
     }
   };
@@ -159,7 +180,11 @@ export const DecimalInput = React.forwardRef<HTMLInputElement, DecimalInputProps
 
   return (
     <input
-      ref={ref}
+      ref={(node) => {
+        inputRef.current = node;
+        if (typeof ref === 'function') ref(node);
+        else if (ref) ref.current = node;
+      }}
       type="text"
       value={localStr}
       onChange={handleChange}

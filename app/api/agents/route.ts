@@ -3,6 +3,7 @@ import { requireSessionClient, apiError } from '@/lib/session';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { fetchAllPages } from '@/lib/supabase-pagination';
+import { recordPlanAssignments } from '@/lib/commission-plans-server';
 
 const NATIVE_AGENT_COLUMNS = new Set([
   'id',
@@ -182,6 +183,13 @@ export async function POST(request: Request) {
       rowPayload.id = existingId;
     }
 
+    // The plan before this save, so a plan change can go in the activity log.
+    let previousPlanId: string | null | undefined;
+    if (isUpdate && 'commission_plan_id' in rowPayload) {
+      const { data: previous } = await supabase.from('agents').select('commission_plan_id').eq('id', existingId).eq('client_id', clientId).maybeSingle();
+      previousPlanId = previous ? (previous.commission_plan_id ? String(previous.commission_plan_id) : null) : undefined;
+    }
+
     // 4. Insert or Upsert
     let query;
     if (isUpdate) {
@@ -199,6 +207,14 @@ export async function POST(request: Request) {
     }
 
     const { data, error } = await query;
+    if (!error && 'commission_plan_id' in rowPayload && previousPlanId !== undefined) {
+      await recordPlanAssignments(supabase, clientId, String(email || user), [{
+        agentId: String(existingId),
+        agentName: String(rowPayload.agent_name || existingId),
+        fromPlanId: previousPlanId,
+        toPlanId: (rowPayload.commission_plan_id as string | null) ?? null,
+      }]);
+    }
     if (error) throw error;
 
     const returnedRow = data ? data[0] : rowPayload;

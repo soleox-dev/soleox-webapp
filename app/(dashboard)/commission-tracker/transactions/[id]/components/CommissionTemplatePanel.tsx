@@ -23,6 +23,7 @@ import { NativeDateInput } from '@/components/ui/NativeDateInput';
 import { parameterValidationMessage } from '@/lib/parameter-validation';
 import { swallowNextClick } from '@/lib/swallow-click';
 import { evaluateArithmetic, isArithmeticExpression, mayBeArithmetic, percentPointsFromArithmetic } from '@/lib/arithmetic';
+import { formatThousands, takesThousands } from '@/components/ui/number-input';
 
 interface TemplateOption {
   id: string;
@@ -545,9 +546,12 @@ function NumericParameterInput({
   onChange,
   className = '',
   placeholder,
+  plain = false,
 }: {
   id: string;
   kind: 'CURRENCY' | 'PERCENT' | 'NUMBER';
+  /** No thousands commas: a year or postal code. */
+  plain?: boolean;
   value: string;
   readOnly: boolean;
   invalid?: boolean;
@@ -556,9 +560,28 @@ function NumericParameterInput({
   placeholder?: string;
 }) {
   const core = numericCore(value);
-  const shown = core === null ? value : formatCommitted(kind, core);
+  // Amounts and counts show thousands commas, while typing too; percents, years and postal codes do not.
+  const commas = kind !== 'PERCENT' && !plain;
+  const committed = core === null ? value : formatCommitted(kind, core);
+  const shown = commas && kind === 'NUMBER' ? formatThousands(committed) : committed;
   const [focused, setFocused] = useState(false);
   const [draft, setDraft] = useState(core ?? value);
+  const typed = commas && !isArithmeticExpression(draft) ? formatThousands(draft) : draft;
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const caretTokens = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const input = inputRef.current;
+    const tokens = caretTokens.current;
+    if (!input || tokens === null || document.activeElement !== input) return;
+    caretTokens.current = null;
+    let position = 0;
+    let seen = 0;
+    while (position < typed.length && seen < tokens) {
+      if (typed[position] !== ',') seen += 1;
+      position += 1;
+    }
+    input.setSelectionRange(position, position);
+  }, [typed]);
 
   // A calculation ("60/70", "1500*2") is held as typed and worked out on Enter or when the field is left. In a
   // percent field a division under 1 is a ratio: 60/70 is 85.71%. Returns the result as a plain number, or null.
@@ -579,12 +602,13 @@ function NumericParameterInput({
 
   return (
     <input
+      ref={inputRef}
       id={id}
       inputMode="decimal"
       placeholder={placeholder}
       readOnly={readOnly}
       aria-invalid={invalid}
-      value={focused ? draft : shown}
+      value={focused ? typed : shown}
       onFocus={() => {
         // A locked field keeps its formatted value; only an editable one switches to the raw number for typing.
         if (readOnly) return;
@@ -625,6 +649,8 @@ function NumericParameterInput({
           if (decimals && decimals.length > 2) raw = `${integer}.${decimals.slice(0, 2)}`;
         }
         if (raw !== '' && !/^-?\d*\.?\d*$/.test(raw)) return;
+        const caret = event.target.selectionStart ?? event.target.value.length;
+        caretTokens.current = event.target.value.slice(0, caret).replace(/[$,%\s]/g, '').length;
         setDraft(raw);
         const nextCore = numericCore(raw);
         if (nextCore === null) return;
@@ -709,7 +735,7 @@ function ParameterControl({
       <NativeDateInput id={id} value={date} disabled={locked} aria-invalid={invalid} onChange={(event) => onChange(event.target.value)} className={`${controlClass(locked, false, invalid)} dark:[color-scheme:dark]`} />
     );
   } else if (control === 'CURRENCY' || control === 'PERCENT' || control === 'NUMBER') {
-    field = <NumericParameterInput id={id} kind={control} value={value} readOnly={locked} invalid={invalid} onChange={onChange} placeholder="—" />;
+    field = <NumericParameterInput id={id} kind={control} value={value} readOnly={locked} invalid={invalid} onChange={onChange} placeholder="—" plain={!takesThousands(parameter.parameter_key, parameter.parameter_name)} />;
   } else {
     field = (
       <input id={id} value={value} readOnly={locked} aria-invalid={invalid} placeholder="—" onChange={(event) => onChange(event.target.value)} className={controlClass(locked, false, invalid)} />

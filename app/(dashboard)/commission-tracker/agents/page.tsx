@@ -18,6 +18,7 @@ import { TrashIcon } from '@/components/ui/trash-icon';
 import { useAccess } from '@/components/access-provider';
 import { useRegisterSave } from '@/components/save-leave-guard';
 import { underlineControlPlain as underlineControl } from '@/components/ui/underline-field';
+import { NumberInput, NumberValueInput, takesThousands } from '@/components/ui/number-input';
 
 type FieldType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN' | 'COMMISSION_PLAN';
 
@@ -172,25 +173,17 @@ function AgentAmountInput({
   }, [focused, points]);
 
   return (
-    <input
-      type="text"
-      inputMode="decimal"
+    <NumberInput
       required={required}
       disabled={disabled}
       value={focused ? draft : committed}
+      decimals={kind === 'PERCENT' ? PERCENT_POINT_DECIMALS : 2}
       onFocus={() => {
         setDraft(points === null ? '' : editableAmount(points));
         setFocused(true);
       }}
       onBlur={() => setFocused(false)}
-      onChange={(event) => {
-        let raw = event.target.value.replace(/[$,%\s]/g, '');
-        if (raw !== '' && !/^-?\d*\.?\d*$/.test(raw)) return;
-        const fractionLimit = kind === 'PERCENT' ? PERCENT_POINT_DECIMALS : 2;
-        if (raw.includes('.')) {
-          const [integer, decimals] = raw.split('.');
-          if (decimals && decimals.length > fractionLimit) raw = `${integer}.${decimals.slice(0, fractionLimit)}`;
-        }
+      onValueChange={(raw) => {
         setDraft(raw);
         if (raw === '' || raw === '-' || raw === '.' || raw === '-.') {
           onChange(undefined);
@@ -1655,20 +1648,17 @@ export default function AgentsPage() {
                               </label>
                               <div className="flex h-5 items-center">
                                 {cfg.field_type === 'NUMBER' ? (
-                                  <input
-                                    type="number"
-                                    step="any"
+                                  <NumberValueInput
                                     required={cfg.is_required}
                                     disabled={isSubmitting}
-                                    min={cfg.min_value}
-                                    max={cfg.max_value}
-                                    value={val !== undefined && val !== null ? val : ''}
-                                    onChange={(e) =>
+                                    value={val !== undefined && val !== null ? (val as number | string) : ''}
+                                    onNumberChange={(next) =>
                                       setFormData({
                                         ...formData,
-                                        [cfg.field_key]: e.target.value !== '' ? Number(e.target.value) : undefined,
+                                        [cfg.field_key]: next,
                                       })
                                     }
+                                    plain={!takesThousands(cfg.field_key, cfg.field_label)}
                                     className={underlineControl}
                                   />
                                 ) : (

@@ -27,6 +27,7 @@ import { BooleanCheckbox, BooleanField, isBooleanChecked } from '@/components/ui
 import { ChevronDown, ChevronUp, Ellipsis } from 'lucide-react';
 import { UndoableDateInput } from '@/components/ui/UndoableDateInput';
 import { useAccess } from '@/components/access-provider';
+import { takesThousands } from '@/components/ui/number-input';
 
 interface TransactionOverviewProps {
   isEditing: boolean;
@@ -411,7 +412,7 @@ export function TransactionOverview({
                                     field.type === 'PERCENT' || field.key === 'gci_perc' ? fromPercentPoints(val) : val,
                                   )}
                                   isPercent={field.type === 'PERCENT' || field.key === 'gci_perc'}
-                                  useCommas={field.type === 'CURRENCY'}
+                                  useCommas={field.type === 'CURRENCY' || (field.type === 'NUMBER' && takesThousands(field.key, field.label))}
                                   onKeyDown={preventMinus}
                                   className={`${filledControl} text-left`}
                                 />

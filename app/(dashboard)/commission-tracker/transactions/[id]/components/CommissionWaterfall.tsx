@@ -35,6 +35,7 @@ import type { AppliedTemplateRules } from '@/lib/commission-engine/template';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { AgentAllocationNotes, AgentCapNote, TeamCapAmount, adjustedSplitView, teamCapGroups, type AgentAllocationLine } from './AgentAllocationNotes';
 import { formatAgentCapLine, type AgentCapCell } from '@/lib/agent-cap-progress';
+import type { PlanCapCell } from '@/lib/commission-engine/plan-caps';
 import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
 import { useAccess } from '@/components/access-provider';
 import { usePhonePortrait } from '@/lib/use-media-query';
@@ -113,6 +114,8 @@ interface CommissionWaterfallProps {
   onTeamCapAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
   onRemoveTeamCap?: (teamCapId: string) => void;
   agentCapCells?: Record<string, Record<string, AgentCapCell>>;
+  /** On a deal calculated with plans: each agent's plan caps and year-to-date, by payee (lowercased). */
+  planCapCells?: Record<string, Record<string, PlanCapCell>>;
 }
 
 function AgentCapStrips({
@@ -238,14 +241,19 @@ export function CommissionWaterfall({
   onTeamCapAmountChange,
   onRemoveTeamCap,
   agentCapCells = {},
+  planCapCells,
   calculating = false,
 }: CommissionWaterfallProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
 
   const agentCapNote = (agentId: string, agentName: string, entityName: string) => {
+    // A payee the agent's plan pays shows the plan's cap (or no bar when that line has none); others keep Settings > Caps.
+    const planCell = planCapCells?.[agentId]?.[entityName.trim().toLowerCase()];
     const entityId = knownEntities.find((entity) => entity.name === entityName)?.id;
-    const cell = entityId ? agentCapCells[agentId]?.[entityId] : undefined;
+    const cell: AgentCapCell | undefined = planCell
+      ? (planCell.capAmount === null ? undefined : { capAmount: planCell.capAmount, prior: planCell.prior, hideOverAllocations: false })
+      : entityId ? agentCapCells[agentId]?.[entityId] : undefined;
     if (!cell) return null;
     const rows = [...(dealResult.postSplitItems || []), ...(dealResult.postSplit2Items || [])];
     const current = rows.reduce((sum: number, item: { agentName?: string; entity?: string; amount?: number }) => {

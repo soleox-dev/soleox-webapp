@@ -41,7 +41,7 @@ import { transactionDealLabel, transactionSearchLabel } from '@/lib/transaction-
 import { useAccess } from '@/components/access-provider';
 import { useTemplateQualification } from './hooks/useTemplateQualification';
 import { useDealPlanContext } from './hooks/useDealPlanContext';
-import { dealPlanMode, planLineChanges } from '@/lib/commission-engine';
+import { dealPlanMode, planCapCells, planLineChanges } from '@/lib/commission-engine';
 import { swallowNextClick } from '@/lib/swallow-click';
 
 type SavedPaymentRow = {
@@ -917,9 +917,9 @@ export default function Dashboard() {
     allocationForWaterfall, templateReplay, storedAgentSplits, knownAgents, knownEntities, primaryAgent, paymentDate, templateQualifies,
     plansForDeal,
   ]);
-  // A deal saved with plans: what recalculating would change, for the marker. Nothing is applied.
-  const planChanges = useMemo(() => {
-    if (planMode !== 'saved' || !dealPlans.context) return [];
+  // A deal saved with plans, recalculated in memory: what would change (the marker) and the cap bars. Nothing is applied.
+  const savedPlanCheck = useMemo(() => {
+    if (planMode !== 'saved' || !dealPlans.context) return null;
     const waterfall = { agents, offTheTopRules, preSplitRules, postSplitRulesByAgent, postSplit2RulesByAgent };
     const recalculated = computeDealCommission({
       deal: selectedDeal,
@@ -935,11 +935,17 @@ export default function Dashboard() {
       storedAgentSplits,
       plans: dealPlans.context,
     });
-    return recalculated.planStep ? planLineChanges(waterfall, recalculated.planStep) : [];
+    return recalculated.planStep ? { step: recalculated.planStep, changes: planLineChanges(waterfall, recalculated.planStep) } : null;
   }, [
     planMode, dealPlans.context, selectedDeal, overviewForm.overviewFormValues, editedSalesPrice, editedGciPerc, clientType, overviewFields,
     agents, offTheTopRules, preSplitRules, postSplitRulesByAgent, postSplit2RulesByAgent, primaryAgentId, allocationForWaterfall, templateReplay, storedAgentSplits,
   ]);
+  const planChanges = savedPlanCheck?.changes || [];
+  // Plan lines show the plan's cap and the plan's year-to-date under them, not the bars from Settings > Caps.
+  const planBars = useMemo(() => {
+    const step = dealResult.planStep || savedPlanCheck?.step;
+    return step && dealPlans.context ? planCapCells(step.plans, dealPlans.context.agents) : undefined;
+  }, [dealResult.planStep, savedPlanCheck, dealPlans.context]);
   // Agents with a $0 split and no post-split to pay, such as a team cap recipient the cap does not pay on this deal.
   // They stay in the list while the waterfall is being edited, so a split can still be given to them.
   const idleAgentIds = new Set<string>(dealResult.idleAgentIds || []);
@@ -1862,6 +1868,7 @@ export default function Dashboard() {
             onTeamCapAmountChange={setTeamCapOverride}
             onRemoveTeamCap={handleRemoveTeamCap}
             agentCapCells={agentCapCells}
+            planCapCells={planBars}
             onStartEdit={handleStartWaterfallEdit}
             onCancelEdit={handleCancelWaterfallEdit}
             onApplyEdit={handleApplyWaterfallEdit}

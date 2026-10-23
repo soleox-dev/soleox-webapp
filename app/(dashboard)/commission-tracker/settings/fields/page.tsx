@@ -19,6 +19,7 @@ import { DB_TRANSACTION_COLUMNS, DB_AGENT_COLUMNS } from '@/lib/fields';
 import { useRegisterSave } from '@/components/save-leave-guard';
 import { underlineControl } from '@/components/ui/underline-field';
 import { KeyTermsCard } from './KeyTermsCard';
+import { NumberValueInput, takesThousands } from '@/components/ui/number-input';
 
 type FieldType = 'TEXT' | 'NUMBER' | 'CURRENCY' | 'PERCENT' | 'DATE' | 'SELECT' | 'AGENT_PICKER' | 'BOOLEAN';
 
@@ -1921,20 +1922,20 @@ export default function FieldCustomizationsPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <label className={underlineShell}>
                       <span className={underlineLabel}>Minimum Value</span>
-                      <input
-                        type="number"
+                      <NumberValueInput
                         value={formData.min_value ?? ''}
-                        onChange={(e) => setFormData({ ...formData, min_value: e.target.value !== '' ? Number(e.target.value) : undefined })}
+                        plain={!takesThousands(formData.field_key, formData.field_label)}
+                        onNumberChange={(next) => setFormData({ ...formData, min_value: next })}
                         placeholder="e.g. 0"
                         className={underlineControl}
                       />
                     </label>
                     <label className={underlineShell}>
                       <span className={underlineLabel}>Maximum Value</span>
-                      <input
-                        type="number"
+                      <NumberValueInput
                         value={formData.max_value ?? ''}
-                        onChange={(e) => setFormData({ ...formData, max_value: e.target.value !== '' ? Number(e.target.value) : undefined })}
+                        plain={!takesThousands(formData.field_key, formData.field_label)}
+                        onNumberChange={(next) => setFormData({ ...formData, max_value: next })}
                         placeholder="e.g. 100"
                         className={underlineControl}
                       />
