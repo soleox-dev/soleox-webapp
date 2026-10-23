@@ -3773,7 +3773,8 @@ function TrendPanel({ metric, title, tone, currentClass, previousClass, accentCl
   const total = ratio ? ratioTrend(currentDeals, metric) : closed + pending;
   const priorClosed = ratio ? ratioTrend(priorDeals, metric, 'closed') : Math.round(sumTrend(priorDeals, metric, 'closed'));
   const priorTotal = ratio ? ratioTrend(priorDeals, metric) : priorClosed + Math.round(sumTrend(priorDeals, metric, 'pending'));
-  const chartProps = { metric, title, months, priorMonths, currentClass, previousClass };
+  // While Pending is selected the current period draws in amber, the Pending status color; otherwise emerald.
+  const chartProps = { metric, title, months, priorMonths, currentClass: statusFilter === 'pending' ? 'text-amber-500 dark:text-amber-400' : currentClass, previousClass };
   return (
     <section className={pairedSection}>
       <SectionHeading tone="slate" note={metric === 'team' ? 'Team commission is the commission left after off-the-top deductions and pre-splits are subtracted from total commission.' : undefined}>{title}</SectionHeading>
