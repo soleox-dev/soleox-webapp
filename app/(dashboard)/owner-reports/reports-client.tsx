@@ -3903,6 +3903,25 @@ function axisLabelSpace(labels: string[], fontSize: number): number {
   return widest + 3;
 }
 
+/** The width of a chart's frame in pixels, kept current as the layout changes; `fallback` until it is measured. */
+function useMeasuredWidth(fallback: number): [React.RefObject<HTMLDivElement | null>, number] {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(fallback);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const read = () => {
+      const measured = Math.round(el.clientWidth);
+      if (measured > 0) setWidth(Math.max(280, measured));
+    };
+    read();
+    const observer = new ResizeObserver(read);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, width];
+}
+
 function TrendChart({ metric, title, months, priorMonths, currentClass, previousClass, cumulative = false }: {
   metric: TrendMetric;
   title: string;
@@ -3915,7 +3934,8 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
   const [hover, setHover] = useState<number | null>(null);
   // Phones draw on a narrower canvas so axis labels keep a readable size after the chart scales to fit.
   const isDesktop = useIsDesktop();
-  const width = isDesktop ? 640 : 340;
+  // The chart draws at its panel's real width, so it fills wide screens and its text stays at its set size.
+  const [chartFrame, width] = useMeasuredWidth(isDesktop ? 640 : 340);
   const height = 250;
   const currentValues = months.map((row) => trendValue(row, metric));
   const previousValues = months.map((_, index) => trendValue(priorMonths[index] || emptyTotals(), metric));
@@ -3945,7 +3965,7 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
   const peaks = linePeaks(currentPoints, currentPresent, plottedCurrent);
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3 max-md:pl-0 max-md:pr-1.5 dark:border-slate-800 dark:bg-slate-900">
-      <div className="relative">
+      <div ref={chartFrame} className="relative">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="h-64 w-full overflow-hidden"
@@ -4063,7 +4083,8 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
   const [hover, setHover] = useState<number | null>(null);
   // Phones draw on a narrower canvas so axis labels keep a readable size after the chart scales to fit.
   const isDesktop = useIsDesktop();
-  const width = isDesktop ? 640 : 340;
+  // The chart draws at its panel's real width, so it fills wide screens and its text stays at its set size.
+  const [chartFrame, width] = useMeasuredWidth(isDesktop ? 640 : 340);
   const height = 250;
   const currentValues = months.map((row) => trendValue(row, metric));
   const previousValues = months.map((_, index) => trendValue(priorMonths[index] || emptyTotals(), metric));
@@ -4091,7 +4112,7 @@ function PriceBars({ metric, title, months, priorMonths, currentClass, previousC
   const hoverX = hover === null ? 0 : (center(hover) / width) * 100;
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3 max-md:pl-0 max-md:pr-1.5 dark:border-slate-800 dark:bg-slate-900">
-      <div className="relative">
+      <div ref={chartFrame} className="relative">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="h-64 w-full overflow-hidden"
@@ -4179,7 +4200,8 @@ function LineChart({ title, metric, current, previous }: { title: string; metric
   const [hover, setHover] = useState<number | null>(null);
   // Phones draw on a narrower canvas so axis labels keep a readable size after the chart scales to fit.
   const isDesktop = useIsDesktop();
-  const width = isDesktop ? 640 : 340;
+  // The chart draws at its panel's real width, so it fills wide screens and its text stays at its set size.
+  const [chartFrame, width] = useMeasuredWidth(isDesktop ? 640 : 340);
   const height = 220;
   const pad = isDesktop ? { left: 12, right: 12, top: 16, bottom: 28 } : { left: 6, right: 6, top: 16, bottom: 28 };
   const innerW = width - pad.left - pad.right;
@@ -4201,7 +4223,7 @@ function LineChart({ title, metric, current, previous }: { title: string; metric
       <div className="flex items-center justify-between gap-3 mb-2">
         <h3 className="text-base font-bold">{title}</h3>
       </div>
-      <div className="relative">
+      <div ref={chartFrame} className="relative">
         <svg
           viewBox={`0 0 ${width} ${height}`}
           className="w-full h-56"
@@ -4824,7 +4846,8 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
   const [hover, setHover] = useState<number | null>(null);
   // Phones draw on a narrower canvas so axis labels keep a readable size after the chart scales to fit.
   const isDesktop = useIsDesktop();
-  const width = isDesktop ? 640 : 340;
+  // The chart draws at its panel's real width, so it fills wide screens and its text stays at its set size.
+  const [chartFrame, width] = useMeasuredWidth(isDesktop ? 640 : 340);
   const height = 250;
   const previous = columns.map((_, index) => priorValues[index] || 0);
   const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
@@ -4895,7 +4918,7 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
   };
   return (
     <div className="h-full rounded-xl border border-slate-200 bg-white p-3 max-md:pl-0 max-md:pr-1.5 dark:border-slate-800 dark:bg-slate-900">
-      <div className="relative">
+      <div ref={chartFrame} className="relative">
         <svg
           ref={svgRef}
           viewBox={`0 0 ${width} ${height}`}
