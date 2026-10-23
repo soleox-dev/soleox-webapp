@@ -434,12 +434,13 @@ export default function Navbar() {
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            aria-label="Search"
-            className="hidden desktop-nav:flex h-9 w-56 shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs text-slate-400 transition hover:border-slate-300 hover:text-slate-600 cursor-pointer dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-500 dark:hover:border-slate-700 dark:hover:text-slate-300 xl:w-64"
+            aria-label={showTransactions ? 'Search transactions, agents, and pages' : 'Search pages'}
+            title={showTransactions ? 'Search transactions, agents, and pages' : 'Search pages'}
+            className="hidden desktop-nav:flex h-9 shrink-0 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-400 transition hover:border-slate-300 hover:text-slate-600 cursor-pointer dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-500 dark:hover:border-slate-700 dark:hover:text-slate-300"
           >
             <Search className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-            <span className="truncate">{showTransactions ? 'Search transactions, agents…' : 'Search…'}</span>
-            <kbd className="ml-auto shrink-0 rounded bg-slate-200 px-1.5 py-0.5 text-2xs font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">{searchShortcut}</kbd>
+            <span>Search…</span>
+            <kbd className="ml-1 shrink-0 rounded bg-slate-200 px-1.5 py-0.5 text-2xs font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">{searchShortcut}</kbd>
           </button>
           <button
             type="button"
