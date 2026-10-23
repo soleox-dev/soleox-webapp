@@ -1759,7 +1759,7 @@ function DataFreshness({ savedAt, refreshing, newDataAvailable, onRefresh }: { s
         ? `${Math.floor(minutes / 60)} hr ago`
         : new Date(savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   return (
-    <p className="mt-1 inline-flex items-center gap-1.5 text-2xs text-slate-400 dark:text-slate-500">
+    <p className="inline-flex h-4 items-center gap-1.5 text-2xs text-slate-400 dark:text-slate-500">
       {refreshing ? (
         <>
           <RotateCcw className="h-3 w-3 animate-spin [animation-direction:reverse]" strokeWidth={2.25} aria-hidden />
@@ -1967,18 +1967,22 @@ function ReportView(props: {
   }, []);
   return (
     <div className={locked ? 'screenfit:flex screenfit:min-h-0 screenfit:flex-1 screenfit:flex-col' : undefined}>
-      <div ref={chromeRef} className={`z-40 shrink-0 border-b border-slate-200/80 px-0 dark:border-slate-700/80 ${reportCanvas} ${locked ? '' : 'sticky top-0'} ${capSection ? 'pb-3' : 'pb-4'}`}>
+      <div ref={chromeRef} className={`z-40 shrink-0 px-0 ${reportCanvas} ${locked ? '' : 'sticky top-0'} ${capSection ? 'pb-3' : ''}`}>
+        {/* The report header: the same height, controls, lines and divider on every report (report-requirements.mdc,
+            Report header). Every part has a fixed slot; nothing a report or a filter adds may change its height. */}
+        <div className="border-b border-slate-200/80 pb-4 dark:border-slate-700/80">
         {/* Below md the report menu moves into the header's menu sheet, so the title gets the full row. */}
         {/* Extra-wide screens: menu, title, and the date and Filters controls share one row. Narrower: the menu and
             the controls share the top row and the title is centered under them. Phones: the title alone. */}
-        <div className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3 py-5 [grid-template-areas:'nav_filters'_'title_title'] xl:grid-cols-[1fr_auto_1fr] xl:py-6 xl:[grid-template-areas:'nav_title_filters'] max-md:grid-cols-1 max-md:gap-2 max-md:py-3 max-md:[grid-template-areas:'title']">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-3 py-5 [grid-template-areas:'nav_filters'_'title_title'] xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] xl:py-6 xl:[grid-template-areas:'nav_title_filters'] max-md:grid-cols-1 max-md:gap-2 max-md:py-3 max-md:[grid-template-areas:'title']">
           <div className="z-50 min-w-0 justify-self-start [grid-area:nav] max-md:hidden">
             <OwnerReportNav reportId={props.reportId} onSelect={props.onSelectReport} />
           </div>
           <div className="relative z-40 min-w-0 px-2 text-center [grid-area:title]">
             {/* The info icon sits outside the heading so its note keeps the body type size. */}
-            <div className="flex items-center justify-center gap-2">
-            <h2 className="text-balance text-2xl font-extrabold leading-tight tracking-tight">
+            {/* Title slot: one line from md (h-8), two lines on phones (h-15), centered in it. */}
+            <div className="flex h-15 items-center justify-center gap-2 md:h-8">
+            <h2 className="text-balance text-2xl font-extrabold leading-tight tracking-tight md:whitespace-nowrap">
               {props.reportId === 'lead-source-leaderboard' ? (
                 <>
                   <TitleMetric
@@ -2011,11 +2015,15 @@ function ReportView(props: {
               <ScoreNote label={props.reportName} text={reportAbout} className="relative inline-flex shrink-0" align="right" wide iconClass="text-slate-400 transition hover:text-brand-600 dark:hover:text-brand-300" />
             ) : null}
             </div>
-            <p className="mt-1.5 text-sm text-slate-500 max-md:mt-1 max-md:text-xs">{props.reportId === 'team-caps' ? 'Each agent’s cap year comes from that cap’s reset date.' : `${formatRange(range)} compared with ${formatRange(priorRange)}`}</p>
-            <DataFreshness savedAt={props.dataSavedAt} refreshing={props.refreshing} newDataAvailable={props.newDataAvailable} onRefresh={props.onRefresh} />
+            {/* Date line slot: one line from md, two on phones. */}
+            <p className="mt-1.5 h-5 truncate text-sm text-slate-500 max-md:mt-1 max-md:line-clamp-2 max-md:h-8 max-md:whitespace-normal max-md:text-xs">{props.reportId === 'team-caps' ? 'Each agent’s cap year comes from that cap’s reset date.' : `${formatRange(range)} compared with ${formatRange(priorRange)}`}</p>
+            {/* Updated line slot: kept even before the first download. */}
+            <div className="mt-1 h-4">
+              <DataFreshness savedAt={props.dataSavedAt} refreshing={props.refreshing} newDataAvailable={props.newDataAvailable} onRefresh={props.onRefresh} />
+            </div>
           </div>
           {/* The date and Filters controls render here from FilterBar on wider screens. */}
-          <div ref={setFilterSlot} className="relative z-50 min-w-0 justify-self-end [grid-area:filters] max-md:hidden" />
+          <div ref={setFilterSlot} className="relative z-50 w-full min-w-0 [grid-area:filters] max-md:hidden" />
         </div>
         <FilterBar
           {...props}
@@ -2047,6 +2055,7 @@ function ReportView(props: {
                   ? 'Closing Date Range'
                   : undefined}
         />
+        </div>
         {capSection ? (
           <CapStickyHeading
             section={capSection}
@@ -2332,8 +2341,78 @@ function FilterBar(props: {
   );
   // Wider screens: the date (or Cap Year) and Filters sit in the title row; a row of chips appears under the title
   // only while a filter is set or Custom dates are being typed.
+  // Chips beside the controls, on their line, so the header never grows: as many whole chips as the room left of
+  // the date pill holds (measured as the layout changes), then +N for the rest (all of them are in the panel).
+  const chipArea = useRef<HTMLDivElement>(null);
+  const chipMeasure = useRef<HTMLDivElement>(null);
+  const [chipsThatFit, setChipsThatFit] = useState(0);
+  const chipKey = chips.map((chip) => `${chip.key}:${chip.text}`).join('|');
+  useLayoutEffect(() => {
+    const area = chipArea.current;
+    const measure = chipMeasure.current;
+    if (!area || !measure) return;
+    const fit = () => {
+      const room = area.clientWidth;
+      const widths = [...measure.children].map((child) => (child as HTMLElement).offsetWidth);
+      const gap = 8;
+      const moreWidth = 40;
+      let used = 0;
+      let count = 0;
+      for (let index = 0; index < widths.length; index += 1) {
+        const left = widths.length - index - 1;
+        const next = used + (count ? gap : 0) + widths[index];
+        if (next + (left > 0 ? gap + moreWidth : 0) > room) break;
+        used = next;
+        count += 1;
+      }
+      setChipsThatFit(count);
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(area);
+    return () => observer.disconnect();
+  }, [chipKey, isDesktop]);
+  const chipClass = 'inline-flex h-7 max-w-[12rem] shrink-0 items-center gap-1 rounded-full bg-brand-50 pl-2.5 pr-1 text-xs text-brand-800 ring-1 ring-brand-200 dark:bg-brand-950/60 dark:text-brand-200 dark:ring-brand-800';
+  const chipText = (chip: FilterChip) => (
+    <span className="truncate">
+      <span className="font-semibold">{chip.label}</span>{chip.text ? `: ${chip.text}` : ''}
+    </span>
+  );
+  const shownChips = chips.slice(0, chipsThatFit);
+  const hiddenChips = chips.length - shownChips.length;
   const headerControls = (
-    <div data-report-filters className="flex flex-wrap items-center justify-end gap-2">
+    <div data-report-filters className="flex w-full min-w-0 flex-nowrap items-center justify-end gap-2">
+      {/* The chips take only the room the controls' column has left, truncating rather than spilling into the title. */}
+      {chips.length > 0 ? (
+      <div ref={chipArea} className="relative flex min-w-0 flex-1 basis-0 items-center justify-end gap-2 overflow-hidden p-px">
+      {/* Every chip at its natural width, out of sight, to measure how many fit. */}
+      <div ref={chipMeasure} aria-hidden className="pointer-events-none invisible absolute right-0 top-0 flex gap-2">
+        {chips.map((chip) => (
+          <span key={chip.key} className={chipClass}>{chipText(chip)}<span className="h-5 w-5 shrink-0" /></span>
+        ))}
+      </div>
+      {shownChips.map((chip) => (
+        <span key={chip.key} className={chipClass} title={`${chip.label}${chip.text ? `: ${chip.text}` : ''}`}>
+          {chipText(chip)}
+          <button
+            type="button"
+            onClick={chip.clear}
+            aria-label={`Clear ${chip.label}`}
+            title={`Clear ${chip.label}`}
+            className="inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full text-brand-500 transition hover:bg-brand-100 hover:text-brand-800 dark:hover:bg-brand-900 dark:hover:text-brand-100"
+          >
+            <X className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+          </button>
+        </span>
+      ))}
+      {/* +N only beside at least one chip; with none showing, the count on Filters says it. */}
+      {hiddenChips > 0 && shownChips.length > 0 ? (
+        <button type="button" onClick={() => setOpen(true)} className="inline-flex h-7 shrink-0 cursor-pointer items-center rounded-full bg-brand-50 px-2.5 text-xs font-semibold text-brand-800 ring-1 ring-brand-200 dark:bg-brand-950/60 dark:text-brand-200 dark:ring-brand-800">
+          +{hiddenChips}
+        </button>
+      ) : null}
+      </div>
+      ) : null}
       {props.hideDate
         ? (props.onCapYearOffset ? (
           <ChoiceFilter
@@ -2351,38 +2430,15 @@ function FilterBar(props: {
       {filtersButton}
     </div>
   );
-  const chipRow = chips.length > 0 || customDates ? (
-    <div data-report-filters className="relative z-30 flex flex-wrap items-end gap-x-4 gap-y-2">
-      {customDates}
-      {chips.length > 0 ? (
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          {chips.map((chip) => (
-            <span key={chip.key} className="inline-flex max-w-[18rem] items-center gap-1 rounded-full bg-brand-50 py-0.5 pl-2.5 pr-1 text-xs text-brand-800 ring-1 ring-brand-200 dark:bg-brand-950/60 dark:text-brand-200 dark:ring-brand-800">
-              <span className="truncate">
-                <span className="font-semibold">{chip.label}</span>{chip.text ? `: ${chip.text}` : ''}
-              </span>
-              <button
-                type="button"
-                onClick={chip.clear}
-                aria-label={`Clear ${chip.label}`}
-                title={`Clear ${chip.label}`}
-                className="inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full text-brand-500 transition hover:bg-brand-100 hover:text-brand-800 dark:hover:bg-brand-900 dark:hover:text-brand-100"
-              >
-                <X className="h-3 w-3" strokeWidth={2.5} aria-hidden />
-              </button>
-            </span>
-          ))}
-          {resetButton}
-        </div>
-      ) : null}
-    </div>
-  ) : null;
+  // Custom dates are typed in the panel (From and To at its top), so choosing Custom opens it.
+  const previousPreset = useRef(props.preset);
+  useEffect(() => {
+    if (props.preset === 'custom' && previousPreset.current !== 'custom' && isDesktop) setOpen(true);
+    previousPreset.current = props.preset;
+  }, [props.preset, isDesktop]);
 
   const bar = isDesktop ? (
-    <>
-      {props.headerSlot ? createPortal(headerControls, props.headerSlot) : headerControls}
-      {chipRow}
-    </>
+    props.headerSlot ? createPortal(headerControls, props.headerSlot) : headerControls
   ) : (
     <button
       type="button"
@@ -2649,7 +2705,7 @@ function TitleMetric({ value, options, onChange }: { value: string; options: Boa
         aria-haspopup="listbox"
         aria-label={`Metric ${selected.label}`}
         onClick={() => setOpen((current) => !current)}
-        className="cursor-pointer appearance-none whitespace-nowrap border-0 bg-transparent p-0 text-3xl max-md:text-xl font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
+        className="cursor-pointer appearance-none whitespace-nowrap border-0 bg-transparent p-0 text-2xl font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
       >
         {selected.label}
       </button>
@@ -2737,7 +2793,7 @@ function TitleCaps({ options, picked, onChange }: {
         aria-haspopup="listbox"
         aria-label={`Cap ${selected?.label || 'Caps'}`}
         onClick={() => setOpen((current) => !current)}
-        className="cursor-pointer appearance-none border-0 bg-transparent p-0 text-3xl max-md:text-xl font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
+        className="cursor-pointer appearance-none border-0 bg-transparent p-0 text-2xl font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
       >
         {selected?.label || 'Caps'}
       </button>

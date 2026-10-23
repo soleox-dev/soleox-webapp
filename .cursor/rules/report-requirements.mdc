@@ -12,6 +12,17 @@ When a new chat should follow this before editing reports, say: read `.cursor/ru
 
 ## All Reports
 
+### Report header (required for every report)
+
+The top section of every report, current and future, is the same height with every control, label, and line in the same place. Measured at 1440, 1024, and 375 wide, every report's header is identical (143px, 187px, and 199px today), and the divider line under it sits at the same spot. A report never adds, removes, or resizes anything in it; report-specific content (such as the Caps section heading) goes below the divider.
+
+- Extra-wide screens (`xl`): the reports menu, the title, and the date and Filters controls share one row. Narrower: the menu and the controls share the top row and the title is centered under them. Phones: the title alone, with the Filters button under it.
+- Title slot: one line from `md` (32px tall, never wrapping), two lines on phones (centered in a 60px slot whether the title takes one line or two). Words in the title that are pickers (a leaderboard's field and date, the cap) use the same 24px as the rest of the title.
+- Date line slot: one line from `md`, two on phones.
+- The Updated line keeps its 16px slot even before the first download.
+- Filter chips sit in the controls row, left of the date pill: as many whole chips as fit there, then +N; with none fitting, the count on Filters says it. Chips never add a row. Custom dates are typed in the Filters panel (choosing Custom opens it).
+- The header and its divider live in `ReportView` (`reports-client.tsx`); add a new report there and it gets this header. Check a new report against the measurements above before it ships.
+
 ### Navigation
 
 Every report title has an info icon beside it. Clicking or hovering it explains what the report shows and which transactions it counts (`about` on each entry in `OWNER_REPORTS`, `lib/owner-reports.ts`). Add one for every new report.
