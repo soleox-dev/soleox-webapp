@@ -2,6 +2,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { generatePrefixedId } from '@/lib/id';
 import {
   catalogFromFields,
+  mappingsFromStored,
   userProtectionChanges,
   type ConfiguredTransactionField,
   type ProtectionChange,
@@ -35,26 +36,14 @@ export async function loadUserProtectionContext(
 async function loadSheetMappings(sb: SupabaseClient, clientId: string): Promise<SyncMapping[] | null> {
   const { data: connections, error: connectionError } = await sb
     .from('integration_connections')
-    .select('id')
+    .select('id, field_mappings')
     .eq('client_id', clientId)
     .eq('provider', 'google_sheets')
     .limit(1);
   if (connectionError) throw new Error(connectionError.message);
-  const connectionId = connections?.[0]?.id ? String(connections[0].id) : '';
-  if (!connectionId) return null;
-
-  const { data: mappingRows, error: mappingError } = await sb
-    .from('integration_field_mappings')
-    .select('source_header, field_key, policy')
-    .eq('client_id', clientId)
-    .eq('connection_id', connectionId);
-  if (mappingError) throw new Error(mappingError.message);
-
-  return (mappingRows || []).map((row) => ({
-    sourceHeader: String(row.source_header),
-    fieldKey: row.field_key ? String(row.field_key) : null,
-    policy: row.policy,
-  }));
+  const connection = connections?.[0];
+  if (!connection?.id) return null;
+  return mappingsFromStored(connection.field_mappings);
 }
 
 /** Records column locks from a person's save. Sync uses a different actor and does not call this. */

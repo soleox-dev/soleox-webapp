@@ -89,6 +89,29 @@ export interface SyncMapping {
   policy: SyncPolicy;
 }
 
+/** integration_connections.field_mappings (migration 076): [{ source_header, field_key, policy }]. */
+export function mappingsFromStored(value: unknown): SyncMapping[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return [];
+    const record = entry as Record<string, unknown>;
+    const sourceHeader = String(record.source_header ?? '').trim();
+    if (!sourceHeader) return [];
+    const fieldKey = record.field_key ? String(record.field_key) : null;
+    const policy = SYNC_POLICIES.includes(record.policy as SyncPolicy) ? record.policy as SyncPolicy : 'disconnected';
+    return [{ sourceHeader, fieldKey, policy: fieldKey ? policy : 'disconnected' }];
+  });
+}
+
+/** The stored form of mappingsFromStored. */
+export function mappingsToStored(mappings: SyncMapping[]): Array<{ source_header: string; field_key: string | null; policy: SyncPolicy }> {
+  return mappings.map((mapping) => ({
+    source_header: mapping.sourceHeader,
+    field_key: mapping.fieldKey,
+    policy: mapping.policy,
+  }));
+}
+
 export interface SheetSyncRow {
   rowNumber: number;
   cells: Record<string, string>;

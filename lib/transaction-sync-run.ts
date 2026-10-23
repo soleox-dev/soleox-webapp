@@ -11,6 +11,7 @@ import {
   SYNC_ACTOR,
   catalogFromFields,
   formulaFieldsFromConfig,
+  mappingsFromStored,
   parseCustomAttributes,
   planTmsLinkUpdates,
   planTransactionSync,
@@ -334,7 +335,7 @@ export async function syncGoogleSheetConnection(
 
   const { data: connection, error: connectionError } = await sb
     .from('integration_connections')
-    .select('id, spreadsheet_id, tab_name, enabled')
+    .select('id, spreadsheet_id, tab_name, enabled, field_mappings')
     .eq('id', connectionId)
     .eq('client_id', clientId)
     .maybeSingle();
@@ -367,13 +368,11 @@ export async function syncGoogleSheetConnection(
     return fail('Add the spreadsheet before syncing.', 'blocked');
   }
 
-  const [{ data: client, error: clientError }, { data: mappingRows, error: mappingError }, { data: fieldRows, error: fieldError }] = await Promise.all([
+  const [{ data: client, error: clientError }, { data: fieldRows, error: fieldError }] = await Promise.all([
     sb.from('clients').select('settings_json').eq('id', clientId).maybeSingle(),
-    sb.from('integration_field_mappings').select('source_header, field_key, policy').eq('connection_id', connectionId).eq('client_id', clientId),
     sb.from('client_field_configurations').select('field_key, field_label, field_type, storage_type, calculation_formula').eq('client_id', clientId).eq('target_table', 'transactions').or('archived.is.null,archived.eq.false'),
   ]);
   if (clientError) return fail(clientError.message);
-  if (mappingError) return fail(mappingError.message);
   if (fieldError) return fail(fieldError.message);
 
   const catalog = catalogFromFields(fieldRows || []);
@@ -387,11 +386,7 @@ export async function syncGoogleSheetConnection(
   const formula = transactionDefaultViewFromSettings(client?.settings_json, clientId).filterFormula;
   const knownNames = new Set<string>([...catalog.map((field) => field.fieldKey), 'status', 'transaction_status', 'finance_status']);
   const formulaError = validateFormula(formula, [...knownNames]);
-  const mappings: SyncMapping[] = (mappingRows || []).map((row) => ({
-    sourceHeader: String(row.source_header),
-    fieldKey: row.field_key ? String(row.field_key) : null,
-    policy: row.policy,
-  }));
+  const mappings: SyncMapping[] = mappingsFromStored(connection.field_mappings);
   const blocked = blockMessage(formula, formulaError, mappings.some((mapping) => mapping.fieldKey === 'tms_id' && mapping.policy !== 'disconnected'));
   if (blocked) return fail(blocked, 'blocked');
 

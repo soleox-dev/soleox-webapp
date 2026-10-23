@@ -10,6 +10,8 @@ import {
   collectSourceTmsIds,
   formulaFieldsFromConfig,
   isSyncableField,
+  mappingsFromStored,
+  mappingsToStored,
   suggestFieldKey,
   type SyncPolicy,
 } from '@/lib/transaction-sync';
@@ -67,7 +69,7 @@ export async function loadGoogleSheetIntegration(sb: SupabaseClient, clientId: s
   const account = googleServiceAccount();
   const [{ data: connection, error: connectionError }, { data: client, error: clientError }, { data: fields, error: fieldError }] = await Promise.all([
     sb.from('integration_connections')
-      .select('id, spreadsheet_id, tab_name, enabled')
+      .select('id, spreadsheet_id, tab_name, enabled, field_mappings')
       .eq('client_id', clientId)
       .eq('provider', GOOGLE_SHEETS_PROVIDER)
       .or('archived.is.null,archived.eq.false')
@@ -91,26 +93,21 @@ export async function loadGoogleSheetIntegration(sb: SupabaseClient, clientId: s
   if (connection?.id) {
     const runColumns = 'id, status, started_at, finished_at, created_count, updated_count, skipped_count, error_count, unchanged_count, connected_count, disconnected_count, message, details, highlights';
     const latestRun = (columns: string) => sb.from('integration_sync_runs').select(columns).eq('connection_id', connection.id).order('started_at', { ascending: false }).limit(1);
-    const [{ data: mappingRows, error: mappingError }, runResult, { data: protectionRows, error: protectionError }] = await Promise.all([
-      sb.from('integration_field_mappings').select('source_header, field_key, policy').eq('connection_id', connection.id).order('source_header'),
+    const [runResult, { data: protectionRows, error: protectionError }] = await Promise.all([
       latestRun(`${runColumns}, undone_at`),
       sb.from('transaction_field_protections').select('id, transaction_id, field_key, protection, protected_by, protected_at').eq('client_id', clientId).order('protected_at', { ascending: false }),
     ]);
     let { data: runs, error: runError } = runResult;
     // Before migration 055 there is no undone_at column.
     if (runError && runError.message.includes('undone_at')) ({ data: runs, error: runError } = await latestRun(runColumns));
-    if (mappingError) throw new Error(mappingError.message);
     if (runError) throw new Error(runError.message);
     if (protectionError) throw new Error(protectionError.message);
-    mappings = (mappingRows || []).map((row) => {
-      const fieldKey = row.field_key ? String(row.field_key) : null;
-      const mappedKey = fieldKey && !formulaLabels.has(fieldKey) ? fieldKey : null;
-      return {
-        sourceHeader: String(row.source_header),
-        fieldKey: mappedKey,
-        policy: mappedKey && (row.policy === 'tms_wins' || row.policy === 'lock_on_edit' || row.policy === 'keep_until_tms') ? row.policy : 'disconnected',
-      };
-    });
+    mappings = mappingsFromStored(connection.field_mappings)
+      .map((mapping) => {
+        const mappedKey = mapping.fieldKey && !formulaLabels.has(mapping.fieldKey) ? mapping.fieldKey : null;
+        return { ...mapping, fieldKey: mappedKey, policy: mappedKey ? mapping.policy : 'disconnected' as const };
+      })
+      .sort((a, b) => a.sourceHeader.localeCompare(b.sourceHeader));
     lastRun = runs?.[0] ?? null;
     const transactionIds = [...new Set((protectionRows || []).map((row) => String(row.transaction_id)))];
     const transactions = transactionIds.length === 0
@@ -202,7 +199,7 @@ async function readConnectedTmsIds(
 ): Promise<{ available: boolean; tmsIds: string[]; cached: boolean }> {
   const cachedSelect = await sb
     .from('integration_connections')
-    .select('id, spreadsheet_id, tab_name, source_tms_ids, source_tms_ids_cached_at')
+    .select('id, spreadsheet_id, tab_name, field_mappings, source_tms_ids, source_tms_ids_cached_at')
     .eq('client_id', clientId)
     .eq('provider', GOOGLE_SHEETS_PROVIDER)
     .or('archived.is.null,archived.eq.false')
@@ -211,7 +208,7 @@ async function readConnectedTmsIds(
   const connectionResult = missingCacheColumn
     ? await sb
       .from('integration_connections')
-      .select('id, spreadsheet_id, tab_name')
+      .select('id, spreadsheet_id, tab_name, field_mappings')
       .eq('client_id', clientId)
       .eq('provider', GOOGLE_SHEETS_PROVIDER)
       .or('archived.is.null,archived.eq.false')
@@ -222,6 +219,7 @@ async function readConnectedTmsIds(
     id: string;
     spreadsheet_id: string | null;
     tab_name: string | null;
+    field_mappings: unknown;
     source_tms_ids?: unknown;
     source_tms_ids_cached_at?: unknown;
   } | null;
@@ -230,14 +228,7 @@ async function readConnectedTmsIds(
   const stored = freshSourceTmsIds(connection.source_tms_ids_cached_at, connection.source_tms_ids);
   if (stored) return { available: true, tmsIds: stored, cached: true };
 
-  const { data: mappingRows, error: mappingError } = await sb
-    .from('integration_field_mappings')
-    .select('source_header, field_key')
-    .eq('connection_id', connection.id)
-    .eq('client_id', clientId)
-    .eq('field_key', 'tms_id');
-  if (mappingError) throw new Error(mappingError.message);
-  const sourceHeader = String(mappingRows?.[0]?.source_header || '').trim();
+  const sourceHeader = mappingsFromStored(connection.field_mappings).find((mapping) => mapping.fieldKey === 'tms_id')?.sourceHeader || '';
   if (!sourceHeader) return { available: false, tmsIds: [], cached: false };
 
   const table = await readGoogleSheet(String(connection.spreadsheet_id), String(connection.tab_name || DEFAULT_SHEET_TAB));
@@ -364,6 +355,7 @@ export async function saveGoogleSheetIntegration(
     tab_name: tabName,
     tms_name: tmsName || null,
     enabled: input.enabled,
+    field_mappings: mappingsToStored(normalized.mappings),
     archived: false,
     updated_at: now,
     updated_by: userEmail,
@@ -392,21 +384,6 @@ export async function saveGoogleSheetIntegration(
   }
   if (saveError) throw new Error(saveError.message);
 
-  const { error: clearError } = await sb.from('integration_field_mappings').delete().eq('connection_id', connectionId).eq('client_id', clientId);
-  if (clearError) throw new Error(clearError.message);
-  if (normalized.mappings.length > 0) {
-    const { error: insertError } = await sb.from('integration_field_mappings').insert(normalized.mappings.map((mapping) => ({
-      id: generatePrefixedId('IFM'),
-      client_id: clientId,
-      connection_id: connectionId,
-      source_header: mapping.sourceHeader,
-      field_key: mapping.fieldKey,
-      policy: mapping.policy,
-      updated_at: now,
-    })));
-    if (insertError) throw new Error(insertError.message);
-  }
-
   return { error: null, status: 200 as const, connectionId };
 }
 
@@ -418,16 +395,22 @@ export async function disconnectTransactionFieldMapping(
 ): Promise<void> {
   const key = fieldKey.trim();
   if (!clientId || !key) return;
-  const { error } = await sb
-    .from('integration_field_mappings')
-    .update({
-      field_key: null,
-      policy: 'disconnected',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('client_id', clientId)
-    .eq('field_key', key);
+  const { data: connections, error } = await sb
+    .from('integration_connections')
+    .select('id, field_mappings')
+    .eq('client_id', clientId);
   if (error) throw new Error(error.message);
+  for (const connection of connections || []) {
+    const mappings = mappingsFromStored(connection.field_mappings);
+    if (!mappings.some((mapping) => mapping.fieldKey === key)) continue;
+    const next = mappings.map((mapping) => (mapping.fieldKey === key ? { ...mapping, fieldKey: null, policy: 'disconnected' as const } : mapping));
+    const { error: updateError } = await sb
+      .from('integration_connections')
+      .update({ field_mappings: mappingsToStored(next), updated_at: new Date().toISOString() })
+      .eq('id', connection.id)
+      .eq('client_id', clientId);
+    if (updateError) throw new Error(updateError.message);
+  }
 }
 
 export function suggestMappings(headers: string[], fields: Array<{ fieldKey: string; fieldLabel: string; fieldType: string; storageType: 'CORE_COLUMN' | 'CUSTOM_JSON' }>) {
