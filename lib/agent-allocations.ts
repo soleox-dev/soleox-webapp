@@ -115,14 +115,65 @@ export type TeamCapRule = {
   splitPercentFieldKey: string | null;
   capAmountFieldKey: string | null;
   resetDateFieldKey: string | null;
-  /** The agents this cap pays, each a share of what it collects. */
-  recipients: TeamCapRecipient[];
+  /**
+   * Who this cap pays, in order: a deal uses the first rule whose condition is true (a blank condition is true),
+   * and that rule's recipients split what the cap collects by share. A deal no rule matches pays nothing.
+   */
+  payoutRules: CapPayoutRule[];
   /** Another cap this one counts toward: payments into either count toward the same yearly cap. */
   progressCapId: string | null;
 };
 
 /** An agent a team cap pays and their share, in percent, of what the cap collects. Shares add up to 100. */
 export type TeamCapRecipient = { agentId: string; share: number };
+
+/** One way a team cap pays out: on deals where `condition` is true (or blank), to these recipients. */
+export type CapPayoutRule = { condition: string | null; recipients: TeamCapRecipient[] };
+
+/** A team cap with the recipients of the payout rule this deal matches (dealTeamCaps). Empty when none matches. */
+export type DealTeamCap = TeamCapRule & { recipients: TeamCapRecipient[] };
+
+/**
+ * A stored cap's payout rules: `payout_rules` (migration 078), each { condition, recipients }. Before it, one rule
+ * with no condition paying `recipients` (migration 075) or the single recipient_agent_id at 100%.
+ */
+export function capPayoutRulesFromRow(payoutRules: unknown, recipients: unknown, recipientAgentId: unknown): CapPayoutRule[] {
+  if (Array.isArray(payoutRules)) {
+    return payoutRules.flatMap((item) => {
+      if (!item || typeof item !== 'object') return [];
+      const row = item as { condition?: unknown; recipients?: unknown };
+      const condition = String(row.condition ?? '').trim() || null;
+      return [{ condition, recipients: capRecipientsFromRow(Array.isArray(row.recipients) ? row.recipients : [], null) }];
+    });
+  }
+  const single = capRecipientsFromRow(recipients, recipientAgentId);
+  return single.length > 0 ? [{ condition: null, recipients: single }] : [];
+}
+
+/** Every agent any of the cap's payout rules pays. */
+export function capAllRecipientIds(cap: { payoutRules: CapPayoutRule[] }): string[] {
+  return [...new Set(cap.payoutRules.flatMap((rule) => rule.recipients.map((recipient) => recipient.agentId)))];
+}
+
+/** The payout rule a deal uses: the first whose condition is blank or true. A condition that cannot be calculated is not true. */
+export function dealPayoutRule(
+  cap: TeamCapRule,
+  deal: Record<string, unknown> | null,
+  fieldTypes: Record<string, string>,
+  lookups?: FormulaLookups | null,
+): CapPayoutRule | null {
+  return cap.payoutRules.find((rule) => rule.recipients.length > 0 && (!rule.condition || qualifies(deal, rule.condition, fieldTypes, lookups))) ?? null;
+}
+
+/** The caps with the recipients each pays on this deal. */
+export function dealTeamCaps(
+  caps: TeamCapRule[],
+  deal: Record<string, unknown> | null,
+  fieldTypes: Record<string, string>,
+  lookups?: FormulaLookups | null,
+): DealTeamCap[] {
+  return caps.map((cap) => ({ ...cap, recipients: dealPayoutRule(cap, deal, fieldTypes, lookups)?.recipients ?? [] }));
+}
 
 /**
  * A stored cap's recipients: the `recipients` list (migration 075), or else its one recipient_agent_id at 100%.
@@ -244,25 +295,28 @@ export function writeTeamCapSelection(parameters: Record<string, string>, ids: s
  * not qualify: a cap never moves money on a guess.
  */
 /** The caps set up well enough to pay out (on, with a split field and a recipient), qualifying or not. */
-export function configuredTeamCaps(caps: TeamCapRule[]): TeamCapRule[] {
-  return caps.filter((cap) => cap.enabled && cap.splitPercentFieldKey && cap.recipients.length > 0);
+export function configuredTeamCaps<T extends TeamCapRule>(caps: T[]): T[] {
+  return caps.filter((cap) => cap.enabled && cap.splitPercentFieldKey && cap.payoutRules.some((rule) => rule.recipients.length > 0));
 }
 
-export function qualifyingTeamCaps(
-  caps: TeamCapRule[],
+export function qualifyingTeamCaps<T extends TeamCapRule>(
+  caps: T[],
   deal: Record<string, unknown> | null,
   fieldTypes: Record<string, string>,
   lookups?: FormulaLookups | null,
-): TeamCapRule[] {
-  return caps.filter((cap) => cap.enabled && cap.splitPercentFieldKey && cap.recipients.length > 0 && qualifies(deal, cap.qualifyingFormula, fieldTypes, lookups));
+): T[] {
+  return configuredTeamCaps(caps).filter((cap) => qualifies(deal, cap.qualifyingFormula, fieldTypes, lookups));
 }
 
-/** The lookup tables the team cap and sales volume qualifying formulas read, for loadFormulaLookups. */
+/** The lookup tables the team cap and sales volume formulas (qualifying and payout conditions) read, for loadFormulaLookups. */
 export function allocationLookupTables(
-  teamCaps: { qualifyingFormula?: string | null }[],
+  teamCaps: { qualifyingFormula?: string | null; payoutRules?: CapPayoutRule[] }[],
   salesVolume?: { qualifyingFormula?: string | null } | null,
 ): string[] {
-  return formulaDataNeeds([...teamCaps.map((cap) => cap.qualifyingFormula ?? ''), salesVolume?.qualifyingFormula ?? '']).lookupTables;
+  return formulaDataNeeds([
+    ...teamCaps.flatMap((cap) => [cap.qualifyingFormula ?? '', ...(cap.payoutRules ?? []).map((rule) => rule.condition ?? '')]),
+    salesVolume?.qualifyingFormula ?? '',
+  ]).lookupTables;
 }
 
 export type DealAllocationContext = {
@@ -378,10 +432,12 @@ export function planDealAllocations(
   // The caps checked on the template submission apply, whether or not they pass their qualifying formula: a box
   // checked or unchecked by hand wins. Without a recorded choice, the caps that qualify apply.
   const recorded = context.selectedTeamCapIds;
+  const caps = dealTeamCaps(context.teamCaps, context.deal, context.fieldTypes, context.lookups);
   const matchingCaps = recorded
-    ? configuredTeamCaps(context.teamCaps).filter((cap) => recorded.includes(cap.id))
-    : qualifyingTeamCaps(context.teamCaps, context.deal, context.fieldTypes, context.lookups);
-  // Without a recorded choice, a cap pays only when every one of its recipients is already on the agent splits.
+    ? configuredTeamCaps(caps).filter((cap) => recorded.includes(cap.id))
+    : qualifyingTeamCaps(caps, context.deal, context.fieldTypes, context.lookups);
+  // A cap pays the recipients of the payout rule this deal matches, and nothing when none matches. Without a
+  // recorded choice, it pays only when every one of those recipients is already on the agent splits.
   const payableCaps = matchingCaps.flatMap((cap) => {
     const recipientIds = capRecipientIds(cap);
     if (recipientIds.length === 0) return [];

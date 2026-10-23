@@ -48,7 +48,9 @@ These rules describe today's behavior. The golden tests in `tests/engine` hold i
    `selectedTeamCapIds`) wins. A checked cap applies even if it does not qualify, and an unchecked one does not
    apply even if it does. With no recorded choice, the caps whose qualifying formula is true apply. A formula that
    cannot be calculated, for example because a lookup table is missing, does not qualify. An amount typed on the
-   deal (an override) wins over the calculated cap amount.
+   deal (an override) wins over the calculated cap amount. A cap pays the recipients of its first payout rule whose
+   condition is true or blank (`dealTeamCaps`), each their share; those recipients do not pay into it, and a deal
+   no rule matches pays no one.
 4. **The template replay applies only after a cap has moved money.** When a team cap moved money and the
    submitted template has loaded, the template runs again with the cap credits:
    - An agent the replay lists gets the replay's dollars.

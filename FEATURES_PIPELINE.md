@@ -26,14 +26,15 @@ Status values: Proposed, Planned, In progress, Done.
   - Agents with no cap date and no cap amount do not need a flag.
   - The flag should link to the agent so the date can be filled in.
 
-### FR-006: Team caps that pay several agents and share a cap amount
-- **Status:** Built, waiting on migration 075
+### FR-006: Team caps that pay several agents by payout rule
+- **Status:** Built; migration 075 run, waiting on migration 078
 - **Source:** TATH team caps, October 23, 2026
-- **Requirement:** A team cap can pay several agents, each a share of what it collects (Las Vegas Team Cap: Dylan 50%, Yvonne Khoo 35%, Paul Patane 15%). A team cap can count toward another cap, so what an agent paid into either one counts toward one yearly cap amount.
-- **Why:** TATH has two caps on the agent side (20% up to $12,000) that differ only in who receives the money. Three single-recipient caps gave each agent three cap totals that had to be kept in proportion by hand. An agent who moves to Las Vegas mid-year keeps what they already paid into Dylan's Team Cap.
+- **Requirement:** A team cap can pay several agents, each a share of what it collects, and its payout rules can pay different agents depending on the deal. TATH uses one Team Cap: on deals of Las Vegas agents it pays Dylan 50%, Yvonne Khoo 35% and Paul Patane 15%, and on all other deals Dylan 100%. A team cap can also count toward another cap (Counts Toward, shown with two or more team caps), so what an agent paid into either one counts toward one yearly cap amount.
+- **Why:** TATH's agents have one cap (20% up to $12,000) that differs only in who receives the money. Three single-recipient caps gave each agent three cap totals that had to be kept in proportion by hand. With one cap, an agent who changes region keeps one cap total.
 - **Notes:**
-  - Stored in `client_caps.recipients` (jsonb) and `client_caps.progress_cap_id`. `recipient_agent_id` keeps the first recipient.
-  - Recipients do not pay into the cap they receive. Without a recorded choice, a cap applies only when every recipient is on the agent splits.
+  - Stored in `client_caps.payout_rules` (jsonb, migration 078) and `client_caps.progress_cap_id`. `recipients` and `recipient_agent_id` keep the first rule's recipients.
+  - A deal uses the first rule whose condition is true or blank; a deal no rule matches pays no one.
+  - The matching rule's recipients do not pay into the cap. Without a recorded choice, a cap applies only when every one of them is on the agent splits.
   - Cents left over by rounding go to the first recipient.
 
 ## Data quality

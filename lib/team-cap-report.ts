@@ -10,7 +10,7 @@ export type TeamCapDefinition = {
   splitPercentFieldKey: string | null;
   capAmountFieldKey: string | null;
   resetDateFieldKey: string | null;
-  /** The agents a team cap pays. They do not pay into it. */
+  /** The agents any of a team cap's payout rules pays. They are left out unless they contributed. */
   recipientAgentIds: string[];
   /** This cap and the caps that count toward the same yearly cap amount (capProgressIds). Empty means just this one. */
   progressCapIds?: string[];

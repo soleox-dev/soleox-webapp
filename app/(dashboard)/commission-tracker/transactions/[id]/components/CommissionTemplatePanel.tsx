@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Info, Loader2, Lock, Plus, RefreshCw, RotateCcw, Trash2, X, Zap, type LucideIcon } from 'lucide-react';
 import { evaluateFormula, formulaValueToInput, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { normalizeAgentName } from '@/lib/id';
-import { allocationLookupTables, configuredTeamCaps, qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection, type TeamCapRule } from '@/lib/agent-allocations';
+import { allocationLookupTables, configuredTeamCaps, dealTeamCaps, qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection, type TeamCapRule } from '@/lib/agent-allocations';
 import { dealFieldValue, formulaFieldNames, templateBoltTone, type TemplateBoltTone } from '@/lib/transaction-default-view';
 import { formatPercent } from '@/lib/fields';
 import { loadAllocationCatalog, loadAllocationLookups, loadAllocationHistory, loadAllocationOverrides } from '@/lib/template-payment-drift';
@@ -1413,6 +1413,8 @@ export function CommissionTemplatePanel({
   // Every cap set up to pay out shows in the form. Its box starts checked when it qualifies on this deal (its
   // default); checking or unchecking it by hand makes it EDITED, and the submission applies what is checked.
   const shownCaps = useMemo(() => configuredTeamCaps(teamCaps), [teamCaps]);
+  // Each cap with the recipients of the payout rule this deal matches.
+  const shownDealCaps = useMemo(() => dealTeamCaps(shownCaps, deal, fieldTypes, capLookups), [shownCaps, deal, fieldTypes, capLookups]);
   const capQualifies = useMemo(() => new Set(qualifyingCaps.map((cap) => cap.id)), [qualifyingCaps]);
   const capsAtDefault = shownCaps.every((cap) => checkedCapIds.includes(cap.id) === capQualifies.has(cap.id));
 
@@ -1686,7 +1688,7 @@ export function CommissionTemplatePanel({
     setSubmitAttempted(false);
     // A checked cap whose recipient is not among the agents yet (they load separately) would take the payers' share
     // and pay it to no one, so Submit waits for them.
-    const unknownRecipient = shownCaps.find((cap) => checkedCapIds.includes(cap.id)
+    const unknownRecipient = shownDealCaps.find((cap) => checkedCapIds.includes(cap.id)
       && cap.recipients.some((recipient) => !agents.some((agent) => agent.id === recipient.agentId)));
     if (unknownRecipient) {
       setLoadError(`${unknownRecipient.name}'s recipient is not loaded yet. Try Submit again in a moment, or check the cap in Settings > Caps.`);
@@ -1701,7 +1703,7 @@ export function CommissionTemplatePanel({
       }
       const teamCapIds = checkedCapIds.filter((id) => shownCaps.some((cap) => cap.id === id));
       const seenRecipients = new Set<string>();
-      const teamCapRecipients = shownCaps.flatMap((cap) => (teamCapIds.includes(cap.id) ? cap.recipients : []).flatMap(({ agentId }) => {
+      const teamCapRecipients = shownDealCaps.flatMap((cap) => (teamCapIds.includes(cap.id) ? cap.recipients : []).flatMap(({ agentId }) => {
         if (seenRecipients.has(agentId)) return [];
         const recipient = agents.find((agent) => agent.id === agentId);
         if (!recipient) return [];

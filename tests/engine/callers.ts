@@ -6,6 +6,7 @@
 import { normalizeAgentName } from '@/lib/id';
 import {
   configuredTeamCaps,
+  dealTeamCaps,
   qualifyingTeamCaps,
   readTeamCapSelection,
   writeTeamCapSelection,
@@ -384,7 +385,7 @@ function popupResubmit(ctx: Ctx, saved: PageState, savedView: ReturnType<typeof 
   const teamCapIds = checkedCapIds.filter((id) => shownCaps.some((cap) => cap.id === id));
   const templateAgentRoster = base.knownAgents.map((agent) => ({ id: agent.id, name: agent.name, isTeamLead: agent.isTeamLead, clientId: agent.clientId, fields: agent.fields }));
   const seenRecipients = new Set<string>();
-  const teamCapRecipients = shownCaps.flatMap((cap) => (teamCapIds.includes(cap.id) ? cap.recipients : []).flatMap(({ agentId }) => {
+  const teamCapRecipients = dealTeamCaps(shownCaps, base.deal, panelFieldTypes, capLookups).flatMap((cap) => (teamCapIds.includes(cap.id) ? cap.recipients : []).flatMap(({ agentId }) => {
     if (seenRecipients.has(agentId)) return [];
     const recipient = templateAgentRoster.find((agent) => agent.id === agentId);
     if (!recipient) return [];

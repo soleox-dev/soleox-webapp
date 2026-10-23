@@ -31,7 +31,7 @@ import { toPercentPoints } from '@/lib/percent';
 import { clearCommissionModuleCache } from './components/applyTemplateLogic';
 import { type AppliedTemplateRules } from '@/lib/commission-engine/template';
 import type { TemplateSubmissionDraft } from './components/CommissionTemplatePanel';
-import { qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection } from '@/lib/agent-allocations';
+import { dealTeamCaps, qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection } from '@/lib/agent-allocations';
 import { isPrimaryAgent, resolvePrimaryAgentId, waterfallFromCommissionItems } from '@/lib/commission-engine/stored-lines';
 import { computeDealCommission, storedAgentSplitsFrom } from '@/lib/commission-engine/deal';
 import { waterfallAfterTemplate } from '@/lib/commission-engine/submit';
@@ -811,10 +811,12 @@ export default function Dashboard() {
     setBaseline: setCapOverrideBaseline,
   };
 
-  // Which agents each team cap pays, and their shares, for the waterfall's team cap rows.
+  // Which agents each team cap pays on this deal (its matching payout rule), and their shares, for the waterfall's
+  // team cap rows.
   const teamCapRecipients = useMemo(() => Object.fromEntries(
-    (allocationInput?.teamCaps ?? []).flatMap((cap) => (cap.recipients.length > 0 ? [[cap.id, cap.recipients]] : [])),
-  ), [allocationInput]);
+    dealTeamCaps(allocationInput?.teamCaps ?? [], allocationDeal, allocationFieldTypes, allocationInput?.lookups)
+      .flatMap((cap) => (cap.recipients.length > 0 ? [[cap.id, cap.recipients]] : [])),
+  ), [allocationInput, allocationDeal, allocationFieldTypes]);
 
   const allocationForWaterfall = useMemo(() => {
     if (!allocationInput) return null;

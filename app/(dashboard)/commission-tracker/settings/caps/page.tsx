@@ -11,7 +11,7 @@ import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { CapKeyRenameCounts } from '@/app/api/agent-allocations/rename-key/route';
 import { UnderlineField, underlineControl } from '@/components/ui/underline-field';
 import { copyKey, generatePrefixedId } from '@/lib/id';
-import { capRecipientsFromRow, normalizeTeamCapKey, teamCapKeyFormatError, teamCapKeyFromName } from '@/lib/agent-allocations';
+import { capPayoutRulesFromRow, normalizeTeamCapKey, teamCapKeyFormatError, teamCapKeyFromName } from '@/lib/agent-allocations';
 import { FormulaEditor, type FormulaName } from '../commission-templates/FormulaEditor';
 import { ALLOCATION_CLIENT_ID, AllocationFieldMenu, allocationFormulaHint, fieldOptions, useAllocationSchema, type AllocationAgent } from '../allocation-fields';
 import { useAccess } from '@/components/access-provider';
@@ -33,10 +33,20 @@ type CapBase = {
 /** One agent the cap pays. The share is kept as typed; the shares add up to 100. */
 type RecipientForm = { agentId: string; share: string };
 
+/** Who the cap pays on deals where the condition is true (blank: every deal). `id` only keys the card on screen. */
+type PayoutRuleForm = { id: string; condition: string; recipients: RecipientForm[] };
+
+let payoutRuleSeq = 0;
+function newPayoutRule(recipients: RecipientForm[] = [{ agentId: '', share: '100' }], condition = ''): PayoutRuleForm {
+  payoutRuleSeq += 1;
+  return { id: `rule-${payoutRuleSeq}`, condition, recipients };
+}
+
 type TeamCapForm = CapBase & {
   qualifyingFormula: string;
   splitPercentFieldKey: string;
-  recipients: RecipientForm[];
+  /** In order: a deal uses the first rule whose condition is true or blank. */
+  payoutRules: PayoutRuleForm[];
   /** Another team cap this one counts toward, or ''. */
   progressCapId: string;
 };
@@ -72,7 +82,7 @@ function newTeamCap(taken: Set<string>): TeamCapForm {
     splitPercentFieldKey: '',
     capAmountFieldKey: '',
     resetDateFieldKey: '',
-    recipients: [{ agentId: '', share: '100' }],
+    payoutRules: [newPayoutRule()],
     progressCapId: '',
   };
 }
@@ -128,7 +138,11 @@ function teamCapFromRow(row: Record<string, unknown>): TeamCapForm {
     splitPercentFieldKey: String(row.split_percent_field_key || ''),
     capAmountFieldKey: String(row.cap_amount_field_key || ''),
     resetDateFieldKey: String(row.reset_date_field_key || ''),
-    recipients: capRecipientsFromRow(row.recipients, row.recipient_agent_id).map((recipient) => ({ agentId: recipient.agentId, share: String(recipient.share) })),
+    payoutRules: (() => {
+      const rules = capPayoutRulesFromRow(row.payout_rules, row.recipients, row.recipient_agent_id)
+        .map((rule) => newPayoutRule(rule.recipients.map((recipient) => ({ agentId: recipient.agentId, share: String(recipient.share) })), rule.condition || ''));
+      return rules.length > 0 ? rules : [newPayoutRule()];
+    })(),
     progressCapId: String(row.progress_cap_id || ''),
   };
 }
@@ -399,7 +413,7 @@ export default function CapsPage() {
 
       <p className="max-w-2xl text-2xs text-slate-500 dark:text-slate-400">
         {tab === 'team'
-          ? 'A client can use several team caps. A deal uses every enabled cap whose formula is true, and the agent cannot pay more than their share. The agent split is that share before the cut paid to the selected agent. A blank qualifying formula applies to every deal. A cap can pay several agents, each a share of what it collects. The agents it pays have to be on the agent splits to receive the payment, and they do not pay into it themselves. A cap that counts toward another shares its yearly cap amount: what an agent paid into either one counts.'
+          ? 'A client can use several team caps. A deal uses every enabled cap whose formula is true, and the agent cannot pay more than their share. The agent split is that share before the cut paid to the selected agent. A blank qualifying formula applies to every deal. A cap can pay several agents, each a share of what it collects, and payout rules can pay different agents depending on the deal. The agents it pays have to be on the agent splits to receive the payment, and they do not pay into it themselves. A cap that counts toward another shares its yearly cap amount: what an agent paid into either one counts.'
           : 'An agent cap follows a post-split the commission template already calculates. It does not change the split. The report uses the name, the cap amount field, and the reset date. Hide Over-Allocations keeps the report and the waterfall at the cap amount when that fee continues past it.'}
       </p>
       {error && <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">{error}</p>}
@@ -730,20 +744,23 @@ function TeamCapList({
                 onKey={(key) => onChange(cap.id, { key, keyCustom: true })}
                 onRename={cap.keyLocked ? (key) => onRenameKey(cap.id, key) : undefined}
               />
-              <AllocationFieldMenu
-                label="Counts Toward"
-                value={cap.progressCapId}
-                placeholder="Its own cap amount"
-                options={[
-                  { value: '', label: 'Its own cap amount' },
-                  // One level only: a cap that others count toward keeps its own amount, and a cap can count
-                  // toward one that does not itself count toward another.
-                  ...(caps.some((other) => other.progressCapId === cap.id) ? [] : caps)
-                    .filter((other) => other.id !== cap.id && !other.progressCapId)
-                    .map((other) => ({ value: other.id, label: other.name.trim() || 'Team Cap' })),
-                ]}
-                onChange={(progressCapId) => onChange(cap.id, { progressCapId })}
-              />
+              {/* Counting toward another cap needs another cap to count toward. */}
+              {caps.length >= 2 && (
+                <AllocationFieldMenu
+                  label="Counts Toward"
+                  value={cap.progressCapId}
+                  placeholder="Its own cap amount"
+                  options={[
+                    { value: '', label: 'Its own cap amount' },
+                    // One level only: a cap that others count toward keeps its own amount, and a cap can count
+                    // toward one that does not itself count toward another.
+                    ...(caps.some((other) => other.progressCapId === cap.id) ? [] : caps)
+                      .filter((other) => other.id !== cap.id && !other.progressCapId)
+                      .map((other) => ({ value: other.id, label: other.name.trim() || 'Team Cap' })),
+                  ]}
+                  onChange={(progressCapId) => onChange(cap.id, { progressCapId })}
+                />
+              )}
               <AllocationFieldMenu
                 label="Agent Split Percent Field"
                 value={cap.splitPercentFieldKey}
@@ -766,11 +783,6 @@ function TeamCapList({
                 onChange={(resetDateFieldKey) => onChange(cap.id, { resetDateFieldKey })}
               />
             </div>
-            <RecipientList
-              recipients={cap.recipients}
-              recipientOptions={recipientOptions}
-              onChange={(recipients) => onChange(cap.id, { recipients })}
-            />
             <FormulaEditor
               label="Qualifying Formula"
               value={cap.qualifyingFormula}
@@ -779,10 +791,118 @@ function TeamCapList({
               fitContent
               hint={allocationFormulaHint}
             />
+            <PayoutRuleList
+              rules={cap.payoutRules}
+              formulaNames={formulaNames}
+              recipientOptions={recipientOptions}
+              onChange={(payoutRules) => onChange(cap.id, { payoutRules })}
+            />
             <p className="text-2xs text-slate-500 dark:text-slate-400">This field is the percent of the agent’s share paid to the cap’s recipients. An 80/20 agent is 20%. An agent with no cap amount pays that percent in full and is not tracked. The reset date is that agent’s cap anniversary.</p>
           </section>
         );
       })}
+    </div>
+  );
+}
+
+function PayoutRuleList({
+  rules,
+  formulaNames,
+  recipientOptions,
+  onChange,
+}: {
+  rules: PayoutRuleForm[];
+  formulaNames: FormulaName[];
+  recipientOptions: (selectedId: string) => AllocationAgent[];
+  onChange: (rules: PayoutRuleForm[]) => void;
+}) {
+  const update = (id: string, patch: Partial<PayoutRuleForm>) =>
+    onChange(rules.map((rule) => (rule.id === id ? { ...rule, ...patch } : rule)));
+  const addRule = (
+    <button
+      type="button"
+      onClick={() => onChange([...rules, newPayoutRule()])}
+      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-brand-500/10 hover:text-brand-700 dark:text-slate-400 dark:hover:bg-brand-500/15 dark:hover:text-brand-400 cursor-pointer"
+    >
+      <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+      Add Payout Rule
+    </button>
+  );
+  // One rule pays on every deal the cap applies to, so it needs no condition and no box of its own.
+  if (rules.length === 1) {
+    return (
+      <div className="space-y-2">
+        <RecipientList
+          recipients={rules[0].recipients}
+          recipientOptions={recipientOptions}
+          onChange={(recipients) => update(rules[0].id, { recipients })}
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          {addRule}
+          <span className="text-2xs text-slate-500 dark:text-slate-400">To pay different agents depending on the deal, such as by the agent’s group.</span>
+        </div>
+      </div>
+    );
+  }
+  const moveClass = 'shrink-0 cursor-pointer rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-brand-700 disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-brand-400';
+  return (
+    <div className="space-y-3">
+      <p className="text-2xs text-slate-500 dark:text-slate-400">A deal uses the first payout rule whose condition is true. Leave the last rule’s condition blank to cover every other deal; a deal no rule matches pays no one.</p>
+      {rules.map((rule, index) => (
+        <div key={rule.id} className="space-y-3 rounded-lg border border-slate-200 p-4 dark:border-slate-700">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{`Payout Rule ${index + 1}`}</span>
+            <button
+              type="button"
+              onClick={() => onChange(moveItem(rules, index, index - 1))}
+              disabled={index === 0}
+              className={`ml-auto ${moveClass}`}
+              title="Move Rule Up"
+              aria-label={`Move payout rule ${index + 1} up`}
+            >
+              <ChevronUp className="h-[17px] w-[17px]" strokeWidth={1.75} />
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange(moveItem(rules, index, index + 1))}
+              disabled={index === rules.length - 1}
+              className={moveClass}
+              title="Move Rule Down"
+              aria-label={`Move payout rule ${index + 1} down`}
+            >
+              <ChevronDown className="h-[17px] w-[17px]" strokeWidth={1.75} />
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange(rules.filter((item) => item.id !== rule.id))}
+              className="shrink-0 cursor-pointer rounded p-1 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600"
+              title="Remove Rule"
+              aria-label={`Remove payout rule ${index + 1}`}
+            >
+              <TrashIcon />
+            </button>
+          </div>
+          <FormulaEditor
+            label="Applies When"
+            value={rule.condition}
+            onChange={(condition) => update(rule.id, { condition })}
+            names={formulaNames}
+            fitContent
+            hint={index === rules.length - 1
+              ? 'Blank applies to every other deal.'
+              : 'XLOOKUP(agent_id, agents.id, agents.group_id) = "Las Vegas" applies to deals of agents in the Las Vegas group.'}
+          />
+          {!rule.condition.trim() && index < rules.length - 1 && (
+            <p className="text-2xs font-semibold text-rose-600 dark:text-rose-400">This rule has no condition, so the rules after it never apply. Give it a condition or move it last.</p>
+          )}
+          <RecipientList
+            recipients={rule.recipients}
+            recipientOptions={recipientOptions}
+            onChange={(recipients) => update(rule.id, { recipients })}
+          />
+        </div>
+      ))}
+      {addRule}
     </div>
   );
 }

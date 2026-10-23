@@ -13,7 +13,7 @@ import {
   type EngineField,
 } from './model';
 import { normalizeAgentName } from '@/lib/id';
-import { planDealAllocations, splitCapTotal, type DealAllocationContext, type DealAllocationLine } from '@/lib/agent-allocations';
+import { dealTeamCaps, planDealAllocations, splitCapTotal, type DealAllocationContext, type DealAllocationLine } from '@/lib/agent-allocations';
 import { applyTemplateLogic, type AppliedAgentSplit, type NamedParty, type TeamCapCreditMap, type TemplateLogicStep } from './template';
 import type { FormulaLedgerRow, FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 
@@ -414,8 +414,8 @@ function teamCapCredits(allocation: DealAllocationContext, lines: DealAllocation
       credits[key].byAgent[agentKey] = roundCurrency((credits[key].byAgent[agentKey] || 0) + amount);
     });
   });
-  // A cap that pays several agents gives each their share of the total.
-  allocation.teamCaps.forEach((cap) => {
+  // A cap pays the recipients of the payout rule this deal matches, each their share of the total.
+  dealTeamCaps(allocation.teamCaps, allocation.deal, allocation.fieldTypes, allocation.lookups).forEach((cap) => {
     const key = cap.key?.trim().toLowerCase();
     if (!key || !credits[key]) return;
     credits[key].receipts = [...splitCapTotal(credits[key].total, cap.recipients)]

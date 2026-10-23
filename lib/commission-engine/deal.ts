@@ -3,7 +3,7 @@
  * saving writes. Every caller (Transaction Detail, the template popup, the template button's and the Transactions
  * list's out-of-date payments checks) goes through it. Pure: no React, no fetch.
  */
-import type { DealAllocationContext } from '@/lib/agent-allocations';
+import { dealTeamCaps, type DealAllocationContext } from '@/lib/agent-allocations';
 import { computeTransactionWaterfall, type WaterfallInput, type WaterfallResult } from './waterfall';
 import {
   allocationRowsForSave,
@@ -80,7 +80,9 @@ export function computeDealCommission(input: DealCommissionInput, save?: DealSav
   }
   const result = computeWaterfall(input, input.waterfall);
   if (!save) return result;
-  const shortfalls = capRecipientShortfalls(result, input.allocation?.teamCaps ?? [], save.knownAgents);
+  const allocation = input.allocation;
+  const dealCaps = allocation ? dealTeamCaps(allocation.teamCaps, allocation.deal, allocation.fieldTypes, allocation.lookups) : [];
+  const shortfalls = capRecipientShortfalls(result, dealCaps, save.knownAgents);
   return {
     ...result,
     save: {

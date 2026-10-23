@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   capProgressIds,
+  capPayoutRulesFromRow,
   capRecipientsFromRow,
+  dealTeamCaps,
   planDealAllocations,
   splitCapTotal,
   type DealAllocationContext,
@@ -25,7 +27,7 @@ const dylanCap: TeamCapRule = {
   splitPercentFieldKey: 'team_split',
   capAmountFieldKey: 'team_cap_amount',
   resetDateFieldKey: 'cap_date',
-  recipients: [{ agentId: DYLAN, share: 100 }],
+  payoutRules: [{ condition: null, recipients: [{ agentId: DYLAN, share: 100 }] }],
   progressCapId: null,
 };
 
@@ -34,7 +36,7 @@ const vegasCap: TeamCapRule = {
   id: 'CTC_000000000002',
   name: 'Las Vegas Team Cap',
   key: 'las_vegas_team_cap',
-  recipients: [{ agentId: DYLAN, share: 50 }, { agentId: YVONNE, share: 35 }, { agentId: PAUL, share: 15 }],
+  payoutRules: [{ condition: null, recipients: [{ agentId: DYLAN, share: 50 }, { agentId: YVONNE, share: 35 }, { agentId: PAUL, share: 15 }] }],
   progressCapId: dylanCap.id,
 };
 
@@ -74,7 +76,7 @@ describe('team caps that pay several agents', () => {
   });
 
   it('splits a total by share, the leftover cent to the first recipient', () => {
-    expect(Object.fromEntries(splitCapTotal(2000, vegasCap.recipients))).toEqual({ [DYLAN]: 1000, [YVONNE]: 700, [PAUL]: 300 });
+    expect(Object.fromEntries(splitCapTotal(2000, vegasCap.payoutRules[0].recipients))).toEqual({ [DYLAN]: 1000, [YVONNE]: 700, [PAUL]: 300 });
     const odd = splitCapTotal(0.01, [{ agentId: DYLAN, share: 50 }, { agentId: PAUL, share: 50 }]);
     expect(odd.get(DYLAN)! + odd.get(PAUL)!).toBeCloseTo(0.01, 5);
   });
@@ -107,9 +109,58 @@ describe('team caps that pay several agents', () => {
     const { lines } = planDealAllocations(context(), shares);
     const shortfalls = capRecipientShortfalls(
       { allocationLines: lines, agentSplitItems: [{ agentId: DYLAN, amount: 1000 }, { agentId: YVONNE, amount: 700 }, { agentId: PAUL, amount: 100 }] },
-      [dylanCap, vegasCap],
+      dealTeamCaps([dylanCap, vegasCap], {}, {}),
       [{ id: PAUL, name: 'Paul Patane' }] as never,
     );
     expect(shortfalls).toEqual([{ recipientId: PAUL, name: 'Paul Patane', receives: 300, has: 100 }]);
+  });
+});
+
+// One team cap for TATH: the same 20% up to $12,000 for every agent, paid out by region.
+describe('payout rules on one team cap', () => {
+  const oneCap: TeamCapRule = {
+    ...dylanCap,
+    name: 'Team Cap',
+    key: 'team_cap',
+    progressCapId: null,
+    payoutRules: [
+      { condition: 'region = "Las Vegas"', recipients: vegasCap.payoutRules[0].recipients },
+      { condition: null, recipients: [{ agentId: DYLAN, share: 100 }] },
+    ],
+  };
+  const vegas = { region: 'Las Vegas' };
+  const elsewhere = { region: 'Phoenix' };
+  const run = (deal: Record<string, unknown>, history: DealAllocationContext['history'] = []) =>
+    planDealAllocations(context({ teamCaps: [oneCap], selectedTeamCapIds: null, deal, fieldTypes: { region: 'TEXT' }, history }), shares);
+
+  it('reads stored rules, or the recipients from before rules as one rule with no condition', () => {
+    expect(capPayoutRulesFromRow([{ condition: ' region = "Las Vegas" ', recipients: [{ agent_id: PAUL, share: 100 }] }], null, null))
+      .toEqual([{ condition: 'region = "Las Vegas"', recipients: [{ agentId: PAUL, share: 100 }] }]);
+    expect(capPayoutRulesFromRow(null, [{ agent_id: DYLAN, share: 100 }], null)).toEqual([{ condition: null, recipients: [{ agentId: DYLAN, share: 100 }] }]);
+    expect(capPayoutRulesFromRow(null, null, DYLAN)).toEqual([{ condition: null, recipients: [{ agentId: DYLAN, share: 100 }] }]);
+  });
+
+  it('uses the first rule whose condition is true', () => {
+    expect(dealTeamCaps([oneCap], vegas, { region: 'TEXT' })[0].recipients.map((item) => item.agentId)).toEqual([DYLAN, YVONNE, PAUL]);
+    expect(dealTeamCaps([oneCap], elsewhere, { region: 'TEXT' })[0].recipients).toEqual([{ agentId: DYLAN, share: 100 }]);
+  });
+
+  it('pays nothing when no rule matches', () => {
+    const vegasOnly: TeamCapRule = { ...oneCap, payoutRules: [oneCap.payoutRules[0]] };
+    expect(dealTeamCaps([vegasOnly], elsewhere, { region: 'TEXT' })[0].recipients).toEqual([]);
+    const { lines } = planDealAllocations(context({ teamCaps: [vegasOnly], selectedTeamCapIds: [oneCap.id], deal: elsewhere, fieldTypes: { region: 'TEXT' } }), shares);
+    expect(lines).toEqual([]);
+  });
+
+  it('takes 20% under either rule and leaves out only the matching rule\'s recipients', () => {
+    expect(run(vegas).lines.map((line) => [line.agent_id, line.amount])).toEqual([[AGENT, 2000]]);
+    // Outside Las Vegas, Yvonne is not a recipient, so she pays into the cap like any agent (here her share is $0).
+    expect(run(elsewhere).lines.map((line) => line.agent_id)).toEqual([AGENT, YVONNE]);
+  });
+
+  it('keeps one cap total when the agent changes region', () => {
+    const history = [{ agentId: AGENT, amount: 11000, periodStart: '2026-01-01', teamCapId: oneCap.id }];
+    expect(run(vegas, history).lines[0].amount).toBe(1000);
+    expect(run(elsewhere, history).lines[0].amount).toBe(1000);
   });
 });

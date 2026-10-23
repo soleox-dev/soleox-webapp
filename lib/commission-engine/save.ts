@@ -2,7 +2,7 @@
  * What saving a deal writes from its waterfall: the commission lines, the payments, the team cap and sales volume
  * rows, and why Save is blocked.
  */
-import { capRecipientIds, splitCapTotal, type DealAllocationLine, type TeamCapRule } from '@/lib/agent-allocations';
+import { capRecipientIds, splitCapTotal, type DealAllocationLine, type DealTeamCap } from '@/lib/agent-allocations';
 import { isPrimaryAgent } from './stored-lines';
 import { roundCurrency, roundPercentRate, type AgentConfig, type CommissionEntityOption, type KnownAgentInfo } from './model';
 import type { WaterfallResult } from './waterfall';
@@ -227,7 +227,8 @@ export type CapRecipientShortfall = { recipientId: string; name: string; receive
  */
 export function capRecipientShortfalls(
   result: Pick<WaterfallResult, 'allocationLines' | 'agentSplitItems'>,
-  teamCaps: TeamCapRule[],
+  /** The caps with this deal's recipients (dealTeamCaps). */
+  teamCaps: DealTeamCap[],
   knownAgents: KnownAgentInfo[],
 ): CapRecipientShortfall[] {
   const owed = new Map<string, number>();

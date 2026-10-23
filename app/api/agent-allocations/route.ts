@@ -4,7 +4,7 @@ import { requireSessionClient, apiError } from '@/lib/session';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { validateFormula } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-validator';
-import { capRecipientsFromRow, describeTeamCapKeys, normalizeTeamCapKey, type TeamCapRecipient } from '@/lib/agent-allocations';
+import { capRecipientsFromRow, describeTeamCapKeys, normalizeTeamCapKey, type CapPayoutRule } from '@/lib/agent-allocations';
 
 type CapType = 'TEAM' | 'AGENT';
 
@@ -18,13 +18,17 @@ type CapBody = {
   capAmountFieldKey?: string | null;
   resetDateFieldKey?: string | null;
   recipientAgentId?: string | null;
-  /** The agents a team cap pays and their shares in percent, adding up to 100. */
-  recipients?: { agentId?: string; share?: number | string }[] | null;
+  /** The agents a team cap pays and their shares in percent, adding up to 100. Used when payoutRules is absent. */
+  recipients?: RecipientBody[] | null;
+  /** Who a team cap pays, in order: a deal uses the first rule whose condition is true or blank. */
+  payoutRules?: { condition?: string | null; recipients?: RecipientBody[] | null }[] | null;
   /** Another team cap this one counts toward. */
   progressCapId?: string | null;
   hideOverAllocations?: boolean;
   commissionEntityId?: string | null;
 };
+
+type RecipientBody = { agentId?: string; share?: number | string };
 
 type VolumeBody = {
   name?: string;
@@ -77,23 +81,48 @@ function capsSchemaMissing(error: unknown): boolean {
   return false;
 }
 
-/** True when migration 075 (several recipients, and caps that count toward another) has not been run yet. */
-function recipientsMissing(error: unknown): boolean {
+/** The migration a save needs when a team cap column is missing: 078 (payout rules) or 075 (recipients, Counts Toward). */
+function missingCapMigration(error: unknown): string | null {
   const { raw, code } = errorParts(error);
-  return (code === '42703' || code === 'PGRST204') && /recipients|progress_cap_id/.test(raw);
+  if (code !== '42703' && code !== 'PGRST204') return null;
+  if (/payout_rules/.test(raw)) return '078';
+  if (/recipients|progress_cap_id/.test(raw)) return '075';
+  return null;
 }
 
-/** A team cap's recipients from the request: the recipients list, or the single recipientAgentId at 100%. */
-function bodyRecipients(body: CapBody): TeamCapRecipient[] {
-  if (Array.isArray(body.recipients)) {
-    return capRecipientsFromRow(body.recipients.map((item) => ({ agent_id: clean(item?.agentId), share: Number(item?.share) })), null);
+function recipientsFromBody(listed: RecipientBody[] | null | undefined) {
+  return capRecipientsFromRow((listed || []).map((item) => ({ agent_id: clean(item?.agentId), share: Number(item?.share) })), null);
+}
+
+/** A team cap's payout rules from the request, or one rule with no condition from its recipients. */
+function bodyPayoutRules(body: CapBody): CapPayoutRule[] {
+  if (Array.isArray(body.payoutRules)) {
+    return body.payoutRules.map((rule) => ({ condition: clean(rule?.condition), recipients: recipientsFromBody(rule?.recipients) }));
   }
-  return capRecipientsFromRow(null, clean(body.recipientAgentId));
+  const recipients = Array.isArray(body.recipients) ? recipientsFromBody(body.recipients) : capRecipientsFromRow(null, clean(body.recipientAgentId));
+  return recipients.length > 0 ? [{ condition: null, recipients }] : [];
 }
 
-/** What is wrong with a team cap's recipients, or null. */
-function recipientsProblem(body: CapBody): string | null {
-  const listed = Array.isArray(body.recipients) ? body.recipients : [];
+/** What is wrong with a team cap's payout rules, or null. */
+function payoutRulesProblem(body: CapBody): string | null {
+  const rules = Array.isArray(body.payoutRules)
+    ? body.payoutRules
+    : [{ condition: null, recipients: Array.isArray(body.recipients) ? body.recipients : [] }];
+  for (const [index, rule] of rules.entries()) {
+    const listed = Array.isArray(rule?.recipients) ? rule.recipients : [];
+    // A single rule may stay empty while the cap is being set up; with several, each one pays someone.
+    const problem = rules.length > 1 && listed.length === 0 ? 'Choose an agent for this rule.' : recipientsProblem(listed);
+    if (problem) return rules.length > 1 ? `Payout rule ${index + 1}: ${problem}` : problem;
+    // A rule with no condition matches every deal, so a rule after it could never pay.
+    if (!clean(rule?.condition) && index < rules.length - 1) {
+      return `Payout rule ${index + 1} has no condition, so the rules after it never apply. Give it a condition or move it last.`;
+    }
+  }
+  return null;
+}
+
+/** What is wrong with one payout rule's recipients, or null. */
+function recipientsProblem(listed: RecipientBody[]): string | null {
   const ids = listed.map((item) => clean(item?.agentId)).filter(Boolean);
   if (ids.length !== listed.length) return 'Choose an agent for each recipient.';
   if (new Set(ids).size !== ids.length) return 'Each agent can be a recipient only once.';
@@ -122,10 +151,13 @@ function capRow(clientId: string, body: CapBody, user: string, key: string, capT
     cap_amount_field_key: clean(body.capAmountFieldKey),
     reset_date_field_key: clean(body.resetDateFieldKey),
     ...(agent ? { recipient_agent_id: null } : (() => {
-      const recipients = bodyRecipients(body);
+      const rules = bodyPayoutRules(body);
+      const stored = (recipients: CapPayoutRule['recipients']) => recipients.map((recipient) => ({ agent_id: recipient.agentId, share: recipient.share }));
+      const first = rules[0]?.recipients ?? [];
       return {
-        recipient_agent_id: recipients[0]?.agentId ?? null,
-        recipients: recipients.map((recipient) => ({ agent_id: recipient.agentId, share: recipient.share })),
+        recipient_agent_id: first[0]?.agentId ?? null,
+        recipients: stored(first),
+        payout_rules: rules.map((rule) => ({ condition: rule.condition, recipients: stored(rule.recipients) })),
         progress_cap_id: capId(body.progressCapId),
       };
     })()),
@@ -339,7 +371,7 @@ export async function PUT(request: Request) {
     const agentCaps = saveAgentCaps ? body.agentCaps as CapBody[] : [];
     const volumeBody = saveVolume ? body.salesVolume as VolumeBody : {};
     for (const cap of teamCaps) {
-      const problem = recipientsProblem(cap);
+      const problem = payoutRulesProblem(cap);
       if (problem) return NextResponse.json({ error: `${clean(cap.name) || 'Team Cap'}: ${problem}` }, { status: 400 });
     }
     // A cap counts toward another team cap on this list, and that cap does not itself count toward a third.
@@ -355,7 +387,7 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: `${label}: ${clean(other.name) || 'That cap'} already counts toward another cap. Choose the cap it counts toward instead.` }, { status: 400 });
       }
     }
-    const recipientIds = [...new Set(teamCaps.flatMap((cap) => bodyRecipients(cap).map((recipient) => recipient.agentId)))];
+    const recipientIds = [...new Set(teamCaps.flatMap((cap) => bodyPayoutRules(cap).flatMap((rule) => rule.recipients.map((recipient) => recipient.agentId))))];
     if (recipientIds.length > 0) {
       const { data: recipients, error: recipientsError } = await supabase
         .from('agents')
@@ -365,7 +397,7 @@ export async function PUT(request: Request) {
       if (recipientsError) throw recipientsError;
       const knownRecipients = new Set((recipients || []).map((agent) => agent.id));
       for (const cap of teamCaps) {
-        if (bodyRecipients(cap).some((recipient) => !knownRecipients.has(recipient.agentId))) {
+        if (bodyPayoutRules(cap).some((rule) => rule.recipients.some((recipient) => !knownRecipients.has(recipient.agentId)))) {
           return NextResponse.json({ error: `${clean(cap.name) || 'Team Cap'}: Choose an agent for this cap.` }, { status: 400 });
         }
       }
@@ -390,6 +422,10 @@ export async function PUT(request: Request) {
       const label = clean(cap.name) || 'Team Cap';
       const teamError = validateFormula(String(cap.qualifyingFormula || ''), knownNames);
       if (teamError) return NextResponse.json({ error: `${label}: ${teamError}` }, { status: 400 });
+      for (const [index, rule] of bodyPayoutRules(cap).entries()) {
+        const conditionError = rule.condition ? validateFormula(rule.condition, knownNames) : null;
+        if (conditionError) return NextResponse.json({ error: `${label}: Payout rule ${index + 1}: ${conditionError}` }, { status: 400 });
+      }
     }
     if (saveVolume) {
       const volumeError = validateFormula(String(volumeBody.qualifyingFormula || ''), knownNames);
@@ -422,9 +458,10 @@ export async function PUT(request: Request) {
       console.error(error);
       return NextResponse.json({ error: 'Run migration 048 before saving caps.' }, { status: 500 });
     }
-    if (recipientsMissing(error)) {
+    const capMigration = missingCapMigration(error);
+    if (capMigration) {
       console.error(error);
-      return NextResponse.json({ error: 'Run migration 075 before saving team caps.' }, { status: 500 });
+      return NextResponse.json({ error: `Run migration ${capMigration} before saving team caps.` }, { status: 500 });
     }
     if (code === '23505') {
       return NextResponse.json({ error: 'That key is already used by another cap.' }, { status: 400 });
