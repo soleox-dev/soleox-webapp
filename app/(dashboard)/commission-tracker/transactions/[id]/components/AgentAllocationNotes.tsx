@@ -79,7 +79,7 @@ export function TeamCapAmount({
   onAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
 }) {
   if (!line) {
-    return <span className={`inline-flex w-[6.5rem] justify-end text-xs font-semibold text-slate-300 dark:text-slate-600 ${isEditing ? 'pr-2' : ''}`}>—</span>;
+    return <span className={`inline-flex w-[6.5rem] justify-end text-xs font-semibold text-slate-300 dark:text-slate-600 pr-2`}>—</span>;
   }
   const amount = Number(line.amount) || 0;
   const calculated = line.calculated_amount == null ? null : Number(line.calculated_amount);
@@ -96,8 +96,9 @@ export function TeamCapAmount({
     </span>
   ) : null;
   if (!canEdit) {
+    // The table's amounts keep 8px clear on the right, so this one does too and lines up with the splits above.
     return (
-      <span className="inline-flex flex-col items-end">
+      <span className="inline-flex flex-col items-end pr-2">
         {/* "edited" goes before the amount, so the amount keeps the split amounts' right edge above it. */}
         <span className="inline-flex items-baseline justify-end gap-1">
           {edited ? <span className={`text-2xs font-bold ${editedTone}`}>Edited</span> : null}
@@ -181,7 +182,7 @@ export function AgentCapNote({ amount, limit, detail, share }: { amount: string;
     <HoverNote label={detail}>
       <span tabIndex={0} aria-label={`${amount} of ${limit}`} className="mt-0.5 inline-flex cursor-help items-center gap-1 outline-none">
         <span aria-hidden className="w-8 shrink-0 text-right text-2xs font-light leading-none tabular-nums text-slate-400 dark:text-slate-500">{limit}</span>
-        <span ref={barRef} data-cap-bar className="relative inline-flex h-4 shrink-0 items-center justify-end overflow-hidden rounded-sm bg-slate-200 dark:bg-slate-800">
+        <span ref={barRef} data-cap-bar className="relative -mr-1 inline-flex h-4 shrink-0 items-center justify-end overflow-hidden rounded-sm bg-slate-200 dark:bg-slate-800">
           <span aria-hidden className={`absolute inset-y-0 left-0 z-0 ${fill}`} style={{ width: `${width}%` }} />
           <span aria-hidden className={`relative z-10 px-1 text-right text-2xs font-medium leading-none tabular-nums text-slate-800 ${text}`}>{amount}</span>
         </span>
