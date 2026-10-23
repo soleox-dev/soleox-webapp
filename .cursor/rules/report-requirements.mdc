@@ -30,6 +30,8 @@ Below `md` the report title is 20px instead of 30px (the clickable metric and ca
 
 Below `md`, every report scrolls the page natively by touch. Agent Earnings, Team Caps, and Owner Summary with hidden scorecards or an open drilldown do not lock `html` and `body` to `overflow: hidden` or forward wheel scrolling there; that full-screen layout applies only when the screen is at least 768px wide and 560px tall (the `screenfit:` variant and `useFitsScreen`). A phone in landscape is wide but short, so it scrolls the page like portrait.
 
+Below `md`, Sold vs. List Price shows its tiles and visuals first: the price change bands (each a tappable row) and the average price change chart, then a View All Listings button. A band or that button replaces them with those listings as cards that fit the screen (address linking to the transaction, the change %, agent, closing date, status, list and sold prices, and the change in dollars), sorted by the largest change, with a Back button that returns to the visuals.
+
 ### Filters
 
 Group, Status, Side, Primary agent, and Lead source use the multi-select control on every report. Metric stays a single-select: one measure. The closed control of every filter in the filters card is an underline field, the same field Cap year uses: the label sits above the value, the value sits on a bottom border, and a chevron sits at the right.

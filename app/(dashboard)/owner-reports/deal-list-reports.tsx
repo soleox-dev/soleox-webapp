@@ -2,7 +2,8 @@
 
 import React, { useId, useMemo, useState } from 'react';
 import { areaUnder, linePeaks, smoothLine, smoothRuns, svgUserX } from './chart-paths';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
+import { useIsDesktop } from '@/lib/use-media-query';
 import {
   fullMoney,
   inRange,
@@ -485,6 +486,8 @@ const CHANGE_BUCKETS = [
   { key: 'under', label: 'Under', dot: 'bg-rose-300', test: (change: number) => change < 0 },
 ] as const;
 
+type BandKey = (typeof CHANGE_BUCKETS)[number]['key'];
+
 /** Green shading for the Price Change % cell, stronger the further over asking; rose under asking. */
 function changeShade(change: number | null): string {
   if (change == null) return '';
@@ -671,6 +674,12 @@ export function PriceChangeReport({ deals, priorDeals, names, range }: {
   names: Map<string, string>;
   range: DateRange;
 }) {
+  const isPhone = !useIsDesktop();
+  const [phoneView, setPhoneView] = useState<BandKey | 'all' | null>(null);
+  const openPhoneView = (view: BandKey | 'all' | null) => {
+    setPhoneView(view);
+    window.scrollTo({ top: 0 });
+  };
   const stats = (rows: ReportDeal[]) => {
     const priced = rows.filter(hasPrices);
     const changes = priced.map((deal) => priceChange(deal) as number);
@@ -712,45 +721,160 @@ export function PriceChangeReport({ deals, priorDeals, names, range }: {
       total: rate(now.change),
     },
   ];
-  return (
-    <div className={fitReport}>
-      {/* Three tiles in the style of the other reports. Phones: Listings and Avg. Price Change side by side, the two
-          average prices in one full-width tile under them. Each change compares with the same dates last year. */}
-      <div className="grid shrink-0 grid-cols-2 gap-3 md:grid-cols-3">
-        <StatusTile
-          label="Listings"
-          value={now.count.toLocaleString()}
-          deals={[]}
-          read={() => 0}
-          format={(value) => value.toLocaleString()}
-          footer={<span><Delta current={now.count} prior={before.count} format={(value) => value.toLocaleString()} /> vs. last year</span>}
-        />
-        <StatusTile
-          label="Avg. Price Change"
-          value={now.change == null ? '—' : `${now.change > 0 ? '+' : now.change < 0 ? '−' : ''}${rate(Math.abs(now.change))}`}
-          valueClass={signTone(now.change ?? 0)}
-          deals={[]}
-          read={() => 0}
-          format={(value) => value.toLocaleString()}
-          footer={(
-            <>
-              <TileFact label="Per Listing" value={now.dollars == null ? '—' : signedMoney(now.dollars)} />
-              <span><Delta current={now.change == null ? null : now.change * 100} prior={before.change == null ? null : before.change * 100} format={(value) => `${value.toFixed(2)} pts`} /> vs. last year</span>
-            </>
-          )}
-        />
-        <div className="col-span-2 flex min-w-0 flex-col rounded-xl border border-slate-200 bg-white px-4 py-3 md:col-span-1 dark:border-slate-800 dark:bg-slate-900">
-          <div className="grid grid-cols-2 gap-4">
-            {([['Avg. List Price', now.list, before.list], ['Avg. Sales Price', now.sale, before.sale]] as const).map(([label, value, prior]) => (
-              <div key={label} className="min-w-0">
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
-                <p className="mt-0.5 truncate text-xl font-bold tabular-nums text-slate-900 dark:text-slate-50">{value == null ? '—' : fullMoney(value)}</p>
-                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400"><RelativeDelta current={value} prior={prior} /> vs. last year</p>
-              </div>
-            ))}
-          </div>
+  // Three tiles in the style of the other reports. Phones: Listings and Avg. Price Change side by side, the two
+  // average prices in one full-width tile under them. Each change compares with the same dates last year.
+  const tiles = (
+    <div className="grid shrink-0 grid-cols-2 gap-3 md:grid-cols-3">
+      <StatusTile
+        label="Listings"
+        value={now.count.toLocaleString()}
+        deals={[]}
+        read={() => 0}
+        format={(value) => value.toLocaleString()}
+        footer={<span><Delta current={now.count} prior={before.count} format={(value) => value.toLocaleString()} /> vs. last year</span>}
+      />
+      <StatusTile
+        label="Avg. Price Change"
+        value={now.change == null ? '—' : `${now.change > 0 ? '+' : now.change < 0 ? '−' : ''}${rate(Math.abs(now.change))}`}
+        valueClass={signTone(now.change ?? 0)}
+        deals={[]}
+        read={() => 0}
+        format={(value) => value.toLocaleString()}
+        footer={(
+          <>
+            <TileFact label="Per Listing" value={now.dollars == null ? '—' : signedMoney(now.dollars)} />
+            <span><Delta current={now.change == null ? null : now.change * 100} prior={before.change == null ? null : before.change * 100} format={(value) => `${value.toFixed(2)} pts`} /> vs. last year</span>
+          </>
+        )}
+      />
+      <div className="col-span-2 flex min-w-0 flex-col rounded-xl border border-slate-200 bg-white px-4 py-3 md:col-span-1 dark:border-slate-800 dark:bg-slate-900">
+        <div className="grid grid-cols-2 gap-4">
+          {([['Avg. List Price', now.list, before.list], ['Avg. Sales Price', now.sale, before.sale]] as const).map(([label, value, prior]) => (
+            <div key={label} className="min-w-0">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
+              <p className="mt-0.5 truncate text-xl font-bold tabular-nums text-slate-900 dark:text-slate-50">{value == null ? '—' : fullMoney(value)}</p>
+              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400"><RelativeDelta current={value} prior={prior} /> vs. last year</p>
+            </div>
+          ))}
         </div>
       </div>
+    </div>
+  );
+  // How many listings sold in each band, as a bar of the total, with the change from last year. On phones a band
+  // opens its listings.
+  const bandsPanel = (onBand?: (key: BandKey) => void) => (
+    <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-center justify-between rounded-t-xl bg-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+        <p>Price Change</p>
+        <p>Listings</p>
+      </div>
+      <div className="space-y-3 px-4 py-3">
+        {CHANGE_BUCKETS.map((bucket, index) => {
+          const count = now.buckets[index];
+          const share = now.count ? count / now.count : 0;
+          const row = (
+            <>
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="inline-flex items-center gap-2">
+                  <span aria-hidden className={`h-2.5 w-2.5 rounded-full ${bucket.dot}`} />
+                  {bucket.label}
+                </span>
+                <span className="inline-flex items-baseline gap-2 tabular-nums">
+                  <span className="text-2xs"><Delta current={count} prior={before.buckets[index]} format={(value) => value.toLocaleString()} /></span>
+                  <span className="font-bold">{count.toLocaleString()}</span>
+                  {onBand ? <ChevronRight aria-hidden className="h-4 w-4 self-center text-slate-400" /> : null}
+                </span>
+              </div>
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" title={`${Math.round(share * 100)}% of listings`}>
+                <div className={`h-full rounded-full ${bucket.dot}`} style={{ width: `${share * 100}%` }} />
+              </div>
+            </>
+          );
+          return onBand ? (
+            <button key={bucket.key} type="button" onClick={() => onBand(bucket.key)} disabled={count === 0} className="-mx-2 block w-[calc(100%+1rem)] cursor-pointer rounded-lg px-2 py-1 text-left transition hover:bg-slate-50 disabled:cursor-default disabled:opacity-50 dark:hover:bg-slate-800/60">
+              {row}
+            </button>
+          ) : <div key={bucket.key}>{row}</div>;
+        })}
+      </div>
+    </div>
+  );
+  const chartPanel = (
+    <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <p className="rounded-t-xl bg-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">Average Price Change %</p>
+      <div className="p-3">
+        <ChangeChart deals={shown} priorDeals={priorDeals} range={range} />
+      </div>
+    </div>
+  );
+
+  // Phones: the tiles and visuals first; a band, or View All Listings, opens those listings as cards that fit the
+  // screen, with Back to return.
+  if (isPhone) {
+    const picked = phoneView && phoneView !== 'all' ? CHANGE_BUCKETS.find((bucket) => bucket.key === phoneView) : null;
+    if (phoneView) {
+      const listed = [...shown]
+        .filter((deal) => !picked || picked.test(priceChange(deal) ?? 0))
+        .sort((a, b) => (priceChange(b) ?? 0) - (priceChange(a) ?? 0));
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={() => openPhoneView(null)} className="inline-flex h-9 cursor-pointer items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+              <ChevronLeft aria-hidden className="h-4 w-4" />
+              Back
+            </button>
+            <p className="min-w-0 flex-1 truncate text-base font-semibold">
+              {picked ? picked.label : 'All Listings'}
+              <span className="ml-2 text-sm font-normal text-slate-500 dark:text-slate-400">{listed.length.toLocaleString()}</span>
+            </p>
+          </div>
+          {listed.length === 0 ? (
+            <p className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">No listings in this group.</p>
+          ) : (
+            <ul className="space-y-2">
+              {listed.map((deal) => {
+                const change = priceChange(deal);
+                return (
+                  <li key={deal.id} className="rounded-xl border border-slate-200 bg-white px-3.5 py-3 dark:border-slate-800 dark:bg-slate-900">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="min-w-0 text-sm"><AddressLink deal={deal} /></span>
+                      <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums ${changeShade(change)}`}>{rate(change)}</span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                      <span>{names.get(deal.agentId) || '—'}</span>
+                      <span aria-hidden>·</span>
+                      <span>{dayLabel(deal.closingDate)}</span>
+                      <StatusChip status={deal.status} />
+                    </div>
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-xs tabular-nums">
+                      <span><span className="block text-slate-500 dark:text-slate-400">List</span>{fullMoney(deal.listPrice)}</span>
+                      <span><span className="block text-slate-500 dark:text-slate-400">Sold</span>{fullMoney(deal.salesPrice)}</span>
+                      <span className="text-right"><span className="block text-slate-500 dark:text-slate-400">Change</span><span className={signTone(deal.salesPrice - deal.listPrice)}>{signedMoney(deal.salesPrice - deal.listPrice)}</span></span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-4">
+        {tiles}
+        {bandsPanel((key) => openPhoneView(key))}
+        {chartPanel}
+        <button type="button" onClick={() => openPhoneView('all')} className="flex h-11 w-full cursor-pointer items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-brand-700 dark:border-slate-800 dark:bg-slate-900 dark:text-brand-300">
+          View All {shown.length.toLocaleString()} Listings
+          <ChevronRight aria-hidden className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={fitReport}>
+      {tiles}
       {/* Wide screens: table and side panels side by side, each scrolling in the space left. Narrower fitted screens
           stack them and scroll this area, with the table capped to it so its header and total stay in view. */}
       <div className="grid items-start gap-4 screenfit:min-h-0 screenfit:flex-1 max-xl:screenfit:grid-rows-[100%_auto] max-xl:screenfit:overflow-y-auto xl:grid-cols-[minmax(0,1fr)_24rem] xl:screenfit:grid-rows-[minmax(0,1fr)] xl:screenfit:items-stretch">
@@ -764,47 +888,14 @@ export function PriceChangeReport({ deals, priorDeals, names, range }: {
           fitClass="screenfit:h-full"
         />
         <div className="space-y-4 xl:screenfit:min-h-0 xl:screenfit:overflow-y-auto">
-          {/* How many listings sold in each band, as a bar of the total, with the change from last year. */}
-          <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between rounded-t-xl bg-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-              <p>Price Change</p>
-              <p>Listings</p>
-            </div>
-            <div className="space-y-3 px-4 py-3">
-              {CHANGE_BUCKETS.map((bucket, index) => {
-                const count = now.buckets[index];
-                const share = now.count ? count / now.count : 0;
-                return (
-                  <div key={bucket.key}>
-                    <div className="flex items-center justify-between gap-3 text-sm">
-                      <span className="inline-flex items-center gap-2">
-                        <span aria-hidden className={`h-2.5 w-2.5 rounded-full ${bucket.dot}`} />
-                        {bucket.label}
-                      </span>
-                      <span className="inline-flex items-baseline gap-2 tabular-nums">
-                        <span className="text-2xs"><Delta current={count} prior={before.buckets[index]} format={(value) => value.toLocaleString()} /></span>
-                        <span className="font-bold">{count.toLocaleString()}</span>
-                      </span>
-                    </div>
-                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" title={`${Math.round(share * 100)}% of listings`}>
-                      <div className={`h-full rounded-full ${bucket.dot}`} style={{ width: `${share * 100}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-            <p className="rounded-t-xl bg-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">Average Price Change %</p>
-            <div className="p-3">
-              <ChangeChart deals={shown} priorDeals={priorDeals} range={range} />
-            </div>
-          </div>
+          {bandsPanel()}
+          {chartPanel}
         </div>
       </div>
     </div>
   );
 }
+
 
 /** Deals a report covers in a range, kept here so the prior-year comparison uses the same rule. */
 export function priceChangeDeals(deals: ReportDeal[], range: DateRange, isListingSide: (side: string) => boolean): ReportDeal[] {
