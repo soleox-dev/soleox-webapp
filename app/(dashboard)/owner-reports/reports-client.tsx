@@ -5568,7 +5568,11 @@ function EarningTransactions({ lines, names, wrapRef }: { lines: Array<{ key: st
                 <td className="px-2 py-1.5 text-right tabular-nums text-slate-500">{line.rank}</td>
                 <td className="px-3 py-1.5 whitespace-nowrap">{line.agentName}</td>
                 <td className="px-3 py-1.5 whitespace-nowrap">{names.get(line.deal.agentId) || '—'}</td>
-                <td className="px-3 py-1.5 whitespace-nowrap">{line.deal.address || '—'}</td>
+                <td className="px-3 py-1.5 whitespace-nowrap">
+                  {line.deal.address && line.deal.id ? (
+                    <a href={`/commission-tracker/transactions/${encodeURIComponent(line.deal.id)}`} className="font-medium hover:text-brand-700 hover:underline dark:hover:text-brand-400">{line.deal.address}</a>
+                  ) : line.deal.address || '—'}
+                </td>
                 <td className="px-3 py-1.5 whitespace-nowrap">{line.deal.side || '—'}</td>
                 <td className="px-3 py-1.5 whitespace-nowrap">{line.deal.clientName || '—'}</td>
                 <td className="px-3 py-1.5 whitespace-nowrap">{line.deal.status || '—'}</td>

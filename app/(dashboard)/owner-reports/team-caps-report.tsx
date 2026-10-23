@@ -262,7 +262,12 @@ function CapSection({ cap, rows, openAgentId, onOpen, showPaid }: {
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">{line.primaryAgent}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{line.side || '—'}</td>
-                  <td className="px-3 py-2 min-w-[14rem]">{line.address || '—'}</td>
+                  <td className="px-3 py-2 min-w-[14rem]">
+                    {/* Opens the transaction; a Starting Balance row has none. */}
+                    {line.address && line.transactionId ? (
+                      <a href={`/commission-tracker/transactions/${encodeURIComponent(line.transactionId)}`} className="font-medium hover:text-brand-700 hover:underline dark:hover:text-brand-400">{line.address}</a>
+                    ) : line.address || '—'}
+                  </td>
                   <td className="px-3 py-2 whitespace-nowrap tabular-nums">{formatUs(line.closingDate)}</td>
                   <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{capMoney(line.salesPrice)}</td>
                   <td className="px-3 py-2 whitespace-nowrap">{line.leadSource || '—'}</td>
