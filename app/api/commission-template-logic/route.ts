@@ -4,6 +4,7 @@ import { requireSessionClient, apiError } from '@/lib/session';
 import { recordAudit } from '@/lib/audit';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { renumberTemplateRows } from '@/lib/template-order';
 
 // GET: Fetch non-archived template logic steps ordered by step_number
 export async function GET(request: Request) {
@@ -296,10 +297,11 @@ export async function DELETE(request: Request) {
         entityId: templateId,
         summary: `Archived ${ids.length} template ${ids.length === 1 ? 'rule' : 'rules'}`,
       });
+      await renumberTemplateRows(supabase, 'commission_template_rules', templateId, clientId);
       return NextResponse.json({ success: true, deleted: ids });
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('commission_template_rules')
       .update({
         archived: true,
@@ -307,9 +309,12 @@ export async function DELETE(request: Request) {
         updated_by: session.user.email,
       })
       .eq('id', id)
-      .eq('client_id', clientId);
+      .eq('client_id', clientId)
+      .select('template_id');
 
     if (error) throw error;
+    const deletedFrom = data?.[0]?.template_id;
+    if (deletedFrom) await renumberTemplateRows(supabase, 'commission_template_rules', String(deletedFrom), clientId);
     await recordAudit(supabase, {
       clientId,
       actorEmail: session.user.email,
