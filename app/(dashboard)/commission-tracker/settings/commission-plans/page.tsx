@@ -282,7 +282,7 @@ export default function CommissionPlansPage() {
               </li>
             ))}
           </ul>
-          <p className="mt-1">Deals calculate with the plan&apos;s cap. If the plan is wrong, move the agent to the right one (Propose Plans or the Agents page); if the agent field is out of date, correct it, since the cap bars in Settings &gt; Caps still read it.</p>
+          <p className="mt-1">Deals calculate with the plan&apos;s cap, and their cap bars show it. If the plan is wrong, move the agent to the right one (Propose Plans or the Agents page); if the agent field is out of date, correct it, since deals not on plans still use it.</p>
         </div>
       )}
 
@@ -300,7 +300,7 @@ export default function CommissionPlansPage() {
               <div key={plan.id} className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 ${draft?.id === plan.id ? 'bg-brand-500/10' : 'hover:bg-slate-100 dark:hover:bg-slate-700/50'}`}>
                 <button type="button" onClick={() => choosePlan(plan)} className="min-w-0 flex-1 cursor-pointer text-left">
                   <div className={`truncate text-xs font-semibold ${draft?.id === plan.id ? 'text-brand-700 dark:text-brand-400' : 'text-slate-800 dark:text-slate-200'}`}>{plan.name}</div>
-                  {tab === 'plans' && <div className="text-2xs text-slate-500 dark:text-slate-400">{data.agentCounts[plan.id] || 0} agents</div>}
+                  {tab === 'plans' && <div className="text-2xs text-slate-500 dark:text-slate-400">{data.agentCounts[plan.id] || 0} {(data.agentCounts[plan.id] || 0) === 1 ? 'agent' : 'agents'}</div>}
                 </button>
                 {canEdit && (
                   <button type="button" onClick={() => void remove(plan)} className="cursor-pointer rounded p-1 text-rose-500 opacity-0 transition hover:bg-rose-500/10 group-hover:opacity-100 focus:opacity-100" aria-label={`Remove ${plan.name}`} title="Remove Plan">

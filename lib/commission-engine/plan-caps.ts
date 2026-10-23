@@ -101,7 +101,8 @@ export function capText(amount: number | null): string {
 
 /** "Broker Cap: the plan's $16,000 is used; the agent's Broker Cap field says $8,000." */
 export function capMismatchText(mismatch: PlanCapMismatch): string {
-  return `${mismatch.lineName}: the plan's ${capText(mismatch.planCap)} is used; the agent's ${mismatch.capName} field says ${capText(mismatch.agentCap)}.`;
+  const plan = mismatch.planCap === null ? 'the plan has no cap' : `the plan's ${capText(mismatch.planCap)} is used`;
+  return `${mismatch.lineName}: ${plan}; the agent's ${mismatch.capName} field says ${capText(mismatch.agentCap)}.`;
 }
 
 /** A plan line's bar on the deal: the cap the plan applies to the agent (none when null) and what was paid before. */
