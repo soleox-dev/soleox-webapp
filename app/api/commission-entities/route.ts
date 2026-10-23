@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchAllPages } from '@/lib/supabase-pagination';
+import { inUseByPlansMessage, planUsesOfEntity, renameEntityInPlans } from '@/lib/commission-plan-references';
 
 async function reorderPostSplitEntities(supabase: SupabaseClient, user: string, clientId: string, body: { entity_ids?: unknown }) {
   const requested = Array.isArray(body.entity_ids) ? body.entity_ids.map((id) => String(id)) : [];
@@ -143,6 +144,25 @@ export async function POST(request: Request) {
       rowPayload.id = existingId;
     }
 
+    // Commission Plans pay entities by name: a rename carries into their lines, and archiving one they use waits.
+    let previousName = '';
+    if (isUpdate) {
+      const { data: previous, error: previousError } = await supabase
+        .from('commission_entities')
+        .select('entity_name')
+        .eq('id', existingId)
+        .eq('client_id', clientId)
+        .maybeSingle();
+      if (previousError) throw previousError;
+      previousName = String(previous?.entity_name || '');
+      if (rowPayload.archived) {
+        const planUses = await planUsesOfEntity(supabase, clientId, { id: String(existingId), name: previousName || nextName });
+        if (planUses.length) {
+          return NextResponse.json({ error: inUseByPlansMessage(previousName || nextName, planUses) }, { status: 409 });
+        }
+      }
+    }
+
     // 3. Insert or Upsert
     let query;
     if (isUpdate) {
@@ -162,6 +182,7 @@ export async function POST(request: Request) {
     if (error) throw error;
 
     const returnedRow = data ? data[0] : rowPayload;
+    if (isUpdate && previousName) await renameEntityInPlans(supabase, clientId, previousName, nextName);
 
     return NextResponse.json({
       success: true,
@@ -184,6 +205,19 @@ export async function DELETE(request: Request) {
     }
 
     const { clientId, supabase } = await requireSessionClient();
+    const { data: entityRow, error: entityError } = await supabase
+      .from('commission_entities')
+      .select('entity_name')
+      .eq('id', id)
+      .eq('client_id', clientId)
+      .maybeSingle();
+    if (entityError) throw entityError;
+    if (entityRow) {
+      const planUses = await planUsesOfEntity(supabase, clientId, { id, name: String(entityRow.entity_name || '') });
+      if (planUses.length) {
+        return NextResponse.json({ error: inUseByPlansMessage(String(entityRow.entity_name || 'This entity'), planUses) }, { status: 409 });
+      }
+    }
     const { count, error: paymentsError } = await supabase
       .from('payments')
       .select('id', { count: 'exact', head: true })

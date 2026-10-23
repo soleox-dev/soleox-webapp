@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/auth';
 import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { getTenantContext, apiError } from '@/lib/session';
 import { getDbTableColumns, clearSchemaCache } from '@/lib/fields';
+import { renameStatusInPlanSettings } from '@/lib/commission-plan-references';
 
 export async function POST(request: Request) {
   try {
@@ -170,7 +171,12 @@ export async function POST(request: Request) {
       console.warn('Warning updating client_lookup_values:', lookupUpdateError);
     }
 
-    // 8. Clear schema cache
+    // 8. The statuses that count toward Commission Plan caps follow a renamed status.
+    if (targetTable === 'transactions' && fieldKey === 'transaction_status') {
+      await renameStatusInPlanSettings(supabase, clientId, trimmedOldValue, trimmedNewValue);
+    }
+
+    // 9. Clear schema cache
     clearSchemaCache(String(clientId), String(targetTable));
 
     return NextResponse.json({

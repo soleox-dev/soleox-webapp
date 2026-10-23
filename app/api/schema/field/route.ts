@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { clearSchemaCache } from '@/lib/fields';
 import { disconnectTransactionFieldMapping } from '@/lib/google-sheet-connection';
+import { inUseByPlansMessage, planUsesOfField } from '@/lib/commission-plan-references';
 
 // POST: Save or Update a single field configuration
 export async function POST(request: Request) {
@@ -125,13 +126,17 @@ export async function DELETE(request: Request) {
       );
     }
 
-    let lookup = supabase.from('client_field_configurations').select('id, client_id, target_table, field_key').eq('client_id', clientId);
+    let lookup = supabase.from('client_field_configurations').select('id, client_id, target_table, field_key, field_label').eq('client_id', clientId);
     if (id) lookup = lookup.eq('id', id);
     else lookup = lookup.eq('target_table', targetTable).eq('field_key', fieldKey);
     const { data: existing, error: lookupError } = await lookup.maybeSingle();
     if (lookupError) throw lookupError;
     if (!existing) {
       return NextResponse.json({ success: true, message: 'Field deleted successfully' });
+    }
+    const planUses = await planUsesOfField(supabase, clientId, String(existing.target_table), String(existing.field_key));
+    if (planUses.length) {
+      return NextResponse.json({ error: inUseByPlansMessage(String(existing.field_label || existing.field_key), planUses) }, { status: 409 });
     }
 
     const { error } = await supabase

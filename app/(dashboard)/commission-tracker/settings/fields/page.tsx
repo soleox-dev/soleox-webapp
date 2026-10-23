@@ -1152,6 +1152,7 @@ export default function FieldCustomizationsPage() {
       counts.mappings ? plural(counts.mappings, 'TMS field mapping', 'TMS field mappings') : '',
       counts.protections ? plural(counts.protections, 'locked transaction field', 'locked transaction fields') : '',
       counts.settings ? 'saved views and scorecards' : '',
+      counts.plans ? 'Commission Plan settings' : '',
     ].filter(Boolean);
     const confirmed = await confirmAction({
       title: 'Rename Field Key?',
