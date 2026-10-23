@@ -3909,6 +3909,8 @@ function axisLabelSpace(labels: string[], fontSize: number): number {
  * it is measured.
  */
 const CHART_MAX_WIDTH = 860;
+/** Space between the y-axis labels (and the right edge) and the first and last months, so a point's dot never covers a label. */
+const PLOT_INSET = 14;
 
 function useMeasuredWidth(fallback: number): [React.RefObject<HTMLDivElement | null>, number] {
   const ref = useRef<HTMLDivElement>(null);
@@ -3957,7 +3959,7 @@ function TrendChart({ metric, title, months, priorMonths, currentClass, previous
   const pad = isDesktop ? { left: 52, right: 16, top: 16, bottom: 32 } : { left: axisLabelSpace(ticks.map(tickLabel), 12), right: 6, top: 16, bottom: 28 };
   const innerW = width - pad.left - pad.right;
   const innerH = height - pad.top - pad.bottom;
-  const xAt = (index: number) => pad.left + (months.length <= 1 ? innerW / 2 : (index / (months.length - 1)) * innerW);
+  const xAt = (index: number) => pad.left + PLOT_INSET + (months.length <= 1 ? (innerW - PLOT_INSET * 2) / 2 : (index / (months.length - 1)) * (innerW - PLOT_INSET * 2));
   const yAt = (value: number) => pad.top + innerH - (value / axisMax) * innerH;
   const currentPoints = plottedCurrent.map((value, index) => ({ x: xAt(index), y: yAt(value) }));
   const previousPoints = plottedPrevious.map((value, index) => ({ x: xAt(index), y: yAt(value) }));
@@ -4866,7 +4868,7 @@ function EarningsTimeline({ columns, values, priorColumns, priorValues, selected
   const pad = isDesktop ? { left: 56, right: 16, top: 16, bottom: 32 } : { left: axisLabelSpace(ticks.map(tickLabel), 12), right: 6, top: 16, bottom: 28 };
   const innerW = width - pad.left - pad.right;
   const innerH = height - pad.top - pad.bottom;
-  const xAt = (index: number) => pad.left + (columns.length <= 1 ? innerW / 2 : (index / (columns.length - 1)) * innerW);
+  const xAt = (index: number) => pad.left + PLOT_INSET + (columns.length <= 1 ? (innerW - PLOT_INSET * 2) / 2 : (index / (columns.length - 1)) * (innerW - PLOT_INSET * 2));
   const yAt = (value: number) => pad.top + innerH - (value / axisMax) * innerH;
   const points = values.map((value, index) => ({ x: xAt(index), y: yAt(value) }));
   const priorPoints = previous.map((value, index) => ({ x: xAt(index), y: yAt(value) }));
