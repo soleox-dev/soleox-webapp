@@ -1252,12 +1252,18 @@ export default function TransactionsListPage() {
   // On a phone the table keeps a short address pinned on the left, so a row stays recognizable while the
   // table scrolls sideways. It is the row's first cell, which also carries the status color edge.
   const pinAddress = !useIsDesktop();
-  // In bulk mode the checkbox, TMS link and bolt columns stay put while the table scrolls sideways. On a phone
-  // only the checkbox does, next to the pinned address, so the pinned part stays narrow.
+  // On a wider screen the checkbox (in bulk mode), TMS link and bolt columns stay put while the table scrolls
+  // sideways. On a phone only the checkbox does, next to the pinned address, so the pinned part stays narrow.
   const pinCheckbox = bulkMode ? (pinAddress ? 'sticky left-[7.5rem] z-[6]' : 'sticky left-0 z-[6]') : '';
-  const pinTms = bulkMode && !pinAddress ? 'sticky left-10 z-[6]' : '';
-  const pinBolt = bulkMode && !pinAddress ? 'sticky left-[4.5rem] z-[6] shadow-[inset_-1px_0_0_var(--color-slate-200)] dark:shadow-[inset_-1px_0_0_var(--color-slate-700)]' : '';
+  const pinTms = !pinAddress ? `sticky ${bulkMode ? 'left-10' : 'left-0'} z-[6]` : '';
+  const pinBolt = !pinAddress ? `sticky ${bulkMode ? 'left-[4.5rem]' : 'left-8'} z-[6] shadow-[inset_-1px_0_0_var(--color-slate-200)] dark:shadow-[inset_-1px_0_0_var(--color-slate-700)]` : '';
   const pinnedAddressCell = 'sticky left-0 z-[6] w-[7.5rem] min-w-[7.5rem] max-w-[7.5rem] border-r border-slate-200 dark:border-slate-700';
+  // On a wider screen the short address shows too, but only once the Property Address column has scrolled out of
+  // view. Its cells are zero wide and pinned just right of the pinned checkbox, TMS and bolt columns, so the table
+  // never shifts; the address floats over what scrolls under it, on one line.
+  const floatAddressLeft = canWriteTracker ? (bulkMode ? 'left-[6.5rem]' : 'left-16') : (bulkMode ? 'left-10' : 'left-0');
+  const floatAddressCell = `sticky ${floatAddressLeft} w-0 min-w-0 max-w-0 p-0`;
+  const floatAddressPanel = 'absolute inset-y-0 left-0 w-56 border-r border-slate-200 dark:border-slate-700 transition-opacity duration-150';
 
   const canUndoSync = Boolean(
     canWriteTracker && syncResult?.runId && !syncResult.undoneAt
@@ -1907,6 +1913,38 @@ export default function TransactionsListPage() {
       return next;
     });
   }, []);
+
+  const [addressFloats, setAddressFloats] = useState(false);
+  useEffect(() => {
+    const scroller = tableScrollRef.current;
+    if (pinAddress || isLoading || !scroller) {
+      setAddressFloats(false);
+      return;
+    }
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const strip = scroller.querySelector('thead tr:last-child [data-float-address]');
+      const column = scroller.querySelector('thead tr:last-child [data-address-column]');
+      if (!strip) return setAddressFloats(false);
+      // Shown once the address column is mostly under the strip. Without an address column, once the table scrolls.
+      const floats = column
+        ? column.getBoundingClientRect().right <= strip.getBoundingClientRect().left + 224
+        : scroller.scrollLeft > 0;
+      setAddressFloats(floats);
+    };
+    const onScroll = () => {
+      if (!frame) frame = window.requestAnimationFrame(measure);
+    };
+    measure();
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      scroller.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [pinAddress, isLoading, bulkMode, schemaFields]);
 
   useEffect(() => {
     if (!bulkMode) {
@@ -2686,6 +2724,11 @@ export default function TransactionsListPage() {
                 {bulkMode && <th className={`${pinCheckbox} w-10 min-w-10 max-w-10 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600`} />}
                 {canWriteTracker && <th className={`${pinTms} w-8 min-w-8 max-w-8 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600`} />}
                 {canWriteTracker && <th className={`${pinBolt} w-8 min-w-8 max-w-8 bg-slate-200 dark:bg-slate-700 border-b border-slate-300 dark:border-slate-600`} />}
+                {!pinAddress && (
+                  <th aria-hidden className={`${floatAddressCell} z-[7] border-b border-slate-300 dark:border-slate-600`}>
+                    <div className={`${floatAddressPanel} bg-slate-200 dark:bg-slate-700 ${addressFloats ? 'opacity-100' : 'pointer-events-none opacity-0'}`} />
+                  </th>
+                )}
                 {sectionHeaderGroups.map((group, idx) => (
                   <th
                     key={`${group.name}_${idx}`}
@@ -2800,6 +2843,13 @@ export default function TransactionsListPage() {
                   </span>
                 </th>
                 )}
+                {!pinAddress && (
+                  <th data-float-address aria-hidden={!addressFloats} className={`${floatAddressCell} z-[7] border-b border-slate-200 dark:border-slate-700`}>
+                    <div className={`${floatAddressPanel} flex items-center px-3 bg-slate-100 dark:bg-slate-900 text-left ${addressFloats ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+                      Address
+                    </div>
+                  </th>
+                )}
                 {schemaFields.map((field) => {
                   const statusColumn = isStatusColumn(field);
                   const statusLookup = statusColumn ? selectedStatusLookups[0] ?? null : null;
@@ -2862,6 +2912,7 @@ export default function TransactionsListPage() {
                   return (
                   <th
                     key={field.field_key}
+                    data-address-column={field.field_key === 'property_address' ? '' : undefined}
                     aria-sort={sortField === field.field_key ? (sortOrder === 'asc' ? 'ascending' : 'descending') : undefined}
                     className={`${compactRows ? 'px-3 py-1.5' : 'px-4 py-3'} bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 whitespace-nowrap border-r border-slate-200/50 dark:border-slate-800/50 last:border-r-0`}
                   >
@@ -2890,7 +2941,7 @@ export default function TransactionsListPage() {
             <tbody className="text-slate-800 dark:text-slate-200 font-normal bg-white dark:bg-slate-800">
               {processedDeals.length === 0 ? (
                 <tr>
-                  <td colSpan={schemaFields.length + (canWriteTracker ? 3 : 0) + (bulkMode ? 1 : 0) + (pinAddress ? 1 : 0)} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
+                  <td colSpan={schemaFields.length + (canWriteTracker ? 3 : 0) + (bulkMode ? 1 : 0) + 1} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
                     {showingDeleted && deletedDeals.length === 0
                       ? 'No deleted transactions.'
                       : ledgerView === SYNCED_TAB && syncedMatchCount === 0
@@ -3029,6 +3080,20 @@ export default function TransactionsListPage() {
                         ) : null}
                       </td>
                       )}
+                      {!pinAddress && (
+                        <td aria-hidden={!addressFloats} className={`${floatAddressCell} z-[5] bg-inherit`}>
+                          <div
+                            className={`${floatAddressPanel} flex items-center bg-inherit px-3 ${!bulkMode && !canWriteTracker ? 'shadow-[inset_3px_0_0_var(--row-status,transparent)]' : ''} ${addressFloats ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+                          >
+                            <span
+                              title={String(deal.property_address || '') || undefined}
+                              className="truncate text-xs font-medium text-slate-800 dark:text-slate-100"
+                            >
+                              {shortAddress(deal.property_address) || transactionDealLabel(deal) || dealId}
+                            </span>
+                          </div>
+                        </td>
+                      )}
                       {schemaFields.map((field) => {
                         const changedBySync = syncChangesOn && syncHighlights.get(String(deal.id))?.has(field.field_key);
                         return (
@@ -3119,7 +3184,7 @@ export default function TransactionsListPage() {
                 {rowDisplayLimit < processedDeals.length && (
                   <tr ref={sentinelRef}>
                     <td
-                      colSpan={schemaFields.length + (canWriteTracker ? 3 : 0) + (bulkMode ? 1 : 0) + (pinAddress ? 1 : 0)}
+                      colSpan={schemaFields.length + (canWriteTracker ? 3 : 0) + (bulkMode ? 1 : 0) + 1}
                       className="text-center py-3 bg-slate-50/60 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700/60"
                     >
                       <div className="flex items-center justify-center gap-3 text-xs text-slate-500 dark:text-slate-400">
