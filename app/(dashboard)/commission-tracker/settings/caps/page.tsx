@@ -2,7 +2,8 @@
 
 import { phoneSheet } from '@/lib/page-frame';
 import React, { useEffect, useState } from 'react';
-import { Copy, Gauge, Plus, User } from 'lucide-react';
+import { ChevronDown, ChevronUp, Copy, Gauge, Plus, User } from 'lucide-react';
+import { DragHandle, moveItem, useDragReorder } from '@/components/ui/reorder-controls';
 import { useRegisterSave, useRequestLeave } from '@/components/save-leave-guard';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { EditPencil } from '@/components/ui/edit-pencil';
@@ -408,6 +409,7 @@ export default function CapsPage() {
           onChange={(id, patch) => setTeamCaps((current) => current.map((cap) => (cap.id === id ? { ...cap, ...patch } : cap)))}
           onRemove={(id) => setTeamCaps((current) => current.filter((cap) => cap.id !== id))}
           onRenameKey={renameCapKey}
+          onMove={(from, to) => setTeamCaps((current) => moveItem(current, from, to))}
           onDuplicate={(id) => setTeamCaps((current) => {
             const source = current.find((cap) => cap.id === id);
             return source ? insertAfter(current, id, copyOfCap(source, takenKeys(), 'CTC')) : current;
@@ -424,6 +426,7 @@ export default function CapsPage() {
           onChange={(id, patch) => setAgentCaps((current) => current.map((cap) => (cap.id === id ? { ...cap, ...patch } : cap)))}
           onRemove={(id) => setAgentCaps((current) => current.filter((cap) => cap.id !== id))}
           onRenameKey={renameCapKey}
+          onMove={(from, to) => setAgentCaps((current) => moveItem(current, from, to))}
           onDuplicate={(id) => setAgentCaps((current) => {
             const source = current.find((cap) => cap.id === id);
             return source ? insertAfter(current, id, copyOfCap(source, takenKeys(), 'CAC', 'agent_cap')) : current;
@@ -462,6 +465,9 @@ function EnabledRow({
   onEnabled,
   onRemove,
   onDuplicate,
+  handleProps,
+  onMoveUp,
+  onMoveDown,
 }: {
   name: string;
   enabled: boolean;
@@ -469,18 +475,45 @@ function EnabledRow({
   onEnabled: (enabled: boolean) => void;
   onRemove: () => void;
   onDuplicate: () => void;
+  /** Drag grip for reordering; with a mouse, drag the card by it. */
+  handleProps: React.HTMLAttributes<HTMLSpanElement> & { draggable?: boolean };
+  /** Missing on the first card (up) and the last card (down). */
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }) {
   const label = name.trim() || fallback;
+  const moveClass = 'shrink-0 cursor-pointer rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-brand-700 disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-brand-400';
   return (
     <div className="flex items-center gap-2">
+      <DragHandle {...handleProps} title={`Drag to reorder ${label}`} />
       <label className={`inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-bold cursor-pointer ${enabled ? 'bg-brand-500/15 text-brand-800 dark:text-brand-200' : 'bg-amber-500/15 text-amber-900 dark:text-amber-100'}`}>
         <input type="checkbox" checked={enabled} onChange={(event) => onEnabled(event.target.checked)} className="h-4 w-4 cursor-pointer accent-brand-600" />
         {`${label} is ${enabled ? 'enabled' : 'disabled'}`}
       </label>
       <button
         type="button"
+        onClick={onMoveUp}
+        disabled={!onMoveUp}
+        className={`ml-auto ${moveClass}`}
+        title={`Move ${label} up`}
+        aria-label={`Move ${label} up`}
+      >
+        <ChevronUp className="h-[17px] w-[17px]" strokeWidth={1.75} />
+      </button>
+      <button
+        type="button"
+        onClick={onMoveDown}
+        disabled={!onMoveDown}
+        className={moveClass}
+        title={`Move ${label} down`}
+        aria-label={`Move ${label} down`}
+      >
+        <ChevronDown className="h-[17px] w-[17px]" strokeWidth={1.75} />
+      </button>
+      <button
+        type="button"
         onClick={onDuplicate}
-        className="ml-auto shrink-0 cursor-pointer rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-brand-700 dark:hover:bg-slate-700 dark:hover:text-brand-400"
+        className="shrink-0 cursor-pointer rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-brand-700 dark:hover:bg-slate-700 dark:hover:text-brand-400"
         title={`Duplicate ${label}`}
         aria-label={`Duplicate ${label}`}
       >
@@ -638,6 +671,7 @@ function TeamCapList({
   onRemove,
   onDuplicate,
   onRenameKey,
+  onMove,
 }: {
   caps: TeamCapForm[];
   named: NamedKey[];
@@ -650,17 +684,19 @@ function TeamCapList({
   onRemove: (id: string) => void;
   onDuplicate: (id: string) => void;
   onRenameKey: (id: string, key: string) => Promise<{ renamed: boolean; error?: string }>;
+  onMove: (from: number, to: number) => void;
 }) {
+  const drag = useDragReorder(onMove);
   return (
     <div className="space-y-6">
       <CapHeading action="Add Team Cap" onAdd={onAdd} />
       {!isLoading && caps.length === 0 ? (
         <p className="text-xs italic text-slate-400">No team caps. This client does not use a team cap until you add one.</p>
-      ) : caps.map((cap) => {
+      ) : caps.map((cap, index) => {
         const keyError = keyErrorFor(cap, named);
         const token = cap.key.trim() || 'this key';
         return (
-          <section key={cap.id} className={`space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-700 dark:bg-slate-800 ${phoneSheet}`}>
+          <section key={cap.id} {...drag.rowProps(index)} className={`space-y-4 rounded-xl border bg-white p-5 shadow-xs transition-colors dark:bg-slate-800 ${drag.overIndex === index ? 'border-brand-500 ring-2 ring-brand-500/30' : 'border-slate-200 dark:border-slate-700'} ${drag.dragIndex === index ? 'opacity-60' : ''} ${phoneSheet}`}>
             <EnabledRow
               name={cap.name}
               enabled={cap.enabled}
@@ -668,6 +704,9 @@ function TeamCapList({
               onEnabled={(enabled) => onChange(cap.id, { enabled })}
               onRemove={() => onRemove(cap.id)}
               onDuplicate={() => onDuplicate(cap.id)}
+              handleProps={drag.handleProps(index)}
+              onMoveUp={index > 0 ? () => onMove(index, index - 1) : undefined}
+              onMoveDown={index < caps.length - 1 ? () => onMove(index, index + 1) : undefined}
             />
             <div className="grid gap-3 md:grid-cols-2">
               <NameKeyFields
@@ -738,6 +777,7 @@ function AgentCapList({
   onRemove,
   onDuplicate,
   onRenameKey,
+  onMove,
 }: {
   caps: AgentCapForm[];
   named: NamedKey[];
@@ -749,16 +789,18 @@ function AgentCapList({
   onRemove: (id: string) => void;
   onDuplicate: (id: string) => void;
   onRenameKey: (id: string, key: string) => Promise<{ renamed: boolean; error?: string }>;
+  onMove: (from: number, to: number) => void;
 }) {
+  const drag = useDragReorder(onMove);
   return (
     <div className="space-y-6">
       <CapHeading action="Add Agent Cap" onAdd={onAdd} />
       {!isLoading && caps.length === 0 ? (
         <p className="text-xs italic text-slate-400">No agent caps. Add one for each post-split that has a cap amount.</p>
-      ) : caps.map((cap) => {
+      ) : caps.map((cap, index) => {
         const keyError = keyErrorFor(cap, named);
         return (
-          <section key={cap.id} className={`space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-700 dark:bg-slate-800 ${phoneSheet}`}>
+          <section key={cap.id} {...drag.rowProps(index)} className={`space-y-4 rounded-xl border bg-white p-5 shadow-xs transition-colors dark:bg-slate-800 ${drag.overIndex === index ? 'border-brand-500 ring-2 ring-brand-500/30' : 'border-slate-200 dark:border-slate-700'} ${drag.dragIndex === index ? 'opacity-60' : ''} ${phoneSheet}`}>
             <EnabledRow
               name={cap.name}
               enabled={cap.enabled}
@@ -766,6 +808,9 @@ function AgentCapList({
               onEnabled={(enabled) => onChange(cap.id, { enabled })}
               onRemove={() => onRemove(cap.id)}
               onDuplicate={() => onDuplicate(cap.id)}
+              handleProps={drag.handleProps(index)}
+              onMoveUp={index > 0 ? () => onMove(index, index - 1) : undefined}
+              onMoveDown={index < caps.length - 1 ? () => onMove(index, index + 1) : undefined}
             />
             <div className="grid gap-3 md:grid-cols-2">
               <NameKeyFields

@@ -73,7 +73,13 @@ function capsSchemaMissing(error: unknown): boolean {
   return false;
 }
 
-function capRow(clientId: string, body: CapBody, user: string, key: string, capType: CapType) {
+/** True when migration 073 (the caps' saved order) has not been run yet. */
+function sortOrderMissing(error: unknown): boolean {
+  const { raw, code } = errorParts(error);
+  return (code === '42703' || code === 'PGRST204') && /sort_order/.test(raw);
+}
+
+function capRow(clientId: string, body: CapBody, user: string, key: string, capType: CapType, sortOrder: number) {
   const agent = capType === 'AGENT';
   return {
     client_id: clientId,
@@ -88,6 +94,7 @@ function capRow(clientId: string, body: CapBody, user: string, key: string, capT
     recipient_agent_id: agent ? null : clean(body.recipientAgentId),
     hide_over_allocations: agent ? Boolean(body.hideOverAllocations) : false,
     commission_entity_id: agent ? clean(body.commissionEntityId) : null,
+    sort_order: sortOrder,
     updated_at: new Date().toISOString(),
     updated_by: user,
   };
@@ -137,10 +144,15 @@ export async function GET(request: Request) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { clientId, supabase } = await requireSessionClient();
-    const [capsResult, salesVolume] = await Promise.all([
-      supabase.from('client_caps').select('*').eq('client_id', clientId).or('archived.is.null,archived.eq.false').order('created_at', { ascending: true }),
+    // Caps come in the order chosen in Settings › Caps; before migration 073 adds that order, by creation date.
+    const listCaps = () => supabase.from('client_caps').select('*').eq('client_id', clientId).or('archived.is.null,archived.eq.false');
+    const [orderedCaps, salesVolume] = await Promise.all([
+      listCaps().order('sort_order', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true }),
       supabase.from('client_sales_volume_assignments').select('*').eq('client_id', clientId).or('archived.is.null,archived.eq.false').limit(1).maybeSingle(),
     ]);
+    const capsResult = orderedCaps.error && sortOrderMissing(orderedCaps.error)
+      ? await listCaps().order('created_at', { ascending: true })
+      : orderedCaps;
     // Until migration 048 renames the table, keep reading the current team caps.
     const caps = capsResult.error && capsSchemaMissing(capsResult.error)
       ? await supabase.from('client_team_caps' as 'client_caps').select('*').eq('client_id', clientId).or('archived.is.null,archived.eq.false').order('created_at', { ascending: true })
@@ -160,6 +172,12 @@ export async function GET(request: Request) {
     }
     return apiError(error, 'The allocation settings could not be loaded.');
   }
+}
+
+function withoutOrder(row: Record<string, unknown>): Record<string, unknown> {
+  const { sort_order: _order, ...rest } = row;
+  void _order;
+  return rest;
 }
 
 async function saveCaps(
@@ -210,9 +228,20 @@ async function saveCaps(
     return `${label}: That key is already used by ${other}.`;
   }
   const keptIds: string[] = [];
-  for (const item of resolved) {
+  // Each cap's place in the list is saved as its order. Before migration 073 there is no column for it, so
+  // the write is retried without it.
+  let orderSaved = true;
+  const write = async <R extends { error: unknown }>(run: (row: Record<string, unknown>) => PromiseLike<R>, row: Record<string, unknown>): Promise<R> => {
+    const attempt = await run(orderSaved ? row : withoutOrder(row));
+    if (attempt.error && orderSaved && sortOrderMissing(attempt.error)) {
+      orderSaved = false;
+      return run(withoutOrder(row));
+    }
+    return attempt;
+  };
+  for (const [index, item] of resolved.entries()) {
     const { cap, id } = item;
-    const row = capRow(clientId, cap, user, item.key, capType);
+    const row = capRow(clientId, cap, user, item.key, capType, index);
     if (id) {
       const { data: existing, error: readError } = await supabase
         .from('client_caps')
@@ -222,16 +251,16 @@ async function saveCaps(
         .maybeSingle();
       if (readError) throw readError;
       if (existing?.id) {
-        const { error } = await supabase.from('client_caps').update({ ...row, archived: false }).eq('id', id).eq('client_id', clientId);
+        const { error } = await write((values) => supabase.from('client_caps').update(values).eq('id', id).eq('client_id', clientId), { ...row, archived: false });
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('client_caps').insert({ ...row, id, created_by: user });
+        const { error } = await write((values) => supabase.from('client_caps').insert(values), { ...row, id, created_by: user });
         if (error) throw error;
       }
       keptIds.push(id);
       continue;
     }
-    const { data: inserted, error } = await supabase.from('client_caps').insert({ ...row, created_by: user }).select('id').single();
+    const { data: inserted, error } = await write((values) => supabase.from('client_caps').insert(values).select('id').single(), { ...row, created_by: user });
     if (error) throw error;
     if (inserted?.id) keptIds.push(inserted.id);
   }
