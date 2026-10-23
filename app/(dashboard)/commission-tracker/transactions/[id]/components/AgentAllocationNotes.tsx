@@ -187,9 +187,9 @@ export function AgentCapNote({ amount, limit, detail, share }: { amount: string;
     <HoverNote label={detail}>
       <span tabIndex={0} aria-label={`${amount} of ${limit}`} className="mt-0.5 inline-flex cursor-help items-center gap-1 outline-none">
         <span aria-hidden className="w-8 shrink-0 text-right text-2xs font-light leading-none tabular-nums text-slate-400 dark:text-slate-500">{limit}</span>
-        <span ref={barRef} data-cap-bar className={`relative -mr-1.5 inline-flex h-4 shrink-0 items-center justify-end overflow-hidden rounded-full ${track}`}>
+        <span ref={barRef} data-cap-bar className={`relative -mr-1 inline-flex h-4 shrink-0 items-center justify-end overflow-hidden rounded-sm ${track}`}>
           <span aria-hidden className={`absolute inset-y-0 left-0 z-0 ${fill}`} style={{ width: `${width}%` }} />
-          <span aria-hidden className={`relative z-10 px-1.5 text-right text-2xs font-normal leading-none tabular-nums ${text}`}>{amount}</span>
+          <span aria-hidden className={`relative z-10 px-1 text-right text-2xs font-normal leading-none tabular-nums ${text}`}>{amount}</span>
         </span>
       </span>
     </HoverNote>
