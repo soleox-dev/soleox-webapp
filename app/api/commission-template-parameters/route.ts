@@ -4,6 +4,7 @@ import { requireSessionClient, apiError } from '@/lib/session';
 import { recordAudit } from '@/lib/audit';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { renumberTemplateRows } from '@/lib/template-order';
 import { parameterInUseMessage, parameterUsedBy, type UsageParameter, type UsageRule } from '@/lib/template-parameter-usage';
 
 // GET: Fetch non-archived template parameters
@@ -319,6 +320,7 @@ export async function DELETE(request: Request) {
       .eq('client_id', clientId);
 
     if (error) throw error;
+    if (parameter?.template_id) await renumberTemplateRows(supabase, 'commission_template_parameters', String(parameter.template_id), clientId);
     await recordAudit(supabase, {
       clientId,
       actorEmail: session.user.email,
@@ -386,6 +388,7 @@ async function deleteParameters(request: Request, actorEmail: string) {
       entityId: templateId,
       summary: `Archived ${deletable.length} template ${deletable.length === 1 ? 'parameter' : 'parameters'}`,
     });
+    await renumberTemplateRows(supabase, 'commission_template_parameters', templateId, clientId);
   }
   return NextResponse.json({ success: true, deleted: deletable, refused });
 }
