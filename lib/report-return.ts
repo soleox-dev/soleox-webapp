@@ -3,7 +3,10 @@
  * it came from, its scroll position, and the report's filters; Back on Transaction Detail returns there and the
  * report puts its filters and scroll back. Every call fails quietly when session storage is unavailable.
  */
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+
 const RETURN_KEY = 'soleox-report-return';
+const UI_KEY = 'soleox-report-ui';
 const VIEW_KEY = 'soleox-report-view';
 const RESTORE_KEY = 'soleox-report-restore';
 /** A way back older than this is stale: the user has long moved on. */
@@ -71,4 +74,57 @@ export function saveReportView<T>(view: T): void {
 
 export function readReportView<T>(): T | null {
   return read<T>(VIEW_KEY);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Views inside a report (a drilldown, a picked status, a column sort): saved as they change, restored on Back
+// ---------------------------------------------------------------------------------------------------------------
+
+/** True from the moment Back starts restoring a report until its views have drawn. */
+let restoringViews = false;
+
+export function beginViewRestore(): void {
+  restoringViews = true;
+}
+
+export function endViewRestore(): void {
+  restoringViews = false;
+}
+
+function readViews(): Record<string, unknown> {
+  return read<Record<string, unknown>>(UI_KEY) || {};
+}
+
+/**
+ * useState for a view inside a report, under a key unique to that view. Every change is saved for this tab; the
+ * saved value is used only while Back is restoring the report, so a plain visit starts from `initial`. Values must be
+ * plain JSON (no Maps or Sets).
+ */
+export function useRestorableState<T>(key: string, initial: T): [T, Dispatch<SetStateAction<T>>] {
+  const [value, setValue] = useState<T>(() => {
+    if (!key || !restoringViews) return initial;
+    const views = readViews();
+    return key in views ? (views[key] as T) : initial;
+  });
+  useEffect(() => {
+    // An empty key is plain useState: nothing saved, nothing restored.
+    if (!key) return;
+    const views = readViews();
+    views[key] = value;
+    write(UI_KEY, views);
+  }, [key, value]);
+  return [value, setValue];
+}
+
+/**
+ * An effect that resets a view when one of its inputs changes value, never just because the report drew (or React
+ * ran effects twice in development), so a view restored on Back survives the report drawing.
+ */
+export function useResetEffect(reset: () => void, deps: unknown[]): void {
+  const previous = useRef<unknown[] | null>(null);
+  useEffect(() => {
+    const before = previous.current;
+    previous.current = deps;
+    if (before && deps.some((value, index) => !Object.is(value, before[index]))) reset();
+  }, deps);
 }

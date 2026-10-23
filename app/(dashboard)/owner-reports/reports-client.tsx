@@ -9,7 +9,7 @@ import { DESKTOP_QUERY, useFitsScreen, useIsDesktop, useIsTouch } from '@/lib/us
 import { swallowNextClick } from '@/lib/swallow-click';
 import { FieldChevron, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { SoleoxLogo } from '@/components/ui/logo';
-import { readReportView, rememberReportReturn, saveReportView, takeReportRestore, type ReportReturn } from '@/lib/report-return';
+import { beginViewRestore, endViewRestore, readReportView, rememberReportReturn, saveReportView, takeReportRestore, useResetEffect, useRestorableState, type ReportReturn } from '@/lib/report-return';
 import { clearReportCache, pruneReportCache, readReportCache, reportCacheKey, writeReportCache } from '@/lib/report-cache';
 import { LoadingDataPage, type LoadingProgressInfo } from './loading-data-page';
 import { areaUnder, linePeaks, smoothLine, smoothRuns, svgUserX } from './chart-paths';
@@ -207,6 +207,8 @@ export default function OwnerReportsPage() {
   useEffect(() => {
     const back = takeReportRestore();
     if (!back) return;
+    // The views inside the report (drilldowns, picked statuses, sorts) read their saved values while they first draw.
+    beginViewRestore();
     const view = readReportView<ReportViewState>();
     if (view) {
       setPreset(view.preset);
@@ -247,8 +249,14 @@ export default function OwnerReportsPage() {
     };
     // After the report draws, and again once late layout (charts, pinned headers) has settled.
     requestAnimationFrame(() => requestAnimationFrame(scroll));
-    const later = window.setTimeout(scroll, 350);
-    return () => window.clearTimeout(later);
+    const later = window.setTimeout(() => {
+      scroll();
+      endViewRestore();
+    }, 350);
+    return () => {
+      window.clearTimeout(later);
+      endViewRestore();
+    };
   }, [loading]);
   // A link to a transaction anywhere in a report remembers where it was opened from.
   const returnLabel = OWNER_REPORTS.find((item) => item.id === reportId)?.name || 'Owner Reports';
@@ -1624,8 +1632,9 @@ const pairedScores = 'grid grid-cols-3 gap-2 md:gap-3';
 
 type ColumnSort = { key: string; direction: 'asc' | 'desc' };
 
-function useColumnSort(initial: ColumnSort | null = null) {
-  const [sort, setSort] = useState<ColumnSort | null>(initial);
+/** A table's sort; with a key it is saved and restored on Back from a transaction (lib/report-return.ts). */
+function useColumnSort(initial: ColumnSort | null = null, key = '') {
+  const [sort, setSort] = useRestorableState<ColumnSort | null>(key, initial);
   const toggle = (key: string) => {
     setSort((current) => {
       if (!current || current.key !== key) return { key, direction: 'asc' };
@@ -1797,7 +1806,7 @@ function ReportView(props: {
   capEmpty: string;
 }) {
   const { reportId, closed, pending, taken, closedPrior, pendingPrior, names, range, priorRange, metric, netCommission, priorNetCommission, allDeals, deals, payments, teamLeadIds } = props;
-  const [cumulative, setCumulative] = useState(false);
+  const [cumulative, setCumulative] = useRestorableState('team-performance:cumulative', false);
   const capSection = props.reportId === 'team-caps' && props.capSections.length === 1 ? props.capSections[0] : null;
   // Agent Earnings and Team Caps fill the screen and scroll inside their tables on desktop.
   // Below md, or on a short screen, the page scrolls natively instead.
@@ -3465,17 +3474,17 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
   preset: RangePreset;
   names: Map<string, string>;
 }) {
-  const [monthKey, setMonthKey] = useState<string | null>(null);
-  const [drilldown, setDrilldown] = useState<{ rowKey: string; column: keyof OwnerMonthRow } | null>(null);
-  const [grainChoice, setGrainChoice] = useState<ProductionGrain | null>(null);
-  const [scoresOpen, setScoresOpen] = useState(true);
+  const [monthKey, setMonthKey] = useRestorableState<string | null>('owner:month', null);
+  const [drilldown, setDrilldown] = useRestorableState<{ rowKey: string; column: keyof OwnerMonthRow } | null>('owner:drilldown', null);
+  const [grainChoice, setGrainChoice] = useRestorableState<ProductionGrain | null>('owner:grain', null);
+  const [scoresOpen, setScoresOpen] = useRestorableState('owner:scores', true);
   const fitsScreen = useFitsScreen();
   const [pulse, setPulse] = useState(0);
   const skipPulse = useRef(true);
   const grain = resolveProductionGrain(grainChoice, preset, range);
   const weekChoice = weekGrainAllowed(preset, range);
 
-  useEffect(() => {
+  useResetEffect(() => {
     setMonthKey(null);
     setDrilldown(null);
   }, [range.start, range.end, grain]);
@@ -3932,14 +3941,12 @@ const TREND_CLOSED = 'text-emerald-700 dark:text-emerald-300';
 const TREND_PENDING = 'text-amber-600 dark:text-amber-400';
 
 function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, statusPicked, onStatus, cumulative }: { deals: ReportDeal[]; range: DateRange; priorRange: DateRange; dateBasis: LeaderboardDate; sidePicked: string[] | null; statusPicked: string[] | null; onStatus: (value: string[] | null) => void; cumulative: boolean }) {
-  const [chosenStatus, setStatusFilter] = useState<'all' | 'closed' | 'pending'>('all');
+  const [chosenStatus, setStatusFilter] = useRestorableState<'all' | 'closed' | 'pending'>('team-performance:status', 'all');
   // A Status filter that keeps only Closed or only Pending selects that scorecard, and the charts follow it
   // (amber for Pending), the same as clicking the scorecard.
   const filterOnly = statusPicked?.length === 1 ? statusPicked[0].trim().toLowerCase() : null;
   const statusFilter = filterOnly === 'closed' || filterOnly === 'pending' ? filterOnly : chosenStatus;
-  useEffect(() => {
-    setStatusFilter('all');
-  }, [dateBasis]);
+  useResetEffect(() => setStatusFilter('all'), [dateBasis]);
   const selectStatus = (status: 'all' | 'closed' | 'pending') => {
     // While the Status filter keeps a single status, a scorecard click changes the filter to match: Total, or the
     // selected scorecard again, restores the default (Closed and Pending); the other status keeps only that one.
@@ -4517,7 +4524,7 @@ function emptyTotals(): Totals {
 
 function MonthlyTable({ title, rows, mode }: { title: string; rows: MonthRow[]; mode: 'production' | 'net' | 'units' }) {
   const total = sumRows(rows);
-  const { sort, toggle } = useColumnSort();
+  const { sort, toggle } = useColumnSort(null, `monthly-table:${title}`);
   const ordered = sortBy(rows, sort, (row, key) => (key === 'label' ? row.key : row[key as keyof MonthRow]) as string | number);
   return (
     <div className={reportTableWrap}>
@@ -4572,7 +4579,7 @@ function MonthlyTable({ title, rows, mode }: { title: string; rows: MonthRow[]; 
 
 function AgentTable({ rows, caption, paid = false }: { rows: AgentRow[]; caption: string; paid?: boolean }) {
   const total = sumRows(rows);
-  const { sort, toggle } = useColumnSort();
+  const { sort, toggle } = useColumnSort(null, `agent-table:${caption}`);
   const ordered = sortBy(rows, sort, (row, key) => (key === 'paid' ? (paid ? row.agentPaid : row.net) : row[key as keyof typeof row]) as string | number);
   return (
     <div className={reportTableWrap}>
@@ -4857,7 +4864,7 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
   const share = (value: number) => (tableTotal ? `${((value / tableTotal) * 100).toLocaleString(undefined, { minimumFractionDigits: shareDigits, maximumFractionDigits: shareDigits })}%` : '—');
   const emptyLabel = statusFilter === 'closed' ? 'closed' : statusFilter === 'pending' ? 'pending' : 'closed or pending';
   const amountLabel = valueLabel || (metric === 'volume' ? 'Sales Volume' : 'Units');
-  const { sort, toggle } = useColumnSort();
+  const { sort, toggle } = useColumnSort(null, `board:${tone}`);
   const ordered = sortBy(rows.map((row, index) => ({ ...row, rank: index + 1 })), sort, (row, key) => {
     if (key === 'rank') return row.rank;
     if (key === 'label') return row.label;
@@ -4973,7 +4980,7 @@ function BoardScore({ tone, label, amount, compactAmount, dollar, compactDollar,
 
 function SourceTable({ rows }: { rows: Array<Totals & { source: string }> }) {
   const total = sumRows(rows);
-  const { sort, toggle } = useColumnSort();
+  const { sort, toggle } = useColumnSort(null, 'source-table');
   const ordered = sortBy(rows, sort, (row, key) => (key === 'share' ? row.gci : row[key as keyof typeof row]) as string | number);
   return (
     <div className={reportTableWrap}>
@@ -5271,10 +5278,8 @@ function EarningScoreRow({ sums, prior, statusFilter, onSelect }: {
 }
 
 function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamLeads, teamLeadIds, payeePicked, preset }: { deals: ReportDeal[]; payments: ReportPayment[]; names: Map<string, string>; range: DateRange; priorRange: DateRange; excludeTeamLeads: boolean; teamLeadIds: Set<string>; payeePicked: string[] | null; preset: RangePreset }) {
-  const [statusFilter, setStatusFilter] = useState<'all' | 'closed' | 'pending'>('all');
-  useEffect(() => {
-    setStatusFilter('all');
-  }, [range, excludeTeamLeads]);
+  const [statusFilter, setStatusFilter] = useRestorableState<'all' | 'closed' | 'pending'>('earnings:status', 'all');
+  useResetEffect(() => setStatusFilter('all'), [range, excludeTeamLeads]);
   const selectStatus = (status: 'all' | 'closed' | 'pending') => {
     setStatusFilter((value) => (value === status ? 'all' : status));
   };
@@ -5349,8 +5354,8 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
   const cellPeak = rows.reduce((max, row) => columns.reduce((peak, column) => Math.max(peak, row.amounts[column.key] || 0), max), 0);
   const rowPeak = rows.reduce((max, row) => Math.max(max, row.total), 0);
   const monthPeak = columns.reduce((max, column) => Math.max(max, columnTotals[column.key] || 0), 0);
-  const [pick, setPick] = useState<{ agentId: string | null; periodKey: string | null } | null>(null);
-  const [summaryOpen, setSummaryOpen] = useState(true);
+  const [pick, setPick] = useRestorableState<{ agentId: string | null; periodKey: string | null } | null>('earnings:pick', null);
+  const [summaryOpen, setSummaryOpen] = useRestorableState('earnings:summary', true);
   const blockRef = useRef<HTMLDivElement>(null);
   const pivotWrapRef = useRef<HTMLDivElement>(null);
   const pivotBodyRef = useRef<HTMLTableElement>(null);
@@ -5370,9 +5375,8 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
       cell.style.maxWidth = width;
     });
   };
-  useEffect(() => {
-    setPick(null);
-  }, [deals, payments, range, excludeTeamLeads, payeePicked]);
+  // A new date range or filter clears the drilldown; fresh data alone (a background refresh) keeps it.
+  useResetEffect(() => setPick(null), [range, excludeTeamLeads, payeePicked]);
   const choose = (agentId: string | null, bucket: string | null) => {
     const same = Boolean(pick && pick.agentId === agentId && pick.periodKey === bucket);
     setPick(same ? null : { agentId, periodKey: bucket });
@@ -5384,7 +5388,7 @@ function AgentEarnings({ deals, payments, names, range, priorRange, excludeTeamL
     if (pick.periodKey && line.periodKey !== pick.periodKey) return false;
     return true;
   });
-  const { sort, toggle } = useColumnSort({ key: 'total', direction: 'desc' });
+  const { sort, toggle } = useColumnSort({ key: 'total', direction: 'desc' }, 'earnings:pivot-sort');
   const ordered = sortBy(rows.map((row, index) => ({ ...row, rank: index + 1 })), sort, (row, key) => {
     if (key === 'rank') return row.rank;
     if (key === 'agent') return row.name;
@@ -5680,7 +5684,7 @@ function EarningAmount({ amount, selected, onSelect }: { amount: number; selecte
 }
 
 function EarningTransactions({ lines, names, wrapRef }: { lines: Array<{ key: string; agentName: string; deal: ReportDeal; amount: number }>; names: Map<string, string>; wrapRef?: React.Ref<HTMLDivElement> }) {
-  const { sort, toggle } = useColumnSort({ key: 'closing', direction: 'asc' });
+  const { sort, toggle } = useColumnSort({ key: 'closing', direction: 'asc' }, 'earnings:detail-sort');
   const ranked = [...lines]
     .sort((a, b) => (a.deal.closingDate?.getTime() || 0) - (b.deal.closingDate?.getTime() || 0))
     .map((line, index) => ({ ...line, rank: index + 1 }));
@@ -6159,7 +6163,7 @@ function MonthTable({
   drilldown?: { rowKey: string; column: keyof OwnerMonthRow } | null;
   onDrilldown?: (rowKey: string, column: keyof OwnerMonthRow) => void;
 }) {
-  const { sort, toggle } = useColumnSort();
+  const { sort, toggle } = useColumnSort(null, 'owner:month-sort');
   const total = rows.reduce<OwnerMonthRow>((sum, row) => ({
     key: 'total',
     label: 'Total',
@@ -6427,7 +6431,7 @@ function ProductionDrilldownTable({
       : 'Closing Date';
 
   const showNet = metric === 'closedNet' || metric === 'pendingNet';
-  const { sort, toggle } = useColumnSort({ key: 'date', direction: 'asc' });
+  const { sort, toggle } = useColumnSort({ key: 'date', direction: 'asc' }, 'owner:drill-sort');
 
   const ranked = [...items]
     .sort((a, b) => (a.date?.getTime() || 0) - (b.date?.getTime() || 0))

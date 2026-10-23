@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useLayoutEffect, useRef, useState } from 'react';
+import { useRestorableState } from '@/lib/report-return';
 import {
   capMoney,
   formatAnniversary,
@@ -51,8 +52,9 @@ function SortHead({ column, label, sort, onSort, align = 'left', title }: {
   );
 }
 
-function useColumnSort() {
-  const [sort, setSort] = useState<ColumnSort | null>(null);
+/** A table's sort, saved under `key` so Back from a transaction restores it (lib/report-return.ts). */
+function useColumnSort(key: string) {
+  const [sort, setSort] = useRestorableState<ColumnSort | null>(key, null);
   const toggle = (key: string) => {
     setSort((current) => {
       if (!current || current.key !== key) return { key, direction: 'asc' };
@@ -171,8 +173,8 @@ function CapSection({ cap, rows, openAgentId, onOpen, showPaid }: {
   onOpen: (agentId: string) => void;
   showPaid: boolean;
 }) {
-  const standingsSort = useColumnSort();
-  const detailSort = useColumnSort();
+  const standingsSort = useColumnSort('caps:standings-sort');
+  const detailSort = useColumnSort('caps:detail-sort');
   const ordered = sortBy(rows, standingsSort.sort, standingValue);
   const open = rows.find((row) => row.agentId === openAgentId) || null;
   const openLines = open ? (showPaid ? withPaidLines(open) : open.lines) : [];

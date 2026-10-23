@@ -109,13 +109,21 @@ export async function PUT(request: Request) {
       };
       const { data: existing, error: readError } = await supabase
         .from('transaction_team_caps')
-        .select('id')
+        .select('id, amount, calculated_amount, is_override, period_start')
         .eq('transaction_id', transactionId)
         .eq('agent_id', agentId)
         .eq('team_cap_id', teamCapId)
         .limit(1)
         .maybeSingle();
       if (readError) throw readError;
+      // A row whose figures did not change is left alone: opening a deal re-sends every row, and rewriting them
+      // would mark the client's report data as changed (migration 074) for nothing.
+      const unchanged = existing?.id
+        && Math.abs((Number(existing.amount) || 0) - payload.amount) < 0.005
+        && Math.abs((Number(existing.calculated_amount) || 0) - payload.calculated_amount) < 0.005
+        && Boolean(existing.is_override) === payload.is_override
+        && String(existing.period_start || '').slice(0, 10) === String(payload.period_start || '').slice(0, 10);
+      if (unchanged) continue;
       if (existing?.id) {
         const { error } = await supabase.from('transaction_team_caps').update(payload).eq('id', existing.id);
         if (error) throw error;

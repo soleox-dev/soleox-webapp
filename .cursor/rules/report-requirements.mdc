@@ -32,7 +32,7 @@ The reports' download is saved in the browser (IndexedDB, `lib/report-cache.ts`)
 
 ### Opening a transaction
 
-Every property address in a report links to its transaction. The link is tagged `?from=reports` and remembers, for that browser tab, the report it came from and its scroll position (the page's and the report table's); the report's filters are saved on every change (`lib/report-return.ts`). On that Transaction Detail, the back link reads the report's name (such as Transaction List) and returns to it with the same filters, cap, and scroll. A transaction opened any other way keeps Back to Transactions.
+Every property address in a report links to its transaction. The link is tagged `?from=reports` and remembers, for that browser tab, the report it came from and its scroll position (the page's and the report table's); the report's filters are saved on every change (`lib/report-return.ts`). On that Transaction Detail, the back link reads the report's name (such as Transaction List) and returns to it with the same filters, cap, and scroll, and with the views inside the report as they were: an Agent Earnings drilldown and its timeline, Owner Summary's month, drilldown, and period, Team Performance's selected status and Cumulative, a clicked status in the Transaction List and Listings tiles, the Sold vs. List Price phone list, and every table's sort (`useRestorableState`). A fresh download alone does not clear a drilldown; a new date range or filter does. A transaction opened any other way keeps Back to Transactions.
 
 ### Scrolling on phones
 

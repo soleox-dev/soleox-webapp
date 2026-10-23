@@ -4,6 +4,7 @@ import React, { useId, useMemo, useState } from 'react';
 import { areaUnder, linePeaks, smoothLine, smoothRuns, svgUserX } from './chart-paths';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import { useIsDesktop } from '@/lib/use-media-query';
+import { useRestorableState } from '@/lib/report-return';
 import {
   fullMoney,
   inRange,
@@ -115,7 +116,7 @@ function AddressLink({ deal }: { deal: ReportDeal }) {
 }
 
 /** Sortable deal table with row numbers and a Grand Total row. */
-function DealListTable({ deals, columns, initialSort, totalLabelColumn, empty, fit = false, fitClass = '' }: {
+function DealListTable({ deals, columns, initialSort, totalLabelColumn, empty, fit = false, fitClass = '', stateKey = '' }: {
   deals: ReportDeal[];
   columns: Column[];
   initialSort: Sort;
@@ -126,8 +127,10 @@ function DealListTable({ deals, columns, initialSort, totalLabelColumn, empty, f
   fit?: boolean;
   /** Extra sizing for a fitted table that shares its row with other panels. */
   fitClass?: string;
+  /** Saves the sort under this key so Back from a transaction restores it (lib/report-return.ts). */
+  stateKey?: string;
 }) {
-  const [sort, setSort] = useState<Sort>(initialSort);
+  const [sort, setSort] = useRestorableState<Sort>(stateKey ? `${stateKey}:sort` : '', initialSort);
   const ordered = useMemo(() => {
     const column = columns.find((item) => item.key === sort.key) ?? columns[0];
     const factor = sort.direction === 'asc' ? 1 : -1;
@@ -321,7 +324,7 @@ function compactDollars(value: number): string {
 
 export function TransactionListReport({ deals: allDeals, names }: { deals: ReportDeal[]; names: Map<string, string> }) {
   // Clicking a status in a tile narrows the table (and its Grand Total) to that status; the tiles keep every status.
-  const [picked, setPicked] = useState<StatusKey | null>(null);
+  const [picked, setPicked] = useRestorableState<StatusKey | null>('transaction-list:status', null);
   const pick = (status: StatusKey) => setPicked((current) => (current === status ? null : status));
   const pickedPresent = picked != null && allDeals.some((deal) => statusKeyOf(deal) === picked);
   const deals = pickedPresent ? allDeals.filter((deal) => statusKeyOf(deal) === picked) : allDeals;
@@ -370,6 +373,7 @@ export function TransactionListReport({ deals: allDeals, names }: { deals: Repor
         initialSort={{ key: 'closing', direction: 'desc' }}
         totalLabelColumn="closing"
         empty="No transactions match these filters."
+        stateKey="transaction-list"
         fit
       />
       <p className="shrink-0 text-xs text-slate-500 dark:text-slate-400">Every transaction closing in the date range, and pending ones that went pending in it.</p>
@@ -379,7 +383,7 @@ export function TransactionListReport({ deals: allDeals, names }: { deals: Repor
 
 export function ListingsReport({ deals: allDeals, names }: { deals: ReportDeal[]; names: Map<string, string> }) {
   // Clicking a status in the Listings tile narrows the table to it; the tiles keep every listing.
-  const [picked, setPicked] = useState<StatusKey | null>(null);
+  const [picked, setPicked] = useRestorableState<StatusKey | null>('listings:status', null);
   const pickedPresent = picked != null && allDeals.some((deal) => statusKeyOf(deal) === picked);
   const deals = pickedPresent ? allDeals.filter((deal) => statusKeyOf(deal) === picked) : allDeals;
   const allSold = allDeals.filter(soldListing);
@@ -472,6 +476,7 @@ export function ListingsReport({ deals: allDeals, names }: { deals: ReportDeal[]
         initialSort={{ key: 'list', direction: 'asc' }}
         totalLabelColumn="closing"
         empty="No listings were taken in this date range."
+        stateKey="listings"
         fit
       />
     </div>
@@ -675,7 +680,7 @@ export function PriceChangeReport({ deals, priorDeals, names, range }: {
   range: DateRange;
 }) {
   const isPhone = !useIsDesktop();
-  const [phoneView, setPhoneView] = useState<BandKey | 'all' | null>(null);
+  const [phoneView, setPhoneView] = useRestorableState<BandKey | 'all' | null>('price-change:phone', null);
   const openPhoneView = (view: BandKey | 'all' | null) => {
     setPhoneView(view);
     window.scrollTo({ top: 0 });
@@ -884,6 +889,7 @@ export function PriceChangeReport({ deals, priorDeals, names, range }: {
           initialSort={{ key: 'change', direction: 'desc' }}
           totalLabelColumn="status"
           empty="No closed or pending listings with both a list price and a sales price in this date range."
+          stateKey="price-change"
           fit
           fitClass="screenfit:h-full"
         />
