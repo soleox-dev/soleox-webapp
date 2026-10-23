@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireSessionClient, apiError } from '@/lib/session';
 import { clearSchemaCache } from '@/lib/fields';
+import { renameFieldInPlanSettings } from '@/lib/commission-plan-references';
 
 const body = z.object({
   targetTable: z.enum(['agents', 'transactions']),
@@ -23,6 +24,8 @@ export type FieldKeyRenameCounts = {
   mappings: number;
   protections: number;
   settings: number;
+  /** Commission Plan settings that read the field. */
+  plans: number;
 };
 
 // Messages the database function writes for people (permission, bad key, key in use, field missing).
@@ -55,8 +58,10 @@ export async function POST(request: Request) {
       }
       throw error;
     }
+    // Plan Settings follow the key once the rename itself has gone through.
+    const plans = await renameFieldInPlanSettings(supabase, clientId, targetTable, oldKey, newKey, apply);
     if (apply) clearSchemaCache();
-    return NextResponse.json({ success: true, counts: data as FieldKeyRenameCounts });
+    return NextResponse.json({ success: true, counts: { ...(data as FieldKeyRenameCounts), plans } });
   } catch (error) {
     return apiError(error, 'The field key could not be renamed.');
   }

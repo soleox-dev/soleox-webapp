@@ -6,6 +6,7 @@ import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { clearSchemaCache } from '@/lib/fields';
+import { inUseByPlansMessage, planUsesOfField } from '@/lib/commission-plan-references';
 
 export async function POST(request: Request) {
   try {
@@ -69,6 +70,14 @@ export async function POST(request: Request) {
 
       return rowPayload;
     });
+
+    // A field archived here is deleted: Commission Plan settings must not be reading it.
+    for (const row of rowsToUpsert.filter((item: Record<string, any>) => item.archived)) {
+      const planUses = await planUsesOfField(supabase, String(clientCode), String(targetTable), String(row.field_key));
+      if (planUses.length) {
+        return NextResponse.json({ error: inUseByPlansMessage(String(row.field_label || row.field_key), planUses) }, { status: 409 });
+      }
+    }
 
     // 5. UPSERT using authenticated client (RLS enforces ADMIN authorization via custom JWT)
     if (rowsToUpsert.length > 0) {
