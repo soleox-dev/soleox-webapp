@@ -157,18 +157,18 @@ function matchCapBarWidths(bar: HTMLElement) {
   for (const item of bars) item.style.width = px;
 }
 
-/** The cap standing: the cap's limit in small, light text, then the amount reached so far inside the bar, which ends at the cell's right edge. */
+/**
+ * The cap standing: the amount reached so far in small text, with a thin rounded line under it that fills toward
+ * the cap, and the cap's limit in light text to the left. The amount ends at the cell's right edge.
+ */
 export function AgentCapNote({ amount, limit, detail, share }: { amount: string; limit: string; detail: string; share: number }) {
   const barRef = useRef<HTMLSpanElement>(null);
   const width = Math.min(100, Math.max(0, share * 100));
   const over = share > 1;
-  const fill = over ? 'bg-rose-300 dark:bg-rose-500/50' : 'bg-emerald-300 dark:bg-emerald-500/50';
-  // Quiet text in the bar's own colour, so the bar reads as a hint rather than a figure.
-  // The empty part of the bar: a faint wash and thin outline in the bar's colour, so its full length shows.
-  const track = over
-    ? 'bg-rose-500/10 ring-1 ring-inset ring-rose-600/25 dark:bg-rose-400/10 dark:ring-rose-400/25'
-    : 'bg-emerald-500/10 ring-1 ring-inset ring-emerald-600/25 dark:bg-emerald-400/10 dark:ring-emerald-400/25';
-  const text = over ? 'text-rose-900/90 dark:text-rose-200/75' : 'text-emerald-900/90 dark:text-emerald-200/75';
+  const fill = over ? 'bg-rose-400 dark:bg-rose-400/80' : 'bg-emerald-400 dark:bg-emerald-400/80';
+  // The unfilled part of the line: a faint wash of the same colour, so its full length shows.
+  const track = over ? 'bg-rose-500/15 dark:bg-rose-400/15' : 'bg-emerald-500/15 dark:bg-emerald-400/15';
+  const text = over ? 'text-rose-700/90 dark:text-rose-300/80' : 'text-emerald-800/90 dark:text-emerald-300/80';
   useLayoutEffect(() => {
     const bar = barRef.current;
     if (!bar) return;
@@ -185,11 +185,13 @@ export function AgentCapNote({ amount, limit, detail, share }: { amount: string;
   }, [amount]);
   return (
     <HoverNote label={detail}>
-      <span tabIndex={0} aria-label={`${amount} of ${limit}`} className="mt-0.5 inline-flex cursor-help items-center gap-1 outline-none">
+      <span tabIndex={0} aria-label={`${amount} of ${limit}`} className="mt-0.5 inline-flex cursor-help items-start gap-1 outline-none">
         <span aria-hidden className="w-8 shrink-0 text-right text-2xs font-light leading-none tabular-nums text-slate-400 dark:text-slate-500">{limit}</span>
-        <span ref={barRef} data-cap-bar className={`relative -mr-1 inline-flex h-4 shrink-0 items-center justify-end overflow-hidden rounded-sm ${track}`}>
-          <span aria-hidden className={`absolute inset-y-0 left-0 z-0 ${fill}`} style={{ width: `${width}%` }} />
-          <span aria-hidden className={`relative z-10 px-1 text-right text-2xs font-normal leading-none tabular-nums ${text}`}>{amount}</span>
+        <span ref={barRef} data-cap-bar className="inline-flex shrink-0 flex-col items-end gap-0.5">
+          <span aria-hidden className={`text-2xs font-normal leading-none tabular-nums ${text}`}>{amount}</span>
+          <span aria-hidden className={`relative h-[3px] w-full overflow-hidden rounded-full ${track}`}>
+            <span className={`absolute inset-y-0 left-0 rounded-full ${fill}`} style={{ width: `${width}%` }} />
+          </span>
         </span>
       </span>
     </HoverNote>
