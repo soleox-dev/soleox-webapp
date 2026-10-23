@@ -1282,12 +1282,6 @@ function OwnerReportNav({ reportId, onSelect }: { reportId: string | null; onSel
                   className="h-6 w-auto"
                   word={<span id={titleId}>Owner Reports</span>}
                   wordSize="text-base font-extrabold tracking-tight"
-                  suffix={(
-                    <>
-                      <span aria-hidden className="mx-2.5 h-4 w-px self-center bg-slate-300 dark:bg-slate-700" />
-                      <span className="text-sm font-medium tracking-[0.02em] text-slate-500 dark:text-slate-400">REBI</span>
-                    </>
-                  )}
                 />
               </button>
               <button
@@ -1350,12 +1344,6 @@ function ReportMenu({ reportId, onSelect }: { reportId: string | null; onSelect:
             className="h-6 w-auto"
             word="Owner Reports"
             wordSize="text-base font-extrabold tracking-tight"
-            suffix={(
-              <>
-                <span aria-hidden className="mx-2.5 h-4 w-px self-center bg-slate-300 dark:bg-slate-700" />
-                <span className="text-sm font-medium tracking-[0.02em] text-slate-500 dark:text-slate-400">REBI</span>
-              </>
-            )}
           />
         </h1>
       </button>
