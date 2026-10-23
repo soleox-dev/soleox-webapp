@@ -143,11 +143,28 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * Where this tab goes in the new client: the same page, except a page for one record (a transaction, a template),
+ * which the new client does not have; that goes to its list (/commission-tracker/transactions/TXN_… → Transactions).
+ */
+function pageInNewClient(pathname: string): { path: string; listName: string | null } {
+  const parts = pathname.split('/').filter(Boolean);
+  const last = parts[parts.length - 1] || '';
+  // Record IDs are PREFIX_<hex> (ARCHITECTURE.md); `new` is a record being created.
+  if (parts.length > 1 && (/^[A-Z]{2,6}_[0-9A-F]{6,}$/i.test(last) || last === 'new')) {
+    const list = parts.slice(0, -1);
+    const name = (list[list.length - 1] || '').split('-').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    return { path: `/${list.join('/')}`, listName: name || null };
+  }
+  return { path: `${pathname}${window.location.search}`, listName: null };
+}
+
+/**
  * Covers the page when another tab switched the client, so nothing here is saved or loaded for the wrong client.
  * Reload continues in the client now active; Switch Back makes this tab's client active again (the other tab then
  * shows this notice).
  */
 function ClientSwitchedNotice({ shown, active, onSwitchBack }: { shown: string; active: string; onSwitchBack: () => void }) {
+  const target = pageInNewClient(window.location.pathname);
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm" role="alertdialog" aria-modal="true" aria-labelledby="client-switched-title">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
@@ -166,10 +183,10 @@ function ClientSwitchedNotice({ shown, active, onSwitchBack }: { shown: string; 
           </button>
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={() => window.location.assign(target.path)}
             className="h-9 cursor-pointer rounded-lg bg-brand-600 px-4 text-xs font-semibold text-white transition hover:bg-brand-700"
           >
-            Reload in {active}
+            {target.listName ? `Open ${target.listName} in ${active}` : `Reload in ${active}`}
           </button>
         </div>
       </div>
