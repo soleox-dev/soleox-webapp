@@ -1205,6 +1205,12 @@ export default function OwnerReportsPage() {
               newDataAvailable={newDataAvailable}
               onRefresh={refreshData}
               onSelectReport={selectReport}
+              onStepReport={(dir) => {
+                const target = OWNER_REPORTS[OWNER_REPORTS.findIndex((item) => item.id === reportId) + (dir === 'next' ? 1 : -1)];
+                if (!target) return;
+                arrivalRef.current = dir;
+                selectReport(target.id);
+              }}
               reportName={report.name}
               ready={report.ready}
               note={report.note}
@@ -1419,18 +1425,19 @@ function MenuWidth({ choice }: { choice: { number: string; name: string } }) {
 }
 
 /**
- * The report switcher: a button in the top-left corner of the report header that opens a drawer from the
- * left edge of the screen. It opens on click only. Esc, the close button, or a click outside closes it
+ * The report switcher: an Owner Reports button in the top-left corner of the report header that opens a drawer
+ * from the left edge of the screen, with previous and next arrows beside it. It opens on click only. Esc, the close button, or a click outside closes it
  * without doing anything else; arrow keys move through the reports and Enter opens one.
  */
-function OwnerReportNav({ reportId, onSelect }: { reportId: string | null; onSelect: (id: string | null) => void }) {
+function OwnerReportNav({ reportId, onSelect, onStep }: { reportId: string | null; onSelect: (id: string | null) => void; onStep: (dir: SwipeDirection) => void }) {
   const [open, setOpen] = useState(false);
   const [shown, setShown] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
-  const choice = reportChoice(reportId);
-  const label = choice.number ? `${choice.number} · ${choice.name}` : choice.name;
+  const index = OWNER_REPORTS.findIndex((item) => item.id === reportId);
+  const previous = index > 0 ? OWNER_REPORTS[index - 1] : null;
+  const next = index >= 0 ? OWNER_REPORTS[index + 1] ?? null : null;
 
   // Mounted first, then slid in a moment later, so the drawer animates from the left edge.
   useEffect(() => {
@@ -1490,18 +1497,35 @@ function OwnerReportNav({ reportId, onSelect }: { reportId: string | null; onSel
 
   return (
     <>
-      <button
-        ref={buttonRef}
-        type="button"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        title="All Owner Reports"
-        onClick={() => setOpen(true)}
-        className="inline-flex h-10 max-w-full cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-brand-400"
-      >
-        <Menu className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" strokeWidth={2} aria-hidden />
-        <span className="truncate tabular-nums">{label}</span>
-      </button>
+      <div className="flex items-center gap-1.5">
+        {/* Names the section, not the report: the title under it already says which report this is. */}
+        <button
+          ref={buttonRef}
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          title="All Owner Reports"
+          onClick={() => setOpen(true)}
+          className="inline-flex h-10 max-w-full cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-brand-400"
+        >
+          <Menu className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" strokeWidth={2} aria-hidden />
+          <span className="truncate">Owner Reports</span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" aria-hidden />
+        </button>
+        {([['prev', previous], ['next', next]] as const).map(([dir, target]) => (
+          <button
+            key={dir}
+            type="button"
+            disabled={!target}
+            onClick={() => onStep(dir)}
+            aria-label={target ? `${dir === 'prev' ? 'Previous' : 'Next'} Report: ${target.name}` : `No ${dir === 'prev' ? 'Previous' : 'Next'} Report`}
+            title={target ? `${dir === 'prev' ? 'Previous' : 'Next'}: ${target.name}` : undefined}
+            className="inline-flex h-10 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-brand-400 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 disabled:cursor-default disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:text-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-brand-400 dark:hover:text-white dark:disabled:hover:border-slate-600 dark:disabled:hover:text-slate-400"
+          >
+            {dir === 'prev' ? <ChevronLeft className="h-4 w-4" aria-hidden /> : <ChevronRight className="h-4 w-4" aria-hidden />}
+          </button>
+        ))}
+      </div>
       {open ? createPortal(
         <div className="fixed inset-0 z-[95]" role="presentation">
           <div
@@ -1872,6 +1896,8 @@ function ReportView(props: {
   reportName: string;
   reportId: string;
   onSelectReport: (id: string | null) => void;
+  /** Opens the report before or after this one in menu order, arriving from that side. */
+  onStepReport: (dir: SwipeDirection) => void;
   ready: boolean;
   note?: string;
   preset: RangePreset;
@@ -2060,7 +2086,7 @@ function ReportView(props: {
             the controls share the top row and the title is centered under them. Phones: the title alone. */}
         <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-3 py-5 [grid-template-areas:'nav_filters'_'title_title'] xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] xl:py-6 xl:[grid-template-areas:'nav_title_filters'] max-md:grid-cols-1 max-md:gap-2 max-md:py-3 max-md:[grid-template-areas:'title']">
           <div className="z-50 min-w-0 justify-self-start [grid-area:nav] max-md:hidden">
-            <OwnerReportNav reportId={props.reportId} onSelect={props.onSelectReport} />
+            <OwnerReportNav reportId={props.reportId} onSelect={props.onSelectReport} onStep={props.onStepReport} />
           </div>
           <div className="relative z-40 min-w-0 px-2 text-center [grid-area:title]">
             {/* The info icon sits outside the heading so its note keeps the body type size. */}
