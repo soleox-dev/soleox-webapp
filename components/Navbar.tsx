@@ -453,9 +453,8 @@ export default function Navbar() {
           {multiClient && access?.clientName ? (
             <span
               title={`Client: ${access.clientName}`}
-              className="order-first inline-flex h-7 max-w-[8.5rem] shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 text-xs font-medium text-slate-600 desktop-nav:order-none desktop-nav:max-w-[14rem] dark:bg-slate-800 dark:text-slate-300"
+              className="order-first inline-flex h-7 max-w-[8.5rem] shrink-0 items-center rounded-full bg-slate-100 px-2.5 text-xs font-medium text-slate-600 desktop-nav:order-none desktop-nav:max-w-[14rem] dark:bg-slate-800 dark:text-slate-300"
             >
-              <Building2 className="hidden h-3.5 w-3.5 shrink-0 text-slate-400 sm:block" strokeWidth={2} aria-hidden />
               <span className="sm:hidden">{clientCode(access.clientId, access.clientName)}</span>
               <span className="hidden truncate sm:inline">{access.clientName}</span>
             </span>
