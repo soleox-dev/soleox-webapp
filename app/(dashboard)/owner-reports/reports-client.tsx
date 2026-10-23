@@ -9,6 +9,7 @@ import { DESKTOP_QUERY, useFitsScreen, useIsDesktop, useIsTouch } from '@/lib/us
 import { swallowNextClick } from '@/lib/swallow-click';
 import { FieldChevron, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { SoleoxLogo } from '@/components/ui/logo';
+import { useAccess } from '@/components/access-provider';
 import { beginViewRestore, endViewRestore, readReportView, rememberReportReturn, saveReportView, takeReportRestore, useResetEffect, useRestorableState, type ReportReturn } from '@/lib/report-return';
 import { clearReportCache, pruneReportCache, readReportCache, reportCacheKey, writeReportCache } from '@/lib/report-cache';
 import { LoadingDataPage, type LoadingProgressInfo } from './loading-data-page';
@@ -198,6 +199,7 @@ export default function OwnerReportsPage() {
   // The client's data-changed time the data on screen reflects, and when the last focus check ran.
   const shownChangedAt = useRef<string | null>(null);
   const lastFocusCheck = useRef(0);
+  const { clientMismatch } = useAccess();
   // Newer data exists while the report is being read; offered with Refresh instead of changing the numbers mid-read.
   const [newDataAvailable, setNewDataAvailable] = useState(false);
   const refreshData = () => {
@@ -225,14 +227,15 @@ export default function OwnerReportsPage() {
   useEffect(() => {
     if (loading) return;
     const onReturn = async () => {
-      if (document.visibilityState !== 'visible' || refreshing) return;
+      // After a client switch in another tab, this tab waits for its reload instead of loading the other client.
+      if (document.visibilityState !== 'visible' || refreshing || clientMismatch) return;
       if (Date.now() - lastFocusCheck.current < 60_000) return;
       lastFocusCheck.current = Date.now();
       if (await dataChanged()) refreshData();
     };
     const onReturnEvent = () => { void onReturn(); };
     const poll = window.setInterval(async () => {
-      if (document.visibilityState !== 'visible' || refreshing || newDataAvailable) return;
+      if (document.visibilityState !== 'visible' || refreshing || newDataAvailable || clientMismatch) return;
       if (await dataChanged()) setNewDataAvailable(true);
     }, 120_000);
     document.addEventListener('visibilitychange', onReturnEvent);
@@ -242,7 +245,7 @@ export default function OwnerReportsPage() {
       document.removeEventListener('visibilitychange', onReturnEvent);
       window.removeEventListener('focus', onReturnEvent);
     };
-  }, [loading, refreshing, newDataAvailable]);
+  }, [loading, refreshing, newDataAvailable, clientMismatch]);
 
   // The way back from a transaction (lib/report-return.ts). Coming back with Back puts the filters back first, then
   // the scroll once the report has drawn; the filters are saved on every change so the latest set is restored.

@@ -63,3 +63,7 @@ Do not build these until the module exists. Record them so the names stay reserv
 A person assigned to one client enters the app on that client.
 
 A person assigned to more than one client must choose a client before any page, menu, or data is available. They can switch client without signing out. The choice lasts until they switch again. After a switch, the app shows that client's records and applies that client's permissions.
+
+The top navigation shows that person the active client as a chip beside the avatar (on narrow phones it replaces REBI next to the logo); clicking it opens the menu that switches client.
+
+The active client is one cookie shared by every tab of the browser. When a person switches client in one tab, every other open tab is told at once (and each tab checks again whenever it comes back into view): a tab still showing the previous client is covered by a notice, Client Changed in Another Tab, with Reload in the new client or Switch Back to the one it shows, so nothing in it is saved or loaded for the wrong client. Owner Reports in such a tab stops its background refreshes until then (`components/access-provider.tsx`). Working in two clients side by side would need the client sent by each tab instead of the shared cookie; that is not built.

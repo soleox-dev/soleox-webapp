@@ -24,6 +24,8 @@ export default function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const { access, chooseClient } = useAccess();
+  // Users with more than one client see the active one in the bar.
+  const multiClient = Boolean(access && access.clients.length > 1 && access.clientName);
   const { theme, setTheme } = useSoleoxTheme();
   // Phones can switch between the mobile and desktop layouts (see lib/view-mode.ts).
   const viewMode = useViewMode();
@@ -336,8 +338,9 @@ export default function Navbar() {
               className="h-7 w-auto"
               suffix={(
                 <>
-                  <span aria-hidden className="mx-3 h-[18px] w-px self-center bg-slate-300 dark:bg-slate-700" />
-                  <span className="text-base font-medium tracking-[0.02em] text-slate-500 dark:text-slate-400">REBI</span>
+                  {/* On a narrow phone, a user with several clients sees the client chip instead of REBI. */}
+                  <span aria-hidden className={`mx-3 h-[18px] w-px self-center bg-slate-300 dark:bg-slate-700 ${multiClient ? 'max-sm:hidden' : ''}`} />
+                  <span className={`text-base font-medium tracking-[0.02em] text-slate-500 dark:text-slate-400 ${multiClient ? 'max-sm:hidden' : ''}`}>REBI</span>
                 </>
               )}
             />
@@ -448,6 +451,26 @@ export default function Navbar() {
           >
             <Menu className="h-5 w-5" strokeWidth={2} aria-hidden />
           </button>
+
+          {/* Users with more than one client see which one they are in; clicking opens the menu that switches it. */}
+          {multiClient && access?.clientName ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (isDesktopNav) setIsUserMenuOpen(true);
+                else {
+                  setPhoneNavLevel('main');
+                  setPhoneNavOpen(true);
+                }
+              }}
+              title={`Client: ${access.clientName}. Click to switch.`}
+              className="order-first inline-flex h-8 max-w-[8.5rem] shrink-0 cursor-pointer items-center gap-1.5 rounded-full border desktop-nav:order-none border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 transition hover:border-brand-300 hover:text-brand-700 desktop-nav:max-w-[12rem] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-brand-700 dark:hover:text-brand-300"
+            >
+              <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={2} aria-hidden />
+              <span className="truncate">{access.clientName}</span>
+              <ChevronDown className="hidden h-3.5 w-3.5 shrink-0 text-slate-400 desktop-nav:inline" strokeWidth={2} aria-hidden />
+            </button>
+          ) : null}
 
           {/* User Badge & Sign Out Dropdown */}
           <div className="relative hidden desktop-nav:block" ref={dropdownRef}>
