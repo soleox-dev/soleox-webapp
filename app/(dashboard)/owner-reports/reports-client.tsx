@@ -3702,9 +3702,11 @@ const TREND_CLOSED = 'text-emerald-700 dark:text-emerald-300';
 const TREND_PENDING = 'text-amber-600 dark:text-amber-400';
 
 function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, statusPicked, cumulative }: { deals: ReportDeal[]; range: DateRange; priorRange: DateRange; dateBasis: LeaderboardDate; sidePicked: string[] | null; statusPicked: string[] | null; cumulative: boolean }) {
-  // The Status filter set to Pending alone draws the charts in amber, the same as selecting the Pending scorecard.
-  const pendingOnly = statusPicked?.length === 1 && statusPicked[0].trim().toLowerCase() === 'pending';
-  const [statusFilter, setStatusFilter] = useState<'all' | 'closed' | 'pending'>('all');
+  const [chosenStatus, setStatusFilter] = useState<'all' | 'closed' | 'pending'>('all');
+  // A Status filter that keeps only Closed or only Pending selects that scorecard, and the charts follow it
+  // (amber for Pending), the same as clicking the scorecard.
+  const filterOnly = statusPicked?.length === 1 ? statusPicked[0].trim().toLowerCase() : null;
+  const statusFilter = filterOnly === 'closed' || filterOnly === 'pending' ? filterOnly : chosenStatus;
   useEffect(() => {
     setStatusFilter('all');
   }, [dateBasis]);
@@ -3731,7 +3733,6 @@ function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, stat
     priorDeals,
     statusFilter,
     onSelectStatus: selectStatus,
-    pendingOnly,
   };
   const salePanel = {
     months: saleMonths,
@@ -3741,7 +3742,6 @@ function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, stat
     statusFilter,
     onSelectStatus: selectStatus,
     notice: saleNotice,
-    pendingOnly,
   };
   return (
     <div className={pairedReport}>
@@ -3755,7 +3755,7 @@ function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, stat
   );
 }
 
-function TrendPanel({ metric, title, tone, currentClass, previousClass, accentClass, pendingClass, chart = 'line', cumulative = false, months, priorMonths, currentDeals, priorDeals, statusFilter, onSelectStatus, notice, pendingOnly = false }: {
+function TrendPanel({ metric, title, tone, currentClass, previousClass, accentClass, pendingClass, chart = 'line', cumulative = false, months, priorMonths, currentDeals, priorDeals, statusFilter, onSelectStatus, notice }: {
   metric: TrendMetric;
   title: string;
   tone: 'volume' | 'blue' | 'emerald' | 'units' | 'rate' | 'price' | 'team';
@@ -3772,8 +3772,6 @@ function TrendPanel({ metric, title, tone, currentClass, previousClass, accentCl
   statusFilter: 'all' | 'closed' | 'pending';
   onSelectStatus: (status: 'all' | 'closed' | 'pending') => void;
   notice?: string;
-  /** The Status filter keeps only Pending. */
-  pendingOnly?: boolean;
 }) {
   const ratio = metric === 'rate' || metric === 'price';
   const closed = ratio ? ratioTrend(currentDeals, metric, 'closed') : Math.round(sumTrend(currentDeals, metric, 'closed'));
@@ -3781,8 +3779,8 @@ function TrendPanel({ metric, title, tone, currentClass, previousClass, accentCl
   const total = ratio ? ratioTrend(currentDeals, metric) : closed + pending;
   const priorClosed = ratio ? ratioTrend(priorDeals, metric, 'closed') : Math.round(sumTrend(priorDeals, metric, 'closed'));
   const priorTotal = ratio ? ratioTrend(priorDeals, metric) : priorClosed + Math.round(sumTrend(priorDeals, metric, 'pending'));
-  // While Pending is selected, or the Status filter keeps only Pending, the current period draws in amber, the Pending status color; otherwise emerald.
-  const chartProps = { metric, title, months, priorMonths, currentClass: statusFilter === 'pending' || pendingOnly ? 'text-amber-500 dark:text-amber-400' : currentClass, previousClass };
+  // While Pending is selected (by its scorecard or by a Pending-only Status filter) the current period draws in amber, the Pending status color; otherwise emerald.
+  const chartProps = { metric, title, months, priorMonths, currentClass: statusFilter === 'pending' ? 'text-amber-500 dark:text-amber-400' : currentClass, previousClass };
   return (
     <section className={pairedSection}>
       <SectionHeading tone="slate" note={metric === 'team' ? 'Team commission is the commission left after off-the-top deductions and pre-splits are subtracted from total commission.' : undefined}>{title}</SectionHeading>
