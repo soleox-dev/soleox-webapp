@@ -5,7 +5,8 @@ export type TeamCapDefinition = {
   id: string;
   name: string;
   enabled: boolean;
-  kind: 'team' | 'agent';
+  /** Team and Agent Caps come from Settings > Caps; Plan caps from Commission Plans (lib/plan-cap-report.ts). */
+  kind: 'team' | 'agent' | 'plan';
   splitPercentFieldKey: string | null;
   capAmountFieldKey: string | null;
   resetDateFieldKey: string | null;

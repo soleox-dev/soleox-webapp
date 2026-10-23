@@ -64,6 +64,7 @@ import {
   type Totals,
 } from '@/lib/owner-reports';
 import { TeamCapsReport } from '@/app/(dashboard)/owner-reports/team-caps-report';
+import { planCapSections, type PlanCapData } from '@/lib/plan-cap-report';
 import { TransactionMapReport } from '@/app/(dashboard)/owner-reports/transaction-map-report';
 import { ListingsReport, PriceChangeReport, TransactionListReport, priceChangeDeals } from '@/app/(dashboard)/owner-reports/deal-list-reports';
 import {
@@ -138,6 +139,7 @@ export default function OwnerReportsPage() {
   const [dateBases, setDateBases] = useState<BoardField[]>(DEFAULT_DATE_BASES);
   const [agentProfiles, setAgentProfiles] = useState<AgentProfile[]>([]);
   const [teamCaps, setTeamCaps] = useState<TeamCapDefinition[]>([]);
+  const [planCapData, setPlanCapData] = useState<PlanCapData | null>(null);
   const [capContributions, setCapContributions] = useState<CapContribution[]>([]);
   const [agentFieldLabels, setAgentFieldLabels] = useState<Map<string, string>>(new Map());
   const [capPicked, setCapPicked] = useState<string[] | null>(null);
@@ -225,6 +227,13 @@ export default function OwnerReportsPage() {
       return data;
     }).catch(() => null);
 
+    // Commission Plan caps for the Caps report; the report still loads without them.
+    const pPlanCaps = fetch('/api/owner-reports/plan-caps', fetchOptions).then(async (res) => {
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data?.success === false ? null : data;
+    }).catch(() => null);
+
     const pAgents = fetch('/api/agents?include_archived=true', fetchOptions).then(async (res) => {
       if (!res.ok) return null;
       const data = await res.json();
@@ -301,8 +310,8 @@ export default function OwnerReportsPage() {
       return JSON.parse(text);
     })();
 
-    Promise.all([pSnapshot, pAgents, pTxnSchema, pCaps, pAgentSchema])
-      .then(async ([snapshot, agentData, schemaData, capData, agentSchema]) => {
+    Promise.all([pSnapshot, pAgents, pTxnSchema, pCaps, pAgentSchema, pPlanCaps])
+      .then(async ([snapshot, agentData, schemaData, capData, agentSchema, planCaps]) => {
         if (!snapshot) throw new Error('Could not load snapshot data.');
         if (timer) clearInterval(timer);
 
@@ -388,6 +397,7 @@ export default function OwnerReportsPage() {
             ...agentCaps.map((cap: Record<string, unknown>) => asCap(cap, 'agent')),
           ].filter((cap) => cap.id));
         }
+        setPlanCapData(planCaps && Array.isArray(planCaps.agents) && planCaps.agents.length > 0 ? (planCaps as PlanCapData) : null);
         setCapContributions(contributionRows.map((row: Record<string, unknown>) => ({
           agentId: String(row.agentId || ''),
           teamCapId: String(row.teamCapId || ''),
@@ -673,7 +683,8 @@ export default function OwnerReportsPage() {
       paid.set(payment.agentId, ids);
     });
     const activeCaps = teamCaps.filter((cap) => cap.enabled || contributions.some((row) => row.teamCapId === cap.id));
-    return activeCaps.flatMap((cap) => {
+    const planSections = planCapData ? planCapSections({ data: planCapData, deals: dealMap, names, asOf: capAsOf, paid }) : [];
+    return [...activeCaps.flatMap((cap) => {
       const rows = teamCapStandings({
         cap,
         agents: agentProfiles,
@@ -685,8 +696,8 @@ export default function OwnerReportsPage() {
       });
       if (rows.length === 0) return [];
       return [{ cap, rows, count: rows.reduce((sum, row) => sum + row.lines.length, 0) }];
-    });
-  }, [agentProfiles, capAsOf, capContributions, filtered, names, payments, postSplits, reportId, teamCaps]);
+    }), ...planSections];
+  }, [agentProfiles, capAsOf, capContributions, filtered, names, payments, planCapData, postSplits, reportId, teamCaps]);
   const capChoices = capSections.map((section) => ({ value: section.cap.id, label: section.cap.name, count: section.count, group: section.cap.kind }));
   const capFallback = capSections[0] ? [capSections[0].cap.id] : null;
   const visibleCapSections = capSections.filter((section) => pickMatches(capPicked, capFallback, section.cap.id, false));
@@ -1049,7 +1060,7 @@ export default function OwnerReportsPage() {
                 setCapYearOffset(0);
                 setCapShowPaid(false);
               }}
-              capEmpty={teamCaps.length === 0
+              capEmpty={teamCaps.length === 0 && !planCapData
                 ? 'No caps are set up yet.'
                 : capPicked?.length === 0
                   ? 'Select a cap to see each agent’s cap year.'
@@ -1812,7 +1823,7 @@ function ReportView(props: {
 }
 
 type FilterChoice = { value: string; label: string; count: number };
-type CapMenuChoice = FilterChoice & { group: 'team' | 'agent' };
+type CapMenuChoice = FilterChoice & { group: 'team' | 'agent' | 'plan' };
 
 /**
  * A tap outside an open dropdown only closes it, except on another control in the filters card:
@@ -2408,6 +2419,7 @@ function TitleCaps({ options, picked, onChange }: {
   const groups = [
     { id: 'team' as const, label: 'Team Caps', options: visible.filter((option) => option.group === 'team') },
     { id: 'agent' as const, label: 'Agent Caps', options: visible.filter((option) => option.group === 'agent') },
+    { id: 'plan' as const, label: 'Plan Caps', options: visible.filter((option) => option.group === 'plan') },
   ].filter((group) => group.options.length > 0);
   const choose = (id: string) => {
     onChange(options[0]?.value === id ? null : [id]);
