@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { FieldChevron, UnderlineField, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { useRegisterSave } from '@/components/save-leave-guard';
+import { NumberValueInput } from '@/components/ui/number-input';
 
 interface CommissionRule {
   id: string;
@@ -306,12 +307,10 @@ export default function CommissionRulesSettingsPage() {
                 </UnderlineField>
 
                 <UnderlineField label={`Default Value (${newRule.type === 'PERCENT' ? '%' : '$'})`}>
-                  <input
-                    type="number"
-                    step="any"
+                  <NumberValueInput
                     required
                     value={newRule.defaultValue}
-                    onChange={(e) => setNewRule({ ...newRule, defaultValue: Number(e.target.value) })}
+                    onNumberChange={(next) => setNewRule({ ...newRule, defaultValue: next ?? 0 })}
                     className={underlineControl}
                   />
                 </UnderlineField>

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { KnownAgentInfo } from '../types';
 import { formatPercentPoints, fromPercentPoints } from '@/lib/percent';
 import { underlineControl, underlineShell } from '@/components/ui/underline-field';
+import { NumberInput } from '@/components/ui/number-input';
 
 interface AgentPickerModalProps {
   isOpen: boolean;
@@ -207,13 +208,11 @@ export function AgentPickerModal({
             </div>
 
             <div className="relative">
-              <input
-                type="number"
-                step="any"
-                min="0"
+              <NumberInput
+                allowNegative={false}
                 value={splitValStr}
-                onChange={(e) => {
-                  setSplitValStr(e.target.value);
+                onValueChange={(raw) => {
+                  setSplitValStr(raw);
                   setErrorMsg('');
                 }}
                 placeholder="0.00"

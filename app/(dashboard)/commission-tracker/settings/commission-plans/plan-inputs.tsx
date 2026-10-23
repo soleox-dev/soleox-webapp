@@ -5,6 +5,7 @@ import { FieldChevron, UnderlineField, underlineControl } from '@/components/ui/
 import { OptionMenu } from '@/components/ui/option-menu';
 import type { PlanLine } from '@/lib/commission-engine';
 import { FormulaHint } from '../commission-templates/FormulaEditor';
+import { NumberInput } from '@/components/ui/number-input';
 
 /** A field label with an info button whose note shows on hover; clicking it does not open the field. */
 export function HintedLabel({ label, hint }: { label: string; hint?: string }) {
@@ -76,13 +77,11 @@ export function NumberField({
     <UnderlineField label={<HintedLabel label={label} hint={hint} />}>
       <div className="flex items-center gap-1">
         {prefix && <span className="text-xs text-slate-400">{prefix}</span>}
-        <input
+        <NumberInput
           className={`${underlineControl} tabular-nums`}
-          inputMode="decimal"
           value={text}
           placeholder={placeholder}
-          onChange={(event) => {
-            const next = event.target.value.replace(/[$,\s%]/g, '');
+          onValueChange={(next) => {
             setText(next);
             if (next === '') {
               if (allowEmpty) onChange(null);

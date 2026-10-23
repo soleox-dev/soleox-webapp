@@ -9,6 +9,7 @@ import {
   type VisibilityRulesConfig,
 } from '@/app/(dashboard)/commission-tracker/transactions/[id]/types';
 import { isBulkEditableField, type BulkFieldChoice } from '@/lib/transaction-bulk';
+import { NumberInput, takesThousands } from '@/components/ui/number-input';
 
 const CLEAR_VALUE = '__bulk_clear__';
 
@@ -275,14 +276,24 @@ function BulkValueControl({
   }
 
   const numeric = field.fieldType === 'CURRENCY' || field.fieldType === 'NUMBER' || field.fieldType === 'PERCENT';
+  if (numeric) {
+    return wrap(
+      <NumberInput
+        value={value}
+        disabled={disabled}
+        decimals={field.fieldType === 'CURRENCY' ? 2 : field.fieldType === 'PERCENT' ? 3 : undefined}
+        plain={field.fieldType === 'PERCENT' || !takesThousands(field.fieldKey, field.fieldLabel)}
+        placeholder={field.fieldType === 'PERCENT' ? '2.5 for 2.5%' : undefined}
+        onValueChange={onChange}
+        className={underlineControl}
+      />,
+    );
+  }
   return wrap(
     <input
-      type={numeric ? 'number' : 'text'}
-      inputMode={numeric ? 'decimal' : undefined}
-      step={field.fieldType === 'CURRENCY' ? '0.01' : field.fieldType === 'PERCENT' ? '0.001' : undefined}
+      type="text"
       value={value}
       disabled={disabled}
-      placeholder={field.fieldType === 'PERCENT' ? '2.5 for 2.5%' : undefined}
       onChange={(event) => onChange(event.target.value)}
       className={underlineControl}
     />,

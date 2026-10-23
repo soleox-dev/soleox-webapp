@@ -53,7 +53,7 @@ export async function planUsesOfEntity(supabase: SupabaseClient, clientId: strin
   const [versions, settings] = await Promise.all([loadPlanVersions(supabase, clientId, true), loadSettings(supabase, clientId)]);
   const uses = new Set<string>();
   for (const version of versions) {
-    if ((version.lines || []).some((line) => same(line.payee, entity.name))) uses.add(`the ${version.planName} plan`);
+    if ((version.lines || []).some((line) => same(line.payee, entity.name))) uses.add(`plan ${version.planName}`);
   }
   if (Object.values(settings?.history_entity_ids || {}).includes(entity.id)) uses.add('Plan Settings (Earlier Deals)');
   return [...uses];

@@ -162,7 +162,7 @@ export function PlanEditor({
         return (
           <div key={index} className="rounded-lg border border-slate-200 p-4 dark:border-slate-700">
             <div className="mb-3 flex items-center gap-2">
-              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-2xs font-bold tabular-nums text-slate-500 dark:bg-slate-900 dark:text-slate-400">{index + 1}</span>
+              <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-brand-500/15 px-1.5 text-xs font-bold tabular-nums text-brand-700 ring-1 ring-brand-500/30 dark:text-brand-300">{index + 1}</span>
               <span className="text-sm font-bold text-slate-900 dark:text-white">{line.name || 'Untitled Line'}</span>
               <span className="text-2xs font-semibold text-slate-500 dark:text-slate-400">{lineTypeLabel(line.type)}</span>
               <div className="ml-auto flex items-center gap-1">
