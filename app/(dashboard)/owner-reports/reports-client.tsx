@@ -195,11 +195,54 @@ export default function OwnerReportsPage() {
   const [dataSavedAt, setDataSavedAt] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const refreshRequested = useRef(false);
+  // The client's data-changed time the data on screen reflects, and when the last focus check ran.
+  const shownChangedAt = useRef<string | null>(null);
+  const lastFocusCheck = useRef(0);
+  // Newer data exists while the report is being read; offered with Refresh instead of changing the numbers mid-read.
+  const [newDataAvailable, setNewDataAvailable] = useState(false);
   const refreshData = () => {
     if (refreshing) return;
+    setNewDataAvailable(false);
     refreshRequested.current = true;
     setReloadKey((k) => k + 1);
   };
+
+  // Whether the client's data changed since the data on screen was downloaded.
+  const dataChanged = async (): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/owner-reports/version', { cache: 'no-store' });
+      if (!res.ok) return false;
+      const { changedAt } = (await res.json()) as { changedAt?: string | null };
+      const shown = shownChangedAt.current;
+      return Boolean(changedAt && (!shown || Date.parse(shown) < Date.parse(changedAt)));
+    } catch {
+      return false;
+    }
+  };
+  // Coming back to the tab or window (at most once a minute): newer data downloads behind the report, since the
+  // reader was away. While the report is on screen, a check every 2 minutes only offers Refresh, so the numbers never
+  // change under someone reading them.
+  useEffect(() => {
+    if (loading) return;
+    const onReturn = async () => {
+      if (document.visibilityState !== 'visible' || refreshing) return;
+      if (Date.now() - lastFocusCheck.current < 60_000) return;
+      lastFocusCheck.current = Date.now();
+      if (await dataChanged()) refreshData();
+    };
+    const onReturnEvent = () => { void onReturn(); };
+    const poll = window.setInterval(async () => {
+      if (document.visibilityState !== 'visible' || refreshing || newDataAvailable) return;
+      if (await dataChanged()) setNewDataAvailable(true);
+    }, 120_000);
+    document.addEventListener('visibilitychange', onReturnEvent);
+    window.addEventListener('focus', onReturnEvent);
+    return () => {
+      window.clearInterval(poll);
+      document.removeEventListener('visibilitychange', onReturnEvent);
+      window.removeEventListener('focus', onReturnEvent);
+    };
+  }, [loading, refreshing, newDataAvailable]);
 
   // The way back from a transaction (lib/report-return.ts). Coming back with Back puts the filters back first, then
   // the scroll once the report has drawn; the filters are saved on every change so the latest set is restored.
@@ -594,6 +637,7 @@ export default function OwnerReportsPage() {
       const changedAt = version?.changedAt ?? null;
       const save = (bundle: ReportBundle) => {
         const savedAt = new Date().toISOString();
+        shownChangedAt.current = changedAt;
         setDataSavedAt(savedAt);
         if (key) void writeReportCache(key, { savedAt, changedAt, data: bundle });
       };
@@ -621,6 +665,7 @@ export default function OwnerReportsPage() {
       if (aborted()) return;
       if (saved) {
         apply(saved.data);
+        shownChangedAt.current = saved.changedAt;
         setDataSavedAt(saved.savedAt);
         openReports();
         // Up to date when nothing changed since the copy's download began; otherwise refresh behind it.
@@ -1152,6 +1197,7 @@ export default function OwnerReportsPage() {
             <ReportView
               dataSavedAt={dataSavedAt}
               refreshing={refreshing}
+              newDataAvailable={newDataAvailable}
               onRefresh={refreshData}
               onSelectReport={selectReport}
               reportName={report.name}
@@ -1690,8 +1736,11 @@ function SortHead({ column, label, sort, onSort, align = 'left', title, width, c
   );
 }
 
-/** "Updated 3 min ago · Refresh" under the report title: how old the data on screen is, and a way to download it again. */
-function DataFreshness({ savedAt, refreshing, onRefresh }: { savedAt: string | null; refreshing: boolean; onRefresh: () => void }) {
+/**
+ * Under the report title: "Updated 3 min ago", "Updating…" while new data downloads, or "New data available ·
+ * Refresh" when the data changed while the report was on screen.
+ */
+function DataFreshness({ savedAt, refreshing, newDataAvailable, onRefresh }: { savedAt: string | null; refreshing: boolean; newDataAvailable: boolean; onRefresh: () => void }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const tick = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -1713,12 +1762,17 @@ function DataFreshness({ savedAt, refreshing, onRefresh }: { savedAt: string | n
           <RotateCcw className="h-3 w-3 animate-spin [animation-direction:reverse]" strokeWidth={2.25} aria-hidden />
           Updating…
         </>
-      ) : (
+      ) : newDataAvailable ? (
         <>
-          <span title={new Date(savedAt).toLocaleString()}>Updated {age}</span>
+          <span className="font-medium text-slate-500 dark:text-slate-400">New data available</span>
           <span aria-hidden>·</span>
-          <button type="button" onClick={onRefresh} className="cursor-pointer font-semibold text-brand-600 hover:underline dark:text-brand-400">Refresh</button>
+          <button type="button" onClick={onRefresh} className="inline-flex cursor-pointer items-center gap-1 font-semibold text-brand-600 hover:underline dark:text-brand-400">
+            <RotateCcw className="h-3 w-3 [transform:scaleX(-1)]" strokeWidth={2.25} aria-hidden />
+            Refresh
+          </button>
         </>
+      ) : (
+        <span title={new Date(savedAt).toLocaleString()}>Updated {age}</span>
       )}
     </p>
   );
@@ -1728,6 +1782,8 @@ function ReportView(props: {
   /** When the data on screen was downloaded; null before the first download. */
   dataSavedAt: string | null;
   refreshing: boolean;
+  /** Newer data exists; Refresh shows only then. */
+  newDataAvailable: boolean;
   onRefresh: () => void;
   reportName: string;
   reportId: string;
@@ -1953,7 +2009,7 @@ function ReportView(props: {
             ) : null}
             </div>
             <p className="mt-1.5 text-sm text-slate-500 max-md:mt-1 max-md:text-xs">{props.reportId === 'team-caps' ? 'Each agent’s cap year comes from that cap’s reset date.' : `${formatRange(range)} compared with ${formatRange(priorRange)}`}</p>
-            <DataFreshness savedAt={props.dataSavedAt} refreshing={props.refreshing} onRefresh={props.onRefresh} />
+            <DataFreshness savedAt={props.dataSavedAt} refreshing={props.refreshing} newDataAvailable={props.newDataAvailable} onRefresh={props.onRefresh} />
           </div>
           {/* The date and Filters controls render here from FilterBar on wider screens. */}
           <div ref={setFilterSlot} className="relative z-50 min-w-0 justify-self-end [grid-area:filters] max-md:hidden" />
