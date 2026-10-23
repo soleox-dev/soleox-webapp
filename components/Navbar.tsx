@@ -20,6 +20,18 @@ import { CommandPalette } from '@/components/CommandPalette';
 import { swallowNextClick } from '@/lib/swallow-click';
 import { useViewMode, type ViewMode } from '@/lib/view-mode';
 
+/**
+ * A client's short code for the phone pill: its ID when that is already a short code (DEMO), else a leading all-caps
+ * word of its name (TATH Realty → TATH), else the initials of its first words (Pacific Coast Homes → PCH).
+ */
+function clientCode(clientId: string | null, clientName: string | null): string {
+  const id = (clientId || '').trim();
+  if (/^[A-Z0-9]{2,8}$/.test(id)) return id;
+  const words = (clientName || id).trim().split(/\s+/).filter(Boolean);
+  if (words[0] && /^[A-Z0-9&]{2,6}$/.test(words[0])) return words[0];
+  return words.slice(0, 4).map((word) => word[0]?.toUpperCase() || '').join('') || id;
+}
+
 export default function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -338,9 +350,8 @@ export default function Navbar() {
               className="h-7 w-auto"
               suffix={(
                 <>
-                  {/* On a narrow phone, a user with several clients sees the client chip instead of REBI. */}
-                  <span aria-hidden className={`mx-3 h-[18px] w-px self-center bg-slate-300 dark:bg-slate-700 ${multiClient ? 'max-sm:hidden' : ''}`} />
-                  <span className={`text-base font-medium tracking-[0.02em] text-slate-500 dark:text-slate-400 ${multiClient ? 'max-sm:hidden' : ''}`}>REBI</span>
+                  <span aria-hidden className="mx-3 h-[18px] w-px self-center bg-slate-300 dark:bg-slate-700" />
+                  <span className="text-base font-medium tracking-[0.02em] text-slate-500 dark:text-slate-400">REBI</span>
                 </>
               )}
             />
@@ -438,14 +449,15 @@ export default function Navbar() {
           >
             <Search className="h-5 w-5" strokeWidth={2} aria-hidden />
           </button>
-          {/* Users with more than one client see which one they are in. Switching stays in the profile menu. On phones it sits just left of the menu button. */}
+          {/* Users with more than one client see which one they are in. Switching stays in the profile menu. On phones it sits left of search and shows the client's short code. */}
           {multiClient && access?.clientName ? (
             <span
               title={`Client: ${access.clientName}`}
-              className="inline-flex h-7 max-w-[8.5rem] shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 text-xs font-medium text-slate-600 desktop-nav:max-w-[14rem] dark:bg-slate-800 dark:text-slate-300"
+              className="order-first inline-flex h-7 max-w-[8.5rem] shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 text-xs font-medium text-slate-600 desktop-nav:order-none desktop-nav:max-w-[14rem] dark:bg-slate-800 dark:text-slate-300"
             >
-              <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={2} aria-hidden />
-              <span className="truncate">{access.clientName}</span>
+              <Building2 className="hidden h-3.5 w-3.5 shrink-0 text-slate-400 sm:block" strokeWidth={2} aria-hidden />
+              <span className="sm:hidden">{clientCode(access.clientId, access.clientName)}</span>
+              <span className="hidden truncate sm:inline">{access.clientName}</span>
             </span>
           ) : null}
           {/* Phone menu button. Desktop keeps the pill nav and the avatar menu. */}
