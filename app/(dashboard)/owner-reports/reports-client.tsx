@@ -1791,6 +1791,7 @@ function ReportView(props: {
             excludeTeamLeads={props.excludeTeamLeads}
             dateBasis={props.boardDate}
             sidePicked={props.sidePicked}
+            statusPicked={props.statusPicked}
             cumulative={props.reportId === 'team-performance' && cumulative}
             preset={props.preset}
             capSections={props.capSections}
@@ -3045,6 +3046,7 @@ function ReportBody(props: {
   excludeTeamLeads: boolean;
   dateBasis: LeaderboardDate;
   sidePicked: string[] | null;
+  statusPicked: string[] | null;
   cumulative: boolean;
   preset: RangePreset;
   capSections: Array<{ cap: TeamCapDefinition; rows: CapStanding[]; count: number }>;
@@ -3087,7 +3089,7 @@ function ReportBody(props: {
       />
     );
   }
-  if (id === 'team-performance') return <TeamPerformance deals={deals} range={range} priorRange={priorRange} dateBasis={dateBasis} sidePicked={sidePicked} cumulative={cumulative} />;
+  if (id === 'team-performance') return <TeamPerformance deals={deals} range={range} priorRange={priorRange} dateBasis={dateBasis} sidePicked={sidePicked} statusPicked={props.statusPicked} cumulative={cumulative} />;
   if (id === 'net-commission-income') return <AgentEarnings deals={deals} payments={payments} names={names} range={range} priorRange={priorRange} excludeTeamLeads={excludeTeamLeads} teamLeadIds={teamLeadIds} payeePicked={payeePicked} preset={preset} />;
   if (id === 'team-productivity') {
     return (
@@ -3699,7 +3701,9 @@ const TREND_PRIOR = 'text-[#b3bbc5] dark:text-slate-400';
 const TREND_CLOSED = 'text-emerald-700 dark:text-emerald-300';
 const TREND_PENDING = 'text-amber-600 dark:text-amber-400';
 
-function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, cumulative }: { deals: ReportDeal[]; range: DateRange; priorRange: DateRange; dateBasis: LeaderboardDate; sidePicked: string[] | null; cumulative: boolean }) {
+function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, statusPicked, cumulative }: { deals: ReportDeal[]; range: DateRange; priorRange: DateRange; dateBasis: LeaderboardDate; sidePicked: string[] | null; statusPicked: string[] | null; cumulative: boolean }) {
+  // The Status filter set to Pending alone draws the charts in amber, the same as selecting the Pending scorecard.
+  const pendingOnly = statusPicked?.length === 1 && statusPicked[0].trim().toLowerCase() === 'pending';
   const [statusFilter, setStatusFilter] = useState<'all' | 'closed' | 'pending'>('all');
   useEffect(() => {
     setStatusFilter('all');
@@ -3727,6 +3731,7 @@ function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, cumu
     priorDeals,
     statusFilter,
     onSelectStatus: selectStatus,
+    pendingOnly,
   };
   const salePanel = {
     months: saleMonths,
@@ -3736,6 +3741,7 @@ function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, cumu
     statusFilter,
     onSelectStatus: selectStatus,
     notice: saleNotice,
+    pendingOnly,
   };
   return (
     <div className={pairedReport}>
@@ -3749,7 +3755,7 @@ function TeamPerformance({ deals, range, priorRange, dateBasis, sidePicked, cumu
   );
 }
 
-function TrendPanel({ metric, title, tone, currentClass, previousClass, accentClass, pendingClass, chart = 'line', cumulative = false, months, priorMonths, currentDeals, priorDeals, statusFilter, onSelectStatus, notice }: {
+function TrendPanel({ metric, title, tone, currentClass, previousClass, accentClass, pendingClass, chart = 'line', cumulative = false, months, priorMonths, currentDeals, priorDeals, statusFilter, onSelectStatus, notice, pendingOnly = false }: {
   metric: TrendMetric;
   title: string;
   tone: 'volume' | 'blue' | 'emerald' | 'units' | 'rate' | 'price' | 'team';
@@ -3766,6 +3772,8 @@ function TrendPanel({ metric, title, tone, currentClass, previousClass, accentCl
   statusFilter: 'all' | 'closed' | 'pending';
   onSelectStatus: (status: 'all' | 'closed' | 'pending') => void;
   notice?: string;
+  /** The Status filter keeps only Pending. */
+  pendingOnly?: boolean;
 }) {
   const ratio = metric === 'rate' || metric === 'price';
   const closed = ratio ? ratioTrend(currentDeals, metric, 'closed') : Math.round(sumTrend(currentDeals, metric, 'closed'));
@@ -3773,8 +3781,8 @@ function TrendPanel({ metric, title, tone, currentClass, previousClass, accentCl
   const total = ratio ? ratioTrend(currentDeals, metric) : closed + pending;
   const priorClosed = ratio ? ratioTrend(priorDeals, metric, 'closed') : Math.round(sumTrend(priorDeals, metric, 'closed'));
   const priorTotal = ratio ? ratioTrend(priorDeals, metric) : priorClosed + Math.round(sumTrend(priorDeals, metric, 'pending'));
-  // While Pending is selected the current period draws in amber, the Pending status color; otherwise emerald.
-  const chartProps = { metric, title, months, priorMonths, currentClass: statusFilter === 'pending' ? 'text-amber-500 dark:text-amber-400' : currentClass, previousClass };
+  // While Pending is selected, or the Status filter keeps only Pending, the current period draws in amber, the Pending status color; otherwise emerald.
+  const chartProps = { metric, title, months, priorMonths, currentClass: statusFilter === 'pending' || pendingOnly ? 'text-amber-500 dark:text-amber-400' : currentClass, previousClass };
   return (
     <section className={pairedSection}>
       <SectionHeading tone="slate" note={metric === 'team' ? 'Team commission is the commission left after off-the-top deductions and pre-splits are subtracted from total commission.' : undefined}>{title}</SectionHeading>
