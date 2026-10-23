@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   FieldSetting,
   formatPercentageClean,
@@ -47,10 +47,18 @@ interface TransactionOverviewProps {
   handleOverviewInputChange: (key: string, val: any) => void;
   preventMinus: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   validateFieldValue: (field: FieldSetting, val: any) => { isValid: boolean; isLegacyUnmatched: boolean; isRequiredMissing?: boolean; message?: string };
+  /** Key Terms as shown, for the pinned header; null when the deal has none to show. */
+  onPinnedKeyTerms?: (terms: PinnedKeyTerm[] | null) => void;
 }
 
-/** The Key Terms pill: the same blue as every other section's; its large figures set it apart. */
-const STRIP_PILL = 'flex items-center gap-2 rounded-full bg-brand-500/10 px-3.5 py-1.5 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400';
+/** One Key Term in the pinned header: its label and its value as the Overview shows it. */
+export interface PinnedKeyTerm {
+  key: string;
+  label: string;
+  value: string;
+  currency: boolean;
+  empty: boolean;
+}
 
 /**
  * A long value of an optional field, kept to one line to save room. When it does not fit, a "…" button opens the
@@ -113,6 +121,7 @@ export function TransactionOverview({
   handleOverviewInputChange,
   preventMinus,
   validateFieldValue,
+  onPinnedKeyTerms,
 }: TransactionOverviewProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -188,90 +197,54 @@ export function TransactionOverview({
     return { text: String(rawVal) };
   };
 
-  // Key Terms: the fields the client picked in Settings › Fields, in their Key Terms order, as one
-  // table at the top. Those fields leave their own sections here; sections and the Transactions table
-  // keep their order. A section with nothing left drops out of the columns.
+  // Key Terms: the fields the client picked in Settings › Fields, in their Key Terms order. They show in the pinned
+  // header (HeaderCard) the whole time; here each stays in its own section, where it is edited.
   const keyTermsFields = Object.values(groupedSections)
     .flat()
     .filter((field) => field.key_terms_position != null)
     .sort((a, b) => Number(a.key_terms_position) - Number(b.key_terms_position));
-  const keyTermsKeys = new Set(keyTermsFields.map((field) => field.key));
-  const columnSections = Object.entries(groupedSections)
-    .map(([sectionName, fields]) => [sectionName, fields.filter((field) => !keyTermsKeys.has(field.key))] as const)
-    .filter(([, fields]) => fields.length > 0);
+  const columnSections = Object.entries(groupedSections).filter(([, fields]) => fields.length > 0);
 
-  const renderSection = (sectionName: string, fields: FieldSetting[], strip: boolean) => {
-            const visibleFields = fields.filter((field) => {
-              const rawDbVal = readTransactionField(selectedDeal, field.key);
-              const activeValue = isEditing
-                ? (overviewFormValues[field.key] ?? rawDbVal ?? '')
-                : (rawDbVal ?? '');
+  const visibleFieldsOf = (fields: FieldSetting[]) => fields.filter((field) => {
+    const rawDbVal = readTransactionField(selectedDeal, field.key);
+    const activeValue = isEditing
+      ? (overviewFormValues[field.key] ?? rawDbVal ?? '')
+      : (rawDbVal ?? '');
 
-              if (isHiddenRecordId('transactions', field.key)) return false;
-              return isFieldVisible(field, activeValue);
-            });
+    if (isHiddenRecordId('transactions', field.key)) return false;
+    return isFieldVisible(field, activeValue);
+  });
+
+  const pinnedTerms: PinnedKeyTerm[] = visibleFieldsOf(keyTermsFields).map((field) => {
+    const { text } = getFieldValue(field.key, field.type);
+    return { key: field.key, label: field.label, value: text, currency: field.type === 'CURRENCY', empty: text === '—' };
+  });
+  const pinnedKey = pinnedTerms.length > 0 ? JSON.stringify(pinnedTerms) : '';
+  useEffect(() => {
+    onPinnedKeyTerms?.(pinnedKey ? JSON.parse(pinnedKey) as PinnedKeyTerm[] : null);
+  }, [pinnedKey, onPinnedKeyTerms]);
+  useEffect(() => () => onPinnedKeyTerms?.(null), [onPinnedKeyTerms]);
+
+  const renderSection = (sectionName: string, fields: FieldSetting[]) => {
+            const visibleFields = visibleFieldsOf(fields);
 
             if (visibleFields.length === 0) return null;
-
-            // While viewing, a strip reads as a small table: one cell per field, label above a larger value.
-            if (strip && !isEditing) {
-              return (
-                <div key={sectionName} className="min-w-0 space-y-2">
-                  <div className={STRIP_PILL}>
-                    <span className="min-w-0 text-sm font-bold">{sectionName}</span>
-                  </div>
-                  {/* The grid sits 1px outside its frame so the outer edges of the cell borders are clipped. */}
-                  <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
-                    <dl className="-m-px grid [grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr))]">
-                      {visibleFields.map((field) => {
-                        const { text } = getFieldValue(field.key, field.type);
-                        const stored = readTransactionField(selectedDeal, field.key);
-                        const unmatched = validateFieldValue(field, stored ?? text).isLegacyUnmatched;
-                        const empty = text === '—';
-                        return (
-                          <div key={field.id} className="min-w-0 border-l border-t border-slate-200 px-3 py-2 dark:border-slate-700">
-                            <dt className="truncate text-2xs text-slate-500 dark:text-slate-400">
-                              {field.label}
-                              {field.is_required && <span className="text-rose-500" title="Required field">*</span>}
-                            </dt>
-                            <dd
-                              title={unmatched ? validateFieldValue(field, stored ?? text).message : undefined}
-                              className={`mt-0.5 truncate text-base font-semibold ${
-                                unmatched
-                                  ? 'text-amber-600 dark:text-amber-400'
-                                  : empty
-                                  ? 'font-normal text-slate-400 dark:text-slate-500'
-                                  : field.type === 'CURRENCY'
-                                  ? 'text-emerald-700 dark:text-emerald-400'
-                                  : 'text-slate-900 dark:text-white'
-                              }`}
-                            >
-                              {text}
-                            </dd>
-                          </div>
-                        );
-                      })}
-                    </dl>
-                  </div>
-                </div>
-              );
-            }
 
             return (
               <div
                 key={sectionName}
-                className={strip ? 'min-w-0 space-y-2' : 'mb-4 min-w-0 break-inside-avoid'}
+                className="mb-4 min-w-0 break-inside-avoid"
               >
                 {/* A full-width pill so each section title is easy to follow across the columns. */}
-                <div className={strip ? STRIP_PILL : 'flex items-center gap-2 rounded-full bg-brand-500/10 px-3.5 py-1.5 dark:bg-brand-500/15'}>
-                  <span className={`min-w-0 text-sm font-bold ${strip ? '' : 'text-brand-700 dark:text-brand-400'}`}>
+                <div className="flex items-center gap-2 rounded-full bg-brand-500/10 px-3.5 py-1.5 dark:bg-brand-500/15">
+                  <span className="min-w-0 text-sm font-bold text-brand-700 dark:text-brand-400">
                     {sectionName}
                   </span>
                 </div>
 
                 {/* Key Terms while editing: a grid of fields. Other sections: one line per field, its name on the left
                     and its value on the right, edited in place, like the Commission Template form. */}
-                <div className={strip ? 'grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(11rem,1fr))]' : 'mt-0.5 flex flex-col'}>
+                <div className="mt-0.5 flex flex-col">
                   {visibleFields.map((field) => {
                     const fieldData = getFieldValue(field.key, field.type);
                     const isSystemLocked = field.key === 'id' || field.key === 'total_commission';
@@ -296,8 +269,6 @@ export function TransactionOverview({
                       dynamicOptions.unshift(String(formVal));
                     }
 
-                    const labelKey = `${field.key} ${field.label}`.trim().toLowerCase();
-                    const spansBoth = labelKey.includes('property address') || labelKey.includes('commission split');
                     const showError = Boolean(validationResult.isRequiredMissing && isEditing);
                     const showWarning = Boolean(validationResult.isLegacyUnmatched);
                     const assistiveMessage = (showError || showWarning || (isEditing && !validationResult.isValid))
@@ -307,18 +278,13 @@ export function TransactionOverview({
                     const isBoolean = field.type === 'BOOLEAN';
                     const booleanChecked = isBooleanChecked(isEditing ? overviewFormValues[field.key] : readTransactionField(selectedDeal, field.key));
                     const filledControl = 'w-full bg-transparent border-0 p-0 h-5 text-xs leading-4 text-slate-900 dark:text-white focus:outline-none focus:ring-0 font-medium disabled:opacity-50 disabled:cursor-not-allowed';
-                    const shellBorder = showError
-                      ? 'border-b-rose-500'
-                      : showWarning
-                      ? 'border-b-amber-500'
-                      : 'border-b-slate-300 dark:border-b-slate-600 focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)]';
                     const labelTone = showError
                       ? 'text-rose-600 dark:text-rose-400'
                       : showWarning
                       ? 'text-amber-600 dark:text-amber-400'
                       : 'text-slate-500 dark:text-slate-400';
 
-                    if (isBoolean && !strip) {
+                    if (isBoolean) {
                       return (
                         <div key={field.id} className="group/field relative underline-field parameter-line flex min-h-7 flex-wrap items-center gap-x-3 rounded-md border-b border-b-slate-200 py-0.5 pl-2.5 pr-2 dark:border-b-slate-700/70">
                           <span className={`min-w-0 flex-1 truncate text-xs leading-4 ${labelTone}`}>
@@ -435,7 +401,7 @@ export function TransactionOverview({
                                     : 'text-slate-900 dark:text-white font-medium'
                                 }`;
                                 // Optional fields keep long text to one line, opened with "…"; required ones show it all.
-                                if (!field.is_required && !strip) return <FoldedValue text={fieldData.text} className={tone} />;
+                                if (!field.is_required) return <FoldedValue text={fieldData.text} className={tone} />;
                                 return (
                                   <span className={`${tone} whitespace-normal break-words text-balance`}>
                                     {fieldData.text}
@@ -444,96 +410,38 @@ export function TransactionOverview({
                               })()
                             );
 
-                    if (!strip) {
-                      return (
-                        <div
-                          key={field.id}
-                          className={`group/field relative underline-field parameter-line flex flex-wrap items-start gap-x-3 rounded-md border-b py-1 pl-2.5 pr-2 transition-colors ${
-                            showError ? 'border-b-rose-500' : showWarning ? 'border-b-amber-500' : 'border-b-slate-200 dark:border-b-slate-700/70 focus-within:border-b-brand-500'
-                          } ${isInputDisabled && isEditing ? 'opacity-70' : ''}`}
-                        >
-                          {/* Name and value boxes are both 20px tall per line, so a name lines up with the first line of a
-                              value that wraps. */}
-                          <div className={`flex min-h-5 min-w-0 items-center gap-1.5 ${isEditing ? 'flex-1' : 'max-w-[45%] flex-none'}`}>
-                            <span className={`min-w-0 break-words text-xs leading-4 ${labelTone} ${!showError && !showWarning ? 'group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400' : ''}`}>
-                              {field.label}
-                              {field.is_required && <span className="text-rose-500" title="Required field">*</span>}
-                            </span>
-                            {showWarning && (
-                              <span className="cursor-help text-xs shrink-0" title={validationResult.message}>⚠️</span>
-                            )}
-                          </div>
-                          {/* Values sit on the right. A long one wraps onto more lines, still on the right. */}
-                          <div
-                            className={`relative flex min-w-0 items-center justify-end text-right [&_input]:text-right [&_input]:placeholder:text-slate-400 dark:[&_input]:placeholder:text-slate-500 ${
-                              isEditing ? 'min-h-5 w-[55%] max-w-[16rem] shrink-0' : 'min-h-5 min-w-0 flex-1'
-                            } ${isEditing && (isDropdown || field.type === 'DATE') ? '[&_input]:pr-5' : ''} ${isSystemLocked && isEditing ? 'pr-12' : ''}`}
-                          >
-                            {control}
-                            {isSystemLocked && isEditing && (
-                              <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-2xs bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1 py-0.5 rounded font-mono">
-                                LOCKED
-                              </span>
-                            )}
-                            {isEditing && isDropdown && (
-                              <ChevronDown aria-hidden strokeWidth={2} className="pointer-events-none absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
-                            )}
-                            {isEditing && field.type === 'DATE' && !isInputDisabled && (
-                              <button
-                                type="button"
-                                aria-label={`Choose ${field.label}`}
-                                onClick={(event) => {
-                                  const input = event.currentTarget.parentElement?.querySelector('input[type="date"]');
-                                  if (!(input instanceof HTMLInputElement)) return;
-                                  input.focus();
-                                  if (typeof input.showPicker === 'function') input.showPicker();
-                                }}
-                                className="absolute right-0 top-1/2 inline-flex -translate-y-1/2 cursor-pointer text-slate-500 dark:text-slate-400"
-                              >
-                                <svg viewBox="0 0 16 16" aria-hidden className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                                  <rect x="2.25" y="3.25" width="11.5" height="10.5" rx="1.25" />
-                                  <path d="M2.25 6.75h11.5M5.25 2v2.5M10.75 2v2.5" />
-                                </svg>
-                              </button>
-                            )}
-                          </div>
-                          {assistiveMessage && (
-                            <p className={`basis-full pb-0.5 text-right text-2xs leading-3 font-medium ${showWarning && !showError ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                              {assistiveMessage}
-                            </p>
+                    return (
+                      <div
+                        key={field.id}
+                        className={`group/field relative underline-field parameter-line flex flex-wrap items-start gap-x-3 rounded-md border-b py-1 pl-2.5 pr-2 transition-colors ${
+                          showError ? 'border-b-rose-500' : showWarning ? 'border-b-amber-500' : 'border-b-slate-200 dark:border-b-slate-700/70 focus-within:border-b-brand-500'
+                        } ${isInputDisabled && isEditing ? 'opacity-70' : ''}`}
+                      >
+                        {/* Name and value boxes are both 20px tall per line, so a name lines up with the first line of a
+                            value that wraps. */}
+                        <div className={`flex min-h-5 min-w-0 items-center gap-1.5 ${isEditing ? 'flex-1' : 'max-w-[45%] flex-none'}`}>
+                          <span className={`min-w-0 break-words text-xs leading-4 ${labelTone} ${!showError && !showWarning ? 'group-focus-within/field:text-brand-600 dark:group-focus-within/field:text-brand-400' : ''}`}>
+                            {field.label}
+                            {field.is_required && <span className="text-rose-500" title="Required field">*</span>}
+                          </span>
+                          {showWarning && (
+                            <span className="cursor-help text-xs shrink-0" title={validationResult.message}>⚠️</span>
                           )}
                         </div>
-                      );
-                    }
-
-                    return (
-                      <div key={field.id} className="min-w-0">
-                        <div className={`group relative underline-field rounded-t-md pl-2.5 ${isSystemLocked && isEditing ? 'pr-14' : 'pr-2.5'} pt-1 pb-0.5 border-b transition-colors ${shellBorder} ${isInputDisabled && isEditing ? 'opacity-70' : ''}`}>
-                          <div className="flex items-center gap-1.5">
-                            <span className={`text-2xs leading-3 font-medium truncate ${labelTone} ${!showError && !showWarning ? 'group-focus-within:text-brand-600 dark:group-focus-within:text-brand-400' : ''}`}>
-                              {field.label}
-                              {field.is_required && <span className="text-rose-500" title="Required field">*</span>}
-                            </span>
-                            {showWarning && (
-                              <span className="cursor-help text-xs shrink-0" title={validationResult.message}>⚠️</span>
-                            )}
-                          </div>
-                          <div className={`${spansBoth ? 'min-h-5 items-start' : 'h-5 items-center'} flex`}>
-                            {control}
-                          </div>
+                        {/* Values sit on the right. A long one wraps onto more lines, still on the right. */}
+                        <div
+                          className={`relative flex min-w-0 items-center justify-end text-right [&_input]:text-right [&_input]:placeholder:text-slate-400 dark:[&_input]:placeholder:text-slate-500 ${
+                            isEditing ? 'min-h-5 w-[55%] max-w-[16rem] shrink-0' : 'min-h-5 min-w-0 flex-1'
+                          } ${isEditing && (isDropdown || field.type === 'DATE') ? '[&_input]:pr-5' : ''} ${isSystemLocked && isEditing ? 'pr-12' : ''}`}
+                        >
+                          {control}
                           {isSystemLocked && isEditing && (
-                            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-2xs bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1 py-0.5 rounded font-mono">
+                            <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-2xs bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1 py-0.5 rounded font-mono">
                               LOCKED
                             </span>
                           )}
                           {isEditing && isDropdown && (
-                            <svg
-                              viewBox="0 0 10 6"
-                              aria-hidden
-                              className="pointer-events-none absolute right-2.5 top-1/2 h-1.5 w-2.5 -translate-y-1/2 text-slate-600 dark:text-slate-300"
-                            >
-                              <path d="M1 1L5 5L9 1" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
+                            <ChevronDown aria-hidden strokeWidth={2} className="pointer-events-none absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
                           )}
                           {isEditing && field.type === 'DATE' && !isInputDisabled && (
                             <button
@@ -545,7 +453,7 @@ export function TransactionOverview({
                                 input.focus();
                                 if (typeof input.showPicker === 'function') input.showPicker();
                               }}
-                              className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 cursor-pointer text-slate-600 dark:text-slate-300"
+                              className="absolute right-0 top-1/2 inline-flex -translate-y-1/2 cursor-pointer text-slate-500 dark:text-slate-400"
                             >
                               <svg viewBox="0 0 16 16" aria-hidden className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
                                 <rect x="2.25" y="3.25" width="11.5" height="10.5" rx="1.25" />
@@ -555,7 +463,7 @@ export function TransactionOverview({
                           )}
                         </div>
                         {assistiveMessage && (
-                          <p className={`mt-1 text-2xs font-medium ${showWarning && !showError ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                          <p className={`basis-full pb-0.5 text-right text-2xs leading-3 font-medium ${showWarning && !showError ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
                             {assistiveMessage}
                           </p>
                         )}
@@ -566,10 +474,6 @@ export function TransactionOverview({
               </div>
             );
   };
-
-  // Key Terms renders nothing when all its fields are hidden on this deal, so it then takes no row.
-  const renderedStrips = (keyTermsFields.length > 0 ? [['Key Terms', renderSection('Key Terms', keyTermsFields, true)] as const] : [])
-    .filter(([, element]) => element !== null);
 
   return (
     <section id="overview" onKeyDown={editKeys.onKeyDown} className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height))] transition-colors ${SECTION_SHELL_PHONE}`}>
@@ -621,25 +525,9 @@ export function TransactionOverview({
           </div>
         ) : (
           <div className="space-y-6">
-          {renderedStrips.length > 0 && (
-          // Key Terms sits on the same columns as the sections below (up to four, at least 20rem each)
-          // and spans the full row.
-          <div className="grid gap-6 lg:gap-x-8 lg:[grid-template-columns:repeat(auto-fill,minmax(max(20rem,calc((100%-6rem)/4)),1fr))]">
-          {renderedStrips.map(([sectionName, element], index) => (
-            <div
-              key={sectionName}
-              className="min-w-0 lg:[grid-column:var(--strip-span)]"
-              // The others fill columns 1, 2, 3 in turn, so the last one starts right after them and runs to the row's end.
-              style={{ '--strip-span': index === renderedStrips.length - 1 && index < 3 ? `${index + 1} / -1` : 'span 1' } as React.CSSProperties}
-            >
-              {element}
-            </div>
-          ))}
-          </div>
-          )}
           {columnSections.length > 0 && (
           <div className="lg:[column-count:4] lg:[column-width:20rem] lg:gap-x-12">
-          {columnSections.map(([sectionName, fields]) => renderSection(sectionName, fields, false))}
+          {columnSections.map(([sectionName, fields]) => renderSection(sectionName, fields))}
           </div>
           )}
           </div>

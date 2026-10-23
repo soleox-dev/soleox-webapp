@@ -156,7 +156,7 @@ When resolving custom attributes or fields in formulas (e.g., `XLOOKUP(agent_1, 
 
 ### Typography
 One type scale, by role. Use these sizes and nothing else; no arbitrary `text-[Npx]`.
-- Page title, one per page: `text-2xl` (24px), bold. Transactions, Settings, the deal's address on Transaction Detail, a report's title.
+- Page title, one per page: `text-2xl` (24px), bold. Transactions, Settings, a report's title. Transaction Detail is the exception: its pinned bar holds the deal's address as the page title (`h1`) at `text-sm`, so the bar stays one line.
 - Section title: `text-lg` (18px). Transaction Overview, Commission Waterfall, Payments Breakdown, a Settings page's header, dialog titles.
 - Subheading: `text-base` (16px). Waterfall and payment headings, a panel's title inside a page, report chart titles.
 - Body: `text-sm` (14px). Paragraphs, descriptions, form values, menus, the navigation bar.

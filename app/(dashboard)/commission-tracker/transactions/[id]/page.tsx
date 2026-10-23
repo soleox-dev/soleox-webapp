@@ -14,7 +14,7 @@ import { useOverviewForm } from './hooks/useOverviewForm';
 // Sub-Components & Modals
 import { HeaderCard } from './components/HeaderCard';
 import { SearchableTransactionPicker } from './components/SearchableTransactionPicker';
-import { TransactionOverview } from './components/TransactionOverview';
+import { TransactionOverview, type PinnedKeyTerm } from './components/TransactionOverview';
 import { CommissionWaterfall } from './components/CommissionWaterfall';
 import { orderRulesByEntities } from './components/CommissionWaterfallTable';
 import { pageFrame } from '@/lib/page-frame';
@@ -101,6 +101,8 @@ export default function Dashboard() {
 
   const [activeTab, setActiveTab] = useState<'overview' | 'commission' | 'disbursements'>('overview');
   const [headerStick, setHeaderStick] = useState(144);
+  // Key Terms shown in the pinned header while their table is scrolled out of view (TransactionOverview).
+  const [pinnedKeyTerms, setPinnedKeyTerms] = useState<PinnedKeyTerm[] | null>(null);
 
   const isProgrammaticScrollRef = useRef(false);
 
@@ -1762,6 +1764,7 @@ export default function Dashboard() {
         saveBlocked={saveBlocked || commissionSettling}
         saveBlockedReason={commissionSettling ? 'The commission is still being calculated.' : saveBlockedReason}
         onHeightChange={setHeaderStick}
+        keyTerms={pinnedKeyTerms}
         deal={templateDeal ? {
           address: String(templateDeal.property_address || '').trim() || undefined,
           status: String(templateDeal.transaction_status || '').trim() || undefined,
@@ -1824,6 +1827,7 @@ export default function Dashboard() {
       <div>
         <div className="min-w-0 space-y-8">
           <TransactionOverview
+            onPinnedKeyTerms={setPinnedKeyTerms}
             isEditing={overviewForm.isEditingOverview}
             hasChanges={!overviewForm.overviewValuesUnchanged()}
             onStartEdit={() => {

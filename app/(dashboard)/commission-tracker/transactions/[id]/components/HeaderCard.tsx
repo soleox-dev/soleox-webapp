@@ -24,8 +24,10 @@ interface HeaderCardProps {
   sections?: TransactionSectionLink[];
   activeSection?: TransactionSectionId;
   onSelectSection?: (id: TransactionSectionId) => void;
-  /** The transaction search. It opens from Switch deal, from the address in the compact bar, or with "/". */
+  /** The transaction search. It opens from Switch deal, from the address, or with "/". */
   children?: React.ReactNode;
+  /** Key Terms to show under the bar, once their table has scrolled out of view. */
+  keyTerms?: { key: string; label: string; value: string; currency: boolean; empty: boolean }[] | null;
 }
 
 /** Status colors: waiting is amber, open is the brand sky, done is emerald, and stopped is rose. */
@@ -46,47 +48,44 @@ function StatusChip({ status }: { status: string }) {
   );
 }
 
-/** Scroll distances for the two shapes. The gap between them keeps the header from flickering at the top. */
-const COMPACT_AFTER_PX = 24;
-const EXPAND_BELOW_PX = 4;
+/** The transaction ID; a click copies it. */
+function IdChip({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard?.writeText(id).then(() => {
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1200);
+        });
+      }}
+      title={copied ? 'Copied' : 'Copy transaction ID'}
+      className="shrink-0 cursor-pointer rounded-md px-1.5 py-0.5 font-mono text-2xs text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 max-md:hidden dark:text-slate-500 dark:hover:bg-slate-700/60 dark:hover:text-slate-200"
+    >
+      {copied ? 'Copied' : id}
+    </button>
+  );
+}
 
 /**
- * One header for the deal. At the top of the page it is a card: back link, the address as the title, then
- * status, side, closing date, and ID. Once the page scrolls it shrinks into a pinned bar with the address, side,
- * and status. Both shapes keep Switch deal, Delete, and the unsaved Save / Discard. The page measures the
- * pinned strip (#transaction-detail-header) to place content and section jumps under it.
+ * One header for the deal: a pinned bar with Back, the address (the page title; a click opens the search), side,
+ * status, and ID, and the actions: Switch deal, Delete, and the unsaved Save / Discard. Under it, the Key Terms
+ * once their table is out of view. The page measures the pinned strip (#transaction-detail-header) to place
+ * content and section jumps under it.
  */
-export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDelete, hasUnsavedChanges = false, saveBlocked = false, saveBlockedReason, onHeightChange, deal, onBack, backLabel = 'Transactions', sections, activeSection = 'overview', onSelectSection, children }: HeaderCardProps) {
+export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDelete, hasUnsavedChanges = false, saveBlocked = false, saveBlockedReason, onHeightChange, deal, onBack, backLabel = 'Transactions', sections, activeSection = 'overview', onSelectSection, children, keyTerms }: HeaderCardProps) {
   // Measured here, on this card's own element, so the height stays right when the card remounts.
   const stripRef = useRef<HTMLDivElement>(null);
-  const [compact, setCompact] = useState(false);
-  const compactRef = useRef(false);
-  compactRef.current = compact;
-  // The full card's height. While the bar is compact, the height it gave up stays reserved under it, so the
-  // page below does not jump up when it shrinks (iOS Safari has no scroll anchoring to hide that jump).
-  const expandedHeightRef = useRef(0);
   useLayoutEffect(() => {
     const strip = stripRef.current;
     if (!strip) return;
-    const sync = () => {
-      const height = strip.offsetHeight;
-      if (!compactRef.current) expandedHeightRef.current = height;
-      const reserved = compactRef.current ? Math.max(0, expandedHeightRef.current - height) : 0;
-      strip.style.setProperty('--header-reserved', `${reserved}px`);
-      onHeightChange?.(height);
-    };
+    const sync = () => onHeightChange?.(strip.offsetHeight);
     sync();
     const observer = new ResizeObserver(sync);
     observer.observe(strip);
     return () => observer.disconnect();
-  }, [onHeightChange, compact]);
-
-  useEffect(() => {
-    const sync = () => setCompact((current) => (current ? window.scrollY > EXPAND_BELOW_PX : window.scrollY > COMPACT_AFTER_PX));
-    sync();
-    window.addEventListener('scroll', sync, { passive: true });
-    return () => window.removeEventListener('scroll', sync);
-  }, []);
+  }, [onHeightChange]);
 
   // The transaction search, in a popover.
   const [searchOpen, setSearchOpen] = useState(false);
@@ -130,10 +129,6 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
       {isNewTransaction && (
         <span className="shrink-0 rounded-full bg-brand-500/10 px-2.5 py-0.5 text-xs font-semibold text-brand-700 dark:text-brand-400">New</span>
       )}
-      {/* The compact bar has no room for it; Discard and Save already say there are changes. */}
-      {hasUnsavedChanges && !compact && (
-        <span className="shrink-0 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">Unsaved Changes</span>
-      )}
       {hasUnsavedChanges && (
         <button
           type="button"
@@ -167,7 +162,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
           className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 cursor-pointer dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
         >
           <Search className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-          <span className={compact ? 'sr-only' : 'hidden sm:inline'}>Switch Deal</span>
+          <span className="sr-only">Switch Deal</span>
           <kbd className="hidden rounded border border-slate-200 px-1 font-mono text-2xs text-slate-400 sm:inline dark:border-slate-600">/</kbd>
         </button>
       )}
@@ -179,7 +174,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
           className="px-3 py-1.5 text-xs font-bold rounded-full border border-rose-300 text-rose-600 transition hover:bg-rose-500/10 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer dark:border-rose-500/40 dark:text-rose-400 inline-flex items-center gap-1.5"
         >
           <TrashIcon className="h-3.5 w-3.5" />
-          <span className={compact ? 'sr-only' : ''}>Delete</span>
+          <span className="sr-only">Delete</span>
         </button>
       )}
     </div>
@@ -192,20 +187,14 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
       <div
         ref={stripRef}
         id="transaction-detail-header"
-        className={`sticky top-[var(--app-nav-offset,4rem)] z-40 !mb-[calc(0.75rem+var(--header-reserved,0px))] -mx-4 bg-slate-100 px-4 pt-3 max-sm:pt-0 md:-mx-6 md:px-6 transition-[top,padding] duration-200 ease-out motion-reduce:transition-none dark:bg-slate-900 ${compact ? 'pb-2' : 'pb-3'}`}
-        data-scrolled={compact ? '1' : undefined}
+        className="sticky top-[var(--app-nav-offset,4rem)] z-40 !mb-3 -mx-4 bg-slate-100 px-4 pt-3 pb-2 max-sm:pt-0 md:-mx-6 md:px-6 transition-[top] duration-200 ease-out motion-reduce:transition-none dark:bg-slate-900"
       >
         <div
           // On a phone the header runs the full width of the screen, right under the navigation bar, like the
           // section bands below it, instead of a card inside the page gutter.
-          className={`relative border border-slate-200 bg-white transition-[border-radius,padding,box-shadow] duration-200 ease-out motion-reduce:transition-none dark:border-slate-700 dark:bg-slate-800 max-sm:-mx-4 max-sm:rounded-none max-sm:border-x-0 max-sm:border-t-0 max-sm:px-4 max-sm:shadow-none ${
-            compact ? 'rounded-[22px] py-1.5 pl-3 pr-2 shadow-xl' : 'rounded-xl px-6 py-4 shadow-xs'
-          }`}
+          className="relative rounded-[22px] border border-slate-200 bg-white py-1.5 pl-3 pr-2 shadow-xl dark:border-slate-700 dark:bg-slate-800 max-sm:-mx-4 max-sm:rounded-none max-sm:border-x-0 max-sm:border-t-0 max-sm:px-4 max-sm:shadow-none"
         >
-          {/* A real radius (half the bar's height) instead of a full pill, so the corners ease into the card's
-              instead of the tall card briefly showing as a giant pill. The new content fades in on each change. */}
-          {compact ? (
-            <div key="compact" className="header-swap flex flex-wrap items-center gap-x-3 gap-y-2 md:flex-nowrap">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 md:flex-nowrap">
               {onBack && (
                 <button
                   type="button"
@@ -222,53 +211,53 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
               {/* The address, side, and status. Clicking the address opens the search. */}
               {/* Clipped rather than spilling under the buttons when the bar runs out of room. */}
               <div className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
-                <button
-                  type="button"
-                  onClick={children ? openSearch : undefined}
-                  title={children ? 'Switch to another transaction' : undefined}
-                  className={`min-w-0 truncate text-left text-sm font-semibold text-slate-900 dark:text-white ${children ? 'cursor-pointer hover:text-brand-700 dark:hover:text-brand-400' : 'cursor-default'}`}
-                >
-                  {title}
-                </button>
+                <h1 className="min-w-0 truncate">
+                  <button
+                    type="button"
+                    onClick={children ? openSearch : undefined}
+                    title={children ? 'Switch to another transaction' : undefined}
+                    className={`max-w-full truncate text-left text-sm font-semibold text-slate-900 dark:text-white ${children ? 'cursor-pointer hover:text-brand-700 dark:hover:text-brand-400' : 'cursor-default'}`}
+                  >
+                    {title}
+                  </button>
+                </h1>
                 {hasDeal && deal?.side && <span className="shrink-0 text-xs text-slate-500 max-sm:hidden dark:text-slate-400">{deal.side}</span>}
                 {/* On a phone the address gets the room; side and status show in the page itself. */}
                 {hasDeal && deal?.status && <span className="contents max-sm:hidden"><StatusChip status={deal.status} /></span>}
+                {hasDeal && deal?.id && <IdChip id={deal.id} />}
               </div>
               {actions}
             </div>
-          ) : (
-            <div key="expanded" className="header-swap flex flex-wrap items-center gap-x-4 gap-y-3">
-              {/* On a phone the title takes the full width and the actions wrap below it. */}
-              <div className="min-w-0 flex-1 basis-full sm:basis-auto">
-                {onBack && (
-                  <button
-                    type="button"
-                    onClick={onBack}
-                    className="mb-1 inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                  >
-                    <ArrowLeft className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-                    {backLabel}
-                  </button>
-                )}
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{title}</h1>
-                {hasDeal ? (
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
-                    {deal?.status && <StatusChip status={deal.status} />}
-                    {deal?.side && <span>{deal.side}</span>}
-                    {deal?.closingDate && <><span aria-hidden>·</span><span>Closing {deal.closingDate}</span></>}
-                    {deal?.id && <><span aria-hidden>·</span><span className="font-mono text-xs text-slate-400 dark:text-slate-500">{deal.id}</span></>}
-                  </div>
-                ) : (
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Overview, commission waterfall, and payments</p>
-                )}
-              </div>
-              {actions}
-            </div>
+
+          {/* Key Terms ride along on one line once their table is out of view; they scroll sideways when there are many.
+              Clicking goes back to them in the Overview, where they are edited. */}
+          {keyTerms && keyTerms.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onSelectSection?.('overview')}
+              title="Go to Key Terms"
+              className="mt-1 flex w-full cursor-pointer items-baseline gap-x-5 overflow-x-auto whitespace-nowrap border-t border-slate-100 px-2.5 pt-1.5 pb-0.5 text-left [scrollbar-width:none] dark:border-slate-700/60"
+            >
+              {keyTerms.map((term) => (
+                <span key={term.key} className="inline-flex shrink-0 items-baseline gap-1.5">
+                  <span className="text-2xs text-slate-500 dark:text-slate-400">{term.label}</span>
+                  <span className={`text-xs font-semibold ${
+                    term.empty
+                      ? 'font-normal text-slate-400 dark:text-slate-500'
+                      : term.currency
+                      ? 'text-emerald-700 dark:text-emerald-400'
+                      : 'text-slate-900 dark:text-white'
+                  }`}>
+                    {term.value}
+                  </span>
+                </span>
+              ))}
+            </button>
           )}
 
           {/* Why Save is locked, in words, while there is something to save. */}
           {hasUnsavedChanges && saveBlocked && saveBlockedReason && (
-            <p role="status" className={`flex items-start gap-1.5 text-xs font-medium leading-4 text-rose-600 dark:text-rose-400 ${compact ? 'mt-1 px-2.5 pb-0.5' : 'mt-3'}`}>
+            <p role="status" className={`flex items-start gap-1.5 text-xs font-medium leading-4 text-rose-600 dark:text-rose-400 mt-1 px-2.5 pb-0.5`}>
               <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
               <span><span className="font-bold">Can&rsquo;t save yet.</span> {saveBlockedReason}</span>
             </p>
@@ -292,7 +281,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
         </div>
         {/* The section links sit centered under the header, apart from the actions. */}
         {sections && onSelectSection && (
-          <div className={`flex justify-center transition-[margin] duration-200 ease-out motion-reduce:transition-none ${compact ? 'mt-2' : 'mt-6'}`}>
+          <div className={`flex justify-center transition-[margin] duration-200 ease-out motion-reduce:transition-none mt-2`}>
             <SectionLinks sections={sections} active={activeSection} onSelect={onSelectSection} />
           </div>
         )}

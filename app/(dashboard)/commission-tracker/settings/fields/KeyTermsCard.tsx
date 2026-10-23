@@ -25,7 +25,7 @@ export function savedKeyTerms(fields: KeyTermsField[]): string[] {
 }
 
 /**
- * Picks the transaction fields shown in Key Terms at the top of Transaction Detail, and their order.
+ * Picks the transaction fields shown in Key Terms in Transaction Detail's pinned bar, and their order.
  * Only the Key Terms position changes: sections and the Transactions table keep their own order.
  */
 export function KeyTermsCard({
@@ -86,8 +86,8 @@ export function KeyTermsCard({
         <div className="min-w-0">
           <h2 className="text-base font-bold text-slate-900 dark:text-white">Key Terms</h2>
           <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Shown as one table at the top of Transaction Detail, in this order, instead of in their own sections there.
-            Sections and the Transactions table are not affected.
+            Shown on one line in Transaction Detail&rsquo;s pinned bar, in this order, so they stay in view while you
+            scroll. Each field also stays in its own section. Sections and the Transactions table are not affected.
           </p>
         </div>
         {dirty && (
