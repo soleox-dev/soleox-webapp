@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, Menu, RotateCcw, SlidersHorizontal, X } from 'lucide-react';
 import { widePageFrame } from '@/lib/page-frame';
-import { DESKTOP_QUERY, useFitsScreen, useIsDesktop, useIsTouch } from '@/lib/use-media-query';
+import { DESKTOP_QUERY, useFitsScreen, useIsDesktop, useIsTouch, useMediaQuery } from '@/lib/use-media-query';
 import { swallowNextClick } from '@/lib/swallow-click';
 import { FieldChevron, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { SoleoxLogo } from '@/components/ui/logo';
@@ -2775,7 +2775,10 @@ function formatFilterSpan(range: DateRange): string {
 /** A picker in the line under a report's title: the line's size and weight, in the brand color for something to act on. */
 const titlePickerClass = 'inline-flex max-w-full cursor-pointer appearance-none items-center gap-0.5 whitespace-nowrap border-0 bg-transparent p-0 text-brand-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-brand-700 focus:[outline:none] focus-visible:[outline:none] dark:text-brand-400 dark:hover:text-brand-300';
 
-function TitleMetric({ value, options, onChange }: { value: string; options: BoardField[]; onChange: (id: string) => void }) {
+/** The metric picker in a leaderboard's section pill: the pill's own text, with a chevron. */
+const boardPickerClass = 'inline-flex max-w-full cursor-pointer appearance-none items-center gap-0.5 whitespace-nowrap border-0 bg-transparent p-0 font-semibold text-inherit shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:opacity-80 focus:[outline:none] focus-visible:[outline:none]';
+
+function TitleMetric({ value, options, onChange, buttonClass = titlePickerClass, label = 'Metric' }: { value: string; options: BoardField[]; onChange: (id: string) => void; buttonClass?: string; label?: string }) {
   const [open, setOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   useDropdownScrollLock(listRef, open);
@@ -2816,15 +2819,15 @@ function TitleMetric({ value, options, onChange }: { value: string; options: Boa
         type="button"
         aria-expanded={open}
         aria-haspopup="listbox"
-        aria-label={`Metric ${selected.label}`}
+        aria-label={`${label} ${selected.label}`}
         onClick={() => setOpen((current) => !current)}
-        className={titlePickerClass}
+        className={buttonClass}
       >
         {selected.label}
         <ChevronDown className={`h-4 w-4 shrink-0 transition ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
       {open ? (
-        <div ref={listRef} role="listbox" aria-label="Metric" className="absolute left-0 top-full z-50 mt-2 max-h-[min(36rem,calc(100dvh-14rem))] w-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+        <div ref={listRef} role="listbox" aria-label={label} className="absolute left-0 top-full z-50 mt-2 max-h-[min(36rem,calc(100dvh-14rem))] w-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 text-sm font-medium normal-case tracking-normal text-slate-800 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
           {options.length > 8 ? (
             <div className="sticky -top-1 z-10 bg-white px-1 py-1 dark:bg-slate-900">
               <input
@@ -4880,31 +4883,99 @@ function boardIdentity(deal: ReportDeal, field: BoardField, names: Map<string, s
   return { key: label, label };
 }
 
-function boardRows(current: ReportDeal[], prior: ReportDeal[], metric: 'volume' | 'units', field: BoardField, names: Map<string, string>): BoardRow[] {
-  const amount = (deal: ReportDeal) => (metric === 'volume' ? deal.salesPrice : 1);
-  const priorByKey = new Map<string, number>();
-  const labels = new Map<string, string>();
-  prior.forEach((deal) => {
-    const identity = boardIdentity(deal, field, names);
-    labels.set(identity.key, identity.label);
-    priorByKey.set(identity.key, (priorByKey.get(identity.key) || 0) + amount(deal));
-  });
-  const currentByKey = new Map<string, number>();
-  current.forEach((deal) => {
-    const identity = boardIdentity(deal, field, names);
-    labels.set(identity.key, identity.label);
-    currentByKey.set(identity.key, (currentByKey.get(identity.key) || 0) + amount(deal));
-  });
-  return [...currentByKey.entries()]
-    .map(([key, value]) => ({ key, label: labels.get(key) || key, value, prior: priorByKey.get(key) || 0 }))
-    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label));
+/** What a leaderboard can rank by: Team Performance's six metrics, or a payment board's two. */
+type LeaderMetric = 'volume' | 'gci' | 'units' | 'team' | 'price' | 'rate' | 'amount' | 'count';
+
+const LEADER_METRICS: BoardField[] = [
+  { id: 'volume', label: 'Sales Volume', type: 'METRIC' },
+  { id: 'gci', label: 'Gross Commission Income', type: 'METRIC' },
+  { id: 'units', label: 'Units', type: 'METRIC' },
+  { id: 'team', label: 'Team Commission', type: 'METRIC' },
+  { id: 'price', label: 'Avg. Sales Price', type: 'METRIC' },
+  { id: 'rate', label: 'Gross Commission %', type: 'METRIC' },
+];
+
+const PAYMENT_LEADER_METRICS: BoardField[] = [
+  { id: 'amount', label: 'Payment Amount', type: 'METRIC' },
+  { id: 'count', label: 'Payment Records', type: 'METRIC' },
+];
+
+/** The amount column's header, short enough for a phone. */
+const LEADER_COLUMN: Record<LeaderMetric, string> = {
+  volume: 'Sales Volume', gci: 'GCI', units: 'Units', team: 'Team Commission', price: 'Avg. Price', rate: 'GCI %', amount: 'Payment Amount', count: 'Payment Records',
+};
+
+/** An average or a percent: rows and totals are worked out from their parts, never added up. */
+function leaderRatio(metric: LeaderMetric): boolean {
+  return metric === 'price' || metric === 'rate';
 }
 
-function statusTotal(deals: ReportDeal[], status: 'all' | 'closed' | 'pending', metric: 'volume' | 'units'): number {
-  return deals.reduce((total, deal) => {
-    if (status !== 'all' && deal.status.trim().toLowerCase() !== status) return total;
-    return total + (metric === 'volume' ? deal.salesPrice : 1);
-  }, 0);
+type LeaderSums = { sales: number; gci: number; team: number; units: number; saleSales: number; saleGci: number; saleUnits: number };
+
+function leaderSums(deals: ReportDeal[]): LeaderSums {
+  const sums: LeaderSums = { sales: 0, gci: 0, team: 0, units: 0, saleSales: 0, saleGci: 0, saleUnits: 0 };
+  deals.forEach((deal) => {
+    sums.sales += deal.salesPrice;
+    sums.gci += deal.gciAmount;
+    sums.team += deal.teamGci;
+    sums.units += 1;
+    // Average sales price and gross commission % count buyer and seller sides only, as on Team Performance.
+    if (isSaleSide(deal.side)) {
+      sums.saleSales += deal.salesPrice;
+      sums.saleGci += deal.gciAmount;
+      sums.saleUnits += 1;
+    }
+  });
+  return sums;
+}
+
+/** The metric for a group of deals; null when an average or percent has nothing to divide by. */
+function leaderValue(sums: LeaderSums, metric: LeaderMetric): number | null {
+  if (metric === 'price') return sums.saleUnits > 0 ? sums.saleSales / sums.saleUnits : null;
+  if (metric === 'rate') return sums.saleSales > 0 ? sums.saleGci / sums.saleSales : null;
+  if (metric === 'gci') return sums.gci;
+  if (metric === 'team') return sums.team;
+  if (metric === 'units') return sums.units;
+  return sums.sales;
+}
+
+function boardRows(current: ReportDeal[], prior: ReportDeal[], metric: LeaderMetric, field: BoardField, names: Map<string, string>): BoardRow[] {
+  const labels = new Map<string, string>();
+  const group = (deals: ReportDeal[]) => {
+    const byKey = new Map<string, ReportDeal[]>();
+    deals.forEach((deal) => {
+      const identity = boardIdentity(deal, field, names);
+      labels.set(identity.key, identity.label);
+      byKey.set(identity.key, [...(byKey.get(identity.key) || []), deal]);
+    });
+    return byKey;
+  };
+  const priorByKey = group(prior);
+  const rows: BoardRow[] = [];
+  group(current).forEach((deals, key) => {
+    const value = leaderValue(leaderSums(deals), metric);
+    // A group with no buyer or seller deal has no average price or commission %.
+    if (value === null) return;
+    const before = priorByKey.get(key);
+    rows.push({ key, label: labels.get(key) || key, value, prior: before ? leaderValue(leaderSums(before), metric) ?? 0 : 0 });
+  });
+  return rows.sort((a, b) => b.value - a.value || a.label.localeCompare(b.label));
+}
+
+function statusTotal(deals: ReportDeal[], status: 'all' | 'closed' | 'pending', metric: LeaderMetric): number {
+  return leaderValue(leaderSums(dealsForStatus(deals, status)), metric) ?? 0;
+}
+
+function formatLeader(value: number, metric: LeaderMetric, compact = false): string {
+  if (metric === 'units' || metric === 'count') return Math.round(value).toLocaleString();
+  if (metric === 'rate') return `${(value * 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+  return compact ? compactMoney(value) : fullMoney(value);
+}
+
+function formatLeaderChange(value: number, metric: LeaderMetric, compact = false): string {
+  if (metric === 'units' || metric === 'count') return signedCount(value);
+  if (metric === 'rate') return signedTrend(value, 'rate');
+  return compact ? signedCompact(value) : signedFull(value);
 }
 
 function signedChangePercent(current: number, prior: number): string {
@@ -5055,63 +5126,93 @@ function ProductionLeaderboard({ deals, range, priorRange, field, names, payment
   const shownPrior = useMemo(() => dealsForStatus(prior, statusFilter), [prior, statusFilter]);
   const currentPayments = useMemo(() => keptPayees(withoutTeamLeads(paymentLines(payments, current, payee, names, entityNames), payee === 'agent' && excludeTeamLeads, teamLeadIds), payeePicked), [current, entityNames, excludeTeamLeads, names, payee, payeePicked, payments, teamLeadIds]);
   const priorPayments = useMemo(() => keptPayees(withoutTeamLeads(paymentLines(payments, prior, payee, names, entityNames), payee === 'agent' && excludeTeamLeads, teamLeadIds), payeePicked), [entityNames, excludeTeamLeads, names, payee, payeePicked, payments, prior, teamLeadIds]);
-  const volumeRows = useMemo(
-    () => (paymentMode ? paymentBoardRows(currentPayments, priorPayments, 'amount', statusFilter) : boardRows(shown, shownPrior, 'volume', field, names)),
-    [currentPayments, field, names, paymentMode, priorPayments, shown, shownPrior, statusFilter],
-  );
-  const unitRows = useMemo(
-    () => (paymentMode ? paymentBoardRows(currentPayments, priorPayments, 'count', statusFilter) : boardRows(shown, shownPrior, 'units', field, names)),
-    [currentPayments, field, names, paymentMode, priorPayments, shown, shownPrior, statusFilter],
-  );
-  const amountScores = useMemo(() => (paymentMode ? paymentScores(currentPayments, priorPayments, 'amount') : null), [currentPayments, paymentMode, priorPayments]);
-  const countScores = useMemo(() => (paymentMode ? paymentScores(currentPayments, priorPayments, 'count') : null), [currentPayments, paymentMode, priorPayments]);
   const rowLabel = paymentMode ? (payee === 'entity' ? 'Entity' : 'Agent') : field.label;
-  const leftTitle = paymentMode ? 'Payment Amount' : 'Sales Volume';
-  const rightTitle = paymentMode ? 'Payment Records' : 'Units';
+  // Side by side from lg; narrower, one board whose pill picks the metric.
+  const sideBySide = useMediaQuery('(min-width: 1024px)', true);
+  const [dealPicks, setDealPicks] = useRestorableState<string[]>('leaderboard:metrics', ['volume', 'units']);
+  const [paymentPicks, setPaymentPicks] = useRestorableState<string[]>('leaderboard:payment-metrics', ['amount', 'count']);
+  const options = paymentMode ? PAYMENT_LEADER_METRICS : LEADER_METRICS;
+  const stored = paymentMode ? paymentPicks : dealPicks;
+  const picks = [0, 1].map((slot) => (options.some((option) => option.id === stored[slot]) ? stored[slot] : options[slot].id) as LeaderMetric);
+  // Picking what the other board shows swaps the two, so the boards never repeat.
+  const pick = (slot: number, id: string) => {
+    const next = [...picks] as string[];
+    if (next[1 - slot] === id) next[1 - slot] = next[slot];
+    next[slot] = id;
+    (paymentMode ? setPaymentPicks : setDealPicks)(next);
+  };
+  const board = (slot: number) => {
+    const metric = picks[slot];
+    const ratio = leaderRatio(metric);
+    const rows = paymentMode
+      ? paymentBoardRows(currentPayments, priorPayments, metric === 'count' ? 'count' : 'amount', statusFilter)
+      : boardRows(shown, shownPrior, metric, field, names);
+    const scores = paymentMode
+      ? paymentScores(currentPayments, priorPayments, metric === 'count' ? 'count' : 'amount')
+      : {
+        total: statusTotal(current, 'all', metric),
+        priorTotal: statusTotal(prior, 'all', metric),
+        closed: statusTotal(current, 'closed', metric),
+        priorClosed: statusTotal(prior, 'closed', metric),
+        pending: statusTotal(current, 'pending', metric),
+      };
+    return (
+      <SourceBoard
+        key={slot}
+        tone={slot === 0 ? 'volume' : 'units'}
+        heading={<TitleMetric value={metric} options={options} onChange={(id) => pick(slot, id)} buttonClass={boardPickerClass} label="Board Metric" />}
+        metric={metric}
+        rowLabel={rowLabel}
+        rows={rows}
+        scores={scores}
+        tableTotal={ratio ? statusTotal(shown, 'all', metric) : rows.reduce((sum, row) => sum + row.value, 0)}
+        tablePrior={ratio ? statusTotal(shownPrior, 'all', metric) : rows.reduce((sum, row) => sum + row.prior, 0)}
+        emptyNoun={paymentMode ? 'payment records' : ratio ? 'buyer or seller transactions' : 'transactions'}
+        statusFilter={statusFilter}
+        onSelectStatus={selectStatus}
+      />
+    );
+  };
 
   return (
     <div className={pairedReport}>
-      <SourceBoard tone="volume" title={leftTitle} metric="volume" valueLabel={leftTitle} rowLabel={rowLabel} rows={volumeRows} current={current} prior={prior} scores={amountScores} emptyNoun={paymentMode ? 'payment records' : 'transactions'} statusFilter={statusFilter} onSelectStatus={selectStatus} />
-      <SourceBoard tone="units" title={rightTitle} metric="units" valueLabel={rightTitle} rowLabel={rowLabel} rows={unitRows} current={current} prior={prior} scores={countScores} emptyNoun={paymentMode ? 'payment records' : 'transactions'} statusFilter={statusFilter} onSelectStatus={selectStatus} />
+      {board(0)}
+      {sideBySide ? board(1) : null}
     </div>
   );
 }
 
-function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current, prior, scores, emptyNoun = 'transactions', statusFilter, onSelectStatus }: {
+function SourceBoard({ tone, heading, metric, rowLabel, rows, scores, tableTotal, tablePrior, emptyNoun = 'transactions', statusFilter, onSelectStatus }: {
   tone: 'volume' | 'units';
-  title: string;
-  metric: 'volume' | 'units';
-  valueLabel?: string;
+  /** The section pill's content: the metric picker. */
+  heading: React.ReactNode;
+  metric: LeaderMetric;
   rowLabel: string;
   rows: BoardRow[];
-  current: ReportDeal[];
-  prior: ReportDeal[];
-  scores: BoardScores | null;
+  scores: BoardScores;
+  /** The Grand Total row; for an average or percent, worked out from every deal shown, not added up. */
+  tableTotal: number;
+  tablePrior: number;
   emptyNoun?: string;
   statusFilter: 'all' | 'closed' | 'pending';
   onSelectStatus: (status: 'all' | 'closed' | 'pending') => void;
 }) {
   const isPhone = !useIsDesktop();
-  const formatValue = (value: number, compact = false) => (
-    metric === 'volume' ? (compact ? compactMoney(value) : fullMoney(value)) : Math.round(value).toLocaleString()
-  );
-  const formatDelta = (value: number, compact = false) => (metric === 'volume' ? (compact ? signedCompact(value) : signedFull(value)) : signedCount(value));
+  const formatValue = (value: number, compact = false) => formatLeader(value, metric, compact);
+  const formatDelta = (value: number, compact = false) => formatLeaderChange(value, metric, compact);
+  const ratio = leaderRatio(metric);
   const max = rows.reduce((highest, row) => Math.max(highest, row.value), 0);
-  const total = scores ? scores.total : statusTotal(current, 'all', metric);
-  const priorTotal = scores ? scores.priorTotal : statusTotal(prior, 'all', metric);
-  const closedValue = scores ? scores.closed : statusTotal(current, 'closed', metric);
-  const priorClosed = scores ? scores.priorClosed : statusTotal(prior, 'closed', metric);
-  const pendingValue = scores ? scores.pending : statusTotal(current, 'pending', metric);
+  const { total, priorTotal, closed: closedValue, priorClosed, pending: pendingValue } = scores;
   const accent = TREND_CLOSED;
   const pendingTone = TREND_PENDING;
   const bar = 'bg-emerald-500/70 dark:bg-emerald-400/50';
-  const tableTotal = rows.reduce((sum, row) => sum + row.value, 0);
-  const tablePrior = rows.reduce((sum, row) => sum + row.prior, 0);
   // Phones show one decimal so the five columns fit the screen.
   const shareDigits = isPhone ? 1 : 2;
   const share = (value: number) => (tableTotal ? `${((value / tableTotal) * 100).toLocaleString(undefined, { minimumFractionDigits: shareDigits, maximumFractionDigits: shareDigits })}%` : '—');
   const emptyLabel = statusFilter === 'closed' ? 'closed' : statusFilter === 'pending' ? 'pending' : 'closed or pending';
-  const amountLabel = valueLabel || (metric === 'volume' ? 'Sales Volume' : 'Units');
+  const amountLabel = LEADER_COLUMN[metric];
+  // A share of an average or a percent means nothing, so those boards have no share column.
+  const columns = ratio ? 4 : 5;
   const { sort, toggle } = useColumnSort(null, `board:${tone}`);
   const ordered = sortBy(rows.map((row, index) => ({ ...row, rank: index + 1 })), sort, (row, key) => {
     if (key === 'rank') return row.rank;
@@ -5122,7 +5223,7 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
   });
   return (
     <section className={pairedSection}>
-      <SectionHeading tone={tone}>{title}</SectionHeading>
+      <SectionHeading tone={tone}>{heading}</SectionHeading>
       <div className={pairedScores}>
         <BoardScore tone={tone} label="Total" amount={formatValue(total)} compactAmount={formatValue(total, true)} dollar={formatDelta(total - priorTotal)} compactDollar={formatDelta(total - priorTotal, true)} percent={signedChangePercent(total, priorTotal)} toneClass="" current={total} prior={priorTotal} selected={statusFilter === 'all'} onSelect={() => onSelectStatus('all')} />
         <BoardScore tone={tone} label="Closed" amount={formatValue(closedValue)} compactAmount={formatValue(closedValue, true)} dollar={formatDelta(closedValue - priorClosed)} compactDollar={formatDelta(closedValue - priorClosed, true)} percent={signedChangePercent(closedValue, priorClosed)} toneClass={accent} current={closedValue} prior={priorClosed} selected={statusFilter === 'closed'} onSelect={() => onSelectStatus('closed')} />
@@ -5137,13 +5238,13 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
             <SortHead column="label" label={rowLabel} sort={sort} onSort={toggle} className="px-2 py-2" />
             <SortHead column="value" label={amountLabel} sort={sort} onSort={toggle} className="px-2 py-2" />
             <SortHead column="delta" label="% Δ" sort={sort} onSort={toggle} align="right" className="px-2 py-2" note={`How much each ${rowLabel} is up or down compared with the same dates in the prior year. +10% means it is 10% higher than the prior year. A dash means the prior year was zero, so there is no percent to show.`} />
-            <SortHead column="share" label={isPhone ? 'Share' : '% of Total'} title="Share of the total" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
+            {ratio ? null : <SortHead column="share" label={isPhone ? 'Share' : '% of Total'} title="Share of the total" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />}
           </tr>
         </thead>
         <tbody>
           {ordered.length === 0 ? (
             <tr>
-              <td className="px-4 py-6 text-slate-500" colSpan={5}>No {emptyLabel} {emptyNoun} in this date range.</td>
+              <td className="px-4 py-6 text-slate-500" colSpan={columns}>No {emptyLabel} {emptyNoun} in this date range.</td>
             </tr>
           ) : ordered.map((row, index) => (
             <tr
@@ -5162,7 +5263,7 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
                 <span className="relative tabular-nums whitespace-nowrap">{formatValue(row.value, true)}</span>
               </td>
               <td className={`px-2 py-2 text-right font-semibold tabular-nums whitespace-nowrap ${changeClass(row.value, row.prior)}`}>{signedChangePercent(row.value, row.prior)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{share(row.value)}</td>
+              {ratio ? null : <td className="px-3 py-2 text-right tabular-nums">{share(row.value)}</td>}
             </tr>
           ))}
         </tbody>
@@ -5170,9 +5271,9 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
           <tr className="border-t border-slate-200 bg-white text-sm font-bold max-md:text-xs dark:border-slate-700 dark:bg-slate-900">
             <td className="px-3 py-3" />
             <td className="px-2 py-3">Grand Total</td>
-            <td className="px-2 py-3 tabular-nums">{formatValue(tableTotal, metric === 'volume')}</td>
+            <td className="px-2 py-3 tabular-nums">{formatValue(tableTotal, true)}</td>
             <td className={`px-2 py-3 text-right tabular-nums ${changeClass(tableTotal, tablePrior)}`}>{signedChangePercent(tableTotal, tablePrior)}</td>
-            <td className="px-3 py-3 text-right tabular-nums">{tableTotal ? (isPhone ? '100%' : '100.00%') : '—'}</td>
+            {ratio ? null : <td className="px-3 py-3 text-right tabular-nums">{tableTotal ? (isPhone ? '100%' : '100.00%') : '—'}</td>}
           </tr>
         </tfoot>
       </table>
