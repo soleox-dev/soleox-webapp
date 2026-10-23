@@ -1684,6 +1684,14 @@ export function CommissionTemplatePanel({
       return;
     }
     setSubmitAttempted(false);
+    // A checked cap whose recipient is not among the agents yet (they load separately) would take the payers' share
+    // and pay it to no one, so Submit waits for them.
+    const unknownRecipient = shownCaps.find((cap) => checkedCapIds.includes(cap.id)
+      && cap.recipients.some((recipient) => !agents.some((agent) => agent.id === recipient.agentId)));
+    if (unknownRecipient) {
+      setLoadError(`${unknownRecipient.name}'s recipient is not loaded yet. Try Submit again in a moment, or check the cap in Settings > Caps.`);
+      return;
+    }
     setIsSubmitting(true);
     setLoadError('');
     try {

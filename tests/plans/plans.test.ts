@@ -322,6 +322,22 @@ describe('year-to-date totals', () => {
     expect(line(results.TXN_LATE.agents[0], 'company_dollar').amount).toBe(200);
   });
 
+  it('deals with the same Cap Date and save time count in deal id order, so the cap is charged once', () => {
+    const deal = (id: string): PlanDealInput => ({
+      id,
+      gci: 4000,
+      capDate: '2026-05-01',
+      savedAt: '2026-05-02T00:00:00Z',
+      agents: [agent({ id: 'a', splitPercent: 100, plan: exp4000, startingBalances: leftToCap(exp4000, 1000) })],
+    });
+    const { results, history } = computePlanDealsInOrder([deal('TXN_B'), deal('TXN_A')]);
+    expect(line(results.TXN_A.agents[0], 'company_dollar').amount).toBe(800);
+    expect(line(results.TXN_B.agents[0], 'company_dollar').amount).toBe(200);
+    // Each deal recalculated alone against the other's saved lines (the deal page) agrees.
+    expect(line(computePlanDeal(deal('TXN_A'), history).agents[0], 'company_dollar').amount).toBe(800);
+    expect(line(computePlanDeal(deal('TXN_B'), history).agents[0], 'company_dollar').amount).toBe(200);
+  });
+
   it('a starting balance stops counting at the next anniversary', () => {
     const deal = (capDate: string): PlanDealInput => ({
       id: `TXN_${capDate}`,

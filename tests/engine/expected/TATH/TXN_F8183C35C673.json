@@ -1,7 +1,7 @@
 {
   "pageSaved": {
     "waterfall": {
-      "grossCommission": 1000.5,
+      "grossCommission": 1000,
       "totalCommission": 1000,
       "commissionAfterOffTop": 1000,
       "commissionAfterPreSplit": 1000,
@@ -179,7 +179,7 @@
   },
   "pageBeforeReplay": {
     "waterfall": {
-      "grossCommission": 1000.5,
+      "grossCommission": 1000,
       "totalCommission": 1000,
       "commissionAfterOffTop": 1000,
       "commissionAfterPreSplit": 1000,
@@ -606,7 +606,7 @@
     "teamCapIds": [],
     "teamCapRecipients": [],
     "waterfall": {
-      "grossCommission": 1000.5,
+      "grossCommission": 1000,
       "totalCommission": 1000,
       "commissionAfterOffTop": 1000,
       "commissionAfterPreSplit": 1000,

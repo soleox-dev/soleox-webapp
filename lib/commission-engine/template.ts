@@ -289,6 +289,8 @@ export function applyTemplateLogic({
   let agentSplitDollars = 0;
   const agentAmounts: Record<string, number> = {};
   const agentSplitNets = new Map<string, number>();
+  // Lowercased agent name → rule key of their agent split, to keep agentSplitNets in step when a split moves.
+  const agentSplitNetKeys = new Map<string, string>();
   let agentSplitNetsFlushed = false;
   const postSums: Record<string, number> = {};
   const post2Sums: Record<string, number> = {};
@@ -627,11 +629,25 @@ export function applyTemplateLogic({
         context.baseline = baseline;
       }
     }
+    // Agent splits are rounded one by one, so a remainder split (a team lead's "baseline - agent_1_split - ...")
+    // can come out a cent or two below zero when the splits before it all round up. That residue comes off the
+    // largest earlier split, and the remainder lands on $0.00.
+    let splitFormulaAmount = formulaAmount;
+    if (bucket === 'agentSplit' && formulaAmount < 0 && formulaAmount > -0.025 && agentSplits.length) {
+      const largest = agentSplits.reduce((best, split) => (split.amount > best.amount ? split : best));
+      moveSplit(largest.name, formulaAmount, ruleName);
+      agentSplitDollars = roundCurrency(agentSplitDollars + formulaAmount);
+      const largestKey = agentSplitNetKeys.get(largest.name.trim().toLowerCase());
+      if (largestKey) agentSplitNets.set(largestKey, roundCurrency((agentSplitNets.get(largestKey) || 0) + formulaAmount));
+      if (remembered === formulaAmount) remembered = 0;
+      splitFormulaAmount = 0;
+    }
     const amount = bucket === 'agentSplit'
-      ? roundCurrency(formulaAmount + unreferencedCapShare(agentName))
+      ? roundCurrency(splitFormulaAmount + unreferencedCapShare(agentName))
       : formulaAmount;
     if (bucket === 'agentSplit' && step.rule_key?.trim()) {
       agentSplitNets.set(step.rule_key.trim(), amount);
+      if (agentName.trim()) agentSplitNetKeys.set(agentName.trim().toLowerCase(), step.rule_key.trim());
     }
     rememberRule(step.rule_key, remembered);
     if (amount === 0) return;

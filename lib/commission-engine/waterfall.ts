@@ -65,7 +65,16 @@ export function computeTransactionWaterfall({
   templateReplay = null,
   storedAgentSplits = null,
 }: WaterfallInput) {
-    const grossComm = roundCurrency(salesPrice * gciPerc);
+    // GCI % is stored to four decimals (0.91%), so price × rate can miss the deal's own GCI amount by a few dollars
+    // ($220,000 × 0.91% = $2,002 against a $2,000 GCI). While the price and rate are the deal's own, its stored GCI
+    // amount stands; a price or rate typed on the Overview recalculates it.
+    const fromRate = roundCurrency(salesPrice * gciPerc);
+    const storedGci = Number(selectedDeal?.gci_amount);
+    const keepsStoredGci = Number.isFinite(storedGci) && storedGci > 0
+      && Number(selectedDeal?.sales_price) === salesPrice
+      && Math.abs((Number(selectedDeal?.gci_perc) || 0) - gciPerc) < 1e-9
+      && Math.abs(fromRate - storedGci) <= salesPrice * 0.00005 + 0.005;
+    const grossComm = keepsStoredGci ? roundCurrency(storedGci) : fromRate;
 
     const currentContext = {
       transaction_fee: 0,

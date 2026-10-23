@@ -1062,7 +1062,7 @@
             "name": "A1 Stock Split",
             "entity": "Stock",
             "type": "PERCENT",
-            "value": 0.0500001,
+            "value": 0.0500002,
             "fromTeamCapBaseline": false
           },
           {
@@ -1079,8 +1079,8 @@
         {
           "name": "Fn175 Ln175",
           "splitType": "PERCENT",
-          "splitVal": 0.9500005,
-          "amount": 9611.63,
+          "splitVal": 0.9499995,
+          "amount": 9611.62,
           "remainder": false
         },
         {
@@ -1088,13 +1088,6 @@
           "splitType": "PERCENT",
           "splitVal": 0.0500005,
           "amount": 505.88,
-          "remainder": true
-        },
-        {
-          "name": "Fn046 Ln046",
-          "splitType": "PERCENT",
-          "splitVal": -0.000001,
-          "amount": -0.01,
           "remainder": true
         }
       ],
@@ -1422,9 +1415,9 @@
           "agentId": "AGT_7EA1123D524B",
           "agentName": "Fn175 Ln175",
           "splitType": "PERCENT",
-          "splitVal": 0.9500005,
-          "percent": 0.9500005,
-          "amount": 9611.63,
+          "splitVal": 0.9499995,
+          "percent": 0.9499995,
+          "amount": 9611.62,
           "isPrimary": true
         },
         {
@@ -1445,14 +1438,14 @@
           "agentId": "AGT_29AD53B88AC3",
           "agentName": "Fn046 Ln046",
           "splitType": "PERCENT",
-          "splitVal": -0.000001,
-          "percent": -0.000001,
-          "amount": 101.17,
+          "splitVal": 0,
+          "percent": 0,
+          "amount": 101.18,
           "overAllocated": false,
           "isPrimary": false,
           "manualSplit": false,
-          "grossAmount": -0.01,
-          "displayPercent": 0.0099995,
+          "grossAmount": 0,
+          "displayPercent": 0.0100005,
           "capAdjusted": true
         }
       ],
@@ -1568,7 +1561,7 @@
           "ruleName": "A1 Stock Split",
           "note": "",
           "type": "PERCENT",
-          "value": 0.0500001,
+          "value": 0.0500002,
           "amount": 467.52,
           "level": 2
         },
@@ -1592,20 +1585,20 @@
           "ruleName": "TL Stock Split",
           "note": "",
           "type": "PERCENT",
-          "value": 0.050015,
+          "value": 0.05001,
           "amount": 5.01,
           "level": 2
         }
       ],
       "agentNetAfterLevel1": {
-        "Fn175 Ln175": 9350.38,
+        "Fn175 Ln175": 9350.37,
         "Fn133 Ln133": 398.3,
-        "Fn046 Ln046": 100.17
+        "Fn046 Ln046": 100.18
       },
       "netPayouts": {
-        "Fn175 Ln175": 7871.11,
+        "Fn175 Ln175": 7871.1,
         "Fn133 Ln133": 398.3,
-        "Fn046 Ln046": 95.16,
+        "Fn046 Ln046": 95.17,
         "Flat Cap Fee": 241.25,
         "Broker Nm620": 25,
         "Liability": 2.4,
@@ -1624,12 +1617,12 @@
           "rule_name": "Fn175 Ln175 Split",
           "section": "AGENT_SPLIT",
           "split_type": "PERCENT",
-          "split_value": 0.9500005,
+          "split_value": 0.9499995,
           "note": null,
           "payee_type": "AGENT",
           "payee_entity_id": null,
           "agent_id": "AGT_7EA1123D524B",
-          "final_amount": 9611.63,
+          "final_amount": 9611.62,
           "custom_attributes": {}
         },
         {
@@ -1650,12 +1643,12 @@
           "rule_name": "Fn046 Ln046 Split",
           "section": "AGENT_SPLIT",
           "split_type": "PERCENT",
-          "split_value": -0.000001,
+          "split_value": 0,
           "note": null,
           "payee_type": "AGENT",
           "payee_entity_id": null,
           "agent_id": "AGT_29AD53B88AC3",
-          "final_amount": 101.17,
+          "final_amount": 101.18,
           "custom_attributes": {}
         },
         {
@@ -1747,7 +1740,7 @@
           "rule_name": "Stock",
           "section": "POST_SPLIT_L2",
           "split_type": "PERCENT",
-          "split_value": 0.0500001,
+          "split_value": 0.0500002,
           "note": null,
           "payee_type": "ENTITY",
           "payee_entity_id": "ENT_9A537FFD60AC",
@@ -1771,7 +1764,7 @@
           "rule_name": "Stock",
           "section": "POST_SPLIT_L2",
           "split_type": "PERCENT",
-          "split_value": 0.050015,
+          "split_value": 0.05001,
           "note": null,
           "payee_type": "ENTITY",
           "payee_entity_id": "ENT_9A537FFD60AC",
@@ -1784,7 +1777,7 @@
           "payee_type": "AGENT",
           "agent_id": "AGT_7EA1123D524B",
           "payee_entity_id": null,
-          "amount_paid": 7871.11,
+          "amount_paid": 7871.1,
           "payment_method": "ACH",
           "payment_status": "Ready to Pay",
           "disbursement_type": "AGENT_NET",
@@ -1806,7 +1799,7 @@
           "payee_type": "AGENT",
           "agent_id": "AGT_29AD53B88AC3",
           "payee_entity_id": null,
-          "amount_paid": 95.16,
+          "amount_paid": 95.17,
           "payment_method": "ACH",
           "payment_status": "Ready to Pay",
           "disbursement_type": "AGENT_NET",
@@ -1881,43 +1874,36 @@
         }
       ]
     },
-    "capRecipientShortfalls": [
-      {
-        "recipientId": "AGT_29AD53B88AC3",
-        "name": "Fn046 Ln046",
-        "receives": 101.18,
-        "has": 101.17
-      }
-    ],
-    "saveBlocked": true,
-    "saveBlockedReason": "Fn046 Ln046's agent split is $101.17, less than the $101.18 team caps move to them."
+    "capRecipientShortfalls": [],
+    "saveBlocked": false,
+    "saveBlockedReason": ""
   },
   "driftPanel": {
     "saved": "broker nm620:25.00|flat cap fee:241.25|fn133 ln133:497.88|fn175 ln175:7871.10|liability:3.00|stock:467.52|tc: fn283 ln283:1011.75",
     "replayed": [
-      "broker nm620:25.00|flat cap fee:241.25|fn046 ln046:95.16|fn133 ln133:398.30|fn175 ln175:7871.11|liability:2.40|stock:472.53|tc: fn283 ln283:1011.75"
+      "broker nm620:25.00|flat cap fee:241.25|fn133 ln133:497.88|fn175 ln175:7871.10|liability:3.00|stock:467.52|tc: fn283 ln283:1011.75"
     ],
-    "changed": true
+    "changed": false
   },
   "driftList": {
     "saved": "broker nm620:25.00|flat cap fee:241.25|fn133 ln133:497.88|fn175 ln175:7871.10|liability:3.00|stock:467.52|tc: fn283 ln283:1011.75",
     "replayed": [
-      "broker nm620:25.00|flat cap fee:241.25|fn046 ln046:95.16|fn133 ln133:398.30|fn175 ln175:7871.11|liability:2.40|stock:472.53|tc: fn283 ln283:1011.75"
+      "broker nm620:25.00|flat cap fee:241.25|fn133 ln133:497.88|fn175 ln175:7871.10|liability:3.00|stock:467.52|tc: fn283 ln283:1011.75"
     ],
-    "changed": true
+    "changed": false
   },
   "driftPanelSavedManualSplit": {
     "saved": "broker nm620:25.00|flat cap fee:241.25|fn133 ln133:497.88|fn175 ln175:7871.10|liability:3.00|stock:467.52|tc: fn283 ln283:1011.75",
     "replayed": [
-      "broker nm620:25.00|flat cap fee:241.25|fn046 ln046:95.16|fn133 ln133:398.30|fn175 ln175:7871.11|liability:2.40|stock:472.53|tc: fn283 ln283:1011.75"
+      "broker nm620:25.00|flat cap fee:241.25|fn133 ln133:497.88|fn175 ln175:7871.10|liability:3.00|stock:467.52|tc: fn283 ln283:1011.75"
     ],
-    "changed": true
+    "changed": false
   },
   "driftListSavedManualSplit": {
     "saved": "broker nm620:25.00|flat cap fee:241.25|fn133 ln133:497.88|fn175 ln175:7871.10|liability:3.00|stock:467.52|tc: fn283 ln283:1011.75",
     "replayed": [
-      "broker nm620:25.00|flat cap fee:241.25|fn046 ln046:95.16|fn133 ln133:398.30|fn175 ln175:7871.11|liability:2.40|stock:472.53|tc: fn283 ln283:1011.75"
+      "broker nm620:25.00|flat cap fee:241.25|fn133 ln133:497.88|fn175 ln175:7871.10|liability:3.00|stock:467.52|tc: fn283 ln283:1011.75"
     ],
-    "changed": true
+    "changed": false
   }
 }

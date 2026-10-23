@@ -74,6 +74,27 @@ describe('bonus lines', () => {
   });
 });
 
+describe('a remainder split rounded below zero', () => {
+  // 75% and 25% of $737.50 both round up ($553.13 + $184.38), leaving the team lead's remainder at -$0.01.
+  const roundedUp = [
+    step({ rule_name: 'Agent 1 Split', section: 'Agent Splits', agent_key: 'agent_1', calculation_formula: 'baseline * 75%', split_type: 'PERCENT' }),
+    step({ rule_name: 'Agent 2 Split', section: 'Agent Splits', agent_key: 'agent_2', calculation_formula: 'baseline * 25%', split_type: 'PERCENT' }),
+    step({ rule_name: 'Agent 3 Split', section: 'Agent Splits', agent_key: 'agent_3', calculation_formula: 'baseline * 0%', split_type: 'PERCENT' }),
+    step({ rule_name: 'Team Lead Split', section: 'Agent Splits', agent_key: 'team_lead', calculation_formula: 'baseline - agent_1_split - agent_2_split - agent_3_split', split_type: 'PERCENT' }),
+  ];
+
+  it('takes the cent off the largest split, so the remainder is $0.00 and the splits still add up', () => {
+    const split = amounts(run(roundedUp, {}, 737.5));
+    expect(split).toEqual({ Winston: 553.12, Skylar: 184.38 });
+    expect(Object.values(split).reduce((sum, value) => sum + value, 0)).toBeCloseTo(737.5, 2);
+  });
+
+  it('leaves a real negative remainder alone', () => {
+    const over = [{ ...roundedUp[0], calculation_formula: 'baseline * 80%' }, ...roundedUp.slice(1)];
+    expect(amounts(run(over, {}, 737.5)).Patrick).toBe(-36.88);
+  });
+});
+
 describe('credits paid by chosen agents', () => {
   const credit = (paidBy: string[], shareBy?: string) =>
     // Step 0: credits run before the agent splits, as Off-the-top and Pre-splits rules do.

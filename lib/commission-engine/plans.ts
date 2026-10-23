@@ -436,16 +436,22 @@ export function capYearFor(date: string, capYearStart: string): { start: string;
   return { start, end: formatDay(year + 1, anchor.m, anchor.d) };
 }
 
-/** Whether an earlier deal comes before this one: by Cap Date, then by save time. An unsaved deal comes last. */
+/**
+ * Whether an earlier deal comes before this one: by Cap Date, then by save time, then by deal id. An unsaved deal
+ * comes last. Deals imported together share a save time; without the id neither would count the other, and both
+ * could charge the same room left under a cap.
+ */
 function comesBefore(
-  other: { capDate: string; savedAt?: string | null },
-  deal: { capDate: string; savedAt?: string | null },
+  other: { capDate: string; savedAt?: string | null; dealId: string },
+  deal: { capDate: string; savedAt?: string | null; id: string },
 ): boolean {
   const a = other.capDate.slice(0, 10);
   const b = deal.capDate.slice(0, 10);
   if (a !== b) return a < b;
   if (!deal.savedAt) return true;
-  return (other.savedAt || '') < deal.savedAt;
+  const savedA = other.savedAt || '';
+  if (savedA !== deal.savedAt) return savedA < deal.savedAt;
+  return other.dealId < deal.id;
 }
 
 /** Paid on a line key in the agent's cap year before this deal, with the starting balance when it belongs here. */
@@ -889,7 +895,8 @@ export function computePlanDealsInOrder(
     if (dayA !== dayB) return dayA < dayB ? -1 : 1;
     if (!a.savedAt) return b.savedAt ? 1 : 0;
     if (!b.savedAt) return -1;
-    return a.savedAt < b.savedAt ? -1 : a.savedAt > b.savedAt ? 1 : 0;
+    if (a.savedAt !== b.savedAt) return a.savedAt < b.savedAt ? -1 : 1;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   });
   const results: Record<string, PlanDealResult> = {};
   let running = [...history];

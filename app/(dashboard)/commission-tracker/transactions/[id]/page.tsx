@@ -1180,6 +1180,12 @@ export default function Dashboard() {
   };
 
   const handleSave = (afterSaveSuccess?: () => void, options?: { decided?: boolean; omitPayments?: boolean }) => {
+    // Until the submitted template's replay and the caps have loaded, a team cap recipient can be missing from the
+    // payments, so saving now would drop their cap money.
+    if (commissionSettling) {
+      showToast('The commission is still being calculated. Save again in a moment.', 'error');
+      return;
+    }
     if (agentSplitsExceedCommission) {
       showToast('Agent splits are more than the remaining balance, so this transaction cannot be saved.', 'error');
       return;
@@ -1771,8 +1777,8 @@ export default function Dashboard() {
         onDiscard={handleDiscardChanges}
         onDelete={canWriteTracker && selectedDeal?.id ? () => { setDeleteError(null); setConfirmDeleteOpen(true); } : undefined}
         hasUnsavedChanges={hasUnsavedLocalChanges}
-        saveBlocked={saveBlocked}
-        saveBlockedReason={saveBlockedReason}
+        saveBlocked={saveBlocked || commissionSettling}
+        saveBlockedReason={commissionSettling ? 'The commission is still being calculated.' : saveBlockedReason}
         onHeightChange={setHeaderStick}
         deal={templateDeal ? {
           address: String(templateDeal.property_address || '').trim() || undefined,
@@ -2165,8 +2171,8 @@ export default function Dashboard() {
         onStay={handleStayOnPage}
         onDiscard={handleDiscardAndLeave}
         onSave={handleSaveAndLeave}
-        saveDisabled={saveBlocked}
-        saveDisabledReason={saveBlockedReason}
+        saveDisabled={saveBlocked || commissionSettling}
+        saveDisabledReason={commissionSettling ? 'The commission is still being calculated.' : saveBlockedReason}
       />
 
       {confirmDeleteOpen && (
