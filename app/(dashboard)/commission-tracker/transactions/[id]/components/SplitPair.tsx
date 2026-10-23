@@ -77,6 +77,8 @@ export function SplitPair({
   const percentAlert = invalid || percentUnexpected;
   const dollarAlert = invalid || dollarUnexpected;
   const roseText = 'text-rose-600 dark:text-rose-400';
+  // Green is money that reaches the agent; a deduction is money going out, so it reads as plain text.
+  const moneyText = deduction ? 'text-slate-700 dark:text-slate-200' : 'text-emerald-600 dark:text-emerald-400';
   const dollarText = formatDisplayedDollar(dollarAmount, deduction);
   const percentRef = useRef<HTMLInputElement>(null);
   const dollarRef = useRef<HTMLInputElement>(null);
@@ -169,7 +171,7 @@ export function SplitPair({
 
   if (!isEditing) {
     const percentClass = `text-right text-xs font-semibold whitespace-nowrap ${percentAlert ? roseText : 'text-blue-600 dark:text-blue-400'}`;
-    const dollarClass = `text-right text-xs font-bold whitespace-nowrap ${dollarAlert ? roseText : 'text-emerald-600 dark:text-emerald-400'}`;
+    const dollarClass = `text-right text-xs font-bold whitespace-nowrap ${dollarAlert ? roseText : moneyText}`;
     if (matchColumns) {
       return (
         <div className="flex items-center justify-end">
@@ -196,7 +198,7 @@ export function SplitPair({
           </span>
         ) : null}
         {amountStack(
-          <span className={`${compact ? `${dollarBox} shrink-0 pr-2 text-xs` : 'text-xs'} text-right font-bold whitespace-nowrap ${dollarAlert ? roseText : 'text-emerald-600 dark:text-emerald-400'}`}>
+          <span className={`${compact ? `${dollarBox} shrink-0 pr-2 text-xs` : 'text-xs'} text-right font-bold whitespace-nowrap ${dollarAlert ? roseText : moneyText}`}>
             {dollarText}
           </span>,
         )}
@@ -278,7 +280,7 @@ export function SplitPair({
             value={dollarAmount || 0}
             onChange={onAmountChange}
             useCommas
-            colorCode
+            colorCode={!deduction}
             invalid={dollarAlert}
             filled
             allowEmpty
@@ -286,11 +288,11 @@ export function SplitPair({
             onMouseUp={keepDollarSelection}
             onClick={keepDollarSelection}
             placeholder="0.00"
-            className={`${dollarBox} ${quietInput} ${dollarPrefix.length > 1 ? 'pl-7 pr-2' : 'pl-5 pr-2'}`}
+            className={`${dollarBox} ${quietInput} ${deduction && !dollarAlert ? moneyText : ''} ${dollarPrefix.length > 1 ? 'pl-7 pr-2' : 'pl-5 pr-2'}`}
           />
           <span
             aria-hidden
-            className={`pointer-events-none absolute inset-y-0 left-1.5 flex items-center text-xs font-semibold ${dollarAlert ? roseText : 'text-emerald-600 dark:text-emerald-400'}`}
+            className={`pointer-events-none absolute inset-y-0 left-1.5 flex items-center text-xs font-semibold ${dollarAlert ? roseText : moneyText}`}
           >
             {dollarPrefix}
           </span>

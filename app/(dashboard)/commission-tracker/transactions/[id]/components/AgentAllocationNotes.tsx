@@ -79,7 +79,7 @@ export function TeamCapAmount({
   onAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
 }) {
   if (!line) {
-    return <span className={`inline-flex w-[6.5rem] justify-end text-xs font-semibold text-amber-800/40 dark:text-amber-200/30 ${isEditing ? 'pr-2' : ''}`}>—</span>;
+    return <span className={`inline-flex w-[6.5rem] justify-end text-xs font-semibold text-slate-300 dark:text-slate-600 ${isEditing ? 'pr-2' : ''}`}>—</span>;
   }
   const amount = Number(line.amount) || 0;
   const calculated = line.calculated_amount == null ? null : Number(line.calculated_amount);
@@ -87,7 +87,7 @@ export function TeamCapAmount({
   const edited = Boolean(line.is_override);
   const standing = teamCapStanding(line);
   const exceeded = Boolean(standing?.exceeded);
-  const amountTone = exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-amber-800 dark:text-amber-100';
+  const amountTone = exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200';
   const editedTone = exceeded ? 'text-rose-600/80 dark:text-rose-300/80' : 'text-amber-700/80 dark:text-amber-300/80';
   // In edit mode the bar lines up with the input's text, which sits inside its padding.
   const standingNote = standing ? (
@@ -120,7 +120,7 @@ export function TeamCapAmount({
           Calculated
         </button>
       ) : null}
-      <span className="underline-field relative inline-flex w-[6.5rem] rounded-t-md border-b border-b-amber-300 transition-colors dark:border-b-amber-700 focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)]">
+      <span className="underline-field relative inline-flex w-[6.5rem] rounded-t-md border-b border-b-slate-300 transition-colors dark:border-b-slate-600 focus-within:border-b-brand-500 focus-within:shadow-[0_1px_0_rgb(2_132_199/0.45),0_6px_12px_-6px_rgb(2_132_199/0.8)]">
         <DecimalInput
           value={amount}
           onChange={(next) => {
@@ -134,9 +134,9 @@ export function TeamCapAmount({
           filled
           onKeyDown={(event) => { if (event.key === '-') event.preventDefault(); }}
           placeholder="0.00"
-          className={`h-7 w-full border-0 bg-transparent pl-5 pr-2 text-right text-xs font-semibold focus:outline-none ${exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-amber-900 dark:text-amber-100'}`}
+          className={`h-7 w-full border-0 bg-transparent pl-5 pr-2 text-right text-xs font-semibold focus:outline-none ${exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}
         />
-        <span aria-hidden className={`pointer-events-none absolute inset-y-0 left-1.5 flex items-center text-xs font-semibold ${exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-amber-700 dark:text-amber-300'}`}>$</span>
+        <span aria-hidden className={`pointer-events-none absolute inset-y-0 left-1.5 flex items-center text-xs font-semibold ${exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'}`}>$</span>
       </span>
     </span>
     {standingNote}

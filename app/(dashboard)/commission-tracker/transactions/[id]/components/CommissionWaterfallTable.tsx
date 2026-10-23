@@ -199,7 +199,8 @@ export function CommissionWaterfallTable({
   const levelPill = 'inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-bold tracking-normal';
   const level1Pill = `${levelPill} border-yellow-600/40 bg-yellow-400/25 text-yellow-900 dark:border-yellow-300/50 dark:bg-yellow-400/15 dark:text-yellow-200`;
   const level2Pill = `${levelPill} border-slate-400/60 bg-slate-300/50 text-slate-600 dark:border-slate-300/45 dark:bg-slate-400/20 dark:text-slate-200`;
-  const trashButton = 'shrink-0 text-rose-500 hover:text-rose-600 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition';
+  // Grey until hovered: there is one per cell, and red is kept for problems.
+  const trashButton = 'shrink-0 text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition';
 
   const confirmDraftRow = (
     entity: string,
@@ -417,7 +418,7 @@ export function CommissionWaterfallTable({
                       </div>
                       <div className="flex h-5 items-center justify-end gap-1">
                         {isEditing && !agentIsPrimary && (
-                          <button type="button" onClick={() => onRemoveAgent(agent.name)} className="text-xs text-rose-500 hover:text-rose-600 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition" title={`Remove ${agent.name}`} aria-label={`Remove ${agent.name}`}><TrashIcon /></button>
+                          <button type="button" onClick={() => onRemoveAgent(agent.name)} className="text-xs text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition" title={`Remove ${agent.name}`} aria-label={`Remove ${agent.name}`}><TrashIcon /></button>
                         )}
                         {isEditing && !agentIsPrimary && knownAgents.length > 0 ? (
                           <ClearableSelect
@@ -472,16 +473,17 @@ export function CommissionWaterfallTable({
                 const capId = group.lines.find((line) => line.team_cap_id)?.team_cap_id || '';
                 return (
                 <tr key={group.id}>
-                  <td className="sticky left-0 z-10 border-b border-amber-200/80 bg-amber-50 px-3 py-2 text-left align-middle dark:border-amber-800/50 dark:bg-amber-950/50">
+                  <td className="sticky left-0 z-10 border-b border-slate-200 bg-white px-3 py-2 text-left align-middle dark:border-slate-700 dark:bg-slate-900">
                     <div className="flex items-center gap-1">
                       {isEditing && onRemoveTeamCap && capId && (
                         <button type="button" onClick={() => onRemoveTeamCap(capId)} className={trashButton} title={`Remove ${group.name}`} aria-label={`Remove ${group.name}`}><TrashIcon /></button>
                       )}
-                      <span className="text-xs font-semibold normal-case tracking-normal text-amber-900 dark:text-amber-200">{group.name}</span>
+                      <span className="shrink-0 whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-2xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">Team Cap</span>
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{group.name}</span>
                     </div>
                   </td>
                   {agents.map((agent) => (
-                    <td key={agent.id} className="min-w-[14.5rem] border-b border-amber-200/80 bg-amber-50 px-2 py-2 text-center align-middle dark:border-amber-800/50 dark:bg-amber-950/40">
+                    <td key={agent.id} className="min-w-[14.5rem] border-b border-slate-200 px-2 py-2 text-center align-middle dark:border-slate-700">
                       <div className="flex w-full justify-end">
                         <TeamCapAmount
                           line={group.lines.find((item) => item.agent_id === agent.id)}
