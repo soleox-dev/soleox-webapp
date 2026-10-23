@@ -28,7 +28,6 @@ import {
   dateKey,
   formatMetric,
   formatRange,
-  formatRangeCompact,
   fullMoney,
   inRange,
   isListingSide,
@@ -1818,6 +1817,51 @@ function DataFreshness({ savedAt, refreshing, newDataAvailable, onRefresh }: { s
   );
 }
 
+/**
+ * Whether the report title must step down from 24px to 20px to stay within its two-line phone slot. Measured on a
+ * hidden copy at 24px, so the title goes back up as soon as it fits again. Never on md and up (one line, no wrap).
+ */
+function useTitleTight(slot: HTMLDivElement | null): boolean {
+  const [tight, setTight] = useState(false);
+  useLayoutEffect(() => {
+    if (!slot) return;
+    const wide = window.matchMedia('(min-width: 48rem)');
+    const measure = () => {
+      // The heading is replaced when the report changes, so it is looked up each time.
+      const title = slot.querySelector('h2');
+      if (!title || wide.matches) {
+        setTight(false);
+        return;
+      }
+      const others = Array.from(slot.children).filter((child) => child !== title) as HTMLElement[];
+      const gap = parseFloat(getComputedStyle(slot).columnGap) || 0;
+      const room = slot.clientWidth - others.reduce((sum, child) => sum + child.offsetWidth + gap, 0);
+      // The copy goes in the page body, not the slot, so measuring does not wake the observer below.
+      const probe = title.cloneNode(true) as HTMLElement;
+      probe.setAttribute('aria-hidden', 'true');
+      Object.assign(probe.style, { position: 'absolute', visibility: 'hidden', left: '0', top: '0', width: `${room}px`, fontSize: '1.5rem', lineHeight: '1.25' });
+      document.body.appendChild(probe);
+      const fullHeight = probe.offsetHeight;
+      probe.remove();
+      setTight(fullHeight > slot.clientHeight + 1);
+    };
+    measure();
+    // Observer callbacks already come once per frame, so they measure directly.
+    const resize = new ResizeObserver(measure);
+    resize.observe(slot);
+    // Another report, or a picked metric, date or cap, changes the title's words.
+    const words = new MutationObserver(measure);
+    words.observe(slot, { childList: true, subtree: true, characterData: true });
+    wide.addEventListener('change', measure);
+    return () => {
+      resize.disconnect();
+      words.disconnect();
+      wide.removeEventListener('change', measure);
+    };
+  }, [slot]);
+  return tight;
+}
+
 function ReportView(props: {
   /** When the data on screen was downloaded; null before the first download. */
   dataSavedAt: string | null;
@@ -1909,6 +1953,9 @@ function ReportView(props: {
   // A phone in landscape is wide but short, so the full-screen layout also needs a tall screen.
   const locked = screenFitReport(props.reportId);
   const reportAbout = OWNER_REPORTS.find((item) => item.id === props.reportId)?.about;
+  // A callback ref: the slot first appears once the report has loaded, after this view mounted.
+  const [titleSlot, setTitleSlot] = useState<HTMLDivElement | null>(null);
+  const titleTight = useTitleTight(titleSlot);
   const [filterSlot, setFilterSlot] = useState<HTMLDivElement | null>(null);
   const fitsScreen = useFitsScreen();
   const chromeRef = useRef<HTMLDivElement>(null);
@@ -2017,9 +2064,10 @@ function ReportView(props: {
           </div>
           <div className="relative z-40 min-w-0 px-2 text-center [grid-area:title]">
             {/* The info icon sits outside the heading so its note keeps the body type size. */}
-            {/* Title slot: one line from md (h-8), two lines on phones (h-15), centered in it. */}
-            <div className="flex h-15 items-center justify-center gap-2 md:h-8">
-            <h2 className="text-balance text-2xl font-extrabold leading-tight tracking-tight md:whitespace-nowrap">
+            {/* Title slot: one line from md (h-8), two lines on phones (h-15), centered in it. A title that would take three
+                lines on a narrow phone steps down to 20px (useTitleTight). */}
+            <div ref={setTitleSlot} className="flex h-15 items-center justify-center gap-2 md:h-8">
+            <h2 className={`text-balance font-extrabold leading-tight tracking-tight md:whitespace-nowrap ${titleTight ? 'text-xl' : 'text-2xl'}`}>
               {props.reportId === 'lead-source-leaderboard' ? (
                 <>
                   <TitleMetric
@@ -2052,7 +2100,7 @@ function ReportView(props: {
               <ScoreNote label={props.reportName} text={reportAbout} className="relative inline-flex shrink-0" align="right" wide iconClass="text-slate-400 transition hover:text-brand-600 dark:hover:text-brand-300" />
             ) : null}
             </div>
-            {/* Date line slot: always one line; the dates shorten to fit before the line truncates. */}
+            {/* Date line slot: always one line; "compared with" becomes "vs." before the line truncates. */}
             <FitLine
               className="mt-1.5 h-5 text-sm text-slate-500 max-md:mt-1 max-md:h-4 max-md:text-xs"
               options={props.reportId === 'team-caps'
@@ -2060,7 +2108,6 @@ function ReportView(props: {
                 : [
                   `${formatRange(range)} compared with ${formatRange(priorRange)}`,
                   `${formatRange(range)} vs. ${formatRange(priorRange)}`,
-                  `${formatRangeCompact(range)} vs. ${formatRangeCompact(priorRange)}`,
                 ]}
             />
             {/* Updated line slot: kept even before the first download. Phones show it in the Filters bar and sheet. */}
@@ -2777,7 +2824,7 @@ function TitleMetric({ value, options, onChange }: { value: string; options: Boa
         aria-haspopup="listbox"
         aria-label={`Metric ${selected.label}`}
         onClick={() => setOpen((current) => !current)}
-        className="cursor-pointer appearance-none whitespace-nowrap border-0 bg-transparent p-0 text-2xl font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
+        className="cursor-pointer appearance-none whitespace-nowrap border-0 bg-transparent p-0 font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
       >
         {selected.label}
       </button>
@@ -2865,7 +2912,7 @@ function TitleCaps({ options, picked, onChange }: {
         aria-haspopup="listbox"
         aria-label={`Cap ${selected?.label || 'Caps'}`}
         onClick={() => setOpen((current) => !current)}
-        className="cursor-pointer appearance-none border-0 bg-transparent p-0 text-2xl font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
+        className="cursor-pointer appearance-none border-0 bg-transparent p-0 font-extrabold leading-tight tracking-tight text-emerald-600 shadow-none [-webkit-tap-highlight-color:transparent] [outline:none] hover:text-emerald-700 focus:[outline:none] focus-visible:[outline:none] dark:text-emerald-400 dark:hover:text-emerald-300"
       >
         {selected?.label || 'Caps'}
       </button>
@@ -6226,15 +6273,44 @@ function Score({ label, amount, changeAmount, value, change, tone = 'plain', pul
       {note ? <ScoreNote label={label} text={note} onOpenChange={setNoteOpen} /> : null}
       <p className="flex items-end justify-center px-3 text-2xs font-medium leading-snug text-slate-500 md:px-4 md:text-sm dark:text-slate-400">{label}</p>
       <FitText full={full} compact={compact} className={`mt-1 text-base font-extrabold tabular-nums whitespace-nowrap md:text-xl ${amountClass}`} />
-      {changeFull ? <FitText full={changeFull} compact={changeCompact} className={changeClass} /> : null}
+      {changeFull ? <FitText full={changeFull} compact={changeCompact} className={changeClass} role="change" /> : null}
     </div>
   );
 }
 
 /** Space (px) a full scorecard amount keeps clear on each side before the compact amount is shown. */
 const SCORE_SIDE_ROOM = 8;
+/** Told to a row of scorecards when one card's amount changes, so the others decide again. */
+const SCORE_FIT_EVENT = 'score-fit';
 
-function FitText({ full, compact, className }: { full: string; compact?: string; className: string }) {
+/** Whether `el`'s full text leaves the side room inside its scorecard. */
+function fitsScoreCard(el: HTMLElement, full: string): boolean {
+  const card = el.closest('[data-score-card]') as HTMLElement | null;
+  if (!card) return true;
+  const probe = document.createElement('span');
+  const style = getComputedStyle(el);
+  probe.style.position = 'absolute';
+  probe.style.visibility = 'hidden';
+  probe.style.whiteSpace = 'nowrap';
+  probe.style.font = style.font;
+  probe.style.letterSpacing = style.letterSpacing;
+  probe.style.fontVariantNumeric = style.fontVariantNumeric;
+  probe.textContent = full;
+  document.body.appendChild(probe);
+  const needed = probe.offsetWidth;
+  probe.remove();
+  const cardStyle = getComputedStyle(card);
+  const pad = parseFloat(cardStyle.paddingLeft) + parseFloat(cardStyle.paddingRight);
+  // A full amount must leave clear space on both sides inside the padding, or it reads as cramped.
+  const room = card.clientWidth - pad - 2 * SCORE_SIDE_ROOM;
+  return room <= 0 || needed <= room;
+}
+
+/**
+ * A scorecard amount (or change) shown in full, or compact when it would crowd its card. Cards side by side show one
+ * metric, so they switch together: when any card in the row needs the compact amount, every card in the row uses it.
+ */
+function FitText({ full, compact, className, role = 'amount' }: { full: string; compact?: string; className: string; role?: 'amount' | 'change' }) {
   const ref = useRef<HTMLParagraphElement>(null);
   const [text, setText] = useState(full);
 
@@ -6244,36 +6320,29 @@ function FitText({ full, compact, className }: { full: string; compact?: string;
       setText(full);
       return;
     }
+    const card = el.closest('[data-score-card]') as HTMLElement | null;
+    const row = card?.parentElement ?? null;
     const measure = () => {
-      const card = el.closest('[data-score-card]') as HTMLElement | null;
-      if (!card) return;
-      const probe = document.createElement('span');
-      const style = getComputedStyle(el);
-      probe.style.position = 'absolute';
-      probe.style.visibility = 'hidden';
-      probe.style.whiteSpace = 'nowrap';
-      probe.style.font = style.font;
-      probe.style.letterSpacing = style.letterSpacing;
-      probe.style.fontVariantNumeric = style.fontVariantNumeric;
-      probe.textContent = full;
-      document.body.appendChild(probe);
-      const needed = probe.offsetWidth;
-      probe.remove();
-      const cardStyle = getComputedStyle(card);
-      const pad = parseFloat(cardStyle.paddingLeft) + parseFloat(cardStyle.paddingRight);
-      // A full amount must leave clear space on both sides inside the padding, or it reads as cramped.
-      const room = card.clientWidth - pad - 2 * SCORE_SIDE_ROOM;
-      const next = room > 0 && needed > room ? compact : full;
+      const peers = row
+        ? Array.from(row.querySelectorAll<HTMLElement>(`:scope > [data-score-card] [data-fit-role="${role}"][data-fit-compact]`))
+        : [el];
+      const allFit = peers.every((peer) => fitsScoreCard(peer, peer.dataset.fitFull || ''));
+      const next = allFit ? full : compact;
       setText((current) => (current === next ? current : next));
     };
     measure();
     const observer = new ResizeObserver(measure);
-    const card = el.closest('[data-score-card]');
     if (card) observer.observe(card);
-    return () => observer.disconnect();
-  }, [compact, full]);
+    row?.addEventListener(SCORE_FIT_EVENT, measure);
+    // This card's amount changed: the cards beside it decide again.
+    row?.dispatchEvent(new Event(SCORE_FIT_EVENT));
+    return () => {
+      observer.disconnect();
+      row?.removeEventListener(SCORE_FIT_EVENT, measure);
+    };
+  }, [compact, full, role]);
 
-  return <p ref={ref} className={className}>{text}</p>;
+  return <p ref={ref} data-fit-role={role} data-fit-full={full} data-fit-compact={compact && compact !== full ? '' : undefined} className={className}>{text}</p>;
 }
 
 function formattedZero(change: string | undefined): string {
