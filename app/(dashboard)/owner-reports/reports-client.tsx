@@ -5813,9 +5813,11 @@ function Score({ label, amount, changeAmount, value, change, tone = 'plain', pul
     : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900';
   const amountClass = tone === 'result' ? 'text-emerald-800 dark:text-emerald-200' : '';
   return (
-    <div key={pulse} data-score-card className={`relative flex h-full min-w-0 w-full flex-col justify-center rounded-xl border px-1.5 py-3 text-center md:px-3 ${noteOpen ? 'z-30' : ''} ${shell} ${pulse > 0 ? 'scorecard-pulse' : ''}`}>
+    <div key={pulse} data-score-card className={`relative flex h-full min-w-0 w-full flex-col justify-start rounded-xl border px-1.5 py-3 text-center md:px-3 ${noteOpen ? 'z-30' : ''} ${shell} ${pulse > 0 ? 'scorecard-pulse' : ''}`}>
       {note ? <ScoreNote label={label} text={note} onOpenChange={setNoteOpen} /> : null}
-      <p className="px-3 text-2xs font-medium text-slate-500 md:px-4 md:text-sm dark:text-slate-400">{label}</p>
+      {/* Every label takes the same height (three lines on phones, two wider) and sits at its bottom, so the amounts
+          of cards side by side line up however their labels wrap. */}
+      <p className="flex min-h-[4.125em] items-end justify-center px-3 text-2xs font-medium leading-snug text-slate-500 md:min-h-[2.75em] md:px-4 md:text-sm dark:text-slate-400">{label}</p>
       <FitText full={full} compact={compact} className={`mt-1 text-base font-extrabold tabular-nums whitespace-nowrap md:text-xl ${amountClass}`} />
       {changeFull ? <FitText full={changeFull} compact={changeCompact} className={changeClass} /> : null}
     </div>
