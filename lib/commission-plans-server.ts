@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { TenantAccessError } from '@/lib/session';
-import type { PlanLine } from '@/lib/commission-engine';
+import { recordAudits } from '@/lib/audit';
+import type { AgentCapSource, PlanLine } from '@/lib/commission-engine';
 import type { PlanDto, PlanSettingsDto, PlansResponse } from '@/app/api/commission-plans/route';
 
 /**
@@ -195,4 +196,52 @@ export async function clientPlanForPreset(supabase: SupabaseClient, clientId: st
     .limit(1);
   if (existingError) throw existingError;
   return existing?.[0]?.id ?? copyPresetIntoClient(supabase, clientId, email, presetId);
+}
+
+/** The client's enabled agent caps (Settings > Caps) as cap sources: the entity each tracks and its amount field. */
+export async function loadAgentCapSources(supabase: SupabaseClient, clientId: string): Promise<AgentCapSource[]> {
+  const [capsResult, entitiesResult] = await Promise.all([
+    supabase
+      .from('client_caps')
+      .select('name, cap_type, enabled, cap_amount_field_key, commission_entity_id')
+      .eq('client_id', clientId)
+      .eq('cap_type', 'AGENT')
+      .or('archived.is.null,archived.eq.false'),
+    supabase.from('commission_entities').select('id, entity_name').eq('client_id', clientId),
+  ]);
+  if (capsResult.error) throw capsResult.error;
+  if (entitiesResult.error) throw entitiesResult.error;
+  const entityName = new Map((entitiesResult.data || []).map((row) => [String(row.id), String(row.entity_name || '')]));
+  return (capsResult.data || []).flatMap((row) => {
+    const entity = entityName.get(String(row.commission_entity_id || ''));
+    const fieldKey = String(row.cap_amount_field_key || '');
+    return row.enabled !== false && entity && fieldKey ? [{ name: String(row.name || entity), entityName: entity, fieldKey }] : [];
+  });
+}
+
+/**
+ * Writes one activity entry per agent whose Commission Plan changed ("Laura Gillespie: Commission Plan eXp $8,000
+ * → Broker $16,000"). Unchanged agents are skipped; a failed write is logged and does not undo the assignment.
+ */
+export async function recordPlanAssignments(
+  supabase: SupabaseClient,
+  clientId: string,
+  actorEmail: string,
+  changes: { agentId: string; agentName: string; fromPlanId: string | null; toPlanId: string | null }[],
+): Promise<void> {
+  const moved = changes.filter((change) => (change.fromPlanId || null) !== (change.toPlanId || null));
+  if (!moved.length) return;
+  const ids = [...new Set(moved.flatMap((change) => [change.fromPlanId, change.toPlanId]).filter(Boolean))] as string[];
+  const { data } = ids.length ? await supabase.from('commission_plans').select('id, name').in('id', ids) : { data: [] };
+  const names = new Map((data || []).map((row) => [String(row.id), String(row.name || row.id)]));
+  const label = (id: string | null) => (id ? names.get(id) || id : 'No Plan');
+  await recordAudits(supabase, moved.map((change) => ({
+    clientId,
+    actorEmail,
+    action: 'update',
+    entity: 'agent' as const,
+    entityId: change.agentId,
+    summary: `${change.agentName}: Commission Plan ${label(change.fromPlanId)} → ${label(change.toPlanId)}`,
+    detail: { fromPlanId: change.fromPlanId, toPlanId: change.toPlanId },
+  })));
 }

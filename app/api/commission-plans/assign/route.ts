@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { apiError, requireSessionClient, TenantAccessError } from '@/lib/session';
-import { badRequest, clientPlanForPreset, loadPlans } from '@/lib/commission-plans-server';
+import { badRequest, clientPlanForPreset, loadPlans, recordPlanAssignments } from '@/lib/commission-plans-server';
 
 /**
  * Assigns Commission Plans to agents (Settings > Plans > Propose Plans). Body:
@@ -38,6 +38,13 @@ export async function POST(request: Request) {
       const target = item.planId || (item.presetId ? fromPreset.get(item.presetId)! : null);
       byPlan.set(target, [...(byPlan.get(target) || []), item.agentId]);
     }
+    // Each agent's plan before, for the activity log.
+    const { data: before, error: beforeError } = await supabase
+      .from('agents')
+      .select('id, agent_name, commission_plan_id')
+      .eq('client_id', clientId)
+      .in('id', assignments.map((item) => item.agentId));
+    if (beforeError) throw beforeError;
     let updated = 0;
     const now = new Date().toISOString();
     for (const [planId, agentIds] of byPlan) {
@@ -50,6 +57,14 @@ export async function POST(request: Request) {
       if (error) throw error;
       updated += data?.length || 0;
     }
+    const targetOf = new Map<string, string | null>();
+    for (const [planId, agentIds] of byPlan) for (const agentId of agentIds) targetOf.set(agentId, planId);
+    await recordPlanAssignments(supabase, clientId, email, (before || []).map((row) => ({
+      agentId: String(row.id),
+      agentName: String(row.agent_name || row.id),
+      fromPlanId: row.commission_plan_id ? String(row.commission_plan_id) : null,
+      toPlanId: targetOf.get(String(row.id)) ?? null,
+    })));
     // Row security skips agents this user may not change instead of failing, so count what really changed.
     if (updated < assignments.length) {
       throw new TenantAccessError(

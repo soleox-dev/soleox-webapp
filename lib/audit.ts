@@ -4,7 +4,7 @@ export interface AuditEvent {
   clientId: string;
   actorEmail: string;
   action: string;
-  entity: 'permission' | 'template' | 'transaction' | 'sync' | 'client';
+  entity: 'permission' | 'template' | 'transaction' | 'sync' | 'client' | 'agent';
   entityId?: string | null;
   summary: string;
   detail?: Record<string, unknown>;

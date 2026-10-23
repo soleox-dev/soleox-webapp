@@ -7,7 +7,8 @@ import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { useAccess } from '@/components/access-provider';
 import { SettingsHeader, SETTINGS_CARD, SETTINGS_PRIMARY_BUTTON } from '@/components/settings/SettingsHeader';
-import { unknownPayeeProblems, validatePlan, type CommissionPlan, type PlanLine } from '@/lib/commission-engine';
+import { capMismatchText, unknownPayeeProblems, validatePlan, type CommissionPlan, type PlanLine } from '@/lib/commission-engine';
+import type { PlanCapWarning } from '@/app/api/commission-plans/cap-check/route';
 import type { PlanDto, PlanSettingsDto, PlansResponse } from '@/app/api/commission-plans/route';
 import { useAllocationSchema } from '../allocation-fields';
 import { PlanEditor } from './PlanEditor';
@@ -55,6 +56,20 @@ export default function CommissionPlansPage() {
   const [proposing, setProposing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [capWarnings, setCapWarnings] = useState<PlanCapWarning[]>([]);
+
+  // Agents whose plan's caps differ from the caps on their record, checked again after every change here.
+  useEffect(() => {
+    if (!data) return;
+    let cancelled = false;
+    void fetch('/api/commission-plans/cap-check')
+      .then((response) => response.json())
+      .then((result) => {
+        if (!cancelled) setCapWarnings(Array.isArray(result.warnings) ? result.warnings : []);
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [data]);
 
   const accept = (next: PlansResponse, selectId?: string | null, scope: Tab = tab) => {
     setData(next);
@@ -255,6 +270,21 @@ export default function CommissionPlansPage() {
       {message && <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{message}</p>}
       {error && <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">{error}</p>}
       {!data && !error && <p className="text-xs text-slate-400">Loading…</p>}
+      {tab !== 'presets' && capWarnings.length > 0 && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs text-amber-800 dark:text-amber-200">
+          <p className="font-semibold">
+            {capWarnings.length === 1 ? '1 agent is' : `${capWarnings.length} agents are`} on a plan whose caps differ from their agent cap fields.
+          </p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5">
+            {capWarnings.map((warning) => (
+              <li key={warning.agentId}>
+                <span className="font-semibold">{warning.agentName}</span> ({warning.planName}): {warning.mismatches.map(capMismatchText).join(' ')}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1">Deals calculate with the plan&apos;s cap. If the plan is wrong, move the agent to the right one (Propose Plans or the Agents page); if the agent field is out of date, correct it, since the cap bars in Settings &gt; Caps still read it.</p>
+        </div>
+      )}
 
       {data && tab === 'settings' && settingsDraft && (
         <div className={SETTINGS_CARD}>
