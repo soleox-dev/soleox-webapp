@@ -488,10 +488,11 @@ const CHANGE_BUCKETS = [
 /** Green shading for the Price Change % cell, stronger the further over asking; rose under asking. */
 function changeShade(change: number | null): string {
   if (change == null) return '';
-  if (change >= 0.2) return 'bg-emerald-400/70 dark:bg-emerald-600/60';
-  if (change >= 0.1) return 'bg-emerald-300/60 dark:bg-emerald-700/50';
-  if (change >= 0) return 'bg-emerald-100 dark:bg-emerald-900/40';
-  return 'bg-rose-100 dark:bg-rose-950/50';
+  // Soft tints that deepen with the change; the figure itself carries the color.
+  if (change >= 0.2) return 'bg-emerald-500/20 text-emerald-800 dark:bg-emerald-400/20 dark:text-emerald-200';
+  if (change >= 0.1) return 'bg-emerald-500/12 text-emerald-800 dark:bg-emerald-400/12 dark:text-emerald-200';
+  if (change >= 0) return 'bg-emerald-500/5 text-emerald-700 dark:bg-emerald-400/5 dark:text-emerald-300';
+  return 'bg-rose-500/10 text-rose-700 dark:bg-rose-400/10 dark:text-rose-300';
 }
 
 function Delta({ current, prior, format, suffix = '' }: { current: number | null; prior: number | null; format: (value: number) => string; suffix?: string }) {
@@ -763,23 +764,35 @@ export function PriceChangeReport({ deals, priorDeals, names, range }: {
           fitClass="screenfit:h-full"
         />
         <div className="space-y-4 xl:screenfit:min-h-0 xl:screenfit:overflow-y-auto">
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-            <div className="grid grid-cols-2 bg-slate-200 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-              <p className="px-4 py-2.5">Price Change</p>
-              <p className="px-4 py-2.5 text-right">Listings</p>
+          {/* How many listings sold in each band, as a bar of the total, with the change from last year. */}
+          <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center justify-between rounded-t-xl bg-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+              <p>Price Change</p>
+              <p>Listings</p>
             </div>
-            {CHANGE_BUCKETS.map((bucket, index) => (
-              <div key={bucket.key} className="grid grid-cols-2 items-center border-t border-slate-100 dark:border-slate-800">
-                <p className="flex items-center gap-2.5 px-4 py-3 text-sm">
-                  <span aria-hidden className={`h-3 w-3 rounded-full ${bucket.dot}`} />
-                  {bucket.label}
-                </p>
-                <div className="px-4 py-2 text-right">
-                  <p className="text-xl font-bold tabular-nums">{now.buckets[index].toLocaleString()}</p>
-                  <p className="text-2xs tabular-nums"><Delta current={now.buckets[index]} prior={before.buckets[index]} format={(value) => value.toLocaleString()} /></p>
-                </div>
-              </div>
-            ))}
+            <div className="space-y-3 px-4 py-3">
+              {CHANGE_BUCKETS.map((bucket, index) => {
+                const count = now.buckets[index];
+                const share = now.count ? count / now.count : 0;
+                return (
+                  <div key={bucket.key}>
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="inline-flex items-center gap-2">
+                        <span aria-hidden className={`h-2.5 w-2.5 rounded-full ${bucket.dot}`} />
+                        {bucket.label}
+                      </span>
+                      <span className="inline-flex items-baseline gap-2 tabular-nums">
+                        <span className="text-2xs"><Delta current={count} prior={before.buckets[index]} format={(value) => value.toLocaleString()} /></span>
+                        <span className="font-bold">{count.toLocaleString()}</span>
+                      </span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" title={`${Math.round(share * 100)}% of listings`}>
+                      <div className={`h-full rounded-full ${bucket.dot}`} style={{ width: `${share * 100}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
             <p className="rounded-t-xl bg-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">Average Price Change %</p>
@@ -789,7 +802,6 @@ export function PriceChangeReport({ deals, priorDeals, names, range }: {
           </div>
         </div>
       </div>
-      <p className="shrink-0 text-xs text-slate-500 dark:text-slate-400">Closed and pending listing-side transactions closing in the date range, with both a list price and a sales price. Price change is the sales price minus the list price; the prior year covers the same dates a year earlier.</p>
     </div>
   );
 }
