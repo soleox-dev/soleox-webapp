@@ -72,7 +72,7 @@ export function teamCapGroups(allocations: AgentAllocationLine[]): TeamCapGroup[
 /** What a team cap's recipient receives on this deal: the payments every other agent makes into that cap. */
 export function TeamCapReceived({ amount }: { amount: number }) {
   return (
-    <span className="inline-flex w-[6.5rem] justify-end pr-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
+    <span className="inline-flex w-[6.5rem] justify-end pr-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
       +{money.format(amount)}
     </span>
   );
@@ -96,7 +96,8 @@ export function TeamCapAmount({
   const edited = Boolean(line.is_override);
   const standing = teamCapStanding(line);
   const exceeded = Boolean(standing?.exceeded);
-  const amountTone = exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200';
+  // Team cap amounts move money between agents rather than paying it out, so they read in grey.
+  const amountTone = exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400';
   const editedTone = exceeded ? 'text-rose-600/80 dark:text-rose-300/80' : 'text-amber-700/80 dark:text-amber-300/80';
   // In edit mode the bar lines up with the input's text, which sits inside its padding.
   const standingNote = standing ? (
