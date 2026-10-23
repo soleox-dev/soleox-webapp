@@ -170,17 +170,21 @@ export function SplitPair({
   }
 
   if (!isEditing) {
-    const percentClass = `text-right text-xs font-semibold whitespace-nowrap ${percentAlert ? roseText : 'text-blue-600 dark:text-blue-400'}`;
-    const dollarClass = `text-right text-xs font-bold whitespace-nowrap ${dollarAlert ? roseText : moneyText}`;
+    // Viewing: percentages are grey (blue marks what you can edit), and a deduction that comes to $0 shows a dash
+    // like an empty cell instead of "-$0.00".
+    const zeroDeduction = deduction && !dollarAlert && Math.abs(dollarAmount || 0) < 0.005;
+    const viewPercent = 'text-slate-500 dark:text-slate-400';
+    const percentClass = `text-right text-xs font-semibold whitespace-nowrap ${percentAlert ? roseText : viewPercent}`;
+    const dollarClass = `text-right text-xs whitespace-nowrap ${zeroDeduction ? 'font-semibold text-slate-300 dark:text-slate-600' : `font-bold ${dollarAlert ? roseText : moneyText}`}`;
     if (matchColumns) {
       return (
         <div className="flex items-center justify-end">
-          {!amountBased && (
+          {!amountBased && !zeroDeduction && (
             <span className={percentClass}>({formatPercentPoints(shownPercent)}%)</span>
           )}
           {amountStack(
             <span className={`w-[6.375rem] shrink-0 ${dollarClass}`}>
-              {dollarText}
+              {zeroDeduction ? '—' : dollarText}
             </span>,
           )}
         </div>
@@ -189,17 +193,17 @@ export function SplitPair({
     return (
       <div className={`flex items-center justify-end ${compact ? 'gap-1.5' : 'gap-3'}`}>
         {compact ? (
-          <span className={`${percentBox} shrink-0 text-right text-xs font-semibold ${percentAlert ? roseText : 'text-blue-600 dark:text-blue-400'}`}>
-            {!amountBased && `(${formatPercentPoints(shownPercent)}%)`}
+          <span className={`${percentBox} shrink-0 text-right text-xs font-semibold ${percentAlert ? roseText : viewPercent}`}>
+            {!amountBased && !zeroDeduction && `(${formatPercentPoints(shownPercent)}%)`}
           </span>
-        ) : !amountBased ? (
-          <span className={`text-xs font-semibold whitespace-nowrap ${percentAlert ? roseText : 'text-blue-600 dark:text-blue-400'}`}>
+        ) : !amountBased && !zeroDeduction ? (
+          <span className={`text-xs font-semibold whitespace-nowrap ${percentAlert ? roseText : viewPercent}`}>
             ({formatPercentPoints(shownPercent)}%)
           </span>
         ) : null}
         {amountStack(
           <span className={`${compact ? `${dollarBox} shrink-0 pr-2 text-xs` : 'text-xs'} text-right font-bold whitespace-nowrap ${dollarAlert ? roseText : moneyText}`}>
-            {dollarText}
+            {zeroDeduction ? '—' : dollarText}
           </span>,
         )}
       </div>

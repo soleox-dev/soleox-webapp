@@ -479,7 +479,7 @@ export function CommissionWaterfallTable({
                         <button type="button" onClick={() => onRemoveTeamCap(capId)} className={trashButton} title={`Remove ${group.name}`} aria-label={`Remove ${group.name}`}><TrashIcon /></button>
                       )}
                       <span className="shrink-0 whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-2xs font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700">Team Cap</span>
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{group.name}</span>
+                      <span title={group.name} className="min-w-0 max-w-40 truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{group.name}</span>
                     </div>
                   </td>
                   {agents.map((agent) => (
@@ -739,12 +739,13 @@ export function CommissionWaterfallTable({
                 </tr>
               )}
               <tr>
-                <td className={`${labelCell} font-bold text-slate-700 dark:text-slate-200`}>Net Payout to Agents</td>
+                {/* The bottom line: what each agent receives, in green and set off by a firmer rule above. */}
+                <td className={`${labelCell} border-t border-t-slate-300 font-bold text-slate-900 dark:border-t-slate-600 dark:text-white`}>Net Payout to Agents</td>
                 {agents.map((agent) => {
                   const computed = (dealResult.agentSplitItems || []).find((item: { agentId?: string; agentName?: string; amount?: number }) => item.agentId === agent.id || item.agentName === agent.name);
                   const netAfterL1 = dealResult.agentNetAfterLevel1?.[agent.name] ?? computed?.amount ?? 0;
                   const payout = dealResult.netPayouts?.[agent.name] ?? netAfterL1;
-                  return <td key={agent.id} className={`${agentCell} font-bold text-slate-900 dark:text-white`}><span className="ml-auto block w-[6.5rem] pr-2 text-right">{formatCurrency(payout)}</span></td>;
+                  return <td key={agent.id} className={`${agentCell} border-t border-t-slate-300 font-bold text-emerald-600 dark:border-t-slate-600 dark:text-emerald-400`}><span className="ml-auto block w-[6.5rem] pr-2 text-right">{formatCurrency(payout)}</span></td>;
                 })}
               </tr>
             </tbody>
