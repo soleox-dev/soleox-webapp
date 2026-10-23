@@ -1,6 +1,7 @@
 'use client';
 
 import { signOut } from 'next-auth/react';
+import { clearReportCache } from '@/lib/report-cache';
 
 export default function NoAccessPage() {
   return (
@@ -14,7 +15,7 @@ export default function NoAccessPage() {
         type="button"
         onClick={() => {
           window.sessionStorage.removeItem('soleox-transactions-list');
-          void signOut({ callbackUrl: '/login' });
+          void clearReportCache().finally(() => signOut({ callbackUrl: '/login' }));
         }}
         className="mt-6 w-fit rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
       >

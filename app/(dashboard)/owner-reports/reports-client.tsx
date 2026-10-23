@@ -9,6 +9,7 @@ import { DESKTOP_QUERY, useFitsScreen, useIsDesktop, useIsTouch } from '@/lib/us
 import { swallowNextClick } from '@/lib/swallow-click';
 import { FieldChevron, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { SoleoxLogo } from '@/components/ui/logo';
+import { clearReportCache, pruneReportCache, readReportCache, reportCacheKey, writeReportCache } from '@/lib/report-cache';
 import { LoadingDataPage, type LoadingProgressInfo } from './loading-data-page';
 import { areaUnder, linePeaks, smoothLine, smoothRuns, svgUserX } from './chart-paths';
 import {
@@ -80,6 +81,17 @@ import {
 } from '@/lib/team-cap-report';
 
 const GROUPS = OWNER_REPORT_GROUPS;
+
+/** One download of everything the reports read; also the copy saved in the browser. */
+type ReportBundle = {
+  // Raw API responses, read defensively when applied.
+  snapshot: any;
+  agentData: any;
+  schemaData: any;
+  capData: any;
+  agentSchema: any;
+  planCaps: any;
+};
 
 /** Reports whose table fills the rest of the screen and scrolls on its own (on screens tall and wide enough). */
 function screenFitReport(reportId: string | null): boolean {
@@ -156,6 +168,15 @@ export default function OwnerReportsPage() {
     recordsCount: {},
   });
   const [reloadKey, setReloadKey] = useState(0);
+  // The saved copy (lib/report-cache.ts): when the data on screen was downloaded, and a refresh running behind it.
+  const [dataSavedAt, setDataSavedAt] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshRequested = useRef(false);
+  const refreshData = () => {
+    if (refreshing) return;
+    refreshRequested.current = true;
+    setReloadKey((k) => k + 1);
+  };
 
   const handleRetry = () => {
     setError('');
@@ -177,284 +198,350 @@ export default function OwnerReportsPage() {
     let timer: ReturnType<typeof setInterval> | null = null;
     let streamActive = false;
 
-    // Smooth progress tick while waiting for database queries to run
-    timer = setInterval(() => {
-      setLoadProgress((prev) => {
-        if (streamActive || prev.percent >= 55) return prev;
-        const inc = prev.percent < 25 ? 2.2 : 0.9;
-        return {
+    // Everything the reports read, in one bundle that is also what the browser saves.
+    const download = async (): Promise<ReportBundle> => {
+      const pAgentSchema = fetch('/api/schema/agents', fetchOptions).then(async (res) => {
+        if (!res.ok) return null;
+        const data = await res.json();
+        setLoadProgress((prev) => ({
           ...prev,
-          percent: Math.min(55, prev.percent + inc),
-        };
-      });
-    }, 120);
+          checks: { ...prev.checks, schemas: true },
+          percent: Math.max(prev.percent, 22),
+          detail: 'Agent fields verified',
+        }));
+        return data;
+      }).catch(() => null);
 
-    const pAgentSchema = fetch('/api/schema/agents', fetchOptions).then(async (res) => {
-      if (!res.ok) return null;
-      const data = await res.json();
-      setLoadProgress((prev) => ({
-        ...prev,
-        checks: { ...prev.checks, schemas: true },
-        percent: Math.max(prev.percent, 22),
-        detail: 'Agent fields verified',
-      }));
-      return data;
-    }).catch(() => null);
+      const pTxnSchema = fetch('/api/schema/transactions', fetchOptions).then(async (res) => {
+        if (!res.ok) return null;
+        const data = await res.json();
+        setLoadProgress((prev) => ({
+          ...prev,
+          checks: { ...prev.checks, schemas: true },
+          percent: Math.max(prev.percent, 32),
+          detail: 'Transaction schema verified',
+        }));
+        return data;
+      }).catch(() => null);
 
-    const pTxnSchema = fetch('/api/schema/transactions', fetchOptions).then(async (res) => {
-      if (!res.ok) return null;
-      const data = await res.json();
-      setLoadProgress((prev) => ({
-        ...prev,
-        checks: { ...prev.checks, schemas: true },
-        percent: Math.max(prev.percent, 32),
-        detail: 'Transaction schema verified',
-      }));
-      return data;
-    }).catch(() => null);
+      const pCaps = fetch('/api/agent-allocations', fetchOptions).then(async (res) => {
+        if (!res.ok) return null;
+        const data = await res.json();
+        const count = (Array.isArray(data.teamCaps) ? data.teamCaps.length : 0) + (Array.isArray(data.agentCaps) ? data.agentCaps.length : 0);
+        setLoadProgress((prev) => ({
+          ...prev,
+          checks: { ...prev.checks, caps: true },
+          percent: Math.max(prev.percent, 42),
+          detail: 'Cap rules & allocations loaded',
+          recordsCount: { ...prev.recordsCount, caps: count },
+        }));
+        return data;
+      }).catch(() => null);
 
-    const pCaps = fetch('/api/agent-allocations', fetchOptions).then(async (res) => {
-      if (!res.ok) return null;
-      const data = await res.json();
-      const count = (Array.isArray(data.teamCaps) ? data.teamCaps.length : 0) + (Array.isArray(data.agentCaps) ? data.agentCaps.length : 0);
-      setLoadProgress((prev) => ({
-        ...prev,
-        checks: { ...prev.checks, caps: true },
-        percent: Math.max(prev.percent, 42),
-        detail: 'Cap rules & allocations loaded',
-        recordsCount: { ...prev.recordsCount, caps: count },
-      }));
-      return data;
-    }).catch(() => null);
+      // Commission Plan caps for the Caps report; the report still loads without them.
+      const pPlanCaps = fetch('/api/owner-reports/plan-caps', fetchOptions).then(async (res) => {
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data?.success === false ? null : data;
+      }).catch(() => null);
 
-    // Commission Plan caps for the Caps report; the report still loads without them.
-    const pPlanCaps = fetch('/api/owner-reports/plan-caps', fetchOptions).then(async (res) => {
-      if (!res.ok) return null;
-      const data = await res.json();
-      return data?.success === false ? null : data;
-    }).catch(() => null);
+      const pAgents = fetch('/api/agents?include_archived=true', fetchOptions).then(async (res) => {
+        if (!res.ok) return null;
+        const data = await res.json();
+        const agents = Array.isArray(data.agents) ? data.agents : [];
+        setLoadProgress((prev) => ({
+          ...prev,
+          checks: { ...prev.checks, agents: true },
+          percent: Math.max(prev.percent, 50),
+          detail: `Loaded ${agents.length} agent profiles`,
+          recordsCount: { ...prev.recordsCount, agents: agents.length },
+        }));
+        return data;
+      }).catch(() => null);
 
-    const pAgents = fetch('/api/agents?include_archived=true', fetchOptions).then(async (res) => {
-      if (!res.ok) return null;
-      const data = await res.json();
-      const agents = Array.isArray(data.agents) ? data.agents : [];
-      setLoadProgress((prev) => ({
-        ...prev,
-        checks: { ...prev.checks, agents: true },
-        percent: Math.max(prev.percent, 50),
-        detail: `Loaded ${agents.length} agent profiles`,
-        recordsCount: { ...prev.recordsCount, agents: agents.length },
-      }));
-      return data;
-    }).catch(() => null);
+      const pSnapshot = (async () => {
+        const res = await fetch('/api/owner-reports/snapshot', fetchOptions);
+        if (!res.ok) throw new Error('Could not load transactions.');
 
-    const pSnapshot = (async () => {
-      const res = await fetch('/api/owner-reports/snapshot', fetchOptions);
-      if (!res.ok) throw new Error('Could not load transactions.');
-
-      const lengthHeader = res.headers.get('content-length');
-      const totalBytes = lengthHeader ? parseInt(lengthHeader, 10) : null;
-      streamActive = true;
-
-      setLoadProgress((prev) => ({
-        ...prev,
-        bytesTotal: totalBytes || undefined,
-        stage: 'Downloading dataset…',
-        detail: 'Receiving transaction and payment history',
-        percent: Math.max(prev.percent, 55),
-      }));
-
-      if (!res.body || typeof res.body.getReader !== 'function') {
-        return await res.json();
-      }
-
-      const reader = res.body.getReader();
-      const chunks: Uint8Array[] = [];
-      let loadedBytes = 0;
-
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) {
-          chunks.push(value);
-          loadedBytes += value.length;
-
-          setLoadProgress((prev) => {
-            let nextPercent = prev.percent;
-            if (totalBytes && totalBytes > 0) {
-              const ratio = Math.min(1, loadedBytes / totalBytes);
-              nextPercent = Math.max(prev.percent, 55 + Math.round(ratio * 37));
-            } else {
-              const ratio = Math.min(1, loadedBytes / (4 * 1024 * 1024));
-              nextPercent = Math.max(prev.percent, 55 + Math.round(ratio * 37));
-            }
-            return {
-              ...prev,
-              bytesLoaded: loadedBytes,
-              bytesTotal: totalBytes || prev.bytesTotal,
-              percent: nextPercent,
-              stage: 'Downloading dataset…',
-              detail: `Streaming records: ${(loadedBytes / (1024 * 1024)).toFixed(1)} MB${totalBytes ? ` / ${(totalBytes / (1024 * 1024)).toFixed(1)} MB` : ''}`,
-            };
-          });
-        }
-      }
-
-      const allChunks = new Uint8Array(loadedBytes);
-      let offset = 0;
-      for (const chunk of chunks) {
-        allChunks.set(chunk, offset);
-        offset += chunk.length;
-      }
-      const text = new TextDecoder('utf-8').decode(allChunks);
-      return JSON.parse(text);
-    })();
-
-    Promise.all([pSnapshot, pAgents, pTxnSchema, pCaps, pAgentSchema, pPlanCaps])
-      .then(async ([snapshot, agentData, schemaData, capData, agentSchema, planCaps]) => {
-        if (!snapshot) throw new Error('Could not load snapshot data.');
-        if (timer) clearInterval(timer);
-
-        const rows = Array.isArray(snapshot.transactions) ? snapshot.transactions : [];
-        const items = Array.isArray(snapshot.items) ? snapshot.items : [];
-        const paymentList = Array.isArray(snapshot.payments) ? snapshot.payments : [];
-        const contributionRows = Array.isArray(snapshot.contributions) ? snapshot.contributions : [];
-        const clientName = String(snapshot.clientName || snapshot.clientId || '');
+        const lengthHeader = res.headers.get('content-length');
+        const totalBytes = lengthHeader ? parseInt(lengthHeader, 10) : null;
+        streamActive = true;
 
         setLoadProgress((prev) => ({
           ...prev,
-          clientName: clientName || prev.clientName,
-          percent: 96,
-          stage: 'Processing records…',
-          detail: `Normalizing ${rows.length.toLocaleString()} transactions & waterfall splits`,
-          checks: { ...prev.checks, snapshot: true },
-          recordsCount: {
-            ...prev.recordsCount,
-            transactions: rows.length,
-            payments: paymentList.length,
-            items: items.length,
-          },
+          bytesTotal: totalBytes || undefined,
+          stage: 'Downloading dataset…',
+          detail: 'Receiving transaction and payment history',
+          percent: Math.max(prev.percent, 55),
         }));
 
-        const teamGci = teamGciByTransaction(items);
-        setPostSplits(items.flatMap((item: Record<string, unknown>) => {
-          if (!isPostSplitSection(item.section)) return [];
-          const agentId = String(item.agent_id || '');
-          const entityId = String(item.payee_entity_id || '');
-          const amount = Number(item.final_amount) || 0;
-          const transactionId = String(item.transaction_id || '');
-          if (!agentId || !entityId || !transactionId || !amount) return [];
-          return [{ transactionId, agentId, entityId, amount }];
-        }));
-        setDeals(rows
-          .filter((row: Record<string, unknown>) => row.archived !== true && row.permanently_deleted !== true)
-          .map((row: Record<string, unknown>) => {
-            const deal = normalizeDeal(row);
-            deal.teamGci = teamGci.get(deal.id) || 0;
-            return deal;
-          }));
-        if (agentData) {
-          const next = new Map<string, string>();
-          const leads = new Set<string>();
-          const groups = new Map<string, string>();
-          const profiles: AgentProfile[] = [];
-          for (const agent of Array.isArray(agentData.agents) ? agentData.agents : []) {
-            const id = String(agent.id || '');
-            const name = String(agent.agent_name || agent.name || 'Agent');
-            next.set(id, name);
-            if (agent.is_team_lead === true) leads.add(id);
-            const group = String(agent.agent_group ?? agent.group_id ?? agent.group ?? '').trim();
-            if (id) groups.set(id, group);
-            const fields: Record<string, string> = {};
-            Object.entries(agent as Record<string, unknown>).forEach(([key, value]) => {
-              if (value == null || typeof value === 'object') return;
-              fields[key] = String(value);
+        if (!res.body || typeof res.body.getReader !== 'function') {
+          return await res.json();
+        }
+
+        const reader = res.body.getReader();
+        const chunks: Uint8Array[] = [];
+        let loadedBytes = 0;
+
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            chunks.push(value);
+            loadedBytes += value.length;
+
+            setLoadProgress((prev) => {
+              let nextPercent = prev.percent;
+              if (totalBytes && totalBytes > 0) {
+                const ratio = Math.min(1, loadedBytes / totalBytes);
+                nextPercent = Math.max(prev.percent, 55 + Math.round(ratio * 37));
+              } else {
+                const ratio = Math.min(1, loadedBytes / (4 * 1024 * 1024));
+                nextPercent = Math.max(prev.percent, 55 + Math.round(ratio * 37));
+              }
+              return {
+                ...prev,
+                bytesLoaded: loadedBytes,
+                bytesTotal: totalBytes || prev.bytesTotal,
+                percent: nextPercent,
+                stage: 'Downloading dataset…',
+                detail: `Streaming records: ${(loadedBytes / (1024 * 1024)).toFixed(1)} MB${totalBytes ? ` / ${(totalBytes / (1024 * 1024)).toFixed(1)} MB` : ''}`,
+              };
             });
-            if (id) profiles.push({ id, name, archived: agent.archived === true, fields });
           }
-          setNames(next);
-          setTeamLeadIds(leads);
-          setAgentGroupById(groups);
-          setAgentProfiles(profiles);
-        }
-        if (capData) {
-          const teamCaps = Array.isArray(capData.teamCaps) ? capData.teamCaps : [];
-          const agentCaps = Array.isArray(capData.agentCaps) ? capData.agentCaps : [];
-          const asCap = (cap: Record<string, unknown>, kind: 'team' | 'agent'): TeamCapDefinition => ({
-            id: String(cap.id || ''),
-            name: String(cap.name || (kind === 'agent' ? 'Agent Cap' : 'Team Cap')),
-            enabled: cap.enabled !== false,
-            kind,
-            splitPercentFieldKey: kind === 'team' && cap.split_percent_field_key ? String(cap.split_percent_field_key) : null,
-            capAmountFieldKey: cap.cap_amount_field_key ? String(cap.cap_amount_field_key) : null,
-            resetDateFieldKey: cap.reset_date_field_key ? String(cap.reset_date_field_key) : null,
-            recipientAgentId: kind === 'team' && cap.recipient_agent_id ? String(cap.recipient_agent_id) : null,
-            entityId: kind === 'agent' && cap.commission_entity_id ? String(cap.commission_entity_id) : null,
-            hideOverAllocations: kind === 'agent' && cap.hide_over_allocations === true,
-          });
-          setTeamCaps([
-            ...teamCaps.map((cap: Record<string, unknown>) => asCap(cap, 'team')),
-            ...agentCaps.map((cap: Record<string, unknown>) => asCap(cap, 'agent')),
-          ].filter((cap) => cap.id));
-        }
-        setPlanCapData(planCaps && Array.isArray(planCaps.agents) && planCaps.agents.length > 0 ? (planCaps as PlanCapData) : null);
-        setCapContributions(contributionRows.map((row: Record<string, unknown>) => ({
-          agentId: String(row.agentId || ''),
-          teamCapId: String(row.teamCapId || ''),
-          amount: Number(row.amount) || 0,
-          periodStart: row.periodStart ? String(row.periodStart) : null,
-          transactionId: String(row.transactionId || ''),
-        })).filter((row: CapContribution) => row.agentId && row.teamCapId && row.transactionId));
-        if (agentSchema) {
-          const catalog = Array.isArray(agentSchema.catalog) ? agentSchema.catalog : [];
-          const labels = new Map<string, string>();
-          catalog.forEach((field: { field_key?: string; field_label?: string }) => {
-            const key = String(field.field_key || '');
-            if (key) labels.set(key, String(field.field_label || key));
-          });
-          setAgentFieldLabels(labels);
-        }
-        setPayments(paymentList.map((payment: Record<string, unknown>) => ({
-          transactionId: String(payment.transaction_id || ''),
-          agentId: String(payment.agent_id || ''),
-          entityId: String(payment.payee_entity_id || ''),
-          payeeType: String(payment.payee_type || ''),
-          amount: Number(payment.amount_paid) || 0,
-        })));
-        const entityList = Array.isArray(snapshot.entities) ? snapshot.entities : [];
-        const nextEntities = new Map<string, string>();
-        const earning: Array<{ id: string; name: string }> = [];
-        for (const entity of entityList) {
-          const id = String(entity.id || '');
-          const name = String(entity.entity_name || entity.name || 'Entity');
-          if (!id) continue;
-          nextEntities.set(id, name);
-          if (EARNING_ENTITY_TYPES.has(String(entity.entity_type || '').trim().toUpperCase())) earning.push({ id, name });
-        }
-        setEntityNames(nextEntities);
-        setEarningEntities(earning);
-        if (schemaData) {
-          const catalog = Array.isArray(schemaData.catalog) ? schemaData.catalog : [];
-          const fields = catalog
-            .filter((field: { is_enabled?: boolean; field_type?: string; field_key?: string }) => field.is_enabled !== false && (field.field_type === 'SELECT' || field.field_type === 'AGENT_PICKER') && field.field_key && !BOARD_METRIC_EXCLUDED.has(String(field.field_key)))
-            .map((field: { field_key: string; field_label?: string; field_type: string }) => ({
-              id: String(field.field_key),
-              label: String(field.field_label || field.field_key),
-              type: String(field.field_type),
-            }))
-            .sort((a: BoardField, b: BoardField) => a.label.localeCompare(b.label));
-          if (fields.length) setBoardMetrics([...PAYMENT_METRICS, ...fields]);
-          const labelOf = (key: string, fallback: string) => {
-            const match = catalog.find((field: { field_key?: string; field_label?: string }) => field.field_key === key);
-            const label = String(match?.field_label || '').trim();
-            return label || fallback;
-          };
-          setDateBases([
-            { id: 'closing', label: labelOf('closing_date', 'Closing Date'), type: 'DATE' },
-            { id: 'acceptance', label: labelOf('acceptance_date', 'Acceptance Date'), type: 'DATE' },
-          ]);
         }
 
+        const allChunks = new Uint8Array(loadedBytes);
+        let offset = 0;
+        for (const chunk of chunks) {
+          allChunks.set(chunk, offset);
+          offset += chunk.length;
+        }
+        const text = new TextDecoder('utf-8').decode(allChunks);
+        return JSON.parse(text);
+      })();
+
+      const [snapshot, agentData, schemaData, capData, agentSchema, planCaps] = await Promise.all([pSnapshot, pAgents, pTxnSchema, pCaps, pAgentSchema, pPlanCaps]);
+      if (!snapshot) throw new Error('Could not load snapshot data.');
+      return { snapshot, agentData, schemaData, capData, agentSchema, planCaps };
+    };
+
+    // Turns a bundle (fresh or saved) into the report state.
+    const apply = ({ snapshot, agentData, schemaData, capData, agentSchema, planCaps }: ReportBundle) => {
+    const rows = Array.isArray(snapshot.transactions) ? snapshot.transactions : [];
+    const items = Array.isArray(snapshot.items) ? snapshot.items : [];
+    const paymentList = Array.isArray(snapshot.payments) ? snapshot.payments : [];
+    const contributionRows = Array.isArray(snapshot.contributions) ? snapshot.contributions : [];
+    const clientName = String(snapshot.clientName || snapshot.clientId || '');
+
+    setLoadProgress((prev) => ({
+      ...prev,
+      clientName: clientName || prev.clientName,
+      percent: 96,
+      stage: 'Processing records…',
+      detail: `Normalizing ${rows.length.toLocaleString()} transactions & waterfall splits`,
+      checks: { ...prev.checks, snapshot: true },
+      recordsCount: {
+        ...prev.recordsCount,
+        transactions: rows.length,
+        payments: paymentList.length,
+        items: items.length,
+      },
+    }));
+
+    const teamGci = teamGciByTransaction(items);
+    setPostSplits(items.flatMap((item: Record<string, unknown>) => {
+      if (!isPostSplitSection(item.section)) return [];
+      const agentId = String(item.agent_id || '');
+      const entityId = String(item.payee_entity_id || '');
+      const amount = Number(item.final_amount) || 0;
+      const transactionId = String(item.transaction_id || '');
+      if (!agentId || !entityId || !transactionId || !amount) return [];
+      return [{ transactionId, agentId, entityId, amount }];
+    }));
+    setDeals(rows
+      .filter((row: Record<string, unknown>) => row.archived !== true && row.permanently_deleted !== true)
+      .map((row: Record<string, unknown>) => {
+        const deal = normalizeDeal(row);
+        deal.teamGci = teamGci.get(deal.id) || 0;
+        return deal;
+      }));
+    if (agentData) {
+      const next = new Map<string, string>();
+      const leads = new Set<string>();
+      const groups = new Map<string, string>();
+      const profiles: AgentProfile[] = [];
+      for (const agent of Array.isArray(agentData.agents) ? agentData.agents : []) {
+        const id = String(agent.id || '');
+        const name = String(agent.agent_name || agent.name || 'Agent');
+        next.set(id, name);
+        if (agent.is_team_lead === true) leads.add(id);
+        const group = String(agent.agent_group ?? agent.group_id ?? agent.group ?? '').trim();
+        if (id) groups.set(id, group);
+        const fields: Record<string, string> = {};
+        Object.entries(agent as Record<string, unknown>).forEach(([key, value]) => {
+          if (value == null || typeof value === 'object') return;
+          fields[key] = String(value);
+        });
+        if (id) profiles.push({ id, name, archived: agent.archived === true, fields });
+      }
+      setNames(next);
+      setTeamLeadIds(leads);
+      setAgentGroupById(groups);
+      setAgentProfiles(profiles);
+    }
+    if (capData) {
+      const teamCaps = Array.isArray(capData.teamCaps) ? capData.teamCaps : [];
+      const agentCaps = Array.isArray(capData.agentCaps) ? capData.agentCaps : [];
+      const asCap = (cap: Record<string, unknown>, kind: 'team' | 'agent'): TeamCapDefinition => ({
+        id: String(cap.id || ''),
+        name: String(cap.name || (kind === 'agent' ? 'Agent Cap' : 'Team Cap')),
+        enabled: cap.enabled !== false,
+        kind,
+        splitPercentFieldKey: kind === 'team' && cap.split_percent_field_key ? String(cap.split_percent_field_key) : null,
+        capAmountFieldKey: cap.cap_amount_field_key ? String(cap.cap_amount_field_key) : null,
+        resetDateFieldKey: cap.reset_date_field_key ? String(cap.reset_date_field_key) : null,
+        recipientAgentId: kind === 'team' && cap.recipient_agent_id ? String(cap.recipient_agent_id) : null,
+        entityId: kind === 'agent' && cap.commission_entity_id ? String(cap.commission_entity_id) : null,
+        hideOverAllocations: kind === 'agent' && cap.hide_over_allocations === true,
+      });
+      setTeamCaps([
+        ...teamCaps.map((cap: Record<string, unknown>) => asCap(cap, 'team')),
+        ...agentCaps.map((cap: Record<string, unknown>) => asCap(cap, 'agent')),
+      ].filter((cap) => cap.id));
+    }
+    setPlanCapData(planCaps && Array.isArray(planCaps.agents) && planCaps.agents.length > 0 ? (planCaps as PlanCapData) : null);
+    setCapContributions(contributionRows.map((row: Record<string, unknown>) => ({
+      agentId: String(row.agentId || ''),
+      teamCapId: String(row.teamCapId || ''),
+      amount: Number(row.amount) || 0,
+      periodStart: row.periodStart ? String(row.periodStart) : null,
+      transactionId: String(row.transactionId || ''),
+    })).filter((row: CapContribution) => row.agentId && row.teamCapId && row.transactionId));
+    if (agentSchema) {
+      const catalog = Array.isArray(agentSchema.catalog) ? agentSchema.catalog : [];
+      const labels = new Map<string, string>();
+      catalog.forEach((field: { field_key?: string; field_label?: string }) => {
+        const key = String(field.field_key || '');
+        if (key) labels.set(key, String(field.field_label || key));
+      });
+      setAgentFieldLabels(labels);
+    }
+    setPayments(paymentList.map((payment: Record<string, unknown>) => ({
+      transactionId: String(payment.transaction_id || ''),
+      agentId: String(payment.agent_id || ''),
+      entityId: String(payment.payee_entity_id || ''),
+      payeeType: String(payment.payee_type || ''),
+      amount: Number(payment.amount_paid) || 0,
+    })));
+    const entityList = Array.isArray(snapshot.entities) ? snapshot.entities : [];
+    const nextEntities = new Map<string, string>();
+    const earning: Array<{ id: string; name: string }> = [];
+    for (const entity of entityList) {
+      const id = String(entity.id || '');
+      const name = String(entity.entity_name || entity.name || 'Entity');
+      if (!id) continue;
+      nextEntities.set(id, name);
+      if (EARNING_ENTITY_TYPES.has(String(entity.entity_type || '').trim().toUpperCase())) earning.push({ id, name });
+    }
+    setEntityNames(nextEntities);
+    setEarningEntities(earning);
+    if (schemaData) {
+      const catalog = Array.isArray(schemaData.catalog) ? schemaData.catalog : [];
+      const fields = catalog
+        .filter((field: { is_enabled?: boolean; field_type?: string; field_key?: string }) => field.is_enabled !== false && (field.field_type === 'SELECT' || field.field_type === 'AGENT_PICKER') && field.field_key && !BOARD_METRIC_EXCLUDED.has(String(field.field_key)))
+        .map((field: { field_key: string; field_label?: string; field_type: string }) => ({
+          id: String(field.field_key),
+          label: String(field.field_label || field.field_key),
+          type: String(field.field_type),
+        }))
+        .sort((a: BoardField, b: BoardField) => a.label.localeCompare(b.label));
+      if (fields.length) setBoardMetrics([...PAYMENT_METRICS, ...fields]);
+      const labelOf = (key: string, fallback: string) => {
+        const match = catalog.find((field: { field_key?: string; field_label?: string }) => field.field_key === key);
+        const label = String(match?.field_label || '').trim();
+        return label || fallback;
+      };
+      setDateBases([
+        { id: 'closing', label: labelOf('closing_date', 'Closing Date'), type: 'DATE' },
+        { id: 'acceptance', label: labelOf('acceptance_date', 'Acceptance Date'), type: 'DATE' },
+      ]);
+    }
+    };
+
+    const aborted = () => controller.signal.aborted;
+    const openReports = () => {
+      setLoading(false);
+      if (!reportId) router.replace('/owner-reports/owner-summary', { scroll: false });
+    };
+    const manual = refreshRequested.current;
+    refreshRequested.current = false;
+
+    void (async () => {
+      // Whose copy this is and when the client's data last changed; the saved copy is used only when both are known.
+      let version: { clientId?: string; email?: string; changedAt?: string | null } | null = null;
+      try {
+        const res = await fetch('/api/owner-reports/version', fetchOptions);
+        if (res.ok) version = await res.json();
+        else if (res.status === 401 || res.status === 403) await clearReportCache();
+      } catch {
+        // Offline or aborted: no saved copy is trusted without knowing whose it is.
+      }
+      if (aborted()) return;
+      const key = version?.clientId && version.email ? reportCacheKey(version.email, version.clientId) : null;
+      if (version?.email) void pruneReportCache(version.email);
+      const changedAt = version?.changedAt ?? null;
+      const save = (bundle: ReportBundle) => {
+        const savedAt = new Date().toISOString();
+        setDataSavedAt(savedAt);
+        if (key) void writeReportCache(key, { savedAt, changedAt, data: bundle });
+      };
+      // Refreshes behind the report that is already on screen.
+      const refreshQuietly = async () => {
+        setRefreshing(true);
+        try {
+          const bundle = await download();
+          if (aborted()) return;
+          apply(bundle);
+          save(bundle);
+        } catch {
+          // The report keeps the data it shows; Refresh can try again.
+        } finally {
+          if (!aborted()) setRefreshing(false);
+        }
+      };
+
+      if (manual) {
+        await refreshQuietly();
+        return;
+      }
+
+      const saved = key ? await readReportCache<ReportBundle>(key) : null;
+      if (aborted()) return;
+      if (saved) {
+        apply(saved.data);
+        setDataSavedAt(saved.savedAt);
+        openReports();
+        // Up to date when nothing changed since the copy's download began; otherwise refresh behind it.
+        const upToDate = Boolean(saved.changedAt && changedAt && Date.parse(saved.changedAt) >= Date.parse(changedAt));
+        if (!upToDate) await refreshQuietly();
+        return;
+      }
+
+      // The first visit: download with the progress screen.
+      timer = setInterval(() => {
+        setLoadProgress((prev) => {
+          if (streamActive || prev.percent >= 55) return prev;
+          const inc = prev.percent < 25 ? 2.2 : 0.9;
+          return { ...prev, percent: Math.min(55, prev.percent + inc) };
+        });
+      }, 120);
+      try {
+        const bundle = await download();
+        if (timer) clearInterval(timer);
+        if (aborted()) return;
+        apply(bundle);
+        save(bundle);
         setLoadProgress((prev) => ({
           ...prev,
           percent: 100,
@@ -462,17 +549,10 @@ export default function OwnerReportsPage() {
           detail: 'All calculations compiled',
           checks: { ...prev.checks, processing: true },
         }));
-
         await new Promise((resolve) => setTimeout(resolve, 320));
-        if (!controller.signal.aborted) {
-          setLoading(false);
-          if (!reportId) {
-            router.replace('/owner-reports/owner-summary', { scroll: false });
-          }
-        }
-      })
-      .catch((err: unknown) => {
-        if (controller.signal.aborted) return;
+        if (!aborted()) openReports();
+      } catch (err: unknown) {
+        if (aborted()) return;
         if (timer) clearInterval(timer);
         const msg = err instanceof Error ? err.message : 'Could not load reports.';
         setError(msg);
@@ -481,7 +561,8 @@ export default function OwnerReportsPage() {
           stage: 'Failed to load data',
           detail: msg,
         }));
-      });
+      }
+    })();
 
     return () => {
       controller.abort();
@@ -968,6 +1049,9 @@ export default function OwnerReportsPage() {
             />
           ) : report ? (
             <ReportView
+              dataSavedAt={dataSavedAt}
+              refreshing={refreshing}
+              onRefresh={refreshData}
               onSelectReport={selectReport}
               reportName={report.name}
               ready={report.ready}
@@ -1504,7 +1588,45 @@ function SortHead({ column, label, sort, onSort, align = 'left', title, width, c
   );
 }
 
+/** "Updated 3 min ago · Refresh" under the report title: how old the data on screen is, and a way to download it again. */
+function DataFreshness({ savedAt, refreshing, onRefresh }: { savedAt: string | null; refreshing: boolean; onRefresh: () => void }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const tick = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(tick);
+  }, []);
+  if (!savedAt) return null;
+  const minutes = Math.max(0, Math.floor((now - Date.parse(savedAt)) / 60_000));
+  const age = minutes < 1
+    ? 'just now'
+    : minutes < 60
+      ? `${minutes} min ago`
+      : minutes < 60 * 24
+        ? `${Math.floor(minutes / 60)} hr ago`
+        : new Date(savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return (
+    <p className="mt-1 inline-flex items-center gap-1.5 text-2xs text-slate-400 dark:text-slate-500">
+      {refreshing ? (
+        <>
+          <RotateCcw className="h-3 w-3 animate-spin [animation-direction:reverse]" strokeWidth={2.25} aria-hidden />
+          Updating…
+        </>
+      ) : (
+        <>
+          <span title={new Date(savedAt).toLocaleString()}>Updated {age}</span>
+          <span aria-hidden>·</span>
+          <button type="button" onClick={onRefresh} className="cursor-pointer font-semibold text-brand-600 hover:underline dark:text-brand-400">Refresh</button>
+        </>
+      )}
+    </p>
+  );
+}
+
 function ReportView(props: {
+  /** When the data on screen was downloaded; null before the first download. */
+  dataSavedAt: string | null;
+  refreshing: boolean;
+  onRefresh: () => void;
   reportName: string;
   reportId: string;
   onSelectReport: (id: string | null) => void;
@@ -1729,6 +1851,7 @@ function ReportView(props: {
             ) : null}
             </div>
             <p className="mt-1.5 text-sm text-slate-500 max-md:mt-1 max-md:text-xs">{props.reportId === 'team-caps' ? 'Each agent’s cap year comes from that cap’s reset date.' : `${formatRange(range)} compared with ${formatRange(priorRange)}`}</p>
+            <DataFreshness savedAt={props.dataSavedAt} refreshing={props.refreshing} onRefresh={props.onRefresh} />
           </div>
           {/* The date and Filters controls render here from FilterBar on wider screens. */}
           <div ref={setFilterSlot} className="relative z-50 min-w-0 justify-self-end [grid-area:filters] max-md:hidden" />

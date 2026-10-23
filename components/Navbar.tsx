@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
+import { clearReportCache } from '@/lib/report-cache';
 import { useSoleoxTheme } from '@/app/providers';
 import { SoleoxLogo } from '@/components/ui/logo';
 import { useAccess } from '@/components/access-provider';
@@ -555,7 +556,7 @@ export default function Navbar() {
                 <button
                   onClick={() => {
                     window.sessionStorage.removeItem('soleox-transactions-list');
-                    void signOut({ callbackUrl: '/login' });
+                    void clearReportCache().finally(() => signOut({ callbackUrl: '/login' }));
                   }}
                   className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 flex items-center gap-2 transition cursor-pointer"
                 >
@@ -763,7 +764,7 @@ export default function Navbar() {
                 type="button"
                 onClick={() => {
                   window.sessionStorage.removeItem('soleox-transactions-list');
-                  void signOut({ callbackUrl: '/login' });
+                  void clearReportCache().finally(() => signOut({ callbackUrl: '/login' }));
                 }}
                 className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-semibold text-red-600 dark:text-red-400 cursor-pointer"
               >
