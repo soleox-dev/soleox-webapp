@@ -156,7 +156,7 @@ function matchCapBarWidths(bar: HTMLElement) {
   for (const item of bars) item.style.width = px;
 }
 
-/** The cap standing: the amount reached so far inside the bar, and the cap's limit in small, light text after it. */
+/** The cap standing: the cap's limit in small, light text, then the amount reached so far inside the bar, which ends at the cell's right edge. */
 export function AgentCapNote({ amount, limit, detail, share }: { amount: string; limit: string; detail: string; share: number }) {
   const barRef = useRef<HTMLSpanElement>(null);
   const width = Math.min(100, Math.max(0, share * 100));
@@ -180,11 +180,11 @@ export function AgentCapNote({ amount, limit, detail, share }: { amount: string;
   return (
     <HoverNote label={detail}>
       <span tabIndex={0} aria-label={`${amount} of ${limit}`} className="mt-0.5 inline-flex cursor-help items-center gap-1 outline-none">
+        <span aria-hidden className="w-8 shrink-0 text-right text-2xs font-light leading-none tabular-nums text-slate-400 dark:text-slate-500">{limit}</span>
         <span ref={barRef} data-cap-bar className="relative inline-flex h-4 shrink-0 items-center justify-end overflow-hidden rounded-sm bg-slate-200 dark:bg-slate-800">
           <span aria-hidden className={`absolute inset-y-0 left-0 z-0 ${fill}`} style={{ width: `${width}%` }} />
           <span aria-hidden className={`relative z-10 px-1 text-right text-2xs font-medium leading-none tabular-nums text-slate-800 ${text}`}>{amount}</span>
         </span>
-        <span aria-hidden className="w-8 shrink-0 text-left text-2xs font-light leading-none tabular-nums text-slate-400 dark:text-slate-500">{limit}</span>
       </span>
     </HoverNote>
   );
