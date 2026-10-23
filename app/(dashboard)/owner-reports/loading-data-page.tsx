@@ -242,21 +242,18 @@ export function LoadingDataPage({ progress, error, onRetry }: LoadingDataPagePro
               <div
                 key={card.id}
                 className={`relative flex flex-col justify-between rounded-xl border p-3.5 transition-all duration-200 ${
-                  card.done
-                    ? 'border-emerald-500/40 bg-emerald-50/40 dark:border-emerald-500/30 dark:bg-emerald-950/20'
-                    : card.active
-                      ? 'border-slate-300 bg-slate-50/80 shadow-sm dark:border-slate-700 dark:bg-slate-800/50'
-                      : 'border-slate-200/60 bg-slate-50/30 opacity-70 dark:border-slate-800/60 dark:bg-slate-900/30'
+                  // A finished tile stays neutral; its green check and status line say it is done.
+                  card.done || card.active
+                    ? 'border-slate-300 bg-slate-50/80 shadow-sm dark:border-slate-700 dark:bg-slate-800/50'
+                    : 'border-slate-200/60 bg-slate-50/30 opacity-70 dark:border-slate-800/60 dark:bg-slate-900/30'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <div
                     className={`flex h-7 w-7 items-center justify-center rounded-lg ${
-                      card.done
-                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                        : card.active
-                          ? 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
-                          : 'bg-slate-100 text-slate-400 dark:bg-slate-800/60 dark:text-slate-500'
+                      card.done || card.active
+                        ? 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
+                        : 'bg-slate-100 text-slate-400 dark:bg-slate-800/60 dark:text-slate-500'
                     }`}
                   >
                     <Icon className="h-4 w-4" />
