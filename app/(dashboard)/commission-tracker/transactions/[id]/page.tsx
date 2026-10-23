@@ -43,6 +43,7 @@ import { useTemplateQualification } from './hooks/useTemplateQualification';
 import { useDealPlanContext } from './hooks/useDealPlanContext';
 import { dealPlanMode, planCapCells, planInputsKey, planLineChanges } from '@/lib/commission-engine';
 import { swallowNextClick } from '@/lib/swallow-click';
+import { markReportRestore, readReportReturn, type ReportReturn } from '@/lib/report-return';
 
 type SavedPaymentRow = {
   agent_id?: string | null;
@@ -52,6 +53,11 @@ type SavedPaymentRow = {
 
 export default function Dashboard() {
   const router = useRouter();
+  // The Owner Report this transaction was opened from, read after mount (session storage is browser-only).
+  const [reportReturn, setReportReturn] = useState<ReportReturn | null>(null);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('from') === 'reports') setReportReturn(readReportReturn());
+  }, []);
   const { access, loading: accessLoading } = useAccess();
   const canWriteTracker = Boolean(access?.permissions.commissionTrackerWrite);
   const routeId = (useParams()?.id as string) || '';
@@ -1777,7 +1783,16 @@ export default function Dashboard() {
             : undefined,
           id: String(templateDeal.id || '') || undefined,
         } : null}
-        onBack={() => requestNavigation(() => router.push('/commission-tracker/transactions'))}
+        onBack={() => requestNavigation(() => {
+          // Opened from an Owner Report: Back returns to it, with its filters and scroll (lib/report-return.ts).
+          if (reportReturn) {
+            markReportRestore();
+            router.push(reportReturn.path);
+            return;
+          }
+          router.push('/commission-tracker/transactions');
+        })}
+        backLabel={reportReturn?.label}
         sections={[
           { id: 'overview', label: 'Overview', count: overviewFields.length, countNoun: overviewFields.length === 1 ? 'field' : 'fields' },
           { id: 'commission', label: 'Waterfall', count: agents.length, countNoun: agents.length === 1 ? 'agent' : 'agents' },

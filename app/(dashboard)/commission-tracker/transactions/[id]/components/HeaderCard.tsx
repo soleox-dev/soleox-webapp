@@ -19,6 +19,8 @@ interface HeaderCardProps {
   deal?: { address?: string; status?: string; side?: string; closingDate?: string; id?: string } | null;
   /** Returns to the Transactions list. */
   onBack?: () => void;
+  /** Where Back goes, such as an Owner Report's name; Transactions by default. */
+  backLabel?: string;
   sections?: TransactionSectionLink[];
   activeSection?: TransactionSectionId;
   onSelectSection?: (id: TransactionSectionId) => void;
@@ -54,7 +56,7 @@ const EXPAND_BELOW_PX = 4;
  * and status. Both shapes keep Switch deal, Delete, and the unsaved Save / Discard. The page measures the
  * pinned strip (#transaction-detail-header) to place content and section jumps under it.
  */
-export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDelete, hasUnsavedChanges = false, saveBlocked = false, saveBlockedReason, onHeightChange, deal, onBack, sections, activeSection = 'overview', onSelectSection, children }: HeaderCardProps) {
+export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDelete, hasUnsavedChanges = false, saveBlocked = false, saveBlockedReason, onHeightChange, deal, onBack, backLabel = 'Transactions', sections, activeSection = 'overview', onSelectSection, children }: HeaderCardProps) {
   // Measured here, on this card's own element, so the height stays right when the card remounts.
   const stripRef = useRef<HTMLDivElement>(null);
   const [compact, setCompact] = useState(false);
@@ -208,8 +210,8 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
                 <button
                   type="button"
                   onClick={onBack}
-                  aria-label="Back to Transactions"
-                  title="Back to Transactions"
+                  aria-label={`Back to ${backLabel}`}
+                  title={`Back to ${backLabel}`}
                   className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700/60 dark:hover:text-white"
                 >
                   <ArrowLeft className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
@@ -245,7 +247,7 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
                     className="mb-1 inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
                   >
                     <ArrowLeft className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-                    Transactions
+                    {backLabel}
                   </button>
                 )}
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{title}</h1>

@@ -9,6 +9,7 @@ import { DESKTOP_QUERY, useFitsScreen, useIsDesktop, useIsTouch } from '@/lib/us
 import { swallowNextClick } from '@/lib/swallow-click';
 import { FieldChevron, underlineControl, underlineShell } from '@/components/ui/underline-field';
 import { SoleoxLogo } from '@/components/ui/logo';
+import { readReportView, rememberReportReturn, saveReportView, takeReportRestore, type ReportReturn } from '@/lib/report-return';
 import { clearReportCache, pruneReportCache, readReportCache, reportCacheKey, writeReportCache } from '@/lib/report-cache';
 import { LoadingDataPage, type LoadingProgressInfo } from './loading-data-page';
 import { areaUnder, linePeaks, smoothLine, smoothRuns, svgUserX } from './chart-paths';
@@ -81,6 +82,28 @@ import {
 } from '@/lib/team-cap-report';
 
 const GROUPS = OWNER_REPORT_GROUPS;
+
+/** The report filters saved for this tab, restored when Back returns from a transaction. */
+type ReportViewState = {
+  preset: RangePreset;
+  range: DateRange;
+  statusPicked: string[] | null;
+  sidePicked: string[] | null;
+  agentPicked: string[] | null;
+  sourcePicked: string[] | null;
+  groupPicked: string[] | null;
+  agentPayeePicked: string[] | null;
+  entityPayeePicked: string[] | null;
+  excludeTeamLeads: boolean;
+  metric: MetricId;
+  earningsPicked: string[] | null;
+  boardMetric: string;
+  boardDate: LeaderboardDate;
+  capPicked: string[] | null;
+  capYearOffset: number;
+  capOpen: { capId: string; agentId: string } | null;
+  capShowPaid: boolean;
+};
 
 /** One download of everything the reports read; also the copy saved in the browser. */
 type ReportBundle = {
@@ -177,6 +200,76 @@ export default function OwnerReportsPage() {
     refreshRequested.current = true;
     setReloadKey((k) => k + 1);
   };
+
+  // The way back from a transaction (lib/report-return.ts). Coming back with Back puts the filters back first, then
+  // the scroll once the report has drawn; the filters are saved on every change so the latest set is restored.
+  const restoreScroll = useRef<ReportReturn | null>(null);
+  useEffect(() => {
+    const back = takeReportRestore();
+    if (!back) return;
+    const view = readReportView<ReportViewState>();
+    if (view) {
+      setPreset(view.preset);
+      setRange(view.range);
+      setStatusPicked(view.statusPicked);
+      setSidePicked(view.sidePicked);
+      setAgentPicked(view.agentPicked);
+      setSourcePicked(view.sourcePicked);
+      setGroupPicked(view.groupPicked);
+      setAgentPayeePicked(view.agentPayeePicked);
+      setEntityPayeePicked(view.entityPayeePicked);
+      setExcludeTeamLeads(view.excludeTeamLeads);
+      setMetric(view.metric);
+      setEarningsPicked(view.earningsPicked);
+      setBoardMetric(view.boardMetric);
+      setBoardDate(view.boardDate);
+      setCapPicked(view.capPicked);
+      setCapYearOffset(view.capYearOffset);
+      setCapOpen(view.capOpen);
+      setCapShowPaid(view.capShowPaid);
+    }
+    restoreScroll.current = back;
+  }, []);
+  useEffect(() => {
+    saveReportView<ReportViewState>({
+      preset, range, statusPicked, sidePicked, agentPicked, sourcePicked, groupPicked, agentPayeePicked, entityPayeePicked,
+      excludeTeamLeads, metric, earningsPicked, boardMetric, boardDate, capPicked, capYearOffset, capOpen, capShowPaid,
+    });
+  }, [preset, range, statusPicked, sidePicked, agentPicked, sourcePicked, groupPicked, agentPayeePicked, entityPayeePicked, excludeTeamLeads, metric, earningsPicked, boardMetric, boardDate, capPicked, capYearOffset, capOpen, capShowPaid]);
+  useEffect(() => {
+    const back = restoreScroll.current;
+    if (loading || !back) return;
+    restoreScroll.current = null;
+    const scroll = () => {
+      window.scrollTo({ top: back.windowScroll });
+      const table = document.querySelector<HTMLElement>('.report-table-fit');
+      if (table) table.scrollTop = back.tableScroll;
+    };
+    // After the report draws, and again once late layout (charts, pinned headers) has settled.
+    requestAnimationFrame(() => requestAnimationFrame(scroll));
+    const later = window.setTimeout(scroll, 350);
+    return () => window.clearTimeout(later);
+  }, [loading]);
+  // A link to a transaction anywhere in a report remembers where it was opened from.
+  const returnLabel = OWNER_REPORTS.find((item) => item.id === reportId)?.name || 'Owner Reports';
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      const link = event.target instanceof Element ? event.target.closest('a[href^="/commission-tracker/transactions/"]') : null;
+      if (!link) return;
+      // Tags the link so only a transaction opened from a report offers Back to the report.
+      const url = new URL(link.getAttribute('href') || '', window.location.origin);
+      url.searchParams.set('from', 'reports');
+      link.setAttribute('href', `${url.pathname}${url.search}`);
+      rememberReportReturn({
+        path: `${window.location.pathname}${window.location.search}`,
+        label: returnLabel,
+        windowScroll: window.scrollY,
+        tableScroll: document.querySelector<HTMLElement>('.report-table-fit')?.scrollTop ?? 0,
+      });
+    };
+    document.addEventListener('click', onClick, true);
+    return () => document.removeEventListener('click', onClick, true);
+  }, [returnLabel]);
 
   const handleRetry = () => {
     setError('');

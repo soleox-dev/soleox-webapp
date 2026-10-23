@@ -30,6 +30,10 @@ Below `md` the report title is 20px instead of 30px (the clickable metric and ca
 
 The reports' download is saved in the browser (IndexedDB, `lib/report-cache.ts`), one copy per signed-in user and client. Opening Owner Reports asks `GET /api/owner-reports/version` when the client's data last changed (`client_data_versions`, kept by triggers on every table the reports read; migration 074). With a saved copy the reports open from it at once; when the data changed after that copy's download began, they download again behind the report on screen. Without a copy, the first visit downloads with the loading page. Under the report title, a line reads "Updated 3 min ago · Refresh" (Updating… while it downloads); Refresh downloads again behind the report. Signing out clears every saved copy, and a sign-in by someone else removes copies saved for other users.
 
+### Opening a transaction
+
+Every property address in a report links to its transaction. The link is tagged `?from=reports` and remembers, for that browser tab, the report it came from and its scroll position (the page's and the report table's); the report's filters are saved on every change (`lib/report-return.ts`). On that Transaction Detail, the back link reads the report's name (such as Transaction List) and returns to it with the same filters, cap, and scroll. A transaction opened any other way keeps Back to Transactions.
+
 ### Scrolling on phones
 
 Below `md`, every report scrolls the page natively by touch. Agent Earnings, Team Caps, and Owner Summary with hidden scorecards or an open drilldown do not lock `html` and `body` to `overflow: hidden` or forward wheel scrolling there; that full-screen layout applies only when the screen is at least 768px wide and 560px tall (the `screenfit:` variant and `useFitsScreen`). A phone in landscape is wide but short, so it scrolls the page like portrait.
