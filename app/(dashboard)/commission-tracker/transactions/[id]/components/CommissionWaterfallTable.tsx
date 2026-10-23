@@ -473,17 +473,17 @@ export function CommissionWaterfallTable({
                 const capId = group.lines.find((line) => line.team_cap_id)?.team_cap_id || '';
                 return (
                 <tr key={group.id}>
-                  <td className="sticky left-0 z-10 border-b border-slate-200 bg-white px-3 py-2 text-left align-middle dark:border-slate-700 dark:bg-slate-900">
+                  <td className="sticky left-0 z-10 border-b border-slate-200 bg-[color-mix(in_srgb,var(--color-slate-100)_55%,white)] px-3 py-2 text-left align-middle shadow-[inset_3px_0_0_var(--color-slate-300)] dark:border-slate-700 dark:bg-[color-mix(in_srgb,var(--color-slate-800)_55%,var(--color-slate-900))] dark:shadow-[inset_3px_0_0_var(--color-slate-600)]">
                     <div className="flex items-center gap-1">
                       {isEditing && onRemoveTeamCap && capId && (
                         <button type="button" onClick={() => onRemoveTeamCap(capId)} className={trashButton} title={`Remove ${group.name}`} aria-label={`Remove ${group.name}`}><TrashIcon /></button>
                       )}
-                      <span className="shrink-0 whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-2xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">Team Cap</span>
+                      <span className="shrink-0 whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-2xs font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700">Team Cap</span>
                       <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{group.name}</span>
                     </div>
                   </td>
                   {agents.map((agent) => (
-                    <td key={agent.id} className="min-w-[14.5rem] border-b border-slate-200 px-2 py-2 text-center align-middle dark:border-slate-700">
+                    <td key={agent.id} className="min-w-[14.5rem] border-b border-slate-200 bg-slate-100/55 px-2 py-2 text-center align-middle dark:border-slate-700 dark:bg-slate-800/55">
                       <div className="flex w-full justify-end">
                         <TeamCapAmount
                           line={group.lines.find((item) => item.agent_id === agent.id)}
