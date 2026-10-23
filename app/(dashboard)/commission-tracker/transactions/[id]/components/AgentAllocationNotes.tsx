@@ -163,7 +163,8 @@ export function AgentCapNote({ amount, limit, detail, share }: { amount: string;
   const width = Math.min(100, Math.max(0, share * 100));
   const over = share > 1;
   const fill = over ? 'bg-rose-400 dark:bg-rose-500/30' : 'bg-emerald-400 dark:bg-emerald-500/30';
-  const text = over ? 'dark:text-rose-200' : 'dark:text-emerald-200';
+  // Quiet text in the bar's own colour, so the bar reads as a hint rather than a figure.
+  const text = over ? 'text-rose-900/75 dark:text-rose-200/75' : 'text-emerald-900/75 dark:text-emerald-200/75';
   useLayoutEffect(() => {
     const bar = barRef.current;
     if (!bar) return;
@@ -184,7 +185,7 @@ export function AgentCapNote({ amount, limit, detail, share }: { amount: string;
         <span aria-hidden className="w-8 shrink-0 text-right text-2xs font-light leading-none tabular-nums text-slate-400 dark:text-slate-500">{limit}</span>
         <span ref={barRef} data-cap-bar className="relative -mr-1 inline-flex h-4 shrink-0 items-center justify-end overflow-hidden rounded-sm bg-slate-200 dark:bg-slate-800">
           <span aria-hidden className={`absolute inset-y-0 left-0 z-0 ${fill}`} style={{ width: `${width}%` }} />
-          <span aria-hidden className={`relative z-10 px-1 text-right text-2xs font-medium leading-none tabular-nums text-slate-800 ${text}`}>{amount}</span>
+          <span aria-hidden className={`relative z-10 px-1 text-right text-2xs font-normal leading-none tabular-nums ${text}`}>{amount}</span>
         </span>
       </span>
     </HoverNote>
