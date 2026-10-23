@@ -147,6 +147,17 @@ export function planFormulaNames(plan: CommissionPlan, index: number): string[] 
 }
 
 /**
+ * A client plan pays only the client's own Commission Entities: each line whose payee is not one of them (names
+ * compared without case or outer spaces) is a problem to fix before saving. Presets name payees generically.
+ */
+export function unknownPayeeProblems(plan: CommissionPlan, entityNames: string[]): string[] {
+  const known = new Set(entityNames.map((name) => name.trim().toLowerCase()));
+  return plan.lines
+    .filter((line) => line.payee.trim() && !known.has(line.payee.trim().toLowerCase()))
+    .map((line, index) => `${line.name.trim() || `Line ${index + 1}`} pays ${line.payee.trim()}, which isn't one of your Commission Entities. Choose an entity.`);
+}
+
+/**
  * What is wrong with a plan before it is saved, one message per problem: line keys (unique, lower_snake_case),
  * references to earlier lines, rates, amounts, tiers and formulas. An empty list means the plan can be saved.
  */
