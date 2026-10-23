@@ -452,24 +452,15 @@ export default function Navbar() {
             <Menu className="h-5 w-5" strokeWidth={2} aria-hidden />
           </button>
 
-          {/* Users with more than one client see which one they are in; clicking opens the menu that switches it. */}
+          {/* Users with more than one client see which one they are in. Switching stays in the profile menu. */}
           {multiClient && access?.clientName ? (
-            <button
-              type="button"
-              onClick={() => {
-                if (isDesktopNav) setIsUserMenuOpen(true);
-                else {
-                  setPhoneNavLevel('main');
-                  setPhoneNavOpen(true);
-                }
-              }}
-              title={`Client: ${access.clientName}. Click to switch.`}
-              className="order-first inline-flex h-8 max-w-[8.5rem] shrink-0 cursor-pointer items-center gap-1.5 rounded-full border desktop-nav:order-none border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 transition hover:border-brand-300 hover:text-brand-700 desktop-nav:max-w-[12rem] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-brand-700 dark:hover:text-brand-300"
+            <span
+              title={`Client: ${access.clientName}`}
+              className="order-first inline-flex h-7 max-w-[8.5rem] shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 text-xs font-medium text-slate-600 desktop-nav:order-none desktop-nav:max-w-[14rem] dark:bg-slate-800 dark:text-slate-300"
             >
               <Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={2} aria-hidden />
               <span className="truncate">{access.clientName}</span>
-              <ChevronDown className="hidden h-3.5 w-3.5 shrink-0 text-slate-400 desktop-nav:inline" strokeWidth={2} aria-hidden />
-            </button>
+            </span>
           ) : null}
 
           {/* User Badge & Sign Out Dropdown */}
