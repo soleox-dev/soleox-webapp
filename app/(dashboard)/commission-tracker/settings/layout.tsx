@@ -92,7 +92,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] gap-6 items-start">
-        <aside aria-label="Settings pages" className={`h-fit w-full lg:sticky lg:top-[calc(var(--app-nav-offset,4rem)+1rem)] ${collapsed ? 'lg:w-14' : 'lg:w-60'}`}>
+        {/* lg:z-30 lifts the sticky sidebar, and so its hover labels, above the page's cards; menus and dialogs sit higher. */}
+        <aside aria-label="Settings pages" className={`h-fit w-full lg:sticky lg:z-30 lg:top-[calc(var(--app-nav-offset,4rem)+1rem)] ${collapsed ? 'lg:w-14' : 'lg:w-60'}`}>
           {/* Collapsed rail (wide screens only). */}
           {collapsed && (
             <nav className="hidden lg:flex flex-col items-center gap-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2 shadow-xs">
