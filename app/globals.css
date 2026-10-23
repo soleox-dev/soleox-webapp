@@ -957,3 +957,13 @@ html.modal-open body {
     animation: none;
   }
 }
+
+/* Leaderboards keep their rank fade on phones too: it wins over the row stripes a pinned-column table uses there
+   (the pinned cell takes the row's background, so it still covers what scrolls under it). */
+:is(.pin-col-1, .pin-col-2, .pin-col-5) tbody > tr:is(.leader-row-volume, .leader-row-units) {
+  background: color-mix(in srgb, #ffffff var(--rank-fade), var(--color-slate-100));
+}
+
+.dark :is(.pin-col-1, .pin-col-2, .pin-col-5) tbody > tr:is(.leader-row-volume, .leader-row-units) {
+  background: color-mix(in srgb, #121823 var(--rank-fade), #2a3242);
+}
