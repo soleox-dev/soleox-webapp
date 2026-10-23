@@ -41,7 +41,7 @@ import { transactionDealLabel, transactionSearchLabel } from '@/lib/transaction-
 import { useAccess } from '@/components/access-provider';
 import { useTemplateQualification } from './hooks/useTemplateQualification';
 import { useDealPlanContext } from './hooks/useDealPlanContext';
-import { dealPlanMode, planCapCells, planLineChanges } from '@/lib/commission-engine';
+import { dealPlanMode, planCapCells, planInputsKey, planLineChanges } from '@/lib/commission-engine';
 import { swallowNextClick } from '@/lib/swallow-click';
 
 type SavedPaymentRow = {
@@ -877,15 +877,36 @@ export default function Dashboard() {
     overviewFields,
   );
   // No Settings action changes a saved deal: an existing deal keeps its saved lines until someone chooses plans on
-  // it, and a deal saved with plans keeps its saved plan lines unless it is being edited (dealPlanMode).
+  // it, and a deal saved with plans keeps its saved plan lines on every save until someone recalculates it or
+  // changes something the plans calculate from (dealPlanMode). Fixing a note never moves a paid amount.
   const savedWithPlans = commissionItemsDealId === selectedDeal?.id
     && (commissionItems || []).some((item: { plan_line_key?: string | null }) => Boolean(item.plan_line_key));
+  const currentPlanInputs = planInputsKey({
+    capDate: dealPlans.context?.capDate ?? null,
+    salesPrice: overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.sales_price) || salesPrice) : salesPrice,
+    gciPercent: overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.gci_perc) || gciPerc) : gciPerc,
+    commissionFields: Object.fromEntries(['total_commission', 'gci_amount', 'gci_type'].map((key) => [key, planDeal?.[key] ?? ''])),
+    agents,
+    offTheTop: offTheTopRules,
+    preSplit: preSplitRules,
+    teamCapIds: selectedTeamCapIds,
+    teamCapOverrides: capOverrides,
+  });
+  // The plan inputs the deal had when it was last clean: loaded or saved, and nothing being edited.
+  const cleanPlanInputs = useRef<{ dealId: string; inputs: string } | null>(null);
+  const editingDeal = isEditingWaterfall || overviewForm.isEditingOverview || hasUnsavedLocalChanges;
+  const planInputsSettled = !templateReplaySettling && allocationSettled && !dealPlans.settling;
+  useEffect(() => {
+    if (!selectedDeal?.id || editingDeal || !planInputsSettled) return;
+    cleanPlanInputs.current = { dealId: String(selectedDeal.id), inputs: currentPlanInputs };
+  }, [selectedDeal?.id, editingDeal, planInputsSettled, currentPlanInputs]);
+  const cleanInputs = cleanPlanInputs.current?.dealId === String(selectedDeal?.id || '') ? cleanPlanInputs.current.inputs : null;
   const planMode = dealPlanMode({
     decision: dealPlans.decision,
     settings: { calculate_since: dealPlans.calculateSince },
     deal: planDeal,
     savedWithPlans,
-    editing: isEditingWaterfall || overviewForm.isEditingOverview || hasUnsavedLocalChanges,
+    planInputsChanged: editingDeal && cleanInputs !== null && cleanInputs !== currentPlanInputs,
     chosen: planChoice,
   });
   const plansForDeal = planMode === 'calculate' ? dealPlans.context : null;

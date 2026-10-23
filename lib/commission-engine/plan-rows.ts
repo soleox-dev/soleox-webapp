@@ -337,8 +337,12 @@ export function dealPlanMode(input: {
   deal: Record<string, unknown> | null;
   /** The deal has saved lines with a plan_line_key. */
   savedWithPlans: boolean;
-  /** Someone is editing the deal (waterfall, overview, or unsaved changes such as a submitted template). */
-  editing: boolean;
+  /**
+   * Something the plans read has changed since the deal was last saved or loaded clean (planInputsKey): the Cap Date,
+   * price or commission, the agents and their splits, a deduction before the splits, or the team caps. Any other edit,
+   * such as a note or the lender, leaves a deal saved with plans on its saved plan lines.
+   */
+  planInputsChanged: boolean;
   /** The user chose Calculate or Recalculate With Plans on this deal. */
   chosen: boolean;
 }): DealPlanMode {
@@ -349,6 +353,38 @@ export function dealPlanMode(input: {
   const newSinceSwitch = !input.deal?.id || (Boolean(since) && Boolean(createdAt) && createdAt >= since);
   const onPlans = input.savedWithPlans || newSinceSwitch || input.chosen;
   if (!onPlans) return 'available';
-  if (input.chosen || input.editing) return 'calculate';
-  return input.savedWithPlans ? 'saved' : 'calculate';
+  if (input.chosen || !input.savedWithPlans) return 'calculate';
+  // Saved with plans: the saved plan lines stand, so a save never changes them behind the user's back, until the user
+  // recalculates or changes something the plans calculate from.
+  return input.planInputsChanged ? 'calculate' : 'saved';
+}
+
+/**
+ * What the plans calculate from on a deal, as one comparable string. Two equal keys mean recalculating the plans
+ * could not give different lines, so a deal saved with plans keeps them (dealPlanMode).
+ */
+export function planInputsKey(input: {
+  capDate: string | null;
+  salesPrice: number;
+  gciPercent: number;
+  /** Total Commission and GCI as entered on the deal (form or saved values). */
+  commissionFields: Record<string, unknown>;
+  agents: { id: string; splitType?: string; splitVal?: number }[];
+  offTheTop: { entity?: string; type?: string; value?: number }[];
+  preSplit: { entity?: string; type?: string; value?: number }[];
+  teamCapIds: string[] | null;
+  teamCapOverrides: unknown;
+}): string {
+  const rules = (list: { entity?: string; type?: string; value?: number }[]) => list.map((rule) => [rule.entity || '', rule.type || '', Number(rule.value) || 0]);
+  return JSON.stringify([
+    input.capDate || '',
+    Number(input.salesPrice) || 0,
+    Number(input.gciPercent) || 0,
+    Object.keys(input.commissionFields).sort().map((key) => [key, String(input.commissionFields[key] ?? '')]),
+    input.agents.map((agent) => [agent.id, agent.splitType || '', Number(agent.splitVal) || 0]),
+    rules(input.offTheTop),
+    rules(input.preSplit),
+    input.teamCapIds ? [...input.teamCapIds].sort() : null,
+    input.teamCapOverrides ?? null,
+  ]);
 }

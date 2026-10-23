@@ -16,7 +16,7 @@ commission lines, team cap and sales volume allocations, payments, and an explan
 | `drift.ts` | Checks whether resubmitting the template would change payments (`templatePaymentsChanged`). |
 | `plans.ts` | Commission Plans (not wired to any screen yet): `computePlanDeal` runs each agent's plan lines (company dollar, post-cap fee, risk management, broker review, stock, formula lines) with year-to-date totals per cap year; `computePlanDealsInOrder` runs deals in Cap Date order. |
 | `plan-presets.ts` | `loadPlanPresets`: the eXp presets in `presets/exp-plans.json`, checked by `commissionPlanSchema`. Tests: `tests/plans`. |
-| `plan-rows.ts` | Database rows (migration 065) to plan input: `planInForce` (version on the Cap Date), `planAgentFromRow`, `planHistoryFromItems`, `defaultFeeSharePercent`. |
+| `plan-rows.ts` | Database rows (migration 065) to plan input: `planInForce` (version on the Cap Date), `planAgentFromRow`, `planHistoryFromItems`, `defaultFeeSharePercent`; `dealPlanMode` and `planInputsKey` decide when a deal saved with plans recalculates. |
 | `../agent-allocations.ts` | Team cap and sales volume math (`planDealAllocations`, `qualifyingTeamCaps`). |
 
 Browser loading and caching stay outside the engine: `transactions/[id]/components/applyTemplateLogic.ts`
@@ -70,6 +70,12 @@ These rules describe today's behavior. The golden tests in `tests/engine` hold i
 8. **Save is blocked** when agent splits exceed the pool, or when a template applies and payments fall short of
    Total Commission. It is also blocked when a team cap recipient's split is less than what the caps move to
    them (money the recipient pays into their own cap does not count).
+9. **Saved plan lines stand.** A deal saved with Commission Plans keeps its saved plan lines on every save
+   (`dealPlanMode` returns `saved`). The plans calculate again only when the user chooses Recalculate With Plans,
+   or when something they calculate from has changed since the deal was last clean (`planInputsKey`): the Cap
+   Date, sales price, GCI or Total Commission, the agents and their splits, an off-the-top or pre-split
+   deduction, or the team cap choice or amounts. Editing a note or the lender never moves a plan line. FINISHED
+   deals are never calculated with plans.
 
 Every agent split, deduction, cap line, post-split and payout carries an `explanation` entry with its source, for
 example `typed`, `remainder`, `template`, `cap-receipt` or `saved-after-caps` for splits.

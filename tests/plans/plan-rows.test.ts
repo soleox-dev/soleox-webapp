@@ -9,6 +9,7 @@ import {
   planHistoryFromItems,
   buildDealPlanContext,
   dealPlanMode,
+  planInputsKey,
   feeShareFor,
   planInForce,
   proposedExpPresetKey,
@@ -231,20 +232,52 @@ describe('whether plans calculate a deal', () => {
     const before = { ...deal, created_at: '2026-04-01T00:00:00Z' };
     const after = { ...deal, created_at: '2026-06-01T00:00:00Z' };
     const mode = (over: Partial<Parameters<typeof dealPlanMode>[0]>) =>
-      dealPlanMode({ decision, settings: since, deal: before, savedWithPlans: false, editing: false, chosen: false, ...over });
-    // An existing deal keeps its saved lines, even while edited, until someone chooses to calculate it with plans.
+      dealPlanMode({ decision, settings: since, deal: before, savedWithPlans: false, planInputsChanged: false, chosen: false, ...over });
+    // An existing deal keeps its saved lines, even while its plan inputs change, until someone chooses plans on it.
     expect(mode({})).toBe('available');
-    expect(mode({ editing: true })).toBe('available');
+    expect(mode({ planInputsChanged: true })).toBe('available');
     expect(mode({ chosen: true })).toBe('calculate');
-    // Created after the switch: on plans; once saved with plans, its saved lines stand until it is edited.
+    // Created after the switch: on plans until saved; then its saved plan lines stand.
     expect(mode({ deal: after })).toBe('calculate');
     expect(mode({ deal: after, savedWithPlans: true })).toBe('saved');
     expect(mode({ savedWithPlans: true })).toBe('saved');
-    expect(mode({ savedWithPlans: true, editing: true })).toBe('calculate');
     // A new deal not saved yet is on plans.
     expect(mode({ deal: { closing_date: '2026-06-15' } })).toBe('calculate');
     // Switched off or FINISHED: off, whatever else is true.
-    expect(dealPlanMode({ decision: { context: null, reason: 'x' }, settings: since, deal: after, savedWithPlans: true, editing: true, chosen: true })).toBe('off');
+    expect(dealPlanMode({ decision: { context: null, reason: 'x' }, settings: since, deal: after, savedWithPlans: true, planInputsChanged: true, chosen: true })).toBe('off');
+  });
+
+  it('a deal saved with plans keeps its plan lines on a save unless a plan input changed or the user recalculates', () => {
+    const decision = buildDealPlanContext(deal, ingredients());
+    const saved = { decision, settings: { calculate_since: '2026-05-01T00:00:00Z' }, deal: { ...deal, created_at: '2026-04-01T00:00:00Z' }, savedWithPlans: true, chosen: false };
+    // Editing a note or the lender changes no plan input: the saved plan lines are what Save writes.
+    expect(dealPlanMode({ ...saved, planInputsChanged: false })).toBe('saved');
+    // A new split, price, Cap Date, deduction or team cap does: the plans calculate again.
+    expect(dealPlanMode({ ...saved, planInputsChanged: true })).toBe('calculate');
+    // Recalculate With Plans always calculates.
+    expect(dealPlanMode({ ...saved, planInputsChanged: false, chosen: true })).toBe('calculate');
+  });
+
+  it('planInputsKey changes only with what the plans calculate from', () => {
+    const base = {
+      capDate: '2026-06-15',
+      salesPrice: 500000,
+      gciPercent: 0.03,
+      commissionFields: { total_commission: '15000', gci_amount: '15000', gci_type: 'PERCENTAGE' },
+      agents: [{ id: 'AGT_1', splitType: 'PERCENT', splitVal: 0.75 }, { id: 'AGT_2', splitType: 'PERCENT', splitVal: 0.25 }],
+      offTheTop: [{ entity: 'Referral', type: 'PERCENT', value: 0.25 }],
+      preSplit: [],
+      teamCapIds: ['CTC_1'],
+      teamCapOverrides: [],
+    };
+    const key = planInputsKey(base);
+    expect(planInputsKey({ ...base, teamCapIds: ['CTC_1'] })).toBe(key);
+    expect(planInputsKey({ ...base, commissionFields: { gci_type: 'PERCENTAGE', gci_amount: '15000', total_commission: '15000' } })).toBe(key);
+    expect(planInputsKey({ ...base, capDate: '2026-07-01' })).not.toBe(key);
+    expect(planInputsKey({ ...base, salesPrice: 510000 })).not.toBe(key);
+    expect(planInputsKey({ ...base, agents: [{ id: 'AGT_1', splitType: 'PERCENT', splitVal: 1 }] })).not.toBe(key);
+    expect(planInputsKey({ ...base, offTheTop: [] })).not.toBe(key);
+    expect(planInputsKey({ ...base, teamCapIds: [] })).not.toBe(key);
   });
 
   it('the default Fee Share: 50% on a double end, less a brokerage agent\'s share of Total Commission', () => {
