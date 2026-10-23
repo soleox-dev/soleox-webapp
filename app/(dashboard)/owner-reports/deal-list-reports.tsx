@@ -713,12 +713,42 @@ export function PriceChangeReport({ deals, priorDeals, names, range }: {
   ];
   return (
     <div className={fitReport}>
-      <div className={`${scoreBand} shrink-0 grid-cols-2 md:grid-cols-5`}>
-        <Score label="Listings" value={now.count.toLocaleString()} sub={<Delta current={now.count} prior={before.count} format={(value) => value.toLocaleString()} suffix=" from prior year" />} />
-        <Score label="Avg. List Price" value={now.list == null ? '—' : fullMoney(now.list)} sub={<RelativeDelta current={now.list} prior={before.list} />} />
-        <Score label="Avg. Sales Price" value={now.sale == null ? '—' : fullMoney(now.sale)} sub={<RelativeDelta current={now.sale} prior={before.sale} />} />
-        <Score label="Avg. Price Change" value={now.dollars == null ? '—' : signedMoney(now.dollars)} sub={<RelativeDelta current={now.dollars} prior={before.dollars} />} />
-        <Score label="Avg. Price Change %" value={rate(now.change)} sub={<Delta current={now.change} prior={before.change} format={(value) => rate(value)} />} />
+      {/* Three tiles in the style of the other reports. Phones: Listings and Avg. Price Change side by side, the two
+          average prices in one full-width tile under them. Each change compares with the same dates last year. */}
+      <div className="grid shrink-0 grid-cols-2 gap-3 md:grid-cols-3">
+        <StatusTile
+          label="Listings"
+          value={now.count.toLocaleString()}
+          deals={[]}
+          read={() => 0}
+          format={(value) => value.toLocaleString()}
+          footer={<span><Delta current={now.count} prior={before.count} format={(value) => value.toLocaleString()} /> vs. last year</span>}
+        />
+        <StatusTile
+          label="Avg. Price Change"
+          value={now.change == null ? '—' : `${now.change > 0 ? '+' : now.change < 0 ? '−' : ''}${rate(Math.abs(now.change))}`}
+          valueClass={signTone(now.change ?? 0)}
+          deals={[]}
+          read={() => 0}
+          format={(value) => value.toLocaleString()}
+          footer={(
+            <>
+              <TileFact label="Per Listing" value={now.dollars == null ? '—' : signedMoney(now.dollars)} />
+              <span><Delta current={now.change == null ? null : now.change * 100} prior={before.change == null ? null : before.change * 100} format={(value) => `${value.toFixed(2)} pts`} /> vs. last year</span>
+            </>
+          )}
+        />
+        <div className="col-span-2 flex min-w-0 flex-col rounded-xl border border-slate-200 bg-white px-4 py-3 md:col-span-1 dark:border-slate-800 dark:bg-slate-900">
+          <div className="grid grid-cols-2 gap-4">
+            {([['Avg. List Price', now.list, before.list], ['Avg. Sales Price', now.sale, before.sale]] as const).map(([label, value, prior]) => (
+              <div key={label} className="min-w-0">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
+                <p className="mt-0.5 truncate text-xl font-bold tabular-nums text-slate-900 dark:text-slate-50">{value == null ? '—' : fullMoney(value)}</p>
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400"><RelativeDelta current={value} prior={prior} /> vs. last year</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
       {/* Wide screens: table and side panels side by side, each scrolling in the space left. Narrower fitted screens
           stack them and scroll this area, with the table capped to it so its header and total stay in view. */}
