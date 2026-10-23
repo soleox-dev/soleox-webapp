@@ -544,9 +544,6 @@ export function TransactionMapReport({ deals, names }: { deals: ReportDeal[]; na
           ) : null}
         </div>
       ) : null}
-      <p className="px-1 text-2xs text-slate-500 dark:text-slate-400">
-        Each bubble is a transaction at its property address, sized by sales price. Pending deals pulse. Hover for the price, click for the details, and click a legend entry to hide it.
-      </p>
     </div>
   );
 }

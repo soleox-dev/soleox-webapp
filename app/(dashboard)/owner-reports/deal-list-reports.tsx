@@ -376,7 +376,6 @@ export function TransactionListReport({ deals: allDeals, names }: { deals: Repor
         stateKey="transaction-list"
         fit
       />
-      <p className="shrink-0 text-xs text-slate-500 dark:text-slate-400">Every transaction closing in the date range, and pending ones that went pending in it.</p>
     </div>
   );
 }

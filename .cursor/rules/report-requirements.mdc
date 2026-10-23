@@ -27,7 +27,7 @@ The top section of every report, current and future, is the same height with eve
 
 ### Navigation
 
-Every report title has an info icon beside it. Clicking or hovering it explains what the report shows and which transactions it counts (`about` on each entry in `OWNER_REPORTS`, `lib/owner-reports.ts`). Add one for every new report.
+Every report title has an info icon beside it. Clicking or hovering it explains what the report shows and which transactions it counts (`about` on each entry in `OWNER_REPORTS`, `lib/owner-reports.ts`). Add one for every new report. Reports have no footer notes: what a report counts and how to use it (hover, click, hide) goes in that info note, not in a line under the report.
 
 On a report page the top navigation is hidden. Hovering the top of the page slides it into view. It hides again when the pointer leaves it.
 

@@ -81,7 +81,7 @@ import {
   type CapStanding,
   type TeamCapDefinition,
 } from '@/lib/team-cap-report';
-import { capProgressIds, capRecipientsFromRow } from '@/lib/agent-allocations';
+import { capAllRecipientIds, capPayoutRulesFromRow, capProgressIds } from '@/lib/agent-allocations';
 
 const GROUPS = OWNER_REPORT_GROUPS;
 
@@ -549,7 +549,7 @@ export default function OwnerReportsPage() {
         splitPercentFieldKey: kind === 'team' && cap.split_percent_field_key ? String(cap.split_percent_field_key) : null,
         capAmountFieldKey: cap.cap_amount_field_key ? String(cap.cap_amount_field_key) : null,
         resetDateFieldKey: cap.reset_date_field_key ? String(cap.reset_date_field_key) : null,
-        recipientAgentIds: kind === 'team' ? capRecipientsFromRow(cap.recipients, cap.recipient_agent_id).map((recipient) => recipient.agentId) : [],
+        recipientAgentIds: kind === 'team' ? capAllRecipientIds({ payoutRules: capPayoutRulesFromRow(cap.payout_rules, cap.recipients, cap.recipient_agent_id) }) : [],
         progressCapIds: kind === 'team' ? capProgressIds(teamCaps.map((row: Record<string, unknown>) => ({ id: String(row.id || ''), progressCapId: row.progress_cap_id ? String(row.progress_cap_id) : null })), String(cap.id || '')) : undefined,
         entityId: kind === 'agent' && cap.commission_entity_id ? String(cap.commission_entity_id) : null,
         hideOverAllocations: kind === 'agent' && cap.hide_over_allocations === true,
@@ -6229,7 +6229,6 @@ function EarningTransactions({ lines, names, wrapRef }: { lines: Array<{ key: st
 function DailyManagement(props: { range: DateRange; closed: ReportDeal[]; pending: ReportDeal[]; taken: ReportDeal[] }) {
   return (
     <div className="space-y-3">
-      <p className="text-sm text-slate-500">Counts inside {formatRange(props.range)}.</p>
       <div className="grid md:grid-cols-3 gap-3">
         <Stat label="Closings" value={unitsLabel(props.closed.length)} hint={compactMoney(sumOf(props.closed).volume)} />
         <Stat label="Pendings" value={unitsLabel(props.pending.length)} hint={compactMoney(sumOf(props.pending).volume)} />
