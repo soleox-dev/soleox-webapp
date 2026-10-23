@@ -178,15 +178,21 @@ export function TransactionMapReport({ deals, names }: { deals: ReportDeal[]; na
     tilesRef.current?.setUrl(basemapUrl(dark));
   }, [dark, ready]);
 
-  // Fullscreen: the map frame fills the screen; Leaflet re-measures once the size settles.
+  // Fullscreen: the map frame fills the screen.
   useEffect(() => {
-    const onChange = () => {
-      setFullscreen(document.fullscreenElement === frameRef.current);
-      window.setTimeout(() => mapRef.current?.invalidateSize(), 50);
-    };
+    const onChange = () => setFullscreen(document.fullscreenElement === frameRef.current);
     document.addEventListener('fullscreenchange', onChange);
     return () => document.removeEventListener('fullscreenchange', onChange);
   }, []);
+  // Leaflet re-measures whenever the map's box changes size: entering or leaving fullscreen (which browsers animate,
+  // so a single re-measure can catch it mid-way at no size and load no tiles), turning the phone, resizing the window.
+  useEffect(() => {
+    const node = mapNode.current;
+    if (!node || !ready) return;
+    const observer = new ResizeObserver(() => mapRef.current?.invalidateSize());
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [ready]);
   const toggleFullscreen = () => {
     if (document.fullscreenElement) void document.exitFullscreen();
     else void frameRef.current?.requestFullscreen?.();
@@ -345,7 +351,12 @@ export function TransactionMapReport({ deals, names }: { deals: ReportDeal[]; na
   const gci = visible.reduce((total, { deal }) => total + deal.gciAmount, 0);
   const pricedCount = visible.filter(({ deal }) => deal.salesPrice > 0).length;
 
-  const overlayButton = 'inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white/95 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur transition hover:bg-white dark:border-slate-600 dark:bg-slate-800/95 dark:text-slate-200 dark:hover:bg-slate-700';
+  const overlayButton = 'press inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white/95 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur transition hover:bg-white dark:border-slate-600 dark:bg-slate-800/95 dark:text-slate-200 dark:hover:bg-slate-700';
+  const showAllButton = placed.length > 0 && (outsideFocus > 0 || showAll) ? (
+    <button type="button" onClick={() => setShowAll((current) => !current)} aria-pressed={showAll} className={overlayButton}>
+      {showAll ? 'Focus on Most Deals' : 'Show All'}
+    </button>
+  ) : null;
 
   return (
     <div className="transaction-map space-y-3">
@@ -373,7 +384,8 @@ export function TransactionMapReport({ deals, names }: { deals: ReportDeal[]; na
           <div ref={mapNode} className={`z-0 w-full ${fullscreen ? 'h-screen' : 'h-[min(70vh,720px)] min-h-[360px]'}`} aria-label="Map of transactions" />
 
           <div className="absolute left-14 top-3 z-[500] flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white/95 p-0.5 shadow-sm backdrop-blur dark:border-slate-600 dark:bg-slate-800/95" role="group" aria-label="Color By">
-            <span className="px-2 text-2xs font-medium text-slate-500 dark:text-slate-400">Color By</span>
+            {/* Phones drop the label (the group keeps it for screen readers) so Full Screen fits on the same row. */}
+            <span className="px-2 text-2xs font-medium text-slate-500 max-sm:hidden dark:text-slate-400">Color By</span>
             {COLOR_BY.map((option) => (
               <button
                 key={option.id}
@@ -387,17 +399,15 @@ export function TransactionMapReport({ deals, names }: { deals: ReportDeal[]; na
             ))}
           </div>
 
-          <div className="absolute right-3 top-14 z-[500] flex items-center gap-2 md:top-3">
+          {/* Top right: Full Screen, with Show All and the outside count beside it from md. Phones have no Show All
+              (their map frames where most deals are), so Full Screen stays in the corner on the Color By row. */}
+          <div className="absolute right-3 top-3 z-[500] flex items-center gap-2">
             {placed.length > 0 && !showAll && outsideFocus > 0 ? (
               <span className="hidden rounded-full bg-white/95 px-2.5 py-1 text-2xs md:inline font-medium text-slate-600 shadow-sm dark:bg-slate-800/95 dark:text-slate-300">
                 {outsideFocus.toLocaleString()} outside this view
               </span>
             ) : null}
-            {placed.length > 0 && (outsideFocus > 0 || showAll) ? (
-              <button type="button" onClick={() => setShowAll((current) => !current)} aria-pressed={showAll} className={overlayButton}>
-                {showAll ? 'Focus on Most Deals' : 'Show All'}
-              </button>
-            ) : null}
+            {showAllButton ? <span className="max-md:hidden">{showAllButton}</span> : null}
             <button type="button" onClick={toggleFullscreen} className={overlayButton} aria-label={fullscreen ? 'Exit Full Screen' : 'Full Screen'} title={fullscreen ? 'Exit Full Screen' : 'Full Screen'}>
               {fullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
             </button>
