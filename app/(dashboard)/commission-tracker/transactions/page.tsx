@@ -2646,6 +2646,35 @@ export default function TransactionsListPage() {
           }}
           className={`overflow-x-auto overflow-y-auto overscroll-none border border-slate-200 dark:border-slate-700 rounded-lg scrollbar-thin ${compactRows ? 'max-h-[calc(100dvh-11rem)]' : 'max-h-[640px]'}`}
         >
+          {isLoading ? (
+            // Until the columns and deals arrive the table has nothing to show, not even its header: a placeholder
+            // table covers the space, with the message and a sliding bar so a long load does not look frozen.
+            <div className="relative h-80" aria-busy="true">
+              <div aria-hidden className="absolute inset-0 animate-pulse">
+                <div className="h-9 bg-slate-100 dark:bg-slate-900" />
+                {Array.from({ length: 7 }, (_, index) => (
+                  <div key={index} className="flex items-center gap-6 border-t border-slate-100 px-4 py-3 dark:border-slate-700/60">
+                    <div className="h-2.5 w-40 rounded-full bg-slate-100 dark:bg-slate-700/60" />
+                    <div className="h-2.5 w-24 rounded-full bg-slate-100 dark:bg-slate-700/60" />
+                    <div className="h-2.5 w-32 rounded-full bg-slate-100 dark:bg-slate-700/60" />
+                    <div className="ml-auto h-2.5 w-20 rounded-full bg-slate-100 dark:bg-slate-700/60" />
+                  </div>
+                ))}
+              </div>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <div className="rounded-lg border border-slate-200 bg-white px-6 py-4 text-center shadow-xs dark:border-slate-700 dark:bg-slate-800">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Loading synchronized schema & transaction ledger…</p>
+                  <div
+                    role="progressbar"
+                    aria-label="Loading transactions"
+                    className="relative mx-auto mt-3 h-1 w-48 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
+                  >
+                    <div aria-hidden className="report-progress-shimmer absolute inset-y-0 left-0 w-2/5 rounded-full bg-brand-500 dark:bg-brand-400" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
           <table className="w-full text-left text-xs min-w-[1200px] border-separate border-spacing-0">
             
             {/* Dynamic Table Header */}
@@ -2859,13 +2888,7 @@ export default function TransactionsListPage() {
 
             {/* Dynamic Table Body */}
             <tbody className="text-slate-800 dark:text-slate-200 font-normal bg-white dark:bg-slate-800">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={schemaFields.length + (canWriteTracker ? 3 : 0) + (bulkMode ? 1 : 0) + (pinAddress ? 1 : 0)} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
-                    Loading synchronized schema & transaction ledger...
-                  </td>
-                </tr>
-              ) : processedDeals.length === 0 ? (
+              {processedDeals.length === 0 ? (
                 <tr>
                   <td colSpan={schemaFields.length + (canWriteTracker ? 3 : 0) + (bulkMode ? 1 : 0) + (pinAddress ? 1 : 0)} className="text-center py-10 text-slate-400 italic border-b border-slate-200 dark:border-slate-700/60">
                     {showingDeleted && deletedDeals.length === 0
@@ -3124,6 +3147,7 @@ export default function TransactionsListPage() {
               )}
             </tbody>
           </table>
+          )}
         </div>
       </div>
 
