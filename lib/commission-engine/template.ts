@@ -215,8 +215,8 @@ function readDeal(deal: Record<string, unknown> | null, key: string): unknown {
 export type TeamCapCreditMap = Record<string, {
   total: number;
   byAgent: Record<string, number>;
-  /** Lowercased id and name of the agent who receives this cap. */
-  recipientKeys?: string[];
+  /** What each agent the cap pays receives of the total, with that agent's lowercased id and names. */
+  receipts?: { keys: string[]; amount: number }[];
 }>;
 
 const TEAM_CAP_CREDIT = /^([a-z_][a-z0-9_]*)\.(agent|total)$/i;
@@ -320,8 +320,8 @@ export function applyTemplateLogic({
       if (referencedCapKeys.has(key)) return;
       const paidKey = [...keys].find((item) => cap.byAgent[item] != null);
       const paid = paidKey ? cap.byAgent[paidKey] : 0;
-      const receives = (cap.recipientKeys || []).some((item) => keys.has(item));
-      delta += (receives ? cap.total : 0) - paid;
+      const received = (cap.receipts || []).find((receipt) => receipt.keys.some((item) => keys.has(item)))?.amount || 0;
+      delta += received - paid;
     });
     return roundCurrency(delta);
   };

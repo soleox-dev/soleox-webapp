@@ -2,7 +2,7 @@
  * The team cap and sales volume input for a deal (DealAllocationContext): the client's caps, each agent's profile
  * fields, the cap dollars already counted this year on other deals, and amounts typed on this deal.
  */
-import type { DealAllocationContext, TeamCapRule } from '@/lib/agent-allocations';
+import { capRecipientsFromRow, type DealAllocationContext, type TeamCapRule } from '@/lib/agent-allocations';
 import type { FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { readTransactionField } from './model';
 
@@ -21,6 +21,8 @@ export type TeamCapRow = {
   cap_amount_field_key?: unknown;
   reset_date_field_key?: unknown;
   recipient_agent_id?: unknown;
+  recipients?: unknown;
+  progress_cap_id?: unknown;
 };
 
 export type SalesVolumeRow = {
@@ -45,7 +47,8 @@ export function teamCapRuleFromRow(row: TeamCapRow): TeamCapRule | null {
     splitPercentFieldKey: text(row.split_percent_field_key),
     capAmountFieldKey: text(row.cap_amount_field_key),
     resetDateFieldKey: text(row.reset_date_field_key),
-    recipientAgentId: text(row.recipient_agent_id),
+    recipients: capRecipientsFromRow(row.recipients, row.recipient_agent_id),
+    progressCapId: text(row.progress_cap_id),
   };
 }
 

@@ -109,7 +109,7 @@ export function planCapSections(args: {
             capAmountFieldKey: null,
             // Plan cap years run from the agent field Plan Settings names as Cap Year Start.
             resetDateFieldKey: data.settings.cap_year_start_field_key || null,
-            recipientAgentId: null,
+            recipientAgentIds: [],
             entityId: null,
             hideOverAllocations: false,
           },

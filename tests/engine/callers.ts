@@ -384,13 +384,13 @@ function popupResubmit(ctx: Ctx, saved: PageState, savedView: ReturnType<typeof 
   const teamCapIds = checkedCapIds.filter((id) => shownCaps.some((cap) => cap.id === id));
   const templateAgentRoster = base.knownAgents.map((agent) => ({ id: agent.id, name: agent.name, isTeamLead: agent.isTeamLead, clientId: agent.clientId, fields: agent.fields }));
   const seenRecipients = new Set<string>();
-  const teamCapRecipients = shownCaps.flatMap((cap) => {
-    if (!teamCapIds.includes(cap.id) || !cap.recipientAgentId || seenRecipients.has(cap.recipientAgentId)) return [];
-    const recipient = templateAgentRoster.find((agent) => agent.id === cap.recipientAgentId);
+  const teamCapRecipients = shownCaps.flatMap((cap) => (teamCapIds.includes(cap.id) ? cap.recipients : []).flatMap(({ agentId }) => {
+    if (seenRecipients.has(agentId)) return [];
+    const recipient = templateAgentRoster.find((agent) => agent.id === agentId);
     if (!recipient) return [];
     seenRecipients.add(recipient.id);
     return [{ id: recipient.id, name: recipient.name, isTeamLead: Boolean(recipient.isTeamLead) }];
-  });
+  }));
   const steps = bundle.steps as TemplateLogicStep[];
   const needs = formulaDataNeeds(templateFormulaSources(steps, bundle.parameters));
   const applied = applyTemplateLogic({

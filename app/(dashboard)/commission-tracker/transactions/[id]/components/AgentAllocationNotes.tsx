@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef } from 'react';
 import { capProgressLabel } from '@/lib/agent-cap-progress';
+import { capReceipt, type TeamCapRecipient } from '@/lib/agent-allocations';
 import { toPercentPoints } from '@/lib/percent';
 import { roundCurrency } from '../types';
 import { DecimalInput } from './DecimalInput';
@@ -69,7 +70,18 @@ export function teamCapGroups(allocations: AgentAllocationLine[]): TeamCapGroup[
   return [...groups.values()];
 }
 
-/** What a team cap's recipient receives on this deal: the payments every other agent makes into that cap. */
+/**
+ * What one recipient receives of a team cap on this deal: their share of the payments the other agents make into
+ * it. Recipients do not pay into their own cap.
+ */
+export function teamCapReceived(lines: AgentAllocationLine[], recipients: TeamCapRecipient[], agentId: string): number {
+  const total = lines.reduce((sum, line) => (
+    recipients.some((recipient) => recipient.agentId === line.agent_id) ? sum : sum + (Number(line.amount) || 0)
+  ), 0);
+  return capReceipt(recipients, agentId, roundCurrency(total));
+}
+
+/** What a team cap's recipient receives on this deal: their share of the payments every other agent makes into that cap. */
 export function TeamCapReceived({ amount }: { amount: number }) {
   return (
     <span className="inline-flex w-[6.5rem] justify-end pr-2 text-xs font-semibold text-slate-500 dark:text-slate-400">

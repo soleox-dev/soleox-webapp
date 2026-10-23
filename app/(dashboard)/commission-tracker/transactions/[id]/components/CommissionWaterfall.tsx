@@ -33,7 +33,8 @@ import { CommissionTemplatePanel, type TemplateSubmissionDraft } from './Commiss
 import { CalculatingCommission } from './CalculatingCommission';
 import type { AppliedTemplateRules } from '@/lib/commission-engine/template';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
-import { AgentAllocationNotes, AgentCapNote, TeamCapAmount, TeamCapReceived, adjustedSplitView, teamCapGroups, type AgentAllocationLine } from './AgentAllocationNotes';
+import { AgentAllocationNotes, AgentCapNote, TeamCapAmount, TeamCapReceived, adjustedSplitView, teamCapGroups, teamCapReceived, type AgentAllocationLine } from './AgentAllocationNotes';
+import type { TeamCapRecipient } from '@/lib/agent-allocations';
 import { formatAgentCapLine, type AgentCapCell } from '@/lib/agent-cap-progress';
 import type { PlanCapCell } from '@/lib/commission-engine/plan-caps';
 import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
@@ -111,7 +112,7 @@ interface CommissionWaterfallProps {
   resetClearsPayments?: boolean;
   submissionRevision?: number;
   allocations?: AgentAllocationLine[];
-  teamCapRecipients?: Record<string, string>;
+  teamCapRecipients?: Record<string, TeamCapRecipient[]>;
   onTeamCapAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
   onRemoveTeamCap?: (teamCapId: string) => void;
   agentCapCells?: Record<string, Record<string, AgentCapCell>>;
@@ -133,22 +134,23 @@ function AgentCapStrips({
   isEditing: boolean;
   /** The agent's Agent Split, after team caps. */
   splitAmount: number;
-  /** Each team cap's id and the agent it pays. */
-  recipients?: Record<string, string>;
+  /** Each team cap's id and the agents it pays. */
+  recipients?: Record<string, TeamCapRecipient[]>;
   onTeamCapAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
   onRemoveTeamCap?: (teamCapId: string) => void;
 }) {
   const groups = teamCapGroups(allocations);
   if (groups.length === 0) return null;
   // The same reading as the table view: the share before caps, then each cap taking money out (-) or paying it in (+).
-  const recipientOf = (group: { lines: AgentAllocationLine[] }) => {
+  const recipientsOf = (group: { lines: AgentAllocationLine[] }) => {
     const capId = group.lines.find((line) => line.team_cap_id)?.team_cap_id || '';
-    return capId ? recipients[capId] || '' : '';
+    return capId ? recipients[capId] || [] : [];
   };
-  const received = (group: { lines: AgentAllocationLine[] }) =>
-    group.lines.reduce((sum, line) => (line.agent_id === agentId ? sum : sum + (Number(line.amount) || 0)), 0);
+  const isRecipientOf = (group: { lines: AgentAllocationLine[] }) => recipientsOf(group).some((recipient) => recipient.agentId === agentId);
+  /** This agent's share of what the other agents pay into the cap. */
+  const received = (group: { lines: AgentAllocationLine[] }) => teamCapReceived(group.lines, recipientsOf(group), agentId);
   const paid = groups.reduce((sum, group) => sum + group.lines.reduce((inner, line) => (line.agent_id === agentId ? inner + (Number(line.amount) || 0) : inner), 0), 0);
-  const gets = groups.reduce((sum, group) => (recipientOf(group) === agentId ? sum + received(group) : sum), 0);
+  const gets = groups.reduce((sum, group) => (isRecipientOf(group) ? sum + received(group) : sum), 0);
   const before = Math.round((splitAmount + paid - gets) * 100) / 100;
   const rowClass = 'flex items-start justify-between gap-3 rounded-md bg-slate-100/70 py-1.5 pl-3 pr-1 sm:pl-2.5 sm:pr-0.5 shadow-[inset_3px_0_0_var(--color-slate-300)] sm:px-2.5 dark:bg-slate-800/55 dark:shadow-[inset_3px_0_0_var(--color-slate-600)]';
   return (
@@ -160,7 +162,7 @@ function AgentCapStrips({
       {groups.map((group) => {
         const capId = group.lines.find((line) => line.team_cap_id)?.team_cap_id || '';
         const line = group.lines.find((item) => item.agent_id === agentId);
-        const isRecipient = !line && recipientOf(group) === agentId;
+        const isRecipient = !line && isRecipientOf(group);
         // An agent with no split of their own pays nothing into a cap: a dash, not a $0 payment.
         const shownLine = line && (Math.abs(Number(line.amount) || 0) >= 0.005 || Math.abs(before) >= 0.005) ? line : undefined;
         return (

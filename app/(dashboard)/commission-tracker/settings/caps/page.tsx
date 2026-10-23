@@ -11,7 +11,7 @@ import { useConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { CapKeyRenameCounts } from '@/app/api/agent-allocations/rename-key/route';
 import { UnderlineField, underlineControl } from '@/components/ui/underline-field';
 import { copyKey, generatePrefixedId } from '@/lib/id';
-import { normalizeTeamCapKey, teamCapKeyFormatError, teamCapKeyFromName } from '@/lib/agent-allocations';
+import { capRecipientsFromRow, normalizeTeamCapKey, teamCapKeyFormatError, teamCapKeyFromName } from '@/lib/agent-allocations';
 import { FormulaEditor, type FormulaName } from '../commission-templates/FormulaEditor';
 import { ALLOCATION_CLIENT_ID, AllocationFieldMenu, allocationFormulaHint, fieldOptions, useAllocationSchema, type AllocationAgent } from '../allocation-fields';
 import { useAccess } from '@/components/access-provider';
@@ -30,10 +30,15 @@ type CapBase = {
   resetDateFieldKey: string;
 };
 
+/** One agent the cap pays. The share is kept as typed; the shares add up to 100. */
+type RecipientForm = { agentId: string; share: string };
+
 type TeamCapForm = CapBase & {
   qualifyingFormula: string;
   splitPercentFieldKey: string;
-  recipientAgentId: string;
+  recipients: RecipientForm[];
+  /** Another team cap this one counts toward, or ''. */
+  progressCapId: string;
 };
 
 type AgentCapForm = CapBase & {
@@ -67,7 +72,8 @@ function newTeamCap(taken: Set<string>): TeamCapForm {
     splitPercentFieldKey: '',
     capAmountFieldKey: '',
     resetDateFieldKey: '',
-    recipientAgentId: '',
+    recipients: [{ agentId: '', share: '100' }],
+    progressCapId: '',
   };
 }
 
@@ -122,7 +128,8 @@ function teamCapFromRow(row: Record<string, unknown>): TeamCapForm {
     splitPercentFieldKey: String(row.split_percent_field_key || ''),
     capAmountFieldKey: String(row.cap_amount_field_key || ''),
     resetDateFieldKey: String(row.reset_date_field_key || ''),
-    recipientAgentId: String(row.recipient_agent_id || ''),
+    recipients: capRecipientsFromRow(row.recipients, row.recipient_agent_id).map((recipient) => ({ agentId: recipient.agentId, share: String(recipient.share) })),
+    progressCapId: String(row.progress_cap_id || ''),
   };
 }
 
@@ -392,7 +399,7 @@ export default function CapsPage() {
 
       <p className="max-w-2xl text-2xs text-slate-500 dark:text-slate-400">
         {tab === 'team'
-          ? 'A client can use several team caps. A deal uses every enabled cap whose formula is true, and the agent cannot pay more than their share. The agent split is that share before the cut paid to the selected agent. A blank qualifying formula applies to every deal. The selected agent has to be on the agent splits to receive the payment.'
+          ? 'A client can use several team caps. A deal uses every enabled cap whose formula is true, and the agent cannot pay more than their share. The agent split is that share before the cut paid to the selected agent. A blank qualifying formula applies to every deal. A cap can pay several agents, each a share of what it collects. The agents it pays have to be on the agent splits to receive the payment, and they do not pay into it themselves. A cap that counts toward another shares its yearly cap amount: what an agent paid into either one counts.'
           : 'An agent cap follows a post-split the commission template already calculates. It does not change the split. The report uses the name, the cap amount field, and the reset date. Hide Over-Allocations keeps the report and the waterfall at the cap amount when that fee continues past it.'}
       </p>
       {error && <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">{error}</p>}
@@ -407,7 +414,9 @@ export default function CapsPage() {
           recipientOptions={recipientOptions}
           onAdd={() => setTeamCaps((current) => [...current, newTeamCap(takenKeys())])}
           onChange={(id, patch) => setTeamCaps((current) => current.map((cap) => (cap.id === id ? { ...cap, ...patch } : cap)))}
-          onRemove={(id) => setTeamCaps((current) => current.filter((cap) => cap.id !== id))}
+          onRemove={(id) => setTeamCaps((current) => current
+            .filter((cap) => cap.id !== id)
+            .map((cap) => (cap.progressCapId === id ? { ...cap, progressCapId: '' } : cap)))}
           onRenameKey={renameCapKey}
           onMove={(from, to) => setTeamCaps((current) => moveItem(current, from, to))}
           onDuplicate={(id) => setTeamCaps((current) => {
@@ -722,11 +731,18 @@ function TeamCapList({
                 onRename={cap.keyLocked ? (key) => onRenameKey(cap.id, key) : undefined}
               />
               <AllocationFieldMenu
-                label="Allocated To"
-                value={cap.recipientAgentId}
-                placeholder="Choose an agent"
-                options={recipientOptions(cap.recipientAgentId).map((agent) => ({ value: agent.id, label: agent.name }))}
-                onChange={(recipientAgentId) => onChange(cap.id, { recipientAgentId })}
+                label="Counts Toward"
+                value={cap.progressCapId}
+                placeholder="Its own cap amount"
+                options={[
+                  { value: '', label: 'Its own cap amount' },
+                  // One level only: a cap that others count toward keeps its own amount, and a cap can count
+                  // toward one that does not itself count toward another.
+                  ...(caps.some((other) => other.progressCapId === cap.id) ? [] : caps)
+                    .filter((other) => other.id !== cap.id && !other.progressCapId)
+                    .map((other) => ({ value: other.id, label: other.name.trim() || 'Team Cap' })),
+                ]}
+                onChange={(progressCapId) => onChange(cap.id, { progressCapId })}
               />
               <AllocationFieldMenu
                 label="Agent Split Percent Field"
@@ -750,6 +766,11 @@ function TeamCapList({
                 onChange={(resetDateFieldKey) => onChange(cap.id, { resetDateFieldKey })}
               />
             </div>
+            <RecipientList
+              recipients={cap.recipients}
+              recipientOptions={recipientOptions}
+              onChange={(recipients) => onChange(cap.id, { recipients })}
+            />
             <FormulaEditor
               label="Qualifying Formula"
               value={cap.qualifyingFormula}
@@ -758,10 +779,91 @@ function TeamCapList({
               fitContent
               hint={allocationFormulaHint}
             />
-            <p className="text-2xs text-slate-500 dark:text-slate-400">This field is the percent of the agent’s share paid to the selected agent. An 80/20 agent is 20%. An agent with no cap amount pays that percent in full and is not tracked. The reset date is that agent’s cap anniversary.</p>
+            <p className="text-2xs text-slate-500 dark:text-slate-400">This field is the percent of the agent’s share paid to the cap’s recipients. An 80/20 agent is 20%. An agent with no cap amount pays that percent in full and is not tracked. The reset date is that agent’s cap anniversary.</p>
           </section>
         );
       })}
+    </div>
+  );
+}
+
+function RecipientList({
+  recipients,
+  recipientOptions,
+  onChange,
+}: {
+  recipients: RecipientForm[];
+  recipientOptions: (selectedId: string) => AllocationAgent[];
+  onChange: (recipients: RecipientForm[]) => void;
+}) {
+  const total = recipients.reduce((sum, recipient) => sum + (Number(recipient.share) || 0), 0);
+  const missingShare = recipients.some((recipient) => !(Number(recipient.share) > 0));
+  const balanced = !missingShare && Math.abs(total - 100) < 0.001;
+  const update = (index: number, patch: Partial<RecipientForm>) =>
+    onChange(recipients.map((recipient, at) => (at === index ? { ...recipient, ...patch } : recipient)));
+  return (
+    <div className="space-y-2">
+      {recipients.map((recipient, index) => {
+        const taken = new Set(recipients.filter((_, at) => at !== index).map((item) => item.agentId));
+        return (
+          <div key={index} className="flex items-end gap-3">
+            <div className="min-w-0 flex-1">
+              <AllocationFieldMenu
+                label={recipients.length > 1 ? `Allocated To ${index + 1}` : 'Allocated To'}
+                value={recipient.agentId}
+                placeholder="Choose an agent"
+                options={recipientOptions(recipient.agentId)
+                  .filter((agent) => !taken.has(agent.id))
+                  .map((agent) => ({ value: agent.id, label: agent.name }))}
+                onChange={(agentId) => update(index, { agentId })}
+              />
+            </div>
+            <div className="w-24 shrink-0">
+              <UnderlineField label="Share">
+                <span className="flex items-center gap-1">
+                  <input
+                    className={`${underlineControl} text-right`}
+                    inputMode="decimal"
+                    value={recipient.share}
+                    aria-label={`Share for recipient ${index + 1}`}
+                    onChange={(event) => update(index, { share: event.target.value.replace(/[^0-9.]/g, '') })}
+                  />
+                  <span className="text-xs text-slate-500 dark:text-slate-400">%</span>
+                </span>
+              </UnderlineField>
+            </div>
+            <button
+              type="button"
+              onClick={() => onChange(recipients.filter((_, at) => at !== index))}
+              disabled={recipients.length === 1}
+              className="mb-1 shrink-0 cursor-pointer rounded p-1 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent"
+              title="Remove Recipient"
+              aria-label={`Remove recipient ${index + 1}`}
+            >
+              <TrashIcon />
+            </button>
+          </div>
+        );
+      })}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => onChange([...recipients, { agentId: '', share: total < 100 ? String(Number((100 - total).toFixed(3))) : '' }])}
+          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-brand-500/10 hover:text-brand-700 dark:text-slate-400 dark:hover:bg-brand-500/15 dark:hover:text-brand-400 cursor-pointer"
+        >
+          <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          Add Recipient
+        </button>
+        {recipients.length > 1 && (
+          <p className={`text-2xs ${balanced ? 'text-slate-500 dark:text-slate-400' : 'font-semibold text-rose-600 dark:text-rose-400'}`}>
+            {balanced
+              ? 'Each recipient gets their share of what the cap collects.'
+              : missingShare
+                ? 'Enter a share above 0% for each recipient.'
+                : `The shares add up to ${Number(total.toFixed(3))}%. They need to add up to 100%.`}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

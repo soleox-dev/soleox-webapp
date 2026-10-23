@@ -13,7 +13,7 @@ import {
   type EngineField,
 } from './model';
 import { normalizeAgentName } from '@/lib/id';
-import { planDealAllocations, type DealAllocationContext, type DealAllocationLine } from '@/lib/agent-allocations';
+import { planDealAllocations, splitCapTotal, type DealAllocationContext, type DealAllocationLine } from '@/lib/agent-allocations';
 import { applyTemplateLogic, type AppliedAgentSplit, type NamedParty, type TeamCapCreditMap, type TemplateLogicStep } from './template';
 import type { FormulaLedgerRow, FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 
@@ -375,16 +375,18 @@ function sameName(left: string, right: string): boolean {
 
 function teamCapCredits(allocation: DealAllocationContext, lines: DealAllocationLine[], agents: AgentConfig[]): TeamCapCreditMap {
   const credits: TeamCapCreditMap = {};
-  allocation.teamCaps.forEach((cap) => {
-    const key = cap.key?.trim().toLowerCase();
-    if (!key) return;
-    const recipient = agents.find((agent) => agent.id === cap.recipientAgentId);
-    const recipientKeys = [...new Set(
-      [cap.recipientAgentId, recipient?.name, recipient?.name ? normalizeAgentName(recipient.name) : '']
+  const keysOf = (agentId: string) => {
+    const agent = agents.find((item) => item.id === agentId);
+    return [...new Set(
+      [agentId, agent?.name, agent?.name ? normalizeAgentName(agent.name) : '']
         .map((name) => String(name || '').trim().toLowerCase())
         .filter(Boolean),
     )];
-    credits[key] = { total: 0, byAgent: {}, recipientKeys };
+  };
+  allocation.teamCaps.forEach((cap) => {
+    const key = cap.key?.trim().toLowerCase();
+    if (!key) return;
+    credits[key] = { total: 0, byAgent: {} };
   });
   lines.forEach((line) => {
     if (line.kind !== 'team_cap' || !line.team_cap_id) return;
@@ -402,6 +404,13 @@ function teamCapCredits(allocation: DealAllocationContext, lines: DealAllocation
     agentKeys.forEach((agentKey) => {
       credits[key].byAgent[agentKey] = roundCurrency((credits[key].byAgent[agentKey] || 0) + amount);
     });
+  });
+  // A cap that pays several agents gives each their share of the total.
+  allocation.teamCaps.forEach((cap) => {
+    const key = cap.key?.trim().toLowerCase();
+    if (!key || !credits[key]) return;
+    credits[key].receipts = [...splitCapTotal(credits[key].total, cap.recipients)]
+      .map(([agentId, amount]) => ({ keys: keysOf(agentId), amount }));
   });
   return credits;
 }
@@ -567,8 +576,8 @@ function assignEngineCapReceipts(
     const keys = new Set([name, normalized, String(item.agentId || '').trim().toLowerCase()].filter(Boolean));
     const received = roundCurrency(Object.entries(credits).reduce((sum, [key, cap]) => {
       if (referencedTotals.has(key)) return sum;
-      if (!(cap.recipientKeys || []).some((recipient) => keys.has(recipient))) return sum;
-      return sum + cap.total;
+      const receipt = (cap.receipts || []).find((item) => item.keys.some((recipient) => keys.has(recipient)));
+      return receipt ? sum + receipt.amount : sum;
     }, 0));
     if (received <= 0.009 || Math.abs(received - Number(item.amount || 0)) <= 0.009) return;
     item.grossAmount = item.amount;
@@ -652,7 +661,7 @@ type TotalCommissionSource = 'formula' | 'form' | 'deal' | 'gross';
  * - typed: typed by hand in the waterfall (manualSplit); the template replay does not replace it.
  * - remainder-after-typed: with a typed split, the primary agent gets what the splits as they stand leave.
  * - template: the submitted template replayed after a team cap moved money.
- * - cap-receipt: a team cap recipient the template does not list receives the cap total.
+ * - cap-receipt: a team cap recipient the template does not list receives the cap total (their share of it).
  * - saved-after-caps: the saved split after team caps, shown until the template replay has loaded.
  */
 export type SplitSource = 'split' | 'remainder' | 'typed' | 'remainder-after-typed' | 'template' | 'cap-receipt' | 'saved-after-caps';

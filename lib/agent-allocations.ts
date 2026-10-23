@@ -115,8 +115,71 @@ export type TeamCapRule = {
   splitPercentFieldKey: string | null;
   capAmountFieldKey: string | null;
   resetDateFieldKey: string | null;
-  recipientAgentId: string | null;
+  /** The agents this cap pays, each a share of what it collects. */
+  recipients: TeamCapRecipient[];
+  /** Another cap this one counts toward: payments into either count toward the same yearly cap. */
+  progressCapId: string | null;
 };
+
+/** An agent a team cap pays and their share, in percent, of what the cap collects. Shares add up to 100. */
+export type TeamCapRecipient = { agentId: string; share: number };
+
+/**
+ * A stored cap's recipients: the `recipients` list (migration 075), or else its one recipient_agent_id at 100%.
+ * Each entry is { agent_id, share }.
+ */
+export function capRecipientsFromRow(recipients: unknown, recipientAgentId: unknown): TeamCapRecipient[] {
+  if (Array.isArray(recipients)) {
+    const seen = new Set<string>();
+    return recipients.flatMap((item) => {
+      if (!item || typeof item !== 'object') return [];
+      const row = item as { agent_id?: unknown; agentId?: unknown; share?: unknown };
+      const agentId = String(row.agent_id ?? row.agentId ?? '').trim();
+      const share = Number(row.share);
+      if (!agentId || seen.has(agentId) || !Number.isFinite(share) || share <= 0) return [];
+      seen.add(agentId);
+      return [{ agentId, share }];
+    });
+  }
+  const single = String(recipientAgentId ?? '').trim();
+  return single ? [{ agentId: single, share: 100 }] : [];
+}
+
+export function capRecipientIds(cap: { recipients: TeamCapRecipient[] }): string[] {
+  return cap.recipients.map((recipient) => recipient.agentId);
+}
+
+/**
+ * What each recipient receives of a cap's total, by share. The cents rounding leaves over go to the first
+ * recipient, so the amounts always add up to the total.
+ */
+export function splitCapTotal(total: number, recipients: TeamCapRecipient[]): Map<string, number> {
+  const shares = recipients.reduce((sum, recipient) => sum + recipient.share, 0);
+  if (recipients.length === 0 || shares <= 0) return new Map();
+  const rest = recipients.slice(1).map((recipient) => [recipient.agentId, roundCurrency(total * (recipient.share / shares))] as const);
+  const first = roundCurrency(total - rest.reduce((sum, [, amount]) => sum + amount, 0));
+  return new Map([[recipients[0].agentId, first], ...rest]);
+}
+
+/** What one agent receives of a cap's total. Zero when the cap does not pay them. */
+export function capReceipt(recipients: TeamCapRecipient[], agentId: string, total: number): number {
+  return splitCapTotal(total, recipients).get(agentId) || 0;
+}
+
+/**
+ * The caps whose payments count toward the same yearly cap as this one: the cap itself, the cap it counts toward,
+ * and every cap that counts toward either.
+ */
+export function capProgressIds(caps: { id: string; progressCapId: string | null }[], capId: string): string[] {
+  const rootOf = (id: string) => {
+    const cap = caps.find((item) => item.id === id);
+    const target = cap?.progressCapId?.trim();
+    return target && target !== id && caps.some((item) => item.id === target) ? target : id;
+  };
+  const root = rootOf(capId);
+  const ids = caps.filter((cap) => cap.id === root || rootOf(cap.id) === root).map((cap) => cap.id);
+  return ids.includes(capId) ? ids : [capId, ...ids];
+}
 
 const TEAM_CAP_KEY_PATTERN = /^[a-z_][a-z0-9_]*$/;
 
@@ -182,7 +245,7 @@ export function writeTeamCapSelection(parameters: Record<string, string>, ids: s
  */
 /** The caps set up well enough to pay out (on, with a split field and a recipient), qualifying or not. */
 export function configuredTeamCaps(caps: TeamCapRule[]): TeamCapRule[] {
-  return caps.filter((cap) => cap.enabled && cap.splitPercentFieldKey && cap.recipientAgentId);
+  return caps.filter((cap) => cap.enabled && cap.splitPercentFieldKey && cap.recipients.length > 0);
 }
 
 export function qualifyingTeamCaps(
@@ -191,7 +254,7 @@ export function qualifyingTeamCaps(
   fieldTypes: Record<string, string>,
   lookups?: FormulaLookups | null,
 ): TeamCapRule[] {
-  return caps.filter((cap) => cap.enabled && cap.splitPercentFieldKey && cap.recipientAgentId && qualifies(deal, cap.qualifyingFormula, fieldTypes, lookups));
+  return caps.filter((cap) => cap.enabled && cap.splitPercentFieldKey && cap.recipients.length > 0 && qualifies(deal, cap.qualifyingFormula, fieldTypes, lookups));
 }
 
 /** The lookup tables the team cap and sales volume qualifying formulas read, for loadFormulaLookups. */
@@ -290,14 +353,15 @@ function overrideFor(
   return match ? match.amount : null;
 }
 
+/** Cap dollars this agent already paid this anniversary into any of `teamCapIds` (capProgressIds). */
 function alreadyCounted(
   history: DealAllocationContext['history'],
   agentId: string,
   periodStart: string | null,
-  teamCapId: string,
+  teamCapIds: string[],
 ): number {
   return roundCurrency(history.reduce((sum, row) => {
-    if (row.agentId !== agentId || row.teamCapId !== teamCapId) return sum;
+    if (row.agentId !== agentId || !row.teamCapId || !teamCapIds.includes(row.teamCapId)) return sum;
     if (periodStart && row.periodStart !== periodStart) return sum;
     return sum + row.amount;
   }, 0));
@@ -317,16 +381,18 @@ export function planDealAllocations(
   const matchingCaps = recorded
     ? configuredTeamCaps(context.teamCaps).filter((cap) => recorded.includes(cap.id))
     : qualifyingTeamCaps(context.teamCaps, context.deal, context.fieldTypes, context.lookups);
+  // Without a recorded choice, a cap pays only when every one of its recipients is already on the agent splits.
   const payableCaps = matchingCaps.flatMap((cap) => {
-    const recipientId = cap.recipientAgentId;
-    if (!recipientId) return [];
-    const onDeal = shares.some((share) => share.agentId === recipientId);
+    const recipientIds = capRecipientIds(cap);
+    if (recipientIds.length === 0) return [];
+    const onDeal = recipientIds.every((id) => shares.some((share) => share.agentId === id));
     if (!onDeal && !recorded) return [];
-    return [{ cap, recipientId }];
+    return [{ cap, recipientIds }];
   });
   if (payableCaps.length > 0) {
     const paid = new Map<string, number>();
-    payableCaps.forEach(({ cap, recipientId }) => {
+    payableCaps.forEach(({ cap, recipientIds }) => {
+      const progressIds = capProgressIds(context.teamCaps, cap.id);
       const inputs: TeamCapAgentInput[] = shares.map((share) => {
         const fields = profiles.get(share.agentId)?.fields || {};
         const capAmount = parseNumber(fields[cap.capAmountFieldKey || '']);
@@ -334,17 +400,17 @@ export function planDealAllocations(
         const periodStart = capAmount == null ? null : anniversaryStart(resetDate, context.dealDate);
         return {
           agentId: share.agentId,
-          isRecipient: share.agentId === recipientId,
+          isRecipient: recipientIds.includes(share.agentId),
           shareAmount: share.amount,
           teamPercent: parseTeamPercent(fields[cap.splitPercentFieldKey || '']),
           capAmount,
           resetDate,
-          alreadyCounted: alreadyCounted(context.history, share.agentId, periodStart, cap.id),
+          alreadyCounted: alreadyCounted(context.history, share.agentId, periodStart, progressIds),
           overrideAmount: overrideFor(context.overrides, share.agentId, 'team_cap', cap.id),
         };
       });
       applyTeamCap(inputs, context.dealDate).forEach((result, index) => {
-        if (result.agentId === recipientId) return;
+        if (recipientIds.includes(result.agentId)) return;
         const input = inputs[index];
         const share = shares.find((item) => item.agentId === result.agentId);
         if (!share || !input) return;

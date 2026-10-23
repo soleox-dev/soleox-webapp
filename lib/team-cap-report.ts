@@ -10,7 +10,10 @@ export type TeamCapDefinition = {
   splitPercentFieldKey: string | null;
   capAmountFieldKey: string | null;
   resetDateFieldKey: string | null;
-  recipientAgentId: string | null;
+  /** The agents a team cap pays. They do not pay into it. */
+  recipientAgentIds: string[];
+  /** This cap and the caps that count toward the same yearly cap amount (capProgressIds). Empty means just this one. */
+  progressCapIds?: string[];
   entityId: string | null;
   hideOverAllocations: boolean;
 };
@@ -196,8 +199,10 @@ export function teamCapStandings(args: {
 }): CapStanding[] {
   const { cap, agents, contributions, deals, names, asOf, paid } = args;
   const byAgent = new Map<string, CapContribution[]>();
+  // Payments into a cap this one shares its cap amount with count here too.
+  const capIds = cap.progressCapIds?.length ? cap.progressCapIds : [cap.id];
   contributions.forEach((row) => {
-    if (row.teamCapId !== cap.id || !row.agentId) return;
+    if (!capIds.includes(row.teamCapId) || !row.agentId) return;
     const list = byAgent.get(row.agentId) || [];
     list.push(row);
     byAgent.set(row.agentId, list);
@@ -210,7 +215,7 @@ export function teamCapStandings(args: {
   ids.forEach((agentId) => {
     const profile = profiles.get(agentId);
     const rows = byAgent.get(agentId) || [];
-    const isRecipient = cap.recipientAgentId === agentId;
+    const isRecipient = cap.recipientAgentIds.includes(agentId);
     const goalText = profile && cap.capAmountFieldKey ? profile.fields[cap.capAmountFieldKey] : undefined;
     if (goalText == null || goalText.trim() === '') return;
     const goal = moneyField(goalText);

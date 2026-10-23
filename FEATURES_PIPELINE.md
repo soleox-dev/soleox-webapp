@@ -26,6 +26,16 @@ Status values: Proposed, Planned, In progress, Done.
   - Agents with no cap date and no cap amount do not need a flag.
   - The flag should link to the agent so the date can be filled in.
 
+### FR-006: Team caps that pay several agents and share a cap amount
+- **Status:** Built, waiting on migration 075
+- **Source:** TATH team caps, October 23, 2026
+- **Requirement:** A team cap can pay several agents, each a share of what it collects (Las Vegas Team Cap: Dylan 50%, Yvonne Khoo 35%, Paul Patane 15%). A team cap can count toward another cap, so what an agent paid into either one counts toward one yearly cap amount.
+- **Why:** TATH has two caps on the agent side (20% up to $12,000) that differ only in who receives the money. Three single-recipient caps gave each agent three cap totals that had to be kept in proportion by hand. An agent who moves to Las Vegas mid-year keeps what they already paid into Dylan's Team Cap.
+- **Notes:**
+  - Stored in `client_caps.recipients` (jsonb) and `client_caps.progress_cap_id`. `recipient_agent_id` keeps the first recipient.
+  - Recipients do not pay into the cap they receive. Without a recorded choice, a cap applies only when every recipient is on the agent splits.
+  - Cents left over by rounding go to the first recipient.
+
 ## Data quality
 
 ### FR-003: Validate GCI percent by client type

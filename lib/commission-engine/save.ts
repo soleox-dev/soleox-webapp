@@ -2,7 +2,7 @@
  * What saving a deal writes from its waterfall: the commission lines, the payments, the team cap and sales volume
  * rows, and why Save is blocked.
  */
-import type { DealAllocationLine, TeamCapRule } from '@/lib/agent-allocations';
+import { capRecipientIds, splitCapTotal, type DealAllocationLine, type TeamCapRule } from '@/lib/agent-allocations';
 import { isPrimaryAgent } from './stored-lines';
 import { roundCurrency, roundPercentRate, type AgentConfig, type CommissionEntityOption, type KnownAgentInfo } from './model';
 import type { WaterfallResult } from './waterfall';
@@ -222,7 +222,8 @@ export type CapRecipientShortfall = { recipientId: string; name: string; receive
 
 /**
  * An agent who receives team cap money must have at least that much in Agent Splits: if two agents each pay $500
- * into a team cap, its recipient needs $1,000 or more. Money paid into a cap by the recipient themself is not counted.
+ * into a team cap, its recipient needs $1,000 or more, or their share of it when the cap pays several agents.
+ * Money paid into a cap by a recipient themself is not counted.
  */
 export function capRecipientShortfalls(
   result: Pick<WaterfallResult, 'allocationLines' | 'agentSplitItems'>,
@@ -230,11 +231,15 @@ export function capRecipientShortfalls(
   knownAgents: KnownAgentInfo[],
 ): CapRecipientShortfall[] {
   const owed = new Map<string, number>();
-  for (const line of result.allocationLines || []) {
-    if (line.kind !== 'team_cap') continue;
-    const recipientId = teamCaps.find((cap) => cap.id === line.team_cap_id)?.recipientAgentId;
-    if (!recipientId || recipientId === line.agent_id) continue;
-    owed.set(recipientId, roundCurrency((owed.get(recipientId) || 0) + (Number(line.amount) || 0)));
+  for (const cap of teamCaps) {
+    const recipientIds = capRecipientIds(cap);
+    const total = roundCurrency((result.allocationLines || []).reduce((sum, line) => (
+      line.kind === 'team_cap' && line.team_cap_id === cap.id && !recipientIds.includes(line.agent_id) ? sum + (Number(line.amount) || 0) : sum
+    ), 0));
+    if (total <= 0) continue;
+    splitCapTotal(total, cap.recipients).forEach((amount, recipientId) => {
+      owed.set(recipientId, roundCurrency((owed.get(recipientId) || 0) + amount));
+    });
   }
   return [...owed].flatMap(([recipientId, receives]) => {
     const split = (result.agentSplitItems || []).find((item: { agentId?: string }) => item?.agentId === recipientId);

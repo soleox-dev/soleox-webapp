@@ -52,7 +52,8 @@ These rules describe today's behavior. The golden tests in `tests/engine` hold i
 4. **The template replay applies only after a cap has moved money.** When a team cap moved money and the
    submitted template has loaded, the template runs again with the cap credits:
    - An agent the replay lists gets the replay's dollars.
-   - A cap recipient the template does not list gets the cap total.
+   - A cap recipient the template does not list gets the cap total, or their share of it when the cap pays
+     several agents.
    - Post-splits take the replay's type and value (matched by entity). Replay post-splits with no saved
      counterpart are added.
    - When no cap moved money, the saved lines stand as recalculated in step 2.

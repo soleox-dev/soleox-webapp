@@ -81,6 +81,7 @@ import {
   type CapStanding,
   type TeamCapDefinition,
 } from '@/lib/team-cap-report';
+import { capProgressIds, capRecipientsFromRow } from '@/lib/agent-allocations';
 
 const GROUPS = OWNER_REPORT_GROUPS;
 
@@ -548,7 +549,8 @@ export default function OwnerReportsPage() {
         splitPercentFieldKey: kind === 'team' && cap.split_percent_field_key ? String(cap.split_percent_field_key) : null,
         capAmountFieldKey: cap.cap_amount_field_key ? String(cap.cap_amount_field_key) : null,
         resetDateFieldKey: cap.reset_date_field_key ? String(cap.reset_date_field_key) : null,
-        recipientAgentId: kind === 'team' && cap.recipient_agent_id ? String(cap.recipient_agent_id) : null,
+        recipientAgentIds: kind === 'team' ? capRecipientsFromRow(cap.recipients, cap.recipient_agent_id).map((recipient) => recipient.agentId) : [],
+        progressCapIds: kind === 'team' ? capProgressIds(teamCaps.map((row: Record<string, unknown>) => ({ id: String(row.id || ''), progressCapId: row.progress_cap_id ? String(row.progress_cap_id) : null })), String(cap.id || '')) : undefined,
         entityId: kind === 'agent' && cap.commission_entity_id ? String(cap.commission_entity_id) : null,
         hideOverAllocations: kind === 'agent' && cap.hide_over_allocations === true,
       });

@@ -811,9 +811,9 @@ export default function Dashboard() {
     setBaseline: setCapOverrideBaseline,
   };
 
-  // Which agent each team cap pays, for the waterfall's team cap rows.
+  // Which agents each team cap pays, and their shares, for the waterfall's team cap rows.
   const teamCapRecipients = useMemo(() => Object.fromEntries(
-    (allocationInput?.teamCaps ?? []).flatMap((cap) => (cap.recipientAgentId ? [[cap.id, cap.recipientAgentId]] : [])),
+    (allocationInput?.teamCaps ?? []).flatMap((cap) => (cap.recipients.length > 0 ? [[cap.id, cap.recipients]] : [])),
   ), [allocationInput]);
 
   const allocationForWaterfall = useMemo(() => {

@@ -1693,13 +1693,13 @@ export function CommissionTemplatePanel({
       }
       const teamCapIds = checkedCapIds.filter((id) => shownCaps.some((cap) => cap.id === id));
       const seenRecipients = new Set<string>();
-      const teamCapRecipients = shownCaps.flatMap((cap) => {
-        if (!teamCapIds.includes(cap.id) || !cap.recipientAgentId || seenRecipients.has(cap.recipientAgentId)) return [];
-        const recipient = agents.find((agent) => agent.id === cap.recipientAgentId);
+      const teamCapRecipients = shownCaps.flatMap((cap) => (teamCapIds.includes(cap.id) ? cap.recipients : []).flatMap(({ agentId }) => {
+        if (seenRecipients.has(agentId)) return [];
+        const recipient = agents.find((agent) => agent.id === agentId);
         if (!recipient) return [];
         seenRecipients.add(recipient.id);
         return [{ id: recipient.id, name: recipient.name, isTeamLead: Boolean(recipient.isTeamLead) }];
-      });
+      }));
       const submittedParametersWithCaps = writeTeamCapSelection(parameterValues, teamCapIds);
 
       const steps = (await loadTemplateBundle(draftTemplateId, { refresh: true })).steps;

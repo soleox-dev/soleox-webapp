@@ -7,7 +7,8 @@ import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { toPercentPoints } from '@/lib/percent';
 import { orderPostSplitNames } from '@/lib/post-split-order';
-import { AgentAllocationNotes, TeamCapAmount, TeamCapReceived, adjustedSplitView, teamCapGroups, type AgentAllocationLine } from './AgentAllocationNotes';
+import { AgentAllocationNotes, TeamCapAmount, TeamCapReceived, adjustedSplitView, teamCapGroups, teamCapReceived, type AgentAllocationLine } from './AgentAllocationNotes';
+import type { TeamCapRecipient } from '@/lib/agent-allocations';
 import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
 
 /** A waterfall stage's heading: larger than the rows, with a short money-green bar in front. */
@@ -46,7 +47,7 @@ interface CommissionWaterfallTableProps {
   onDraftDirty?: (dirty: boolean) => void;
   allocations?: AgentAllocationLine[];
   /** Each team cap's id and the agent it pays, so the cap rows can show what that agent receives. */
-  teamCapRecipients?: Record<string, string>;
+  teamCapRecipients?: Record<string, TeamCapRecipient[]>;
   onTeamCapAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
   onRemoveTeamCap?: (teamCapId: string) => void;
   agentCapNote?: (agentId: string, agentName: string, entity: string) => React.ReactNode;
@@ -204,19 +205,21 @@ export function CommissionWaterfallTable({
   const level2Pill = `${levelPill} border-slate-400/60 bg-slate-300/50 text-slate-600 dark:border-slate-300/45 dark:bg-slate-400/20 dark:text-slate-200`;
   // Grey until hovered: there is one per cell, and red is kept for problems.
   const capGroups = teamCapGroups(allocations);
-  const capRecipient = (group: { lines: AgentAllocationLine[] }) => {
+  const capRecipients = (group: { lines: AgentAllocationLine[] }) => {
     const capId = group.lines.find((line) => line.team_cap_id)?.team_cap_id || '';
-    return capId ? teamCapRecipients[capId] || '' : '';
+    return capId ? teamCapRecipients[capId] || [] : [];
   };
-  /** What a cap's recipient receives: every other agent's payment into that cap. */
+  const isCapRecipient = (group: { lines: AgentAllocationLine[] }, agentId: string) =>
+    capRecipients(group).some((recipient) => recipient.agentId === agentId);
+  /** What a cap's recipient receives: their share of every other agent's payment into that cap. */
   const capReceived = (group: { lines: AgentAllocationLine[] }, recipientId: string) =>
-    group.lines.reduce((sum, line) => (line.agent_id === recipientId ? sum : sum + (Number(line.amount) || 0)), 0);
+    teamCapReceived(group.lines, capRecipients(group), recipientId);
   /** An agent's share before team caps: the Agent Split, plus what they pay into caps, less what caps pay them. */
   const splitBeforeCaps = (agent: AgentConfig) => {
     const computed = (dealResult.agentSplitItems || []).find((item: { agentId?: string; agentName?: string; amount?: number }) => item.agentId === agent.id || item.agentName === agent.name);
     const split = Number(computed?.amount) || 0;
     const paid = capGroups.reduce((sum, group) => sum + group.lines.reduce((inner, line) => (line.agent_id === agent.id ? inner + (Number(line.amount) || 0) : inner), 0), 0);
-    const received = capGroups.reduce((sum, group) => (capRecipient(group) === agent.id ? sum + capReceived(group, agent.id) : sum), 0);
+    const received = capGroups.reduce((sum, group) => (isCapRecipient(group, agent.id) ? sum + capReceived(group, agent.id) : sum), 0);
     return Math.round((split + paid - received) * 100) / 100;
   };
   /**
@@ -507,7 +510,7 @@ export function CommissionWaterfallTable({
                   {agents.map((agent) => (
                     <td key={agent.id} className="min-w-[14.5rem] border-b border-slate-200 bg-slate-100/55 px-2 py-2 text-center align-middle dark:border-slate-700 dark:bg-slate-800/55">
                       <div className="flex w-full justify-end">
-                        {!group.lines.some((item) => item.agent_id === agent.id) && capRecipient(group) === agent.id ? (
+                        {!group.lines.some((item) => item.agent_id === agent.id) && isCapRecipient(group, agent.id) ? (
                           <TeamCapReceived amount={capReceived(group, agent.id)} />
                         ) : (
                           <TeamCapAmount

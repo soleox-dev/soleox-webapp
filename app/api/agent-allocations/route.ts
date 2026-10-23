@@ -4,7 +4,7 @@ import { requireSessionClient, apiError } from '@/lib/session';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { validateFormula } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-validator';
-import { describeTeamCapKeys, normalizeTeamCapKey } from '@/lib/agent-allocations';
+import { capRecipientsFromRow, describeTeamCapKeys, normalizeTeamCapKey, type TeamCapRecipient } from '@/lib/agent-allocations';
 
 type CapType = 'TEAM' | 'AGENT';
 
@@ -18,6 +18,10 @@ type CapBody = {
   capAmountFieldKey?: string | null;
   resetDateFieldKey?: string | null;
   recipientAgentId?: string | null;
+  /** The agents a team cap pays and their shares in percent, adding up to 100. */
+  recipients?: { agentId?: string; share?: number | string }[] | null;
+  /** Another team cap this one counts toward. */
+  progressCapId?: string | null;
   hideOverAllocations?: boolean;
   commissionEntityId?: string | null;
 };
@@ -73,6 +77,32 @@ function capsSchemaMissing(error: unknown): boolean {
   return false;
 }
 
+/** True when migration 075 (several recipients, and caps that count toward another) has not been run yet. */
+function recipientsMissing(error: unknown): boolean {
+  const { raw, code } = errorParts(error);
+  return (code === '42703' || code === 'PGRST204') && /recipients|progress_cap_id/.test(raw);
+}
+
+/** A team cap's recipients from the request: the recipients list, or the single recipientAgentId at 100%. */
+function bodyRecipients(body: CapBody): TeamCapRecipient[] {
+  if (Array.isArray(body.recipients)) {
+    return capRecipientsFromRow(body.recipients.map((item) => ({ agent_id: clean(item?.agentId), share: Number(item?.share) })), null);
+  }
+  return capRecipientsFromRow(null, clean(body.recipientAgentId));
+}
+
+/** What is wrong with a team cap's recipients, or null. */
+function recipientsProblem(body: CapBody): string | null {
+  const listed = Array.isArray(body.recipients) ? body.recipients : [];
+  const ids = listed.map((item) => clean(item?.agentId)).filter(Boolean);
+  if (ids.length !== listed.length) return 'Choose an agent for each recipient.';
+  if (new Set(ids).size !== ids.length) return 'Each agent can be a recipient only once.';
+  if (listed.some((item) => !(Number(item?.share) > 0))) return 'Each recipient needs a share above 0%.';
+  const total = listed.reduce((sum, item) => sum + Number(item?.share), 0);
+  if (listed.length > 0 && Math.abs(total - 100) > 0.001) return `The recipients' shares add up to ${Number(total.toFixed(3))}%. They need to add up to 100%.`;
+  return null;
+}
+
 /** True when migration 073 (the caps' saved order) has not been run yet. */
 function sortOrderMissing(error: unknown): boolean {
   const { raw, code } = errorParts(error);
@@ -91,7 +121,14 @@ function capRow(clientId: string, body: CapBody, user: string, key: string, capT
     split_percent_field_key: agent ? null : clean(body.splitPercentFieldKey),
     cap_amount_field_key: clean(body.capAmountFieldKey),
     reset_date_field_key: clean(body.resetDateFieldKey),
-    recipient_agent_id: agent ? null : clean(body.recipientAgentId),
+    ...(agent ? { recipient_agent_id: null } : (() => {
+      const recipients = bodyRecipients(body);
+      return {
+        recipient_agent_id: recipients[0]?.agentId ?? null,
+        recipients: recipients.map((recipient) => ({ agent_id: recipient.agentId, share: recipient.share })),
+        progress_cap_id: capId(body.progressCapId),
+      };
+    })()),
     hide_over_allocations: agent ? Boolean(body.hideOverAllocations) : false,
     commission_entity_id: agent ? clean(body.commissionEntityId) : null,
     sort_order: sortOrder,
@@ -301,7 +338,24 @@ export async function PUT(request: Request) {
     const teamCaps = saveTeamCaps ? body.teamCaps as CapBody[] : [];
     const agentCaps = saveAgentCaps ? body.agentCaps as CapBody[] : [];
     const volumeBody = saveVolume ? body.salesVolume as VolumeBody : {};
-    const recipientIds = [...new Set(teamCaps.map((cap) => clean(cap.recipientAgentId)).filter((id): id is string => Boolean(id)))];
+    for (const cap of teamCaps) {
+      const problem = recipientsProblem(cap);
+      if (problem) return NextResponse.json({ error: `${clean(cap.name) || 'Team Cap'}: ${problem}` }, { status: 400 });
+    }
+    // A cap counts toward another team cap on this list, and that cap does not itself count toward a third.
+    for (const cap of teamCaps) {
+      const target = capId(cap.progressCapId);
+      if (!target) continue;
+      const label = clean(cap.name) || 'Team Cap';
+      const other = teamCaps.find((item) => capId(item.id) === target);
+      if (!other || target === capId(cap.id)) {
+        return NextResponse.json({ error: `${label}: Choose another team cap for Counts Toward.` }, { status: 400 });
+      }
+      if (capId(other.progressCapId)) {
+        return NextResponse.json({ error: `${label}: ${clean(other.name) || 'That cap'} already counts toward another cap. Choose the cap it counts toward instead.` }, { status: 400 });
+      }
+    }
+    const recipientIds = [...new Set(teamCaps.flatMap((cap) => bodyRecipients(cap).map((recipient) => recipient.agentId)))];
     if (recipientIds.length > 0) {
       const { data: recipients, error: recipientsError } = await supabase
         .from('agents')
@@ -311,8 +365,7 @@ export async function PUT(request: Request) {
       if (recipientsError) throw recipientsError;
       const knownRecipients = new Set((recipients || []).map((agent) => agent.id));
       for (const cap of teamCaps) {
-        const recipientId = clean(cap.recipientAgentId);
-        if (recipientId && !knownRecipients.has(recipientId)) {
+        if (bodyRecipients(cap).some((recipient) => !knownRecipients.has(recipient.agentId))) {
           return NextResponse.json({ error: `${clean(cap.name) || 'Team Cap'}: Choose an agent for this cap.` }, { status: 400 });
         }
       }
@@ -368,6 +421,10 @@ export async function PUT(request: Request) {
     if (capsSchemaMissing(error)) {
       console.error(error);
       return NextResponse.json({ error: 'Run migration 048 before saving caps.' }, { status: 500 });
+    }
+    if (recipientsMissing(error)) {
+      console.error(error);
+      return NextResponse.json({ error: 'Run migration 075 before saving team caps.' }, { status: 500 });
     }
     if (code === '23505') {
       return NextResponse.json({ error: 'That key is already used by another cap.' }, { status: 400 });
