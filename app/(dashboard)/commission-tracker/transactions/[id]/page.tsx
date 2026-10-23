@@ -805,6 +805,11 @@ export default function Dashboard() {
     setBaseline: setCapOverrideBaseline,
   };
 
+  // Which agent each team cap pays, for the waterfall's team cap rows.
+  const teamCapRecipients = useMemo(() => Object.fromEntries(
+    (allocationInput?.teamCaps ?? []).flatMap((cap) => (cap.recipientAgentId ? [[cap.id, cap.recipientAgentId]] : [])),
+  ), [allocationInput]);
+
   const allocationForWaterfall = useMemo(() => {
     if (!allocationInput) return null;
     return { ...allocationInput, selectedTeamCapIds };
@@ -2046,6 +2051,7 @@ export default function Dashboard() {
             clientId={String(templateDeal?.client_id || access?.clientId || '')}
             transactionId={templateDeal?.id || dealId || ''}
             allocations={dealResult.allocationLines || []}
+            teamCapRecipients={teamCapRecipients}
             deal={templateDeal}
             templateAgents={templateAgentRoster}
             primaryAgentId={primaryAgentId}

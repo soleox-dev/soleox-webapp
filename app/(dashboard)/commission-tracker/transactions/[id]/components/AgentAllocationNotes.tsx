@@ -69,6 +69,15 @@ export function teamCapGroups(allocations: AgentAllocationLine[]): TeamCapGroup[
   return [...groups.values()];
 }
 
+/** What a team cap's recipient receives on this deal: the payments every other agent makes into that cap. */
+export function TeamCapReceived({ amount }: { amount: number }) {
+  return (
+    <span className="inline-flex w-[6.5rem] justify-end pr-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
+      +{money.format(amount)}
+    </span>
+  );
+}
+
 export function TeamCapAmount({
   line,
   isEditing,
@@ -102,7 +111,7 @@ export function TeamCapAmount({
         {/* "edited" goes before the amount, so the amount keeps the split amounts' right edge above it. */}
         <span className="inline-flex items-baseline justify-end gap-1">
           {edited ? <span className={`text-2xs font-bold ${editedTone}`}>Edited</span> : null}
-          <span className={`text-xs font-semibold ${amountTone}`}>{money.format(amount)}</span>
+          <span className={`text-xs font-semibold ${amountTone}`}>{amount > 0.004 ? `-${money.format(amount)}` : money.format(amount)}</span>
         </span>
         {standingNote}
       </span>
@@ -135,9 +144,9 @@ export function TeamCapAmount({
           filled
           onKeyDown={(event) => { if (event.key === '-') event.preventDefault(); }}
           placeholder="0.00"
-          className={`h-7 w-full border-0 bg-transparent pl-5 pr-2 text-right text-xs font-semibold focus:outline-none ${exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}
+          className={`h-7 w-full border-0 bg-transparent pl-7 pr-2 text-right text-xs font-semibold focus:outline-none ${exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}
         />
-        <span aria-hidden className={`pointer-events-none absolute inset-y-0 left-1.5 flex items-center text-xs font-semibold ${exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'}`}>$</span>
+        <span aria-hidden className={`pointer-events-none absolute inset-y-0 left-1.5 flex items-center text-xs font-semibold ${exceeded ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'}`}>-$</span>
       </span>
     </span>
     {standingNote}

@@ -111,6 +111,7 @@ interface CommissionWaterfallProps {
   resetClearsPayments?: boolean;
   submissionRevision?: number;
   allocations?: AgentAllocationLine[];
+  teamCapRecipients?: Record<string, string>;
   onTeamCapAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
   onRemoveTeamCap?: (teamCapId: string) => void;
   agentCapCells?: Record<string, Record<string, AgentCapCell>>;
@@ -238,6 +239,7 @@ export function CommissionWaterfall({
   resetClearsPayments = false,
   submissionRevision = 0,
   allocations = [],
+  teamCapRecipients,
   onTeamCapAmountChange,
   onRemoveTeamCap,
   agentCapCells = {},
@@ -1008,6 +1010,7 @@ export function CommissionWaterfall({
             onAddLevel2Cell={(agentName, entity) => handleAddPostSplitCell(agentName, entity, 2)}
             onDraftDirty={setTableDraftDirty}
             allocations={allocations}
+            teamCapRecipients={teamCapRecipients}
             onTeamCapAmountChange={onTeamCapAmountChange}
             onRemoveTeamCap={onRemoveTeamCap}
             agentCapNote={agentCapNote}

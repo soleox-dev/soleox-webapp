@@ -7,7 +7,7 @@ import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { toPercentPoints } from '@/lib/percent';
 import { orderPostSplitNames } from '@/lib/post-split-order';
-import { AgentAllocationNotes, TeamCapAmount, adjustedSplitView, teamCapGroups, type AgentAllocationLine } from './AgentAllocationNotes';
+import { AgentAllocationNotes, TeamCapAmount, TeamCapReceived, adjustedSplitView, teamCapGroups, type AgentAllocationLine } from './AgentAllocationNotes';
 import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
 
 /** A waterfall stage's heading: larger than the rows, with a short money-green bar in front. */
@@ -45,6 +45,8 @@ interface CommissionWaterfallTableProps {
   onAddLevel2Cell: (agentName: string, entity: string) => void;
   onDraftDirty?: (dirty: boolean) => void;
   allocations?: AgentAllocationLine[];
+  /** Each team cap's id and the agent it pays, so the cap rows can show what that agent receives. */
+  teamCapRecipients?: Record<string, string>;
   onTeamCapAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
   onRemoveTeamCap?: (teamCapId: string) => void;
   agentCapNote?: (agentId: string, agentName: string, entity: string) => React.ReactNode;
@@ -153,6 +155,7 @@ export function CommissionWaterfallTable({
   onAddLevel2Cell,
   onDraftDirty,
   allocations = [],
+  teamCapRecipients = {},
   onTeamCapAmountChange,
   onRemoveTeamCap,
   agentCapNote,
@@ -200,6 +203,23 @@ export function CommissionWaterfallTable({
   const level1Pill = `${levelPill} border-yellow-600/40 bg-yellow-400/25 text-yellow-900 dark:border-yellow-300/50 dark:bg-yellow-400/15 dark:text-yellow-200`;
   const level2Pill = `${levelPill} border-slate-400/60 bg-slate-300/50 text-slate-600 dark:border-slate-300/45 dark:bg-slate-400/20 dark:text-slate-200`;
   // Grey until hovered: there is one per cell, and red is kept for problems.
+  const capGroups = teamCapGroups(allocations);
+  const capRecipient = (group: { lines: AgentAllocationLine[] }) => {
+    const capId = group.lines.find((line) => line.team_cap_id)?.team_cap_id || '';
+    return capId ? teamCapRecipients[capId] || '' : '';
+  };
+  /** What a cap's recipient receives: every other agent's payment into that cap. */
+  const capReceived = (group: { lines: AgentAllocationLine[] }, recipientId: string) =>
+    group.lines.reduce((sum, line) => (line.agent_id === recipientId ? sum : sum + (Number(line.amount) || 0)), 0);
+  /** An agent's share before team caps: the Agent Split, plus what they pay into caps, less what caps pay them. */
+  const splitBeforeCaps = (agent: AgentConfig) => {
+    const computed = (dealResult.agentSplitItems || []).find((item: { agentId?: string; agentName?: string; amount?: number }) => item.agentId === agent.id || item.agentName === agent.name);
+    const split = Number(computed?.amount) || 0;
+    const paid = capGroups.reduce((sum, group) => sum + group.lines.reduce((inner, line) => (line.agent_id === agent.id ? inner + (Number(line.amount) || 0) : inner), 0), 0);
+    const received = capGroups.reduce((sum, group) => (capRecipient(group) === agent.id ? sum + capReceived(group, agent.id) : sum), 0);
+    return Math.round((split + paid - received) * 100) / 100;
+  };
+  const formatPercentShare = (share: number) => (share * 100).toLocaleString('en-US', { maximumFractionDigits: 3 });
   const trashButton = 'shrink-0 text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition';
 
   const confirmDraftRow = (
@@ -442,8 +462,58 @@ export function CommissionWaterfallTable({
                   );
                 })}
               </tr>
+              {/* With team caps, the agents' shares are shown before the caps first, then each cap moving money
+                  between agents, then the Agent Split that remains. These figures are only for reading the waterfall. */}
+              {capGroups.length > 0 && (
+                <tr>
+                  <td className={`${labelCell} font-semibold text-slate-700 dark:text-slate-200`}>Split Before Caps</td>
+                  {agents.map((agent) => {
+                    const before = splitBeforeCaps(agent);
+                    const pool = Number(dealResult.commissionAfterPreSplit) || 0;
+                    return (
+                      <td key={agent.id} className={agentCell}>
+                        <span className="flex items-center justify-end gap-3 pr-2 text-xs">
+                          <span className="text-slate-500 dark:text-slate-400">({pool > 0 ? formatPercentShare(before / pool) : '0'}%)</span>
+                          <span className="w-[5.5rem] text-right font-bold text-slate-700 dark:text-slate-200">{formatCurrency(before)}</span>
+                        </span>
+                      </td>
+                    );
+                  })}
+                </tr>
+              )}
+              {capGroups.map((group) => {
+                const capId = group.lines.find((line) => line.team_cap_id)?.team_cap_id || '';
+                return (
+                <tr key={group.id}>
+                  <td className="sticky left-0 z-10 border-b border-slate-200 bg-[color-mix(in_srgb,var(--color-slate-100)_55%,white)] px-3 py-2 text-left align-middle shadow-[inset_3px_0_0_var(--color-slate-300)] dark:border-slate-700 dark:bg-[color-mix(in_srgb,var(--color-slate-800)_55%,var(--color-slate-900))] dark:shadow-[inset_3px_0_0_var(--color-slate-600)]">
+                    <div className="flex items-center gap-1">
+                      {isEditing && onRemoveTeamCap && capId && (
+                        <button type="button" onClick={() => onRemoveTeamCap(capId)} className={trashButton} title={`Remove ${group.name}`} aria-label={`Remove ${group.name}`}><TrashIcon /></button>
+                      )}
+                      <span className="shrink-0 whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-2xs font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700">Team Cap</span>
+                      <span title={group.name} className="min-w-0 max-w-40 truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{group.name}</span>
+                    </div>
+                  </td>
+                  {agents.map((agent) => (
+                    <td key={agent.id} className="min-w-[14.5rem] border-b border-slate-200 bg-slate-100/55 px-2 py-2 text-center align-middle dark:border-slate-700 dark:bg-slate-800/55">
+                      <div className="flex w-full justify-end">
+                        {!group.lines.some((item) => item.agent_id === agent.id) && capRecipient(group) === agent.id ? (
+                          <TeamCapReceived amount={capReceived(group, agent.id)} />
+                        ) : (
+                          <TeamCapAmount
+                            line={group.lines.find((item) => item.agent_id === agent.id)}
+                            isEditing={isEditing}
+                            onAmountChange={onTeamCapAmountChange}
+                          />
+                        )}
+                      </div>
+                    </td>
+                  ))}
+                </tr>
+                );
+              })}
               <tr>
-                <td className={`${labelCell} font-semibold text-slate-500 dark:text-slate-400`} />
+                <td className={`${labelCell} font-semibold text-slate-700 dark:text-slate-200`}>{capGroups.length > 0 ? 'Agent Split' : null}</td>
                 {agents.map((agent, index) => {
                   const agentIsPrimary = primaryAgentId ? isPrimaryAgent(agent, primaryAgentId) : index === 0;
                   const computed = (dealResult.agentSplitItems || []).find((item: { agentId?: string; agentName?: string; percent?: number; amount?: number; overAllocated?: boolean; capAdjusted?: boolean; displayPercent?: number }) => item.agentId === agent.id || item.agentName === agent.name);
@@ -469,33 +539,6 @@ export function CommissionWaterfallTable({
                   );
                 })}
               </tr>
-              {teamCapGroups(allocations).map((group) => {
-                const capId = group.lines.find((line) => line.team_cap_id)?.team_cap_id || '';
-                return (
-                <tr key={group.id}>
-                  <td className="sticky left-0 z-10 border-b border-slate-200 bg-[color-mix(in_srgb,var(--color-slate-100)_55%,white)] px-3 py-2 text-left align-middle shadow-[inset_3px_0_0_var(--color-slate-300)] dark:border-slate-700 dark:bg-[color-mix(in_srgb,var(--color-slate-800)_55%,var(--color-slate-900))] dark:shadow-[inset_3px_0_0_var(--color-slate-600)]">
-                    <div className="flex items-center gap-1">
-                      {isEditing && onRemoveTeamCap && capId && (
-                        <button type="button" onClick={() => onRemoveTeamCap(capId)} className={trashButton} title={`Remove ${group.name}`} aria-label={`Remove ${group.name}`}><TrashIcon /></button>
-                      )}
-                      <span className="shrink-0 whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-2xs font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700">Team Cap</span>
-                      <span title={group.name} className="min-w-0 max-w-40 truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{group.name}</span>
-                    </div>
-                  </td>
-                  {agents.map((agent) => (
-                    <td key={agent.id} className="min-w-[14.5rem] border-b border-slate-200 bg-slate-100/55 px-2 py-2 text-center align-middle dark:border-slate-700 dark:bg-slate-800/55">
-                      <div className="flex w-full justify-end">
-                        <TeamCapAmount
-                          line={group.lines.find((item) => item.agent_id === agent.id)}
-                          isEditing={isEditing}
-                          onAmountChange={onTeamCapAmountChange}
-                        />
-                      </div>
-                    </td>
-                  ))}
-                </tr>
-                );
-              })}
 
               <tr>
                 <td className={`${sectionLabel} bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200`}>
