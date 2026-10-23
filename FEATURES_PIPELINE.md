@@ -34,6 +34,7 @@ Status values: Proposed, Planned, In progress, Done.
 - **Notes:**
   - Stored in `client_caps.payout_rules` (jsonb, migration 078) and `client_caps.progress_cap_id`. `recipients` and `recipient_agent_id` keep the first rule's recipients.
   - A deal uses the first rule whose condition is true or blank; a deal no rule matches pays no one.
+  - Renaming a custom field key also renames it inside payout rule conditions (migration 079), so a rule keeps matching.
   - With two or more rules, each can have a name ("Payout Rule N" when blank). It shows in Settings and in the deal's team cap hover notes, so a reviewer can see which rule paid.
   - The matching rule's recipients do not pay into the cap. Without a recorded choice, a cap applies only when every one of them is on the agent splits.
   - Cents left over by rounding go to the first recipient.
