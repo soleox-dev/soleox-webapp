@@ -168,7 +168,8 @@ export function AgentCapNote({ amount, limit, detail, share }: { amount: string;
   const fill = over ? 'bg-rose-400 dark:bg-rose-400/80' : 'bg-emerald-400 dark:bg-emerald-400/80';
   // The unfilled part of the line: a faint wash of the same colour, so its full length shows.
   const track = over ? 'bg-rose-500/15 dark:bg-rose-400/15' : 'bg-emerald-500/15 dark:bg-emerald-400/15';
-  const text = over ? 'text-rose-700/90 dark:text-rose-300/80' : 'text-emerald-800/90 dark:text-emerald-300/80';
+  // The line carries the colour; the amount stays a quiet grey, a step darker than the limit beside it.
+  const text = 'text-slate-500 dark:text-slate-400';
   useLayoutEffect(() => {
     const bar = barRef.current;
     if (!bar) return;
