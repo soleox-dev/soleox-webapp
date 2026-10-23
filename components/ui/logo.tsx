@@ -90,8 +90,9 @@ export function SoleoxLogo({
         </g>
       </svg>
 
-      {/* Styled Brand Name Typography */}
-      <span className="flex items-baseline">
+      {/* Styled Brand Name Typography. Raised 1.5px: the mostly lowercase word and the capitals after it sit low in
+          their line box, so this centers them optically on the icon and on anything beside the logo. */}
+      <span className="flex -translate-y-[1.5px] items-baseline">
         <span className={`${wordSize} ${wordClassName}`}>
           {word}
         </span>
