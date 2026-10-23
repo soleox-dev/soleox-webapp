@@ -4608,6 +4608,7 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
   statusFilter: 'all' | 'closed' | 'pending';
   onSelectStatus: (status: 'all' | 'closed' | 'pending') => void;
 }) {
+  const isPhone = !useIsDesktop();
   const formatValue = (value: number, compact = false) => (
     metric === 'volume' ? (compact ? compactMoney(value) : fullMoney(value)) : Math.round(value).toLocaleString()
   );
@@ -4623,7 +4624,9 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
   const bar = 'bg-emerald-500/70 dark:bg-emerald-400/50';
   const tableTotal = rows.reduce((sum, row) => sum + row.value, 0);
   const tablePrior = rows.reduce((sum, row) => sum + row.prior, 0);
-  const share = (value: number) => (tableTotal ? `${((value / tableTotal) * 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : '—');
+  // Phones show one decimal so the five columns fit the screen.
+  const shareDigits = isPhone ? 1 : 2;
+  const share = (value: number) => (tableTotal ? `${((value / tableTotal) * 100).toLocaleString(undefined, { minimumFractionDigits: shareDigits, maximumFractionDigits: shareDigits })}%` : '—');
   const emptyLabel = statusFilter === 'closed' ? 'closed' : statusFilter === 'pending' ? 'pending' : 'closed or pending';
   const amountLabel = valueLabel || (metric === 'volume' ? 'Sales Volume' : 'Units');
   const { sort, toggle } = useColumnSort();
@@ -4643,14 +4646,15 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
         <BoardScore tone={tone} label="Pending" amount={formatValue(pendingValue)} compactAmount={formatValue(pendingValue, true)} toneClass={pendingTone} selected={statusFilter === 'pending'} onSelect={() => onSelectStatus('pending')} />
       </div>
       <div className="report-table rounded-xl">
-      <table className="pin-col-2 w-full text-sm">
-        <thead className={`${tone === 'volume' ? 'leader-head-volume' : 'leader-head-units'} text-sm font-medium normal-case [&_th]:text-sm [&_th]:font-medium`}>
+      {/* Phones: 12px text and tighter cells so all five columns fit the screen without scrolling sideways. */}
+      <table className="pin-col-2 w-full text-sm max-md:text-xs max-md:[&_td]:px-1.5 max-md:[&_th]:px-1.5">
+        <thead className={`${tone === 'volume' ? 'leader-head-volume' : 'leader-head-units'} text-sm font-medium normal-case [&_th]:text-sm [&_th]:font-medium max-md:[&_th]:text-xs`}>
           <tr className="text-left">
-            <SortHead column="rank" label="#" sort={sort} onSort={toggle} align="right" className="w-10 px-3 py-2" />
+            <SortHead column="rank" label="#" sort={sort} onSort={toggle} align="right" className="w-10 px-3 py-2 max-md:w-7" />
             <SortHead column="label" label={rowLabel} sort={sort} onSort={toggle} className="px-2 py-2" />
             <SortHead column="value" label={amountLabel} sort={sort} onSort={toggle} className="px-2 py-2" />
             <SortHead column="delta" label="% Δ" sort={sort} onSort={toggle} align="right" className="px-2 py-2" note={`How much each ${rowLabel} is up or down compared with the same dates in the prior year. +10% means it is 10% higher than the prior year. A dash means the prior year was zero, so there is no percent to show.`} />
-            <SortHead column="share" label="% of Total" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
+            <SortHead column="share" label={isPhone ? 'Share' : '% of Total'} title="Share of the total" sort={sort} onSort={toggle} align="right" className="px-3 py-2" />
           </tr>
         </thead>
         <tbody>
@@ -4680,12 +4684,12 @@ function SourceBoard({ tone, title, metric, valueLabel, rowLabel, rows, current,
           ))}
         </tbody>
         <tfoot>
-          <tr className="border-t border-slate-200 bg-white text-sm font-bold dark:border-slate-700 dark:bg-slate-900">
+          <tr className="border-t border-slate-200 bg-white text-sm font-bold max-md:text-xs dark:border-slate-700 dark:bg-slate-900">
             <td className="px-3 py-3" />
             <td className="px-2 py-3">Grand Total</td>
             <td className="px-2 py-3 tabular-nums">{formatValue(tableTotal, metric === 'volume')}</td>
             <td className={`px-2 py-3 text-right tabular-nums ${changeClass(tableTotal, tablePrior)}`}>{signedChangePercent(tableTotal, tablePrior)}</td>
-            <td className="px-3 py-3 text-right tabular-nums">{tableTotal ? '100.00%' : '—'}</td>
+            <td className="px-3 py-3 text-right tabular-nums">{tableTotal ? (isPhone ? '100%' : '100.00%') : '—'}</td>
           </tr>
         </tfoot>
       </table>
