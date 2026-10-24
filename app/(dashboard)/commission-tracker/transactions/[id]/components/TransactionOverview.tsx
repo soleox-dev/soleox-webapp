@@ -49,6 +49,8 @@ interface TransactionOverviewProps {
   validateFieldValue: (field: FieldSetting, val: any) => { isValid: boolean; isLegacyUnmatched: boolean; isRequiredMissing?: boolean; message?: string };
   /** Key Terms as shown, for the pinned header; null when the deal has none to show. */
   onPinnedKeyTerms?: (terms: PinnedKeyTerm[] | null) => void;
+  /** A Key Term clicked in the pinned header: the Overview opens for editing and that field's control takes focus. */
+  focusField?: { key: string; nonce: number } | null;
 }
 
 /** One Key Term in the pinned header: its label and its value as the Overview shows it. */
@@ -122,6 +124,7 @@ export function TransactionOverview({
   preventMinus,
   validateFieldValue,
   onPinnedKeyTerms,
+  focusField,
 }: TransactionOverviewProps) {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
@@ -225,6 +228,69 @@ export function TransactionOverview({
   }, [pinnedKey, onPinnedKeyTerms]);
   useEffect(() => () => onPinnedKeyTerms?.(null), [onPinnedKeyTerms]);
 
+  // A Key Term clicked in the pinned header: start editing like the pencil, then, once the inputs are drawn, bring
+  // that field in under the pinned header, focus its control, and flash the line.
+  const sectionRef = useRef<HTMLElement>(null);
+  const pendingFocusRef = useRef<string | null>(null);
+  const handledFocusRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!focusField || !canWrite || handledFocusRef.current === focusField.nonce) return;
+    handledFocusRef.current = focusField.nonce;
+    pendingFocusRef.current = focusField.key;
+    if (!isEditing) onStartEdit();
+  }, [focusField, canWrite, isEditing, onStartEdit]);
+  useEffect(() => {
+    const key = pendingFocusRef.current;
+    if (!key || !isEditing) return;
+    // Effects run after the commit, so the edit inputs are already in the page.
+    pendingFocusRef.current = null;
+    const line = sectionRef.current?.querySelector<HTMLElement>(`[data-field-key="${CSS.escape(key)}"]`);
+    if (!line) return;
+    // Land just under the pinned strip, as the section jumps do (page.tsx scrollToSection): the top bar shows again
+    // while scrolling up, so leave room for it then.
+    const stripBottom = document.getElementById('transaction-detail-header')?.getBoundingClientRect().bottom ?? 0;
+    const rect = line.getBoundingClientRect();
+    if (rect.top < stripBottom + 12 || rect.bottom > window.innerHeight - 24) {
+      const goingUp = rect.top < stripBottom;
+      const barHidden = document.documentElement.style.getPropertyValue('--app-nav-offset').trim() === '0px';
+      const barRoom = goingUp && barHidden ? (document.querySelector('header')?.offsetHeight ?? 64) : 0;
+      window.scrollTo({ top: Math.max(0, window.scrollY + rect.top - stripBottom - barRoom - 12), behavior: 'smooth' });
+    }
+    const control = line.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled]), textarea:not([disabled])');
+    control?.focus({ preventScroll: true });
+    if (control instanceof HTMLInputElement && control.type === 'text') control.select();
+    line.classList.remove('field-flash');
+    void line.offsetWidth;
+    line.classList.add('field-flash');
+    const endFlash = (event: AnimationEvent) => {
+      if (event.target !== line) return;
+      line.classList.remove('field-flash');
+      line.removeEventListener('animationend', endFlash);
+    };
+    line.addEventListener('animationend', endFlash);
+  }, [isEditing, focusField]);
+
+  // Enter applies the Overview's changes (useSectionEditKeys). In a dropdown the same Enter first picks the
+  // highlighted choice, which lands on the next render, so apply once it has.
+  const applyAfterChoiceRef = useRef(false);
+  const onSectionKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    const target = event.target;
+    if (
+      isEditing && event.key === 'Enter' && !event.shiftKey && event.defaultPrevented
+      && target instanceof HTMLElement && target.getAttribute('role') === 'combobox'
+    ) {
+      applyAfterChoiceRef.current = true;
+      window.setTimeout(() => { applyAfterChoiceRef.current = false; }, 0);
+      return;
+    }
+    editKeys.onKeyDown(event);
+  };
+  useEffect(() => {
+    if (!applyAfterChoiceRef.current) return;
+    applyAfterChoiceRef.current = false;
+    if (isEditing && hasChanges) onApplyEdit();
+  }, [overviewFormValues, isEditing, hasChanges, onApplyEdit]);
+
   const renderSection = (sectionName: string, fields: FieldSetting[]) => {
             const visibleFields = visibleFieldsOf(fields);
 
@@ -286,7 +352,19 @@ export function TransactionOverview({
 
                     if (isBoolean) {
                       return (
-                        <div key={field.id} className="group/field relative underline-field parameter-line flex min-h-7 flex-wrap items-center gap-x-3 rounded-md border-b border-b-slate-200 py-0.5 pl-2.5 pr-2 dark:border-b-slate-700/70">
+                        <div
+                          key={field.id}
+                          data-field-key={field.key}
+                          // Y or N sets a flag from the keyboard, like Space toggles it; Enter then applies.
+                          onKeyDown={(event) => {
+                            if (!isEditing || isInputDisabled || event.metaKey || event.ctrlKey || event.altKey) return;
+                            const key = event.key.toLowerCase();
+                            if (key !== 'y' && key !== 'n') return;
+                            event.preventDefault();
+                            handleOverviewInputChange(field.key, key === 'y');
+                          }}
+                          className={`group/field relative underline-field parameter-line flex min-h-7 flex-wrap items-center gap-x-3 rounded-md border-b border-b-slate-200 py-0.5 pl-2.5 pr-2 focus-within:border-b-brand-500 dark:border-b-slate-700/70`}
+                        >
                           <span className={`min-w-0 flex-1 truncate text-xs leading-4 ${labelTone}`}>
                             {field.label}
                             {field.is_required && <span className="text-rose-500" title="Required field">*</span>}
@@ -413,6 +491,7 @@ export function TransactionOverview({
                     return (
                       <div
                         key={field.id}
+                        data-field-key={field.key}
                         className={`group/field relative underline-field parameter-line flex flex-wrap items-start gap-x-3 rounded-md border-b py-1 pl-2.5 pr-2 transition-colors ${
                           showError ? 'border-b-rose-500' : showWarning ? 'border-b-amber-500' : 'border-b-slate-200 dark:border-b-slate-700/70 focus-within:border-b-brand-500'
                         } ${isInputDisabled && isEditing ? 'opacity-70' : ''}`}
@@ -476,7 +555,7 @@ export function TransactionOverview({
   };
 
   return (
-    <section id="overview" onKeyDown={editKeys.onKeyDown} className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height))] transition-colors ${SECTION_SHELL_PHONE}`}>
+    <section ref={sectionRef} id="overview" onKeyDown={onSectionKeyDown} className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height))] transition-colors ${SECTION_SHELL_PHONE}`}>
       <div
         className={`bg-slate-50 dark:bg-slate-800 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center ${SECTION_BAND_PHONE}`}
       >

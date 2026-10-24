@@ -28,6 +28,8 @@ interface HeaderCardProps {
   children?: React.ReactNode;
   /** Key Terms to show under the bar, once their table has scrolled out of view. */
   keyTerms?: { key: string; label: string; value: string; currency: boolean; empty: boolean }[] | null;
+  /** Opens a Key Term's field in the Overview for editing. Left out for read-only users: the terms then only go back to the Overview. */
+  onEditKeyTerm?: (key: string) => void;
 }
 
 /** Status colors: waiting is amber, open is the brand sky, done is emerald, and stopped is rose. */
@@ -74,7 +76,7 @@ function IdChip({ id }: { id: string }) {
  * once their table is out of view. The page measures the pinned strip (#transaction-detail-header) to place
  * content and section jumps under it.
  */
-export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDelete, hasUnsavedChanges = false, saveBlocked = false, saveBlockedReason, onHeightChange, deal, onBack, backLabel = 'Transactions', sections, activeSection = 'overview', onSelectSection, children, keyTerms }: HeaderCardProps) {
+export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDelete, hasUnsavedChanges = false, saveBlocked = false, saveBlockedReason, onHeightChange, deal, onBack, backLabel = 'Transactions', sections, activeSection = 'overview', onSelectSection, children, keyTerms, onEditKeyTerm }: HeaderCardProps) {
   // Measured here, on this card's own element, so the height stays right when the card remounts.
   const stripRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -229,31 +231,56 @@ export function HeaderCard({ isNewTransaction, isSaving, onSave, onDiscard, onDe
               {actions}
             </div>
 
-          {/* Key Terms ride along on one line once their table is out of view; they scroll sideways when there are many.
-              Clicking goes back to them in the Overview, where they are edited. */}
-          {keyTerms && keyTerms.length > 0 && (
-            <button
-              type="button"
-              onClick={() => onSelectSection?.('overview')}
-              title="Go to Key Terms"
-              className="mt-1 flex w-full cursor-pointer items-baseline gap-x-5 overflow-x-auto whitespace-nowrap border-t border-slate-100 px-2.5 pt-1.5 pb-0.5 text-left [scrollbar-width:none] dark:border-slate-700/60"
-            >
-              {keyTerms.map((term) => (
-                <span key={term.key} className="inline-flex shrink-0 items-baseline gap-1.5">
-                  <span className="text-2xs text-slate-500 dark:text-slate-400">{term.label}</span>
-                  <span className={`text-xs font-semibold ${
-                    term.empty
-                      ? 'font-normal text-slate-400 dark:text-slate-500'
-                      : term.currency
-                      ? 'text-emerald-700 dark:text-emerald-400'
-                      : 'text-slate-900 dark:text-white'
-                  }`}>
-                    {term.value}
-                  </span>
+          {/* Key Terms ride along on one line; they scroll sideways when there are many (swiped on phones). With write
+              access each term opens its field in the Overview for editing; otherwise a click goes back to them. */}
+          {keyTerms && keyTerms.length > 0 && (() => {
+            const termBody = (term: NonNullable<typeof keyTerms>[number]) => (
+              <>
+                <span className="text-2xs text-slate-500 dark:text-slate-400">{term.label}</span>
+                <span className={`text-xs font-semibold ${
+                  term.empty
+                    ? 'font-normal text-slate-400 dark:text-slate-500'
+                    : term.currency
+                    ? 'text-emerald-700 dark:text-emerald-400'
+                    : 'text-slate-900 dark:text-white'
+                }`}>
+                  {term.value}
                 </span>
-              ))}
-            </button>
-          )}
+              </>
+            );
+            const lineClass = 'mt-1 flex w-full items-baseline overflow-x-auto whitespace-nowrap border-t border-slate-100 px-2.5 pt-1.5 pb-0.5 text-left [scrollbar-width:none] dark:border-slate-700/60';
+            if (onEditKeyTerm) {
+              return (
+                <div role="group" aria-label="Key Terms" className={`${lineClass} gap-x-1`}>
+                  {keyTerms.map((term) => (
+                    <button
+                      key={term.key}
+                      type="button"
+                      onClick={() => onEditKeyTerm(term.key)}
+                      title={`Edit ${term.label}`}
+                      className="-my-0.5 inline-flex shrink-0 cursor-pointer items-baseline gap-1.5 rounded-md px-1.5 py-0.5 transition first:-ml-1.5 hover:bg-brand-500/10 focus-visible:outline-2 focus-visible:outline-brand-500 dark:hover:bg-brand-500/15 [&:hover>span:first-child]:text-brand-700 dark:[&:hover>span:first-child]:text-brand-400"
+                    >
+                      {termBody(term)}
+                    </button>
+                  ))}
+                </div>
+              );
+            }
+            return (
+              <button
+                type="button"
+                onClick={() => onSelectSection?.('overview')}
+                title="Go to Key Terms"
+                className={`${lineClass} cursor-pointer gap-x-5`}
+              >
+                {keyTerms.map((term) => (
+                  <span key={term.key} className="inline-flex shrink-0 items-baseline gap-1.5">
+                    {termBody(term)}
+                  </span>
+                ))}
+              </button>
+            );
+          })()}
 
           {/* Why Save is locked, in words, while there is something to save. */}
           {hasUnsavedChanges && saveBlocked && saveBlockedReason && (

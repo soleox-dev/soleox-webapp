@@ -103,6 +103,8 @@ export default function Dashboard() {
   const [headerStick, setHeaderStick] = useState(144);
   // Key Terms shown in the pinned header while their table is scrolled out of view (TransactionOverview).
   const [pinnedKeyTerms, setPinnedKeyTerms] = useState<PinnedKeyTerm[] | null>(null);
+  // A Key Term clicked in the pinned header, for the Overview to open and focus. The nonce repeats a click on the same one.
+  const [keyTermFocus, setKeyTermFocus] = useState<{ key: string; nonce: number } | null>(null);
 
   const isProgrammaticScrollRef = useRef(false);
 
@@ -1765,6 +1767,7 @@ export default function Dashboard() {
         saveBlockedReason={commissionSettling ? 'The commission is still being calculated.' : saveBlockedReason}
         onHeightChange={setHeaderStick}
         keyTerms={pinnedKeyTerms}
+        onEditKeyTerm={canWriteTracker && !isNewTransaction ? (key) => setKeyTermFocus({ key, nonce: Date.now() }) : undefined}
         deal={templateDeal ? {
           address: String(templateDeal.property_address || '').trim() || undefined,
           status: String(templateDeal.transaction_status || '').trim() || undefined,
@@ -1828,6 +1831,7 @@ export default function Dashboard() {
         <div className="min-w-0 space-y-8">
           <TransactionOverview
             onPinnedKeyTerms={setPinnedKeyTerms}
+            focusField={keyTermFocus}
             isEditing={overviewForm.isEditingOverview}
             hasChanges={!overviewForm.overviewValuesUnchanged()}
             onStartEdit={() => {
