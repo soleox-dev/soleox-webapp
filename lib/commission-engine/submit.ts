@@ -125,5 +125,7 @@ export function waterfallAfterTemplate(
     preSplitRules: nextPre,
     postSplitRulesByAgent: nextPost,
     postSplit2RulesByAgent: nextPost2,
+    // The submission's adjustments replace the deal's, as its rules replace the deal's rules.
+    adjustments: applied.adjustments ?? [],
   };
 }

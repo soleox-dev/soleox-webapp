@@ -181,3 +181,40 @@ describe('template splits feeding Commission Plans', () => {
     expect(result.agents[0].lines.find((item) => item.key === 'risk_management')?.amount).toBe(51);
   });
 });
+
+describe('adjustment rules', () => {
+  const tcEntity = [...entities, { id: 'ENT_TC', name: 'TC' }];
+  const runWith = (steps: TemplateLogicStep[], parameters: Record<string, string> = {}) =>
+    applyTemplateLogic({
+      steps,
+      parameters: { team_lead: 'AGT_P', ...parameters },
+      deal: { id: 'TXN_TEST' },
+      entities: tcEntity,
+      rosterAgents: agents,
+      dealAgents: agents.slice(0, 3),
+      totalCommission: 30900,
+    });
+
+  it('a TC fee paid by the agent the parameter names becomes an After Plan adjustment', () => {
+    const applied = runWith([...splits, step({ rule_name: 'TC Fee', section: 'Post-splits', stage: 'AFTER_PLAN', payee_entity_id: 'ENT_TC', paid_by_agent_keys: ['tc_paid_by'], calculation_formula: '300' })], { tc_paid_by: 'AGT_W' });
+    expect(applied.adjustments).toEqual([
+      { id: expect.stringContaining('tpl_adj_'), name: 'TC Fee', entity: 'TC', stage: 'AFTER_PLAN', level: 1, type: 'AMOUNT', value: 300, payers: ['Winston'], divide: 'split' },
+    ]);
+    expect(applied.postSplitRulesByAgent?.Winston ?? []).toEqual([]);
+  });
+
+  it('a credit shared by every agent, after the plan, by what each has after the plan', () => {
+    const applied = runWith([...splits, step({ rule_name: 'Client Credit', section: 'Post-splits', stage: 'AFTER_PLAN', payee_entity_id: 'ENT_CREDIT', share_basis: 'after_plan', calculation_formula: '1000' })]);
+    expect(applied.adjustments?.[0]).toMatchObject({ stage: 'AFTER_PLAN', payers: [], divide: 'split', basis: 'after_plan', value: 1000 });
+  });
+
+  it('typed dollars per payer and percent adjustments', () => {
+    const typed = runWith([...splits, step({
+      rule_name: 'Client Credit', section: 'Post-splits', stage: 'BEFORE_PLAN', payee_entity_id: 'ENT_CREDIT',
+      paid_by_agent_keys: ['agent_1', 'agent_2'], paid_share_by: 'typed', paid_shares: ['300', '200'], calculation_formula: '500',
+    })]);
+    expect(typed.adjustments?.[0]).toMatchObject({ divide: 'typed', payers: ['Winston', 'Skylar'], shares: { Winston: 300, Skylar: 200 } });
+    const percent = runWith([...splits, step({ rule_name: 'Marketing', section: 'Post-splits', stage: 'AFTER_PLAN', payee_entity_id: 'ENT_CREDIT', split_type: 'PERCENT', calculation_formula: '2%' })]);
+    expect(percent.adjustments?.[0]).toMatchObject({ type: 'PERCENT', value: 0.02, payers: [] });
+  });
+});

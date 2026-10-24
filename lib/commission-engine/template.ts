@@ -13,6 +13,7 @@ import {
   type FormulaValue,
 } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { roundCurrency, roundPercentRate, type DynamicRule } from './model';
+import type { Adjustment } from './stages';
 
 export { formulaDataNeeds };
 
@@ -60,8 +61,22 @@ export interface TemplateLogicStep {
   from_agent_key?: string | null;
   /** Off-the-top or Pre-splits: the credit comes out of these agents' splits instead of off the top. */
   paid_by_agent_keys?: string[] | null;
-  /** How the Paid By agents share the credit: 'split' (default) or 'equal'. */
+  /**
+   * How the Paid By agents share the credit or adjustment: 'split' (default), 'equal', 'custom' (paid_shares are
+   * percents) or 'typed' (paid_shares are each payer's dollars).
+   */
   paid_share_by?: string | null;
+  /**
+   * Post-splits: 'BEFORE_PLAN' or 'AFTER_PLAN' makes the rule an adjustment (stages.ts) paid by paid_by_agent_keys,
+   * or by every agent when it names no agent at all. Null: a post-split for agent_key, as before.
+   */
+  stage?: string | null;
+  /** The level within the stage; null is the section's (Post-splits 1, Level 2 post-splits 2). */
+  level?: number | null;
+  /** For paid_share_by 'split': 'split', 'after_before_plan', 'after_plan' or 'at_level' (stages.ts ShareBasis). */
+  share_basis?: string | null;
+  /** For paid_share_by 'custom' or 'typed': one formula per paid_by_agent_keys entry, in the same order. */
+  paid_shares?: string[] | null;
 }
 
 /** A bonus line: dollars moved from one agent's split to another's. */
@@ -118,6 +133,8 @@ export interface AppliedTemplateRules {
   bonuses?: AppliedBonus[];
   /** Present only when the template has credits paid by chosen agents that applied. */
   agentCredits?: AppliedAgentCredit[];
+  /** Present only when the template has adjustments (post-split rules with a stage) that applied. */
+  adjustments?: Adjustment[];
 }
 
 type Bucket = 'offTheTop' | 'preSplit' | 'postSplit' | 'postSplit2' | 'agentSplit';
@@ -298,6 +315,7 @@ export function applyTemplateLogic({
   const pendingCredits: { name: string; entity: string; amount: number; payers: string[]; shareBy: 'split' | 'equal' }[] = [];
   const bonuses: AppliedBonus[] = [];
   const agentCredits: AppliedAgentCredit[] = [];
+  const adjustments: Adjustment[] = [];
 
   const ruleResults: Record<string, FormulaValue> = {};
   const suppressedKeys = new Set<string>();
@@ -694,6 +712,56 @@ export function applyTemplateLogic({
       return;
     }
 
+    const adjustmentStage = step.stage === 'BEFORE_PLAN' || step.stage === 'AFTER_PLAN' ? step.stage : null;
+    if (adjustmentStage && (bucket === 'postSplit' || bucket === 'postSplit2')) {
+      if (!entityName) throw new Error(`"${ruleName}" needs an entity.`);
+      // Paid by the named agents, or by every agent when the rule names none (no Paid By and no agent).
+      const payers = payerKeys.length
+        ? payerKeys.flatMap((key) => {
+          const result = resolve(key);
+          const name = result && result.type !== 'error' ? agentNameFrom(result) : '';
+          return name ? [name] : [];
+        })
+        : agentName ? [agentName] : [];
+      if (payerKeys.length && !payers.length) throw new Error(`"${ruleName}" is paid by agents who are not on this deal.`);
+      const divide = (['split', 'equal', 'custom', 'typed'] as const).find((option) => option === step.paid_share_by) ?? 'split';
+      const shares: Record<string, number> = {};
+      if (divide === 'custom' || divide === 'typed') {
+        payerKeys.forEach((key, index) => {
+          const source = step.paid_shares?.[index]?.trim();
+          const payer = payers[index];
+          if (!source || !payer) return;
+          shares[payer] = evaluateNumber(source, `${ruleName}: ${payer}'s share`);
+        });
+      }
+      // A percent adjustment is each payer's own rate of their stage base, known only in the waterfall: the formula
+      // gives the rate.
+      const percent = splitKind(step.split_type) === 'PERCENT';
+      let value = formulaAmount;
+      if (percent) {
+        const result = evaluateFormula(formula, resolve, rosterAgents, ledger, lookups);
+        if (!result || result.type !== 'percent') throw new Error(`"${ruleName}" is a percent adjustment, so its formula must give a percent.`);
+        value = Number(result.value) || 0;
+      }
+      if (!percent && divide !== 'typed' && value === 0) return;
+      const basis = (['split', 'after_before_plan', 'after_plan', 'at_level'] as const).find((option) => option === step.share_basis);
+      const level = Number(step.level);
+      adjustments.push({
+        id: `tpl_adj_${step.id}`,
+        name: ruleName,
+        entity: entityName,
+        stage: adjustmentStage,
+        level: Number.isInteger(level) && level >= 1 ? level : bucket === 'postSplit2' ? 2 : 1,
+        type: percent ? 'PERCENT' : 'AMOUNT',
+        value,
+        payers,
+        divide,
+        ...(basis ? { basis } : {}),
+        ...(Object.keys(shares).length ? { shares } : {}),
+      });
+      return;
+    }
+
     const splitType = splitKind(step.split_type);
     const agentPool = waterfallPool
       ? roundCurrency(waterfallPool.afterPreSplits)
@@ -786,6 +854,7 @@ export function applyTemplateLogic({
     calculations,
     ...(bonuses.length ? { bonuses } : {}),
     ...(agentCredits.length ? { agentCredits } : {}),
+    ...(adjustments.length ? { adjustments } : {}),
   };
 }
 
