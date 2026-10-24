@@ -5,6 +5,7 @@ import {
   applyPlansToWaterfall,
   loadPlanPresets,
   planLineChanges,
+  templatePaymentsChanged,
   waterfallAfterTemplate,
   waterfallFromCommissionItems,
   type CommissionEntityOption,
@@ -188,5 +189,34 @@ describe('Commission Plans in the deal waterfall', () => {
     const result = run(templateWaterfall(), null);
     expect(result.postSplitItems.some((item: { planLineKey?: string }) => item.planLineKey)).toBe(false);
     expect(result.netPayouts.Winston).toBe(26051.25);
+  });
+});
+
+describe('The payments check (purple) on a deal saved with Commission Plans', () => {
+  const savedRows = () => {
+    const first = run(templateWaterfall(), context());
+    return first.save.commissionItems.map((item: Record<string, unknown>, index: number) => ({ id: `TCI_${index}`, ...item })) as StoredCommissionItem[];
+  };
+  const check = (items: StoredCommissionItem[], plans: DealPlanContext | null) => templatePaymentsChanged({
+    deal,
+    submissions: [{ steps: slimTemplate, parameters: { team_lead: 'AGT_P' }, parameterTypes: {} }],
+    items,
+    agents: knownAgents,
+    entities: knownEntities,
+    overviewFields: [],
+    plans,
+  });
+
+  it('with the plans, an unchanged deal is not flagged', () => {
+    expect(check(savedRows(), context())).toBe(false);
+  });
+
+  it('without the plans the saved plan lines look like a change (the old check)', () => {
+    expect(check(savedRows(), null)).toBe(true);
+  });
+
+  it('a plan edited since the save is flagged', () => {
+    const raised = { ...context(), agents: Object.fromEntries(Object.entries(context().agents).map(([id, agent]) => [id, { ...agent, plan: { ...agent.plan, lines: agent.plan.lines.map((line) => (line.key === 'broker_review' ? { ...line, amount: 50 } : line)) } }])) };
+    expect(check(savedRows(), raised)).toBe(true);
   });
 });

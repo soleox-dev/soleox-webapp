@@ -4,7 +4,9 @@ import { isPrimaryAgent } from '@/lib/commission-engine/stored-lines';
 import { HoverNote } from './HoverNote';
 import { SplitPair } from './SplitPair';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
+import { RotateCcw } from 'lucide-react';
 import { TrashIcon } from '@/components/ui/trash-icon';
+import { REVEAL_DELETE_CLASS } from './useRevealDelete';
 import { toPercentPoints } from '@/lib/percent';
 import { orderPostSplitNames } from '@/lib/post-split-order';
 import { AgentAllocationNotes, TeamCapAmount, TeamCapReceived, adjustedSplitView, teamCapGroups, teamCapReceived, teamCapReceivedNote, type AgentAllocationLine } from './AgentAllocationNotes';
@@ -33,6 +35,8 @@ interface CommissionWaterfallTableProps {
   onToggleAgentSplitType: (id: string) => void;
   onSplitValueChange: (id: string, val: number) => void;
   onDeleteAgentPostSplitRule: (agentName: string, ruleId: string) => void;
+  /** Charges a waived Commission Plan line again on this deal (the delete above waives one). */
+  onWaivePlanLine?: (lineKey: string, waived: boolean) => void;
   onToggleAgentPostSplitType: (agentName: string, ruleId: string) => void;
   onUpdateAgentPostSplitValue: (agentName: string, ruleId: string, val: number) => void;
   onUpdateAgentPostSplitEntity?: (agentName: string, ruleId: string, entity: string) => void;
@@ -51,6 +55,41 @@ interface CommissionWaterfallTableProps {
   onTeamCapAmountChange?: (agentId: string, teamCapId: string, amount: number | null) => void;
   onRemoveTeamCap?: (teamCapId: string) => void;
   agentCapNote?: (agentId: string, agentName: string, entity: string) => React.ReactNode;
+}
+
+const PLAN_CHIPS = {
+  plan: {
+    text: 'Plan',
+    note: "Calculated by the agent's Commission Plan, not the template.",
+    tone: 'bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-400/40',
+  },
+  edited: {
+    text: 'Edited',
+    note: 'Typed on this deal; it replaces what the Commission Plan calculates, and later plan lines follow it.',
+    tone: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40',
+  },
+  waived: {
+    text: 'Waived',
+    note: 'Waived on this deal: the plan line is $0 for every agent and adds nothing to year-to-date totals.',
+    tone: 'bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-400/40',
+  },
+} as const;
+
+/** Marks a Commission Plan line: Plan where it shows the plan's amount, Edited when typed over, Waived when waived. */
+export function PlanChip({ kind }: { kind: keyof typeof PLAN_CHIPS }) {
+  const chip = PLAN_CHIPS[kind];
+  return (
+    <HoverNote label={chip.note}>
+      <span tabIndex={0} className={`shrink-0 text-2xs border px-1.5 py-0.5 rounded-full font-semibold cursor-help outline-none ${chip.tone}`}>{chip.text}</span>
+    </HoverNote>
+  );
+}
+
+/** The chip for a plan line's own amount: Waived or Edited, or none when it is the plan's amount. */
+export function planStateKind(rule: DynamicRule): 'waived' | 'edited' | null {
+  if (!rule.planLineKey) return null;
+  if (rule.planWaived) return 'waived';
+  return rule.planTyped ? 'edited' : null;
 }
 
 function entityOrder(rulesByAgent: Record<string, DynamicRule[]>, names: string[]): string[] {
@@ -143,6 +182,7 @@ export function CommissionWaterfallTable({
   onToggleAgentSplitType,
   onSplitValueChange,
   onDeleteAgentPostSplitRule,
+  onWaivePlanLine,
   onToggleAgentPostSplitType,
   onUpdateAgentPostSplitValue,
   onUpdateAgentPostSplitEntity,
@@ -197,8 +237,9 @@ export function CommissionWaterfallTable({
     );
   }, [draftLevel1, draftLevel2, newLevel1Entity, newLevel2Entity, onDraftDirty]);
 
-  const labelCell = 'sticky left-0 z-10 bg-white dark:bg-slate-900 px-3 py-2 text-left align-middle border-b border-slate-200 dark:border-slate-700';
-  const agentCell = 'px-2 py-2 text-center align-middle border-b border-slate-200 dark:border-slate-700 min-w-[14.5rem]';
+  // `group/cell`: a cell's delete button shows while the pointer is on that cell (see trashButton).
+  const labelCell = 'group/cell sticky left-0 z-10 bg-white dark:bg-slate-900 px-3 py-2 text-left align-middle border-b border-slate-200 dark:border-slate-700';
+  const agentCell = 'group/cell px-2 py-2 text-center align-middle border-b border-slate-200 dark:border-slate-700 min-w-[14.5rem]';
   const sectionLabel = 'sticky left-0 z-10 px-3 py-2 text-left text-xs font-bold whitespace-nowrap border-b border-slate-200 dark:border-slate-700';
   const levelPill = 'inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-bold tracking-normal';
   const level1Pill = `${levelPill} border-yellow-600/40 bg-yellow-400/25 text-yellow-900 dark:border-yellow-300/50 dark:bg-yellow-400/15 dark:text-yellow-200`;
@@ -233,7 +274,9 @@ export function CommissionWaterfallTable({
     return pays || Math.abs(splitBeforeCaps(agent)) >= 0.005 ? line : undefined;
   };
   const formatPercentShare = (share: number) => (share * 100).toLocaleString('en-US', { maximumFractionDigits: 3 });
-  const trashButton = 'shrink-0 text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition';
+  // A delete button shows only on its own cell (the entity's name or that amount): on hover, or after a long press on
+  // a touch screen. So a table of post-splits is not a column of trash cans.
+  const trashButton = `${REVEAL_DELETE_CLASS} shrink-0 text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 font-bold p-0.5 rounded hover:bg-rose-500/10 cursor-pointer transition`;
 
   const confirmDraftRow = (
     entity: string,
@@ -393,14 +436,17 @@ export function CommissionWaterfallTable({
   );
 
   return (
-    <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 shadow-sm space-y-3">
+    <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 shadow-sm">
+      {/* One agent is the usual deal: one amount column. Its content stays 672px wide, so a line's name and amount
+          are not a screen apart; the card keeps its full width, lined up with the sections above. */}
+      <div className={`space-y-3 ${agents.length === 1 ? 'max-w-2xl' : ''}`}>
       <div className="flex justify-between items-center gap-3">
         <div className="flex items-center gap-2">
           <span className={WATERFALL_HEADING}>Agent Splits &amp; Post-Split Deductions</span>
         </div>
         <div className="flex items-center gap-3">
           <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? '' : 'pr-4'}`}>
-            Remaining Balance <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
+            Net to Split <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
           </span>
         </div>
       </div>
@@ -498,7 +544,7 @@ export function CommissionWaterfallTable({
                 const capId = group.lines.find((line) => line.team_cap_id)?.team_cap_id || '';
                 return (
                 <tr key={group.id}>
-                  <td className="sticky left-0 z-10 border-b border-slate-200 bg-[color-mix(in_srgb,var(--color-slate-100)_55%,white)] px-3 py-2 text-left align-middle shadow-[inset_3px_0_0_var(--color-slate-300)] dark:border-slate-700 dark:bg-[color-mix(in_srgb,var(--color-slate-800)_55%,var(--color-slate-900))] dark:shadow-[inset_3px_0_0_var(--color-slate-600)]">
+                  <td className="group/cell sticky left-0 z-10 border-b border-slate-200 bg-[color-mix(in_srgb,var(--color-slate-100)_55%,white)] px-3 py-2 text-left align-middle shadow-[inset_3px_0_0_var(--color-slate-300)] dark:border-slate-700 dark:bg-[color-mix(in_srgb,var(--color-slate-800)_55%,var(--color-slate-900))] dark:shadow-[inset_3px_0_0_var(--color-slate-600)]">
                     <div className="flex items-center gap-1">
                       {isEditing && onRemoveTeamCap && capId && (
                         <button type="button" onClick={() => onRemoveTeamCap(capId)} className={trashButton} title={`Remove ${group.name}`} aria-label={`Remove ${group.name}`}><TrashIcon /></button>
@@ -580,6 +626,7 @@ export function CommissionWaterfallTable({
                         <button type="button" onClick={() => { deleteEntityRow(entity, postSplitRulesByAgent, onDeleteAgentPostSplitRule); setDraftLevel1((prev) => prev.filter((item) => item !== entity)); }} className={trashButton} title={`Remove ${entity}`} aria-label={`Remove ${entity}`}><TrashIcon /></button>
                       )}
                       {entityField(entity, (next) => renameEntityRow(entity, next, postSplitRulesByAgent, onUpdateAgentPostSplitEntity))}
+                      {names.some((name) => rulesForEntity(postSplitRulesByAgent[name], entity).some((rule) => rule.planLineKey)) && <PlanChip kind="plan" />}
                     </div>
                   </td>
                   {agents.map((agent) => {
@@ -638,10 +685,17 @@ export function CommissionWaterfallTable({
                                   (val) => onUpdateAgentPostSplitValue(agent.name, rule.id, val),
                                   {
                                     deduction: true,
-                                    underAmount: index === rules.length - 1 ? agentCapNote?.(agent.id, agent.name, entity) : null,
-                                    beforePercent: isEditing ? (
-                                      <button type="button" onClick={() => onDeleteAgentPostSplitRule(agent.name, rule.id)} className={`${trashButton} shrink-0`} title="Delete rule" aria-label="Delete rule"><TrashIcon /></button>
+                                    underAmount: planStateKind(rule) || index === rules.length - 1 ? (
+                                      <>
+                                        {planStateKind(rule) && <PlanChip kind={planStateKind(rule)!} />}
+                                        {index === rules.length - 1 ? agentCapNote?.(agent.id, agent.name, entity) : null}
+                                      </>
                                     ) : null,
+                                    beforePercent: !isEditing ? null : rule.planWaived && rule.planLineKey && onWaivePlanLine ? (
+                                      <button type="button" onClick={() => onWaivePlanLine(rule.planLineKey!, false)} className="shrink-0 text-slate-400 hover:text-brand-600 dark:text-slate-500 dark:hover:text-brand-400 p-0.5 rounded hover:bg-brand-500/10 cursor-pointer transition" title="Charge this plan line again on this deal" aria-label="Restore plan line"><RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden /></button>
+                                    ) : (
+                                      <button type="button" onClick={() => onDeleteAgentPostSplitRule(agent.name, rule.id)} className={`${trashButton} shrink-0`} title={rule.planLineKey ? 'Waive this plan line on this deal, for every agent' : 'Delete rule'} aria-label="Delete rule"><TrashIcon /></button>
+                                    ),
                                   },
                                 )}
                               </div>
@@ -795,19 +849,21 @@ export function CommissionWaterfallTable({
                 </tr>
               )}
               <tr>
-                {/* The bottom line: what each agent receives, in green and set off by a firmer rule above. */}
-                <td className={`${labelCell} border-t border-t-slate-300 font-bold text-slate-900 dark:border-t-slate-600 dark:text-white`}>Net Payout to Agents</td>
+                {/* The bottom line, the loudest figure in the waterfall: what each agent receives, larger and in green on
+                    a faint green band, set off by a firmer rule above. */}
+                <td className={`${labelCell.replace('bg-white dark:bg-slate-900', '').replace('py-2', '')} border-t border-t-slate-300 bg-[color-mix(in_srgb,var(--color-emerald-500)_6%,white)] py-3 text-sm font-bold text-slate-900 dark:border-t-slate-600 dark:bg-[color-mix(in_srgb,var(--color-emerald-500)_8%,var(--color-slate-900))] dark:text-white`}>Net Payout to Agents</td>
                 {agents.map((agent) => {
                   const computed = (dealResult.agentSplitItems || []).find((item: { agentId?: string; agentName?: string; amount?: number }) => item.agentId === agent.id || item.agentName === agent.name);
                   const netAfterL1 = dealResult.agentNetAfterLevel1?.[agent.name] ?? computed?.amount ?? 0;
                   const payout = dealResult.netPayouts?.[agent.name] ?? netAfterL1;
-                  return <td key={agent.id} className={`${agentCell} border-t border-t-slate-300 font-bold text-emerald-600 dark:border-t-slate-600 dark:text-emerald-400`}><span className="ml-auto block w-[6.5rem] pr-2 text-right">{formatCurrency(payout)}</span></td>;
+                  return <td key={agent.id} className={`${agentCell.replace('py-2', '')} border-t border-t-slate-300 bg-emerald-500/6 py-3 text-base font-bold text-emerald-600 dark:border-t-slate-600 dark:bg-emerald-500/8 dark:text-emerald-400`}><span className="ml-auto block min-w-[6.5rem] whitespace-nowrap pr-2 text-right">{formatCurrency(payout)}</span></td>;
                 })}
               </tr>
             </tbody>
           </table>
         </div>
       )}
+      </div>
     </div>
   );
 }

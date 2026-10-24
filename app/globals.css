@@ -308,6 +308,15 @@ html.dark .report-pill-rose {
   overflow-y: auto;
 }
 
+/* Phones (mobile view): a table scrolls one way at a time, never diagonally. The browser scrolls these boxes up and
+   down only, natively; a swipe that starts sideways is taken over by TableAxisLock, which scrolls the table sideways
+   and holds the page still. Same list as TABLE_SCROLLER_SELECTOR in components/TableAxisLock.tsx. */
+@media (max-width: 767px) and (pointer: coarse) {
+  :is(.report-table, .overflow-x-auto, .overflow-x-scroll, .overflow-auto, .overflow-scroll):has(table) {
+    touch-action: pan-y pinch-zoom;
+  }
+}
+
 .report-table.report-table-fit table {
   border-collapse: separate;
   border-spacing: 0;

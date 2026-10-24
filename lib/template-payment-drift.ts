@@ -27,15 +27,27 @@ export async function loadAllocationCatalog(clientId: string): Promise<Allocatio
   return allocationCatalogFromConfig(body);
 }
 
+// Requests for the same history while one is in flight share it; nothing is kept once it settles, so a check after a
+// save always reads fresh history. The payment checks ask for every agent's history and can ask twice at once.
+const historyInFlight = new Map<string, Promise<AllocationHistoryRow[]>>();
+
 export async function loadAllocationHistory(clientId: string, agentIds: string[]): Promise<AllocationHistoryRow[]> {
   if (agentIds.length === 0) return [];
-  const response = await fetch(
-    `/api/transaction-team-caps?history=1&client_id=${encodeURIComponent(clientId)}&agent_ids=${encodeURIComponent(agentIds.join(','))}`,
-    { headers: { 'x-client-id': clientId } },
-  );
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok || body.success === false) throw new Error(body.error || 'Failed to load team cap history.');
-  return Array.isArray(body.history) ? body.history : [];
+  const url = `/api/transaction-team-caps?history=1&client_id=${encodeURIComponent(clientId)}&agent_ids=${encodeURIComponent(agentIds.join(','))}`;
+  const pending = historyInFlight.get(url);
+  if (pending) return pending;
+  const request = (async () => {
+    const response = await fetch(url, { headers: { 'x-client-id': clientId } });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body.success === false) throw new Error(body.error || 'Failed to load team cap history.');
+    return Array.isArray(body.history) ? body.history as AllocationHistoryRow[] : [];
+  })();
+  historyInFlight.set(url, request);
+  try {
+    return await request;
+  } finally {
+    historyInFlight.delete(url);
+  }
 }
 
 export async function loadAllocationOverrides(clientId: string, transactionId: string): Promise<DealAllocationContext['overrides']> {

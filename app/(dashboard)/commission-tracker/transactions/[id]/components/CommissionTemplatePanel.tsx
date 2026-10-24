@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Info, Loader2, Lock, Plus, RefreshCw, RotateCcw, Trash2, X, Zap, type LucideIcon } from 'lucide-react';
 import { evaluateFormula, formulaValueToInput, type FormulaValue } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import { normalizeAgentName } from '@/lib/id';
-import { allocationLookupTables, configuredTeamCaps, dealTeamCaps, qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection, type TeamCapRule } from '@/lib/agent-allocations';
+import { allocationLookupTables, capHasContributor, configuredTeamCaps, dealTeamCaps, qualifyingTeamCaps, readTeamCapSelection, writeTeamCapSelection, type TeamCapRule } from '@/lib/agent-allocations';
 import { dealFieldValue, formulaFieldNames, templateBoltTone, type TemplateBoltTone } from '@/lib/transaction-default-view';
 import { formatPercent } from '@/lib/fields';
 import { loadAllocationCatalog, loadAllocationLookups, loadAllocationHistory, loadAllocationOverrides } from '@/lib/template-payment-drift';
@@ -15,6 +15,7 @@ import { clearCommissionModuleCache, loadCommissionLedger, loadFormulaLookups, l
 import { applyTemplateLogic, formulaDataNeeds, templateFormulaSources, type AppliedCalculation, type AppliedTemplateRules, type TemplateLogicStep, type TemplateParameterRecord } from '@/lib/commission-engine/template';
 import { isConfiguredOrExistingField, type FormulaLedgerRow, type FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 import type { StoredCommissionItem } from '@/lib/commission-engine/stored-lines';
+import type { DealPlanContext } from '@/lib/commission-engine/plan-waterfall';
 import type { CommissionEntityOption, FieldSetting, KnownAgentInfo } from '../types';
 import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { cachedPaymentDrift, cachedSchema, cachedSubmissions, cachedTemplates, rememberPaymentDrift, rememberSchema, rememberSubmissions, rememberTemplates, type CachedSubmission } from './templateStatusCache';
@@ -959,6 +960,11 @@ export function CommissionTemplatePanel({
   pendingSubmission = null,
   submissionRevision = 0,
   embedded = false,
+  planContext = null,
+  feeShare = null,
+  waivedLines = null,
+  planChoice = null,
+  openRequest = 0,
 }: {
   clientId: string;
   transactionId: string;
@@ -979,6 +985,19 @@ export function CommissionTemplatePanel({
   /** Bumped when an unsaved template submission is discarded, so the panel reloads the stored one. */
   submissionRevision?: number;
   embedded?: boolean;
+  /** Commission Plans, when they calculate this deal; the payment check adds them as a resubmit would. */
+  planContext?: DealPlanContext | null;
+  /**
+   * The deal's Fee Share for Commission Plans, when they calculate it: shown in the popup's Commission Plans card.
+   * `value` is as typed (blank uses `defaultPercent`); submitting the popup hands the draft to onSubmit.
+   */
+  feeShare?: { value: string; defaultPercent?: number; onSubmit: (value: string) => void } | null;
+  /** The plan lines this deal waives, by key, for every agent: toggled in the same card, handed over on submit. */
+  waivedLines?: { value: string[]; onSubmit: (keys: string[]) => void } | null;
+  /** The deal keeps its saved lines though plans could calculate it: the card offers Calculate With Plans. */
+  planChoice?: { onCalculate: () => void } | null;
+  /** Bumped to open the popup on the submitted (or only) template, such as from the plans notice. */
+  openRequest?: number;
 }) {
   // The panel is keyed by transaction, so this state starts fresh for each one. It starts from
   // the session cache when it can, so the button knows the status at once, then refreshes below.
@@ -1007,6 +1026,23 @@ export function CommissionTemplatePanel({
   const [deleteError, setDeleteError] = useState('');
   const [draftTemplateId, setDraftTemplateId] = useState('');
   const [popupOpen, setPopupOpen] = useState(false);
+  // The Fee Share as edited in the popup; taken from the deal each time the popup opens.
+  const [feeShareDraft, setFeeShareDraft] = useState('');
+  const [waivedDraft, setWaivedDraft] = useState<string[]>([]);
+  useEffect(() => {
+    if (popupOpen) setFeeShareDraft(feeShare?.value ?? '');
+    if (popupOpen) setWaivedDraft(waivedLines?.value ?? []);
+    // Only on opening: later changes on the page must not overwrite what is being typed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [popupOpen]);
+  // Calculate With Plans chosen inside the open popup: the plan controls appear now, so they start from the deal.
+  const planCardShown = Boolean(feeShare);
+  useEffect(() => {
+    if (!popupOpen || !planCardShown) return;
+    setFeeShareDraft(feeShare?.value ?? '');
+    setWaivedDraft(waivedLines?.value ?? []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planCardShown]);
   const [teamCaps, setTeamCaps] = useState<TeamCapRule[]>([]);
   const [capsLoaded, setCapsLoaded] = useState(false);
   const [checkedCapIds, setCheckedCapIds] = useState<string[]>([]);
@@ -1249,6 +1285,7 @@ export function CommissionTemplatePanel({
         ledger: ledgerRows,
         lookups: lookupRows,
         allocation,
+        plans: planContext,
       });
       if (!cancelled) {
         setPaymentsWouldChange(changed);
@@ -1267,15 +1304,12 @@ export function CommissionTemplatePanel({
     return () => {
       cancelled = true;
     };
-  }, [deal, submissionReady, schemaReady, isLoadingTemplates, submittedRows, templates, fieldTypes, agents, entities, overviewFields, clientId, transactionId]);
+  }, [deal, submissionReady, schemaReady, isLoadingTemplates, submittedRows, templates, fieldTypes, agents, entities, overviewFields, clientId, transactionId, planContext]);
 
   const ledgerEntitiesKey = entities.map((entity) => `${entity.id}\t${entity.name}`).join('\n');
 
-  useEffect(() => {
-    if (!clientId || !ledgerEntitiesKey) return;
-    void loadCommissionLedger(clientId, entities).catch(() => {});
-  }, [clientId, ledgerEntitiesKey, entities]);
-
+  // Warms the caches the popup will read: lookups, and the whole-client ledger only when the submitted template's
+  // formulas sum it (SUMIFS or COUNTIFS). The ledger can run to megabytes, so a template that never reads it skips it.
   useEffect(() => {
     if (!clientId || !submittedTemplateId) return;
     let cancelled = false;
@@ -1284,6 +1318,7 @@ export function CommissionTemplatePanel({
         const bundle = await loadTemplateBundle(submittedTemplateId);
         if (cancelled) return;
         const needs = formulaDataNeeds(templateFormulaSources(bundle.steps, bundle.parameters));
+        if (needs.needsLedger && ledgerEntitiesKey) void loadCommissionLedger(clientId, entities).catch(() => {});
         if (needs.lookupTables.length > 0) await loadFormulaLookups(clientId, needs.lookupTables);
       } catch {
         // Opening the popup reports a failed load.
@@ -1292,7 +1327,7 @@ export function CommissionTemplatePanel({
     return () => {
       cancelled = true;
     };
-  }, [clientId, submittedTemplateId]);
+  }, [clientId, submittedTemplateId, ledgerEntitiesKey, entities]);
 
   useEffect(() => {
     if (!popupOpen || !draftTemplateId) {
@@ -1324,7 +1359,6 @@ export function CommissionTemplatePanel({
       } else {
         setLookups(null);
       }
-      const ledgerPromise = loadCommissionLedger(clientId, entities, { refresh: true });
       try {
         const bundle = await loadTemplateBundle(draftTemplateId, { refresh: true });
         if (cancelled) return;
@@ -1336,6 +1370,8 @@ export function CommissionTemplatePanel({
 
         const needs = formulaDataNeeds(templateFormulaSources(steps, parameterRows));
         const showCalculations = steps.some((step) => step.show_in_popup);
+        // Only a template whose shown calculations sum the ledger waits for it.
+        const ledgerPromise = showCalculations && needs.needsLedger ? loadCommissionLedger(clientId, entities, { refresh: true }) : null;
         await Promise.all([
           (async () => {
             try {
@@ -1348,7 +1384,7 @@ export function CommissionTemplatePanel({
             }
           })(),
           (async () => {
-            if (!showCalculations || !needs.needsLedger) {
+            if (!ledgerPromise) {
               if (!cancelled) setLedger([]);
               return;
             }
@@ -1385,6 +1421,18 @@ export function CommissionTemplatePanel({
     }
     return list;
   }, [agents]);
+  // The plan lines this deal's agents' plans charge, once each by key, for the Commission Plans card's waivers.
+  const planLineOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const agent of dealAgents) {
+      for (const line of planContext?.agents[agent.id]?.plan.lines || []) {
+        if (!seen.has(line.key)) seen.set(line.key, line.name);
+      }
+    }
+    // A waiver saved for a line no plan here charges any more still shows, so it can be cleared.
+    for (const key of waivedLines?.value || []) if (!seen.has(key)) seen.set(key, key);
+    return [...seen].map(([key, name]) => ({ key, name }));
+  }, [dealAgents, planContext, waivedLines?.value]);
   const [values, setValues] = useState<Record<string, string>>({});
   const liveValues = useRef<Record<string, string>>({});
   const [recalcFlash, setRecalcFlash] = useState<Record<string, number>>({});
@@ -1406,15 +1454,26 @@ export function CommissionTemplatePanel({
   }, [clientId, capLookupTables]);
   // A cap whose formula looks up another table waits for it; until then it does not qualify.
   const capLookupsReady = !capLookupTables || Boolean(capLookups);
-  const qualifyingCaps = useMemo(
-    () => qualifyingTeamCaps(teamCaps, deal, fieldTypes, capLookups),
-    [teamCaps, deal, fieldTypes, capLookups],
-  );
   // Every cap set up to pay out shows in the form. Its box starts checked when it qualifies on this deal (its
   // default); checking or unchecking it by hand makes it EDITED, and the submission applies what is checked.
   const shownCaps = useMemo(() => configuredTeamCaps(teamCaps), [teamCaps]);
   // Each cap with the recipients of the payout rule this deal matches.
   const shownDealCaps = useMemo(() => dealTeamCaps(shownCaps, deal, fieldTypes, capLookups), [shownCaps, deal, fieldTypes, capLookups]);
+  // The agents on the deal (the waterfall's, or the deal's agent before it has any), with their fields from the roster.
+  const capAgents = useMemo(() => {
+    const ids = new Set([...dealAgents.map((agent) => agent.id), String(deal?.agent_id || '')].filter(Boolean));
+    return agents.filter((agent) => ids.has(agent.id));
+  }, [dealAgents, deal?.agent_id, agents]);
+  // A cap qualifies when it passes its formula and someone on the deal pays into it: on a deal whose agents are
+  // all its recipients or have no team percent, such as a team lead's own deal, it would pay nothing.
+  const qualifyingCaps = useMemo(() => {
+    const passing = qualifyingTeamCaps(teamCaps, deal, fieldTypes, capLookups);
+    if (capAgents.length === 0) return passing;
+    return passing.filter((cap) => {
+      const dealCap = shownDealCaps.find((item) => item.id === cap.id);
+      return !dealCap || capHasContributor(dealCap, capAgents);
+    });
+  }, [teamCaps, deal, fieldTypes, capLookups, capAgents, shownDealCaps]);
   const capQualifies = useMemo(() => new Set(qualifyingCaps.map((cap) => cap.id)), [qualifyingCaps]);
   const capsAtDefault = shownCaps.every((cap) => checkedCapIds.includes(cap.id) === capQualifies.has(cap.id));
 
@@ -1740,6 +1799,8 @@ export function CommissionTemplatePanel({
       setPaymentsWouldChange(false);
       setPaymentDriftReady(true);
       onTeamCapSelection?.(teamCapIds);
+      if (feeShare) feeShare.onSubmit(feeShareDraft.trim());
+      if (waivedLines) waivedLines.onSubmit([...waivedDraft].sort());
       onApplied?.(applied, {
         id: submissionId,
         template_id: draftTemplateId,
@@ -1829,6 +1890,15 @@ export function CommissionTemplatePanel({
   };
 
   const selectedTemplate = templates.find((template) => template.id === draftTemplateId);
+
+  // Opened from elsewhere on the page (the plans notice's Edit): the submitted template, or the only one.
+  const openTemplateRef = useRef(openTemplate);
+  openTemplateRef.current = openTemplate;
+  const openTargetId = committedTemplateId || singleTemplate?.id || '';
+  useEffect(() => {
+    if (!openRequest || !openTargetId || locked) return;
+    openTemplateRef.current(openTargetId);
+  }, [openRequest]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className={embedded ? `${singleTemplate ? 'shrink-0' : 'w-56 sm:w-64'} text-xs` : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xs space-y-3 text-xs transition-colors'}>
@@ -1962,6 +2032,102 @@ export function CommissionTemplatePanel({
                     })}
                     </div>
                   </div>
+                </section>
+              )}
+              {planChoice && !feeShare && (
+                // Plans could calculate this deal, which keeps its saved lines until someone chooses them. Choosing
+                // switches the card to Fee Share and Waived Lines; nothing is kept until the deal is saved.
+                <section className="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2 text-xs text-slate-600 dark:text-slate-300">
+                    <span className="text-sm font-bold text-brand-600 dark:text-brand-400">Commission Plans</span>
+                    <span>This deal keeps the lines it was saved with. Calculate it with Commission Plans to see each agent&apos;s plan lines; nothing changes until you save.</span>
+                    <button
+                      type="button"
+                      onClick={planChoice.onCalculate}
+                      className="cursor-pointer rounded-md bg-brand-500/10 px-2 py-1 font-bold text-brand-700 hover:bg-brand-500/20 dark:text-brand-400"
+                    >
+                      Calculate With Plans
+                    </button>
+                  </div>
+                </section>
+              )}
+              {feeShare && (
+                // Commission Plans on this deal. Blue at the default, yellow once typed, like the team caps above.
+                <section className="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
+                    <span className="text-sm font-bold text-brand-600 dark:text-brand-400">Commission Plans</span>
+                    <div
+                      className={`flex items-center gap-1.5 rounded-full py-1 pl-3 pr-3 text-xs transition-colors ${feeShareDraft.trim() === ''
+                        ? 'bg-brand-500/10 dark:bg-brand-500/15'
+                        : 'bg-amber-500/15 ring-1 ring-amber-400/40 dark:bg-amber-400/12'}`}
+                    >
+                      <label htmlFor="plan-fee-share" className="font-medium text-slate-700 dark:text-slate-200">Fee Share</label>
+                      <input
+                        id="plan-fee-share"
+                        type="text"
+                        inputMode="decimal"
+                        value={feeShareDraft}
+                        placeholder={String(Number((feeShare.defaultPercent ?? 100).toFixed(4)))}
+                        onChange={(event) => setFeeShareDraft(event.target.value.replace(/[^0-9.]/g, ''))}
+                        title="Blank uses the default. Type a percent to override it on this deal."
+                        className="w-12 border-b border-slate-300 bg-transparent px-1 text-right text-xs font-semibold text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 focus:border-brand-500 dark:border-slate-600 dark:text-white"
+                      />
+                      <span className="text-slate-500 dark:text-slate-400">%</span>
+                      <span
+                        title={feeShareDraft.trim() === ''
+                          ? 'The default: 50% when the other side of this address and closing date is its own deal, less any brokerage agent referral.'
+                          : 'Typed on this deal; Use Default goes back to the default.'}
+                        className={`rounded-full px-1.5 py-px text-2xs font-bold ${feeShareDraft.trim() === ''
+                          ? 'bg-brand-500/15 text-brand-700 dark:text-brand-300'
+                          : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'}`}
+                      >
+                        {feeShareDraft.trim() === '' ? 'DEFAULT' : 'EDITED'}
+                      </span>
+                      {feeShareDraft.trim() !== '' && (
+                        <button
+                          type="button"
+                          onClick={() => setFeeShareDraft('')}
+                          className="cursor-pointer font-semibold text-brand-700 hover:underline dark:text-brand-400"
+                        >
+                          Use Default
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {waivedLines && planLineOptions.length > 0 && (
+                    // Each plan line the deal's agents are charged; a waived line is $0 for every agent on this deal.
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-2 border-t border-slate-200 px-3 py-2 text-xs dark:border-slate-700">
+                      <span
+                        className="font-medium text-slate-700 dark:text-slate-200"
+                        title="A waived line is $0 for every agent on this deal and adds nothing to year-to-date totals, such as broker review on a lease. An amount typed in the waterfall still wins."
+                      >
+                        Waived Lines
+                      </span>
+                      {planLineOptions.map((line) => {
+                        const waived = waivedDraft.includes(line.key);
+                        return (
+                          <button
+                            key={line.key}
+                            type="button"
+                            aria-pressed={waived}
+                            onClick={() => setWaivedDraft((current) => (waived ? current.filter((key) => key !== line.key) : [...current, line.key]))}
+                            title={waived ? 'Waived on this deal. Click to charge it again.' : 'Charged on this deal. Click to waive it.'}
+                            className={`flex cursor-pointer items-center gap-1.5 rounded-full py-1 pl-3 pr-2 transition-colors ${waived
+                              ? 'bg-amber-500/15 ring-1 ring-amber-400/40 dark:bg-amber-400/12'
+                              : 'bg-brand-500/10 hover:bg-brand-500/15 dark:bg-brand-500/15'}`}
+                          >
+                            <span className={`font-medium ${waived ? 'text-slate-500 line-through dark:text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}>{line.name}</span>
+                            <span className={`rounded-full px-1.5 py-px text-2xs font-bold ${waived
+                              ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                              : 'bg-brand-500/15 text-brand-700 dark:text-brand-300'}`}
+                            >
+                              {waived ? 'Waived' : 'Charged'}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </section>
               )}
               <section className="rounded-xl border border-slate-200 bg-white shadow-xs dark:border-slate-700 dark:bg-slate-800">
@@ -2144,7 +2310,7 @@ export function CommissionTemplatePanel({
                   for (const row of rows) next[row.parameter.id] = row.raw;
                   liveValues.current = next;
                   setValues(next);
-                  // Team caps go back to their default too: checked when they pass their qualifying formula.
+                  // Team caps go back to their default too: checked when they qualify (formula and someone paying in).
                   setCheckedCapIds(qualifyingCaps.map((cap) => cap.id));
                 }}
                 disabled={

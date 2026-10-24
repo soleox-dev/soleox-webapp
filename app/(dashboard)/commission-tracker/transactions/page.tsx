@@ -33,6 +33,7 @@ import {
 } from '@/lib/transaction-default-view';
 import { loadAllocationCatalog, loadAllocationLookups, loadAllocationHistory, loadAllocationOverrides } from '@/lib/template-payment-drift';
 import { templatePaymentsChanged } from '@/lib/commission-engine/drift';
+import { buildDealPlanContext, dealPlanMode, type DealPlanContext, type DealPlanIngredients } from '@/lib/commission-engine';
 import { allocationForReplay } from '@/lib/commission-engine/allocation';
 import { clearCommissionModuleCache, invalidateCommissionLedger, loadCommissionLedger, loadFormulaLookups } from '@/app/(dashboard)/commission-tracker/transactions/[id]/components/applyTemplateLogic';
 import { formulaDataNeeds, templateFormulaSources, type TemplateLogicStep } from '@/lib/commission-engine/template';
@@ -1387,12 +1388,48 @@ export default function TransactionsListPage() {
         ),
       })).filter((agent) => agent.id && agent.name);
 
-      const [ledger, lookups, catalog, history] = await Promise.all([
+      type PlanData = Omit<DealPlanIngredients, 'finished' | 'doubleEnd'> & { finishedFormula: string };
+      const [ledger, lookups, catalog, history, planData] = await Promise.all([
         needs.needsLedger ? loadCommissionLedger(clientId, entities).catch(() => []) : Promise.resolve([]),
         needs.lookupTables.length > 0 ? loadFormulaLookups(clientId, needs.lookupTables).catch(() => ({ clientId, tables: {} })) : Promise.resolve({ clientId, tables: {} }),
         loadAllocationCatalog(clientId).catch(() => ({ teamCaps: [], salesVolume: null })),
         loadAllocationHistory(clientId, agents.map((agent) => agent.id)).catch(() => []),
+        // The client's Commission Plans, once for the whole list. Without them the check runs as before plans.
+        fetch('/api/commission-plans/deal-context', fetchOptions)
+          .then(async (response) => {
+            const body = await response.json().catch(() => ({}));
+            return response.ok && body.success !== false ? body as PlanData : null;
+          })
+          .catch(() => null),
       ]);
+      // A deal's plans, as Transaction Detail works them out: only when plans calculate it (saved with plans, or
+      // created after the switch), never for a FINISHED deal or one still on its pre-plans lines.
+      const sideKey = (deal: Record<string, any>) => `${String(deal.property_address || '').trim().toLowerCase().replace(/\s+/g, ' ')}|${String(deal.closing_date || '').slice(0, 10)}`;
+      const sidesByPlace = new Map<string, Set<string>>();
+      for (const deal of deals) {
+        if (!deal.property_address || !deal.closing_date) continue;
+        const key = sideKey(deal);
+        const sides = sidesByPlace.get(key) || new Set<string>();
+        sides.add(String(deal.transaction_side || '').trim().toLowerCase());
+        sidesByPlace.set(key, sides);
+      }
+      const plansFor = (deal: Record<string, any>, items: StoredCommissionItem[]): DealPlanContext | null => {
+        if (!planData?.settings?.calculate_deals) return null;
+        const finished = Boolean(planData.finishedFormula) && dealMatchesDefaultView(deal, planData.finishedFormula, fieldTypes);
+        const side = String(deal.transaction_side || '').trim().toLowerCase();
+        const doubleEnd = Boolean(deal.property_address && deal.closing_date)
+          && [...(sidesByPlace.get(sideKey(deal)) || [])].some((other) => other !== side);
+        const decision = buildDealPlanContext(deal, { ...planData, finished, doubleEnd });
+        const mode = dealPlanMode({
+          decision,
+          settings: { calculate_since: planData.settings.calculate_since },
+          deal,
+          savedWithPlans: items.some((item) => Boolean((item as { plan_line_key?: string | null }).plan_line_key)),
+          planInputsChanged: false,
+          chosen: false,
+        });
+        return mode === 'saved' || mode === 'calculate' ? decision.context : null;
+      };
       if (cancelled) return;
       const allocationLookups = await loadAllocationLookups(clientId, catalog).catch(() => null);
       if (cancelled) return;
@@ -1459,6 +1496,7 @@ export default function TransactionsListPage() {
             ledger,
             lookups,
             allocation,
+            plans: plansFor(deal, items),
           });
           if (changed) drifted.add(transactionId);
           // Transaction Detail shows this on its template button right away, while it checks again.

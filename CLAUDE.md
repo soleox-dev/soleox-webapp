@@ -186,6 +186,7 @@ Detailed filter, table, and per-report requirements for Owner/Agent/Office Repor
 - Every report's top section (fixed title, picker line, date line, Updated line, controls, divider) is identical in height and placement on all reports, current and future; nothing a report or a filter adds may change it. Details: "Report header" in `report-requirements.mdc`.
 - Top navigation slides into view on hover on report pages and hides when the pointer leaves.
 - Wrap wide report tables in a `.report-table` scroll container for horizontal scrolling.
+- Every table in the app, on phones (mobile view), scrolls one axis at a time, never diagonally: a swipe that starts sideways moves only the table sideways, and one that starts up or down moves only up and down. `TableAxisLock` (`components/TableAxisLock.tsx`, mounted in the dashboard layout) and its `touch-action` rule in `app/globals.css` do this for any table inside a `.report-table`, `overflow-x-auto`, `overflow-auto`, `overflow-x-scroll`, or `overflow-scroll` box, so put new tables' sideways scroll on one of those.
 - Never set `overflow: hidden` on a table wrapper.
 - Table headers pin below the report filters while scrolling.
 - Summary and Total rows remain pinned at the bottom of report tables.
@@ -207,7 +208,25 @@ Detailed filter, table, and per-report requirements for Owner/Agent/Office Repor
 
 ---
 
-## 7. Reference Documents
+## 7. Multi-Industry Readiness (Always Apply)
+
+Soleox ships for real estate first, but the commission core (being rebuilt per `docs/commission-model-redesign.md`) must later serve other industries and subscription sales without a redesign. Build only real estate now; never make these harder. Every new or rebuilt piece of the engine, data model, or settings follows them:
+
+1. **Neutral core, real-estate surface.** The engine and data model speak in deals, participants (agents), payees, plans, adjustments, and events. Real-estate words and fields (GCI, Side, Sales Price, Closing Date, Listing/Buyer, TMS) live in client field configuration, labels, presets, and integrations, not in engine logic.
+2. **The commission base comes from configuration.** What a deal pays on (percent of price, flat amount, per unit, a payment received) is set per client or template. The engine reads the configured base and dates; it does not reach for `sales_price`, `gci_perc`, or `closing_date` directly in new code (today 14 such reads in `lib/commission-engine/`; move them behind configuration when that code is touched).
+3. **A deal can have many commission events.** A real-estate deal has one (the closing); a subscription deal has one per payment. Commission lines and payments must be able to hang off an event with its own date and amount: no unique constraints, year-to-date totals, or code paths that assume one waterfall, one date, or one set of lines per deal. Caps and year-to-date totals count by event date.
+4. **Negative amounts are real.** Refunds, cancellations, and clawbacks reverse money. The engine floors at $0 only where a business rule says so, and that rule is named in a comment (today 16 `Math.max(0, …)` in `waterfall.ts` and `plans.ts`; review each one when touched).
+5. **Plans vary by context.** Plan lines can apply on conditions over deal and event fields (Applies When), such as first year versus renewal, so rates can differ over a subscription's life.
+6. **Industry knowledge ships as presets.** eXp plans, real-estate templates, fields, and scorecards are a preset library a client copies; nothing industry-specific is hard-coded where a preset or setting can carry it.
+7. **Sources of deals are adapters.** TMS integrations (and later CRMs, billing systems like Stripe) sit behind one import interface that creates deals and events; the engine never knows which source fed it.
+8. **Money and dates format through one helper,** with the client's currency and locale (USD and en-US by default). New code does not hard-code `currency: 'USD'` (today 32 places; consolidate when touched).
+9. **Reports are a module.** Owner Reports are real-estate reports built on a neutral data layer (deals, events, lines, payments); another industry adds its own report set on the same layer.
+10. **Core nouns are centralized.** The few words a user sees for core concepts (Transaction, Agent, Template, Payee) come from one place, so an industry or client can rename them later without a code sweep.
+
+---
+
+## 8. Reference Documents
+- `docs/commission-model-redesign.md`: the approved commission model rebuild (stages, levels, adjustments, Team Caps, Commission Plans, names, every result editable). Follow it for any commission engine, template, plan, or waterfall work.
 - `.cursor/rules/*.mdc`: authoritative, detailed specs (access, dev navigation, form controls, page margins, reports, unsaved save). Sections above summarize them.
 - `ARCHITECTURE.md`: data dictionary, ID prefixes, waterfall sections (`OFF_THE_TOP`, `PRE_SPLIT`, `AGENT_SPLIT`, `POST_SPLIT`, `POST_SPLIT_L2`).
 - `FEATURES_PIPELINE.md`: feature/requirement backlog (`FR-###`). Add new entries at the bottom of the right section; move to Done when shipped.

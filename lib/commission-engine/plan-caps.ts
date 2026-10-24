@@ -4,7 +4,7 @@
  * yearly cap of its own. When both are there and differ, the agent is on a plan their record does not describe.
  * Propose Plans suggests the plan that agrees on every such line; the Plans and deal pages warn when one does not.
  */
-import type { CommissionPlan, PlanDealResult, PlanLine } from './plans';
+import { planYearToDateBefore, type CommissionPlan, type PlanAgentInput, type PlanDealResult, type PlanHistoryLine, type PlanLine } from './plans';
 
 /** An agent cap from Settings > Caps: the entity it tracks and the agent field with each agent's amount. */
 export interface AgentCapSource {
@@ -135,6 +135,40 @@ export function planCapCells(
       own[payee] = { capAmount: cap, prior: line.ytdBefore };
     }
     cells[agent.agentId] = own;
+  }
+  return cells;
+}
+
+/**
+ * The cap bars for a FINISHED deal, from saved history only: each capped plan line's cap and what the agent had paid
+ * on it in the cap year before this deal. Nothing is calculated, so the deal's saved lines stay as they are; the
+ * waterfall adds each saved line's amount to its bar. Same shape as planCapCells, for the given agents.
+ */
+export function savedPlanCapCells(
+  view: {
+    capDate: string;
+    savedAt?: string | null;
+    dealId: string;
+    agents: Record<string, Pick<PlanAgentInput, 'plan' | 'capAmounts' | 'capYearStart' | 'startingBalances'>>;
+    history: PlanHistoryLine[];
+  },
+  agentIds: string[],
+): Record<string, Record<string, PlanCapCell>> {
+  const cells: Record<string, Record<string, PlanCapCell>> = {};
+  const deal = { id: view.dealId, capDate: view.capDate, savedAt: view.savedAt ?? null };
+  for (const agentId of agentIds) {
+    const input = view.agents[agentId];
+    if (!input) continue;
+    const own: Record<string, PlanCapCell> = {};
+    for (const definition of input.plan.lines) {
+      const planCap = planLineCap(definition);
+      const cap = definition.type === 'capped_percent' ? input.capAmounts?.[definition.key] ?? planCap ?? null : planCap ?? null;
+      const payee = definition.payee.trim().toLowerCase();
+      if (own[payee]?.capAmount != null) continue;
+      const prior = planYearToDateBefore(definition.key, { id: agentId, capYearStart: input.capYearStart, startingBalances: input.startingBalances }, deal, view.history);
+      own[payee] = { capAmount: cap, prior };
+    }
+    cells[agentId] = own;
   }
   return cells;
 }

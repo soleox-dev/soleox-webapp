@@ -324,6 +324,20 @@ export function qualifyingTeamCaps<T extends TeamCapRule>(
   return configuredTeamCaps(caps).filter((cap) => qualifies(deal, cap.qualifyingFormula, fieldTypes, lookups));
 }
 
+/**
+ * Whether any of these agents pays into the cap on this deal: someone who is not a recipient of the payout rule the
+ * deal matches and has a team percent above 0 in the cap's split field. Recipients and agents off the cap pay nothing,
+ * so a cap that passes its formula on such a deal (a team lead's own deal) changes nothing.
+ */
+export function capHasContributor(cap: DealTeamCap, agents: { id: string; fields?: Record<string, string> }[]): boolean {
+  const recipientIds = new Set(cap.recipients.map((recipient) => recipient.agentId));
+  return agents.some((agent) => {
+    if (recipientIds.has(agent.id)) return false;
+    const percent = parseTeamPercent(agent.fields?.[cap.splitPercentFieldKey || '']);
+    return percent != null && percent > 0;
+  });
+}
+
 /** The lookup tables the team cap and sales volume formulas (qualifying and payout conditions) read, for loadFormulaLookups. */
 export function allocationLookupTables(
   teamCaps: { qualifyingFormula?: string | null; payoutRules?: CapPayoutRule[] }[],

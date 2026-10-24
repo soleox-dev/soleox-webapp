@@ -269,7 +269,20 @@ export interface DealPlanIngredients {
   brokerageAgentEntities: string[];
 }
 
-export type DealPlanDecision = { context: DealPlanContext | null; reason: string };
+/** What a FINISHED deal's cap bars read: the deal's place in the cap year, each agent's plan, and saved history. */
+export interface DealPlanCapView {
+  capDate: string;
+  savedAt: string | null;
+  agents: DealPlanContext['agents'];
+  history: PlanHistoryLine[];
+}
+
+export type DealPlanDecision = {
+  context: DealPlanContext | null;
+  reason: string;
+  /** Only for a FINISHED deal: enough to show its cap bars (savedPlanCapCells); nothing is calculated. */
+  capView?: DealPlanCapView;
+};
 
 /**
  * The plan context for the deal as currently edited, or why plans cannot calculate it: the switch is off, the deal
@@ -278,11 +291,12 @@ export type DealPlanDecision = { context: DealPlanContext | null; reason: string
 export function buildDealPlanContext(deal: Record<string, unknown>, ingredients: DealPlanIngredients): DealPlanDecision {
   const { settings } = ingredients;
   if (!settings.calculate_deals) return { context: null, reason: 'Commission Plans are switched off for this client.' };
-  if (ingredients.finished) return { context: null, reason: 'This deal is finished, so its saved lines stay as they are.' };
+  const finishedReason = 'This deal is finished, so its saved lines stay as they are.';
   let capDate: string;
   try {
     capDate = capDateOf(deal, settings.cap_date_field_key);
   } catch {
+    if (ingredients.finished) return { context: null, reason: finishedReason };
     return { context: null, reason: `The deal has no ${settings.cap_date_field_key} yet, so Commission Plans cannot place it in a cap year.` };
   }
 
@@ -302,13 +316,15 @@ export function buildDealPlanContext(deal: Record<string, unknown>, ingredients:
       // A plan with no version in force on the Cap Date: the agent is reported as having no plan.
     }
   }
+  const savedAt = typeof deal.created_at === 'string' ? deal.created_at : null;
+  if (ingredients.finished) return { context: null, reason: finishedReason, capView: { capDate, savedAt, agents, history: ingredients.history } };
   const typedFeeShare = readNumber(readTransactionField(deal, 'fee_share_percent'));
   const waived = readTransactionField(deal, 'waived_plan_lines');
   return {
     context: {
       active: true,
       capDate,
-      savedAt: typeof deal.created_at === 'string' ? deal.created_at : null,
+      savedAt,
       feeSharePercent: typedFeeShare,
       feeShareDefault: { doubleEnd: ingredients.doubleEnd, brokerageAgentEntities: ingredients.brokerageAgentEntities },
       waivedLines: Array.isArray(waived) ? waived.map(String) : [],

@@ -8,6 +8,7 @@ import { computeDealCommission } from './deal';
 import { resolvePrimaryAgentId, waterfallFromCommissionItems } from './stored-lines';
 import { formulaParameters, waterfallAfterTemplate } from './submit';
 import { applyTemplateLogic, type NamedParty, type TemplateLogicStep } from './template';
+import type { DealPlanContext } from './plan-waterfall';
 import { roundCurrency, type CommissionEntityOption, type EngineField, type KnownAgentInfo, type StoredCommissionItem } from './model';
 
 /** Payee name and rounded dollars. Zero amounts are omitted so an absent payee matches a $0 payee. */
@@ -98,6 +99,7 @@ export function replayedPaymentSignature({
   ledger = [],
   lookups,
   allocation = null,
+  plans = null,
 }: {
   deal: Record<string, unknown>;
   steps: TemplateLogicStep[];
@@ -111,6 +113,12 @@ export function replayedPaymentSignature({
   lookups?: FormulaLookups;
   /** Team caps, the saved checkbox, and any typed cap amount. The replay applies these the same way a resubmit does. */
   allocation?: DealAllocationContext | null;
+  /**
+   * Commission Plans, when they calculate this deal (a deal on plans: saved with them or created after the switch).
+   * The replay then adds each agent's plan lines after the template and caps, as Transaction Detail does, so a deal
+   * saved with plans compares like with like. Null leaves plans out, as for a FINISHED or pre-plans deal.
+   */
+  plans?: DealPlanContext | null;
 }): string {
   const salesPrice = Math.abs(Number(deal.sales_price) || 0);
   const gciPerc = Number(deal.gci_perc) || 0;
@@ -158,6 +166,7 @@ export function replayedPaymentSignature({
   const result = computeDealCommission({
     ...shared,
     waterfall,
+    plans,
     allocation: capsForReplay,
     template: capsForReplay ? {
       steps,

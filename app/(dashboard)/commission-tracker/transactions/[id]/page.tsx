@@ -41,7 +41,7 @@ import { transactionDealLabel, transactionSearchLabel } from '@/lib/transaction-
 import { useAccess } from '@/components/access-provider';
 import { useTemplateQualification } from './hooks/useTemplateQualification';
 import { useDealPlanContext } from './hooks/useDealPlanContext';
-import { dealPlanMode, planCapCells, planInputsKey, planLineChanges } from '@/lib/commission-engine';
+import { dealPlanMode, planCapCells, planInputsKey, planLineChanges, savedPlanCapCells } from '@/lib/commission-engine';
 import { swallowNextClick } from '@/lib/swallow-click';
 import { markReportRestore, readReportReturn, type ReportReturn } from '@/lib/report-return';
 
@@ -141,8 +141,11 @@ export default function Dashboard() {
     requestAnimationFrame(attempt);
   };
 
+  // Bumped when the Waterfall link is chosen, so a waterfall collapsed on a phone opens before the jump.
+  const [waterfallExpandRequest, setWaterfallExpandRequest] = useState(0);
   const scrollToSection = (sectionId: 'overview' | 'commission' | 'disbursements') => {
     setActiveTab(sectionId);
+    if (sectionId === 'commission') setWaterfallExpandRequest((count) => count + 1);
     isProgrammaticScrollRef.current = true;
 
     const el = document.getElementById(sectionId);
@@ -381,10 +384,15 @@ export default function Dashboard() {
     postSplitRulesByAgent: Record<string, DynamicRule[]>;
     postSplit2RulesByAgent: Record<string, DynamicRule[]>;
     teamCapIds: string[] | null;
+    waivedPlanLines: string[];
   } | null>(null);
   const [hasUnsavedLocalChanges, setHasUnsavedLocalChanges] = useState(false);
   // Calculate or Recalculate With Plans was chosen on this deal; kept only by Save, cleared by Discard.
   const [planChoice, setPlanChoice] = useState(false);
+  // The deal's typed Fee Share (transactions.fee_share_percent), as typed; blank uses the default rule.
+  const [feeShareTyped, setFeeShareTyped] = useState('');
+  // Plan lines this deal does not charge (transactions.waived_plan_lines), by line key, for every agent on the deal.
+  const [waivedPlanLines, setWaivedPlanLines] = useState<string[]>([]);
   const [waterfallResetPending, setWaterfallResetPending] = useState(false);
   const [allocatePromptOpen, setAllocatePromptOpen] = useState(false);
   const allocateAfterSaveRef = useRef<(() => void) | undefined>(undefined);
@@ -455,6 +463,7 @@ export default function Dashboard() {
       postSplitRulesByAgent: cloneWaterfallRulesByAgent(postSplitRulesByAgent),
       postSplit2RulesByAgent: cloneWaterfallRulesByAgent(postSplit2RulesByAgent),
       teamCapIds: selectedTeamCapIds ? [...selectedTeamCapIds] : null,
+      waivedPlanLines: [...waivedPlanLines],
     });
     capOverrideActions.current.setBaseline(capOverrideActions.current.current.map((row) => ({ ...row })));
     setIsEditingWaterfall(true);
@@ -469,6 +478,7 @@ export default function Dashboard() {
       setPostSplitRulesByAgent(cloneWaterfallRulesByAgent(waterfallEditSnapshot.postSplitRulesByAgent));
       setPostSplit2RulesByAgent(cloneWaterfallRulesByAgent(waterfallEditSnapshot.postSplit2RulesByAgent));
       setSelectedTeamCapIds(waterfallEditSnapshot.teamCapIds);
+      setWaivedPlanLines([...waterfallEditSnapshot.waivedPlanLines]);
     }
     if (capOverrideActions.current.baseline) capOverrideActions.current.replace(capOverrideActions.current.baseline);
     capOverrideActions.current.setBaseline(null);
@@ -485,6 +495,7 @@ export default function Dashboard() {
       preSplitRules,
       postSplitRulesByAgent,
       postSplit2RulesByAgent,
+      waivedPlanLines,
     };
     return JSON.stringify(waterfallEditSnapshot) !== JSON.stringify(currentWaterfall);
   };
@@ -868,15 +879,35 @@ export default function Dashboard() {
   );
   const templateQualifies = useTemplateQualification(selectedDeal?.client_id, qualificationDeal);
   // Commission Plans: off unless the client switched them on; never for a FINISHED deal or one before the start date.
+  const savedFeeShare = selectedDeal?.fee_share_percent == null ? '' : String(selectedDeal.fee_share_percent);
+  useEffect(() => {
+    setFeeShareTyped(savedFeeShare);
+  }, [selectedDeal?.id, savedFeeShare]);
+  const savedWaivedLines = Array.isArray(selectedDeal?.waived_plan_lines) ? [...selectedDeal.waived_plan_lines].map(String).sort().join(',') : '';
+  useEffect(() => {
+    setWaivedPlanLines(savedWaivedLines ? savedWaivedLines.split(',') : []);
+  }, [selectedDeal?.id, savedWaivedLines]);
+  const waivePlanLine = (lineKey: string, waived: boolean) => {
+    setWaivedPlanLines((current) => {
+      const next = waived ? [...new Set([...current, lineKey])] : current.filter((key) => key !== lineKey);
+      return next.sort();
+    });
+  };
+  const feeShareValue = feeShareTyped.trim() === '' || !Number.isFinite(Number(feeShareTyped))
+    ? null
+    : Math.min(100, Math.max(0, Number(feeShareTyped)));
   const planDeal = useMemo(
-    () => (selectedDeal ? { ...selectedDeal, ...(overviewForm.overviewFormValues || {}) } : null),
-    [selectedDeal, overviewForm.overviewFormValues],
+    () => (selectedDeal ? { ...selectedDeal, ...(overviewForm.overviewFormValues || {}), fee_share_percent: feeShareValue, waived_plan_lines: waivedPlanLines } : null),
+    [selectedDeal, overviewForm.overviewFormValues, feeShareValue, waivedPlanLines],
   );
+  const planAgentIds = useMemo(() => agents.map((agent) => String(agent.id || '')).filter(Boolean), [agents]);
   const dealPlans = useDealPlanContext(
-    selectedDeal?.id ? String(selectedDeal.id) : '',
+    // The id from the address, so the first request already asks for this deal's agents only.
+    selectedDeal?.id ? String(selectedDeal.id) : isNewTransaction ? '' : routeId,
     String(selectedDeal?.client_id || access?.clientId || ''),
     planDeal,
     overviewFields,
+    planAgentIds,
   );
   // No Settings action changes a saved deal: an existing deal keeps its saved lines until someone chooses plans on
   // it, and a deal saved with plans keeps its saved plan lines on every save until someone recalculates it or
@@ -887,7 +918,7 @@ export default function Dashboard() {
     capDate: dealPlans.context?.capDate ?? null,
     salesPrice: overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.sales_price) || salesPrice) : salesPrice,
     gciPercent: overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.gci_perc) || gciPerc) : gciPerc,
-    commissionFields: Object.fromEntries(['total_commission', 'gci_amount', 'gci_type'].map((key) => [key, planDeal?.[key] ?? ''])),
+    commissionFields: Object.fromEntries(['total_commission', 'gci_amount', 'gci_type', 'fee_share_percent', 'waived_plan_lines'].map((key) => [key, planDeal?.[key] ?? ''])),
     agents,
     offTheTop: offTheTopRules,
     preSplit: preSplitRules,
@@ -916,6 +947,8 @@ export default function Dashboard() {
     setPlanChoice(true);
     setHasUnsavedLocalChanges(true);
   };
+  // Fee Share is edited in the template popup's Commission Plans card; the plans notice shows it and opens the popup.
+  const [templateOpenRequest, setTemplateOpenRequest] = useState(0);
   const editedSalesPrice = overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.sales_price) || salesPrice) : salesPrice;
   const editedGciPerc = overviewForm.isEditingOverview ? (Number(overviewForm.overviewFormValues.gci_perc) || gciPerc) : gciPerc;
   const closingForPayments = overviewForm.overviewFormValues.closing_date ?? closingDate ?? null;
@@ -970,10 +1003,16 @@ export default function Dashboard() {
   ]);
   const planChanges = savedPlanCheck?.changes || [];
   // Plan lines show the plan's cap and the plan's year-to-date under them, not the bars from Settings > Caps.
+  // A FINISHED deal is not calculated, but its bars still show where each cap stood, from saved history alone.
+  const capView = dealPlans.decision.capView;
   const planBars = useMemo(() => {
     const step = dealResult.planStep || savedPlanCheck?.step;
-    return step && dealPlans.context ? planCapCells(step.plans, dealPlans.context.agents) : undefined;
-  }, [dealResult.planStep, savedPlanCheck, dealPlans.context]);
+    if (step && dealPlans.context) return planCapCells(step.plans, dealPlans.context.agents);
+    if (capView && selectedDeal?.id) {
+      return savedPlanCapCells({ ...capView, dealId: String(selectedDeal.id) }, agents.map((agent) => agent.id).filter(Boolean));
+    }
+    return undefined;
+  }, [dealResult.planStep, savedPlanCheck, dealPlans.context, capView, selectedDeal?.id, agents]);
   // Agents with a $0 split and no post-split to pay, such as a team cap recipient the cap does not pay on this deal.
   // They stay in the list while the waterfall is being edited, so a split can still be given to them.
   const idleAgentIds = new Set<string>(dealResult.idleAgentIds || []);
@@ -1224,6 +1263,8 @@ export default function Dashboard() {
       id: dealId,
       client_id: activeClientId || null,
       tms_id: form.tms_id ?? selectedDeal?.tms_id ?? null,
+      fee_share_percent: feeShareValue,
+      waived_plan_lines: waivedPlanLines.length ? waivedPlanLines : null,
       transaction_status: form.transaction_status ?? selectedDeal?.transaction_status ?? null,
       finance_status: form.finance_status ?? selectedDeal?.finance_status ?? null,
       transaction_side: form.transaction_side ?? form.client_type ?? clientType ?? null,
@@ -1522,6 +1563,8 @@ export default function Dashboard() {
     pendingNavigationRef.current = null;
     setHasUnsavedLocalChanges(false);
     setPlanChoice(false);
+    setFeeShareTyped(savedFeeShare);
+    setWaivedPlanLines(savedWaivedLines ? savedWaivedLines.split(',') : []);
     setCapOverrideBaseline(null);
     restoreLoadedOverrides();
     discardPendingTemplateSubmission();
@@ -1606,6 +1649,8 @@ export default function Dashboard() {
     pendingNavigationRef.current = null;
     setHasUnsavedLocalChanges(false);
     setPlanChoice(false);
+    setFeeShareTyped(savedFeeShare);
+    setWaivedPlanLines(savedWaivedLines ? savedWaivedLines.split(',') : []);
     setCapOverrideBaseline(null);
     restoreLoadedOverrides();
     discardPendingTemplateSubmission();
@@ -1865,11 +1910,21 @@ export default function Dashboard() {
               ) : planMode === 'off' ? (
                 <div><span className="font-semibold text-slate-800 dark:text-slate-100">Commission Plans</span> do not calculate this deal: {dealPlans.reason}</div>
               ) : planMode === 'available' ? (
+                // The choice lives in the template popup's Commission Plans card; a deal no template qualifies for
+                // cannot open the popup, so it keeps the button here.
                 <div className="flex flex-wrap items-center gap-2">
-                  <span>This deal keeps the lines it was saved with. Calculate it with Commission Plans to see each agent&apos;s plan lines; nothing changes until you save.</span>
-                  {canWriteTracker && (
+                  <span>This deal keeps the lines it was saved with.{templateQualifies === false ? ' Calculate it with Commission Plans to see each agent\'s plan lines; nothing changes until you save.' : ''}</span>
+                  {canWriteTracker && (templateQualifies === false ? (
                     <button type="button" onClick={choosePlans} className="cursor-pointer rounded-md bg-brand-500/10 px-2 py-1 font-bold text-brand-700 hover:bg-brand-500/20 dark:text-brand-400">Calculate With Plans</button>
-                  )}
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setTemplateOpenRequest((count) => count + 1)}
+                      className="cursor-pointer font-semibold text-brand-700 hover:underline dark:text-brand-400"
+                    >
+                      Calculate With Plans in Commission Template
+                    </button>
+                  ))}
                 </div>
               ) : planMode === 'saved' ? (
                 <div className="space-y-1">
@@ -1892,7 +1947,24 @@ export default function Dashboard() {
               ) : (
                 <div>
                   <span className="font-semibold text-slate-800 dark:text-slate-100">Commission Plans</span>
-                  {' '}calculate each agent&apos;s brokerage lines on this deal (Cap Date {dealPlans.context?.capDate}, Fee Share {dealResult.planStep?.plans.feeSharePercent ?? 100}%){planChoice ? '. Save to keep them.' : '.'}
+                  {' '}calculate each agent&apos;s brokerage lines on this deal (Cap Date {dealPlans.context?.capDate}){planChoice ? '. Save to keep them.' : '.'}
+                </div>
+              )}
+              {!dealPlans.error && (planMode === 'calculate' || planMode === 'saved') && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span>
+                    Fee Share {Number((feeShareValue ?? dealResult.planStep?.plans.feeSharePercent ?? savedPlanCheck?.step.plans.feeSharePercent ?? 100).toFixed(4))}%
+                    {feeShareValue === null ? ' (default)' : ' (typed on this deal)'}
+                  </span>
+                  {canWriteTracker && (
+                    <button
+                      type="button"
+                      onClick={() => setTemplateOpenRequest((count) => count + 1)}
+                      className="cursor-pointer font-semibold text-brand-700 hover:underline dark:text-brand-400"
+                    >
+                      Edit in Commission Template
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -2038,6 +2110,7 @@ export default function Dashboard() {
             }}
             postSplitRulesByAgent={postSplitRulesByAgent}
             onAddAgentPostSplitRule={(name, rule) => setPostSplitRulesByAgent((p) => ({ ...p, [name]: [...(p[name] || []), rule] }))}
+            onWaivePlanLine={waivePlanLine}
             onDeleteAgentPostSplitRule={(name, id) => setPostSplitRulesByAgent((p) => ({ ...p, [name]: (p[name] || []).filter((r) => r.id !== id) }))}
             onToggleAgentPostSplitType={(name, id) => setPostSplitRulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplitRulesByAgent, name, id, (rule) => ({ ...rule, type: rule.type === 'PERCENT' ? 'AMOUNT' : 'PERCENT' })))}
             onUpdateAgentPostSplitValue={(name, id, val) => setPostSplitRulesByAgent((p) => withRuleChange(p, dealResult.displayPostSplitRulesByAgent, name, id, (rule) => typedRule(rule, val)))}
@@ -2092,6 +2165,27 @@ export default function Dashboard() {
             onTeamCapSelection={handleTeamCapSelection}
             onStoredSubmission={rememberStoredSubmission}
             pendingTemplateSubmission={pendingTemplateSubmission}
+            templatePlanContext={planMode === 'saved' || planMode === 'calculate' ? dealPlans.context : null}
+            templateFeeShare={(planMode === 'saved' || planMode === 'calculate') && !dealPlans.error ? {
+              value: feeShareTyped,
+              defaultPercent: dealResult.planStep?.plans.feeSharePercent ?? savedPlanCheck?.step.plans.feeSharePercent,
+              onSubmit: (value) => {
+                if (value === feeShareTyped.trim()) return;
+                setFeeShareTyped(value);
+                setHasUnsavedLocalChanges(true);
+              },
+            } : null}
+            templatePlanChoice={planMode === 'available' && !dealPlans.error && canWriteTracker ? { onCalculate: choosePlans } : null}
+            templateWaivedLines={(planMode === 'saved' || planMode === 'calculate') && !dealPlans.error ? {
+              value: waivedPlanLines,
+              onSubmit: (keys) => {
+                if (keys.join(',') === waivedPlanLines.join(',')) return;
+                setWaivedPlanLines(keys);
+                setHasUnsavedLocalChanges(true);
+              },
+            } : null}
+            templateOpenRequest={templateOpenRequest}
+            expandRequest={waterfallExpandRequest}
             onResetWaterfall={handleResetWaterfall}
             resetClearsPayments={templateQualifies === false}
             submissionRevision={templateSubmissionRevision}

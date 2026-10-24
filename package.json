@@ -6,7 +6,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "NODE_OPTIONS='--max-old-space-size=12288' next dev -H 127.0.0.1 -p 3000",
-    "test": "vitest run"
+    "test": "vitest run",
+    "demo:shift": "node --env-file=.env.local scripts/shift-demo-dates.mjs"
   },
   "keywords": [],
   "author": "",

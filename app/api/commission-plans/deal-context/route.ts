@@ -11,6 +11,7 @@ import {
   type PlanTransactionRow,
 } from '@/lib/commission-engine';
 import { DEMO_FINISHED_VIEW_FORMULA, transactionViewKeyIsFinished, transactionViewsFromSettings } from '@/lib/transaction-default-view';
+import { DB_TRANSACTION_COLUMNS } from '@/lib/fields';
 
 /**
  * What the deal page needs to calculate a deal with Commission Plans (?transaction_id=): the client's plan settings
@@ -21,7 +22,10 @@ import { DEMO_FINISHED_VIEW_FORMULA, transactionViewKeyIsFinished, transactionVi
 export async function GET(request: Request) {
   try {
     const { clientId, supabase } = await requireSessionClient();
-    const transactionId = new URL(request.url).searchParams.get('transaction_id') || '';
+    const searchParams = new URL(request.url).searchParams;
+    const transactionId = searchParams.get('transaction_id') || '';
+    // Agents being added to the deal on the page, not yet saved on it: their history is read too.
+    const extraAgentIds = (searchParams.get('agent_ids') || '').split(',').map((id) => id.trim()).filter((id) => /^[A-Za-z0-9_]+$/.test(id));
 
     const [settingsResult, plansResult, versionsResult, clientResult, entitiesResult, dealResult] = await Promise.all([
       supabase.from('client_commission_plan_settings').select('*').eq('client_id', clientId).eq('archived', false).maybeSingle(),
@@ -30,7 +34,7 @@ export async function GET(request: Request) {
       supabase.from('clients').select('settings_json').eq('id', clientId).maybeSingle(),
       supabase.from('commission_entities').select('entity_name').eq('client_id', clientId).eq('is_brokerage_agent', true),
       transactionId
-        ? supabase.from('transactions').select('id, property_address, closing_date, transaction_side').eq('client_id', clientId).eq('id', transactionId).maybeSingle()
+        ? supabase.from('transactions').select('id, property_address, closing_date, transaction_side, agent_id').eq('client_id', clientId).eq('id', transactionId).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
     ]);
     for (const result of [settingsResult, plansResult, versionsResult, clientResult, entitiesResult, dealResult]) if (result.error) throw result.error;
@@ -63,19 +67,81 @@ export async function GET(request: Request) {
         .range(offset, offset + limit - 1));
     // Saved plan lines, and lines saved before plans to the entities Plan Settings maps to a plan line.
     const mappedEntities = Object.values(settings.history_entity_ids || {}).filter((id) => /^[A-Za-z0-9_]+$/.test(id));
-    const items = await fetchAllPages<PlanItemRow>((offset, limit, withCount) =>
-      supabase
+    // Only what the history reads (planHistoryFromItems): of a line's custom attributes just counts_toward_cap, and of
+    // a deal its id, first save, status, and Cap Date (a column, or inside custom_attributes). The whole rows made this
+    // slow enough to time out once a client had a year of deals.
+    type ItemRow = Omit<PlanItemRow, 'custom_attributes'> & { counts_toward_cap?: string | null };
+    const itemColumns = 'transaction_id, agent_id, plan_line_key, payee_entity_id, final_amount, archived, counts_toward_cap:custom_attributes->>counts_toward_cap';
+    const itemFilter = mappedEntities.length ? `plan_line_key.not.is.null,payee_entity_id.in.(${mappedEntities.join(',')})` : 'plan_line_key.not.is.null';
+    const capColumn = DB_TRANSACTION_COLUMNS.some((column) => column.field_key === settings.cap_date_field_key) ? settings.cap_date_field_key : null;
+    // A deal's year-to-date only reads deals in its cap year, so with a Cap Date column and a saved Cap Date only deals
+    // from two years before it on are read (room for an edited date). Otherwise every saved line is read.
+    const dealCapDate = capColumn === 'closing_date' ? String(dealResult.data?.closing_date || '').slice(0, 10) : '';
+    const windowStart = /^\d{4}-\d{2}-\d{2}$/.test(dealCapDate) ? `${Number(dealCapDate.slice(0, 4)) - 2}${dealCapDate.slice(4)}` : '';
+    // A saved deal only needs the year-to-date of its own agents: those on its saved lines, its primary agent, and any
+    // the page is adding (agent_ids). historyAgentIds tells the page whose history it got; a new deal gets everyone's.
+    let historyAgentIds: string[] | null = null;
+    if (transactionId && dealResult.data) {
+      const { data: dealLines, error: dealLinesError } = await supabase
         .from('transaction_commission_items')
-        .select('transaction_id, agent_id, plan_line_key, payee_entity_id, final_amount, archived, custom_attributes', withCount ? { count: 'exact' } : undefined)
+        .select('agent_id')
         .eq('client_id', clientId)
-        .or(mappedEntities.length ? `plan_line_key.not.is.null,payee_entity_id.in.(${mappedEntities.join(',')})` : 'plan_line_key.not.is.null')
-        .range(offset, offset + limit - 1));
+        .eq('transaction_id', transactionId)
+        .not('agent_id', 'is', null);
+      if (dealLinesError) throw dealLinesError;
+      const primary = (dealResult.data as { agent_id?: string | null }).agent_id;
+      historyAgentIds = [...new Set([
+        ...(dealLines || []).map((row) => String(row.agent_id)),
+        ...(primary && /^[A-Za-z0-9_]+$/.test(primary) ? [primary] : []),
+        ...extraAgentIds,
+      ])].sort();
+    }
+    const agentFilter = historyAgentIds ? (historyAgentIds.length ? historyAgentIds : ['__none__']) : null;
+    let itemRows: ItemRow[];
+    if (windowStart) {
+      const windowDeals = await fetchAllPages<{ id: string }>((offset, limit, withCount) =>
+        supabase
+          .from('transactions')
+          .select('id', withCount ? { count: 'exact' } : undefined)
+          .eq('client_id', clientId)
+          .gte('closing_date', windowStart)
+          .range(offset, offset + limit - 1));
+      const windowIds = windowDeals.map((row) => row.id);
+      const idBatches: string[][] = [];
+      for (let start = 0; start < windowIds.length; start += 200) idBatches.push(windowIds.slice(start, start + 200));
+      const pages = await Promise.all(idBatches.map((ids) => fetchAllPages<ItemRow>((offset, limit, withCount) => {
+        let query = supabase
+          .from('transaction_commission_items')
+          .select(itemColumns, withCount ? { count: 'exact' } : undefined)
+          .eq('client_id', clientId)
+          .in('transaction_id', ids);
+        if (agentFilter) query = query.in('agent_id', agentFilter);
+        return query.or(itemFilter).range(offset, offset + limit - 1);
+      })));
+      itemRows = pages.flat();
+    } else {
+      itemRows = await fetchAllPages<ItemRow>((offset, limit, withCount) => {
+        let query = supabase
+          .from('transaction_commission_items')
+          .select(itemColumns, withCount ? { count: 'exact' } : undefined)
+          .eq('client_id', clientId);
+        if (agentFilter) query = query.in('agent_id', agentFilter);
+        return query.or(itemFilter).range(offset, offset + limit - 1);
+      });
+    }
+    const items: PlanItemRow[] = itemRows.map(({ counts_toward_cap: countsTowardCap, ...row }) => ({
+      ...row,
+      custom_attributes: countsTowardCap ? { counts_toward_cap: countsTowardCap } : null,
+    }));
     const dealIds = [...new Set(items.map((item) => item.transaction_id))];
+    const dealColumns = ['id', 'created_at', 'transaction_status', 'closing_date', 'custom_attributes', ...(capColumn && capColumn !== 'closing_date' ? [capColumn] : [])].join(', ');
+    const batches: string[][] = [];
+    for (let start = 0; start < dealIds.length; start += 200) batches.push(dealIds.slice(start, start + 200));
+    const dealResults = await Promise.all(batches.map((ids) => supabase.from('transactions').select(dealColumns).eq('client_id', clientId).in('id', ids)));
     const deals: PlanTransactionRow[] = [];
-    for (let start = 0; start < dealIds.length; start += 200) {
-      const { data, error } = await supabase.from('transactions').select('*').eq('client_id', clientId).in('id', dealIds.slice(start, start + 200));
+    for (const { data, error } of dealResults) {
       if (error) throw error;
-      deals.push(...((data || []) as PlanTransactionRow[]));
+      deals.push(...((data || []) as unknown as PlanTransactionRow[]));
     }
 
     const views = transactionViewsFromSettings(clientResult.data?.settings_json, clientId);
@@ -105,6 +171,7 @@ export async function GET(request: Request) {
       finishedFormula: finishedView?.filterFormula || DEMO_FINISHED_VIEW_FORMULA,
       doubleEnd,
       brokerageAgentEntities: (entitiesResult.data || []).map((row) => String(row.entity_name || '')).filter(Boolean),
+      historyAgentIds,
     });
   } catch (error) {
     return apiError(error, 'The Commission Plans for this deal could not be loaded.', 'success');

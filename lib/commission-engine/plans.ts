@@ -481,6 +481,20 @@ function yearToDate(
   return { total: (fromDeals + starting) / 100, fromDeals: fromDeals / 100, starting: starting / 100 };
 }
 
+/**
+ * Paid on a line key in the agent's cap year before this deal, from saved history alone (no line is calculated).
+ * The cap bars of a FINISHED deal use it: the deal keeps its saved lines and only shows where each cap stood.
+ */
+export function planYearToDateBefore(
+  key: string,
+  agent: Pick<PlanAgentInput, 'id' | 'capYearStart' | 'startingBalances'>,
+  deal: { id: string; capDate: string; savedAt?: string | null },
+  history: PlanHistoryLine[],
+): number {
+  const capYear = agent.capYearStart ? capYearFor(deal.capDate, agent.capYearStart) : null;
+  return yearToDate(key, agent as PlanAgentInput, deal as PlanDealInput, capYear, history).total;
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // Sides
 // ---------------------------------------------------------------------------------------------------------------

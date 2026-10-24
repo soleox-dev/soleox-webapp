@@ -1,6 +1,6 @@
 // app/commission-tracker/transactions/[id]/components/CommissionWaterfall.tsx
 import React, { useEffect, useRef, useState } from 'react';
-import { Eraser, LayoutGrid, MoreHorizontal, Table2 } from 'lucide-react';
+import { Eraser, LayoutGrid, MoreHorizontal, RotateCcw, Table2 } from 'lucide-react';
 import { toPercentPoints } from '@/lib/percent';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { AgentConfig, DynamicRule, CommissionEntityOption, KnownAgentInfo } from '../types';
@@ -19,7 +19,7 @@ function withPlanLines(
     return [name, [...own.filter((rule) => rule.beforePlan), ...planLines, ...own.filter((rule) => !rule.beforePlan)]];
   }));
 }
-import { CommissionWaterfallTable, WATERFALL_HEADING } from './CommissionWaterfallTable';
+import { CommissionWaterfallTable, WATERFALL_HEADING, PlanChip, planStateKind } from './CommissionWaterfallTable';
 import { isPrimaryAgent } from '@/lib/commission-engine/stored-lines';
 import { HoverNote } from './HoverNote';
 import { SplitPair } from './SplitPair';
@@ -27,6 +27,7 @@ import { EditPencil } from '@/components/ui/edit-pencil';
 import { SectionIcon } from './SectionIcon';
 import { SECTION_BAND_PHONE, SECTION_BODY_PHONE, SECTION_SHELL_PHONE } from './sectionChrome';
 import { CancelEditPrompt } from './CancelEditPrompt';
+import { REVEAL_DELETE_CLASS, useRevealDelete } from './useRevealDelete';
 import { useEditOnDoublePress } from './useEditOnDoublePress';
 import { useSectionEditKeys } from './useSectionEditKeys';
 import { CommissionTemplatePanel, type TemplateSubmissionDraft } from './CommissionTemplatePanel';
@@ -37,9 +38,12 @@ import { AgentAllocationNotes, AgentCapNote, TeamCapAmount, TeamCapReceived, adj
 import type { TeamCapRecipient } from '@/lib/agent-allocations';
 import { formatAgentCapLine, type AgentCapCell } from '@/lib/agent-cap-progress';
 import type { PlanCapCell } from '@/lib/commission-engine/plan-caps';
+import type { DealPlanContext } from '@/lib/commission-engine/plan-waterfall';
 import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
 import { useAccess } from '@/components/access-provider';
-import { usePhonePortrait } from '@/lib/use-media-query';
+import { useIsDesktop, usePhonePortrait } from '@/lib/use-media-query';
+import { SectionCollapseButton } from './SectionCollapseButton';
+import { toggleFromSectionHeader } from './sectionHeaderClick';
 import { swallowNextClick } from '@/lib/swallow-click';
 
 interface CommissionWaterfallProps {
@@ -76,6 +80,8 @@ interface CommissionWaterfallProps {
   postSplitRulesByAgent: Record<string, DynamicRule[]>;
   onAddAgentPostSplitRule?: (agentName: string, rule: DynamicRule) => void;
   onDeleteAgentPostSplitRule: (agentName: string, ruleId: string) => void;
+  /** Waives a Commission Plan line on this deal (for every agent), or charges it again. */
+  onWaivePlanLine?: (lineKey: string, waived: boolean) => void;
   onToggleAgentPostSplitType: (agentName: string, ruleId: string) => void;
   onUpdateAgentPostSplitValue: (agentName: string, ruleId: string, val: number) => void;
   onUpdateAgentPostSplitEntity?: (agentName: string, ruleId: string, entity: string) => void;
@@ -106,6 +112,18 @@ interface CommissionWaterfallProps {
   onTeamCapSelection?: (ids: string[] | null) => void;
   onStoredSubmission?: (submission: TemplateSubmissionDraft | null) => void;
   pendingTemplateSubmission?: TemplateSubmissionDraft | null;
+  /** Commission Plans, when they calculate this deal: the template button's payment check adds them, as a resubmit would. */
+  templatePlanContext?: DealPlanContext | null;
+  /** The deal's Fee Share, edited in the template popup's Commission Plans card when plans calculate the deal. */
+  templateFeeShare?: { value: string; defaultPercent?: number; onSubmit: (value: string) => void } | null;
+  /** A deal plans could calculate but that keeps its saved lines: the card offers Calculate With Plans. */
+  templatePlanChoice?: { onCalculate: () => void } | null;
+  /** The plan lines this deal waives, by key, edited in the same card. */
+  templateWaivedLines?: { value: string[]; onSubmit: (keys: string[]) => void } | null;
+  /** Bumped to open the template popup (the plans notice's Edit). */
+  templateOpenRequest?: number;
+  /** Bumped to open the section when it is collapsed on a phone (the Waterfall section link). */
+  expandRequest?: number;
   onResetWaterfall?: () => void;
   /** Payouts for the where-the-commission-goes bar. Display only. */
   /** True when the deal qualifies for no template, so a reset leaves no agent splits and no payments. */
@@ -238,6 +256,7 @@ export function CommissionWaterfall({
   postSplitRulesByAgent,
   onAddAgentPostSplitRule,
   onDeleteAgentPostSplitRule,
+  onWaivePlanLine,
   onToggleAgentPostSplitType,
   onUpdateAgentPostSplitValue,
   onUpdateAgentPostSplitEntity,
@@ -267,6 +286,12 @@ export function CommissionWaterfall({
   onTeamCapSelection,
   onStoredSubmission,
   pendingTemplateSubmission = null,
+  templatePlanContext = null,
+  templateFeeShare = null,
+  templateWaivedLines = null,
+  templatePlanChoice = null,
+  templateOpenRequest = 0,
+  expandRequest = 0,
   onResetWaterfall,
   resetClearsPayments = false,
   submissionRevision = 0,
@@ -309,6 +334,13 @@ export function CommissionWaterfall({
   const shownPostSplitRules = !isEditing && dealResult.displayPostSplitRulesByAgent
     ? dealResult.displayPostSplitRulesByAgent
     : withPlanLines(postSplitRulesByAgent, dealResult.displayPostSplitRulesByAgent);
+  // A Commission Plan line comes back from the plan on every render, so deleting it waives it on this deal instead
+  // (for every agent); the delete still drops an amount typed over it, since a typed amount wins over a waiver.
+  const deletePostSplitRule = (agentName: string, ruleId: string) => {
+    const rule = (shownPostSplitRules[agentName] || []).find((item) => item.id === ruleId);
+    if (rule?.planLineKey && onWaivePlanLine) onWaivePlanLine(rule.planLineKey, true);
+    onDeleteAgentPostSplitRule(agentName, ruleId);
+  };
   const shownPostSplit2Rules = !isEditing && dealResult.displayPostSplit2RulesByAgent
     ? dealResult.displayPostSplit2RulesByAgent
     : postSplit2RulesByAgent;
@@ -388,6 +420,18 @@ export function CommissionWaterfall({
     (Boolean(addingPostSplitForAgent) && (newPostSplitEntity.trim() !== '' || newPostSplitNote.trim() !== '' || newPostSplitValue !== 0)) ||
     (Boolean(addingPostSplit2ForAgent) && (newPostSplit2Entity.trim() !== '' || newPostSplit2Note.trim() !== '' || newPostSplit2Value !== 0));
   const editKeys = useSectionEditKeys(isEditing, onCancelEdit, hasChanges || inlineDraftDirty || tableDraftDirty);
+  // While editing, a long press on a row or cell shows its delete button on touch screens (hover does it with a mouse).
+  const sectionRef = useRef<HTMLElement>(null);
+  useRevealDelete(sectionRef, isEditing);
+  // Phones start with the waterfall collapsed: Payments Breakdown below is the summary, and the waterfall is how
+  // it was worked out. The header (or its +) opens it, as do the Waterfall link and editing. Desktop never collapses.
+  const isDesktop = useIsDesktop();
+  const [collapsedChoice, setCollapsedChoice] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (expandRequest > 0) setCollapsedChoice(false);
+  }, [expandRequest]);
+  const collapsed = !isDesktop && !isEditing && (collapsedChoice ?? true);
+  const toggleCollapsed = () => setCollapsedChoice(!collapsed);
 
   useEffect(() => {
     if (!isEditing) {
@@ -590,14 +634,16 @@ export function CommissionWaterfall({
   const bothDeductionsEmpty = offTopEmpty && preSplitEmpty && !isEditing;
 
   return (
-    <section id="commission" onKeyDown={editKeys.onKeyDown} className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height))] transition-colors ${SECTION_SHELL_PHONE}`}>
+    <section ref={sectionRef} id="commission" onKeyDown={editKeys.onKeyDown} className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xs overflow-hidden scroll-mt-[calc(var(--app-nav-offset,4rem)+var(--txn-header-height))] transition-colors ${SECTION_SHELL_PHONE}`}>
       {/* Top Header */}
       <div
-        className={`bg-slate-50 dark:bg-slate-800 px-3 py-4 sm:px-6 border-b border-slate-200 dark:border-slate-700 flex flex-wrap justify-between items-center gap-x-3 gap-y-3 ${SECTION_BAND_PHONE}`}
+        onClick={!isDesktop && !isEditing ? (event) => toggleFromSectionHeader(event, toggleCollapsed) : undefined}
+        className={`bg-slate-50 dark:bg-slate-800 px-3 py-4 sm:px-6 ${collapsed ? 'cursor-pointer' : 'border-b'} border-slate-200 dark:border-slate-700 flex flex-wrap justify-between items-center gap-x-3 gap-y-3 ${SECTION_BAND_PHONE}`}
       >
         <div className="flex shrink-0 items-center gap-3">
           <SectionIcon name="commission" className="w-5 h-5 text-slate-600 dark:text-slate-300" />
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Commission Waterfall</h2>
+          {!isDesktop && !isEditing && <SectionCollapseButton collapsed={collapsed} onClick={toggleCollapsed} />}
         </div>
 
         {/* On a phone the buttons take their own row under the title. */}
@@ -618,6 +664,11 @@ export function CommissionWaterfall({
             onTeamCapSelection={onTeamCapSelection}
             onStoredSubmission={onStoredSubmission}
             pendingSubmission={pendingTemplateSubmission}
+            planContext={templatePlanContext}
+            feeShare={templateFeeShare}
+            waivedLines={templateWaivedLines}
+            planChoice={templatePlanChoice}
+            openRequest={templateOpenRequest}
             submissionRevision={submissionRevision}
           />
           )}
@@ -661,8 +712,8 @@ export function CommissionWaterfall({
         </div>
       </div>
 
-      {calculating && <CalculatingCommission rows={4} />}
-      <div className={`p-4 sm:p-6 space-y-6 sm:space-y-4 ${SECTION_BODY_PHONE}`} hidden={calculating} {...editOnDoublePress}>
+      {calculating && !collapsed && <CalculatingCommission rows={4} />}
+      <div className={`p-4 sm:p-6 space-y-6 sm:space-y-4 ${SECTION_BODY_PHONE}`} hidden={calculating || collapsed} {...editOnDoublePress}>
         {/* With both empty and not editing, steps 1 and 2 share one row. Editing splits them again for their + buttons. */}
         {bothDeductionsEmpty ? (
           <div className={`border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-sm px-4 py-2 ${FLAT_ON_PHONE}`}>
@@ -780,7 +831,7 @@ export function CommissionWaterfall({
                   <div
                     key={rule.id}
                     {...getDragRowProps(idx, 'offTop', onReorderOffTopRules)}
-                    className="py-2.5 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
+                    className="group/cell py-2.5 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
                   >
                     <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
                       {renderReorderControls(idx, offTheTopRules.length, onReorderOffTopRules, 'offTop')}
@@ -788,7 +839,7 @@ export function CommissionWaterfall({
                         <button
                           type="button"
                           onClick={() => onDeleteOffTopRule(rule.id)}
-                          className="text-rose-500 hover:text-rose-600 font-bold cursor-pointer transition p-0.5"
+                          className={`${REVEAL_DELETE_CLASS} text-rose-500 hover:text-rose-600 font-bold cursor-pointer transition p-0.5`}
                           title="Delete rule"
                         >
                           <TrashIcon />
@@ -870,7 +921,7 @@ export function CommissionWaterfall({
               </div>
               {/* Right-aligned like Total Commission above it: in card view its amount ends with the agent amounts. */}
               <span className={`ml-auto text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? 'pr-[13px]' : agentLayout === 'cards' ? 'pr-3 sm:pr-[25px]' : 'pr-4'}`}>
-                Remaining Balance <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterOffTop)}</strong>
+                Net After Off-the-Top <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterOffTop)}</strong>
               </span>
             </div>
 
@@ -941,7 +992,7 @@ export function CommissionWaterfall({
                   <div
                     key={rule.id}
                     {...getDragRowProps(idx, 'preSplit', onReorderPreSplitRules)}
-                    className="py-2.5 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
+                    className="group/cell py-2.5 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
                   >
                     <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
                       {renderReorderControls(idx, preSplitRules.length, onReorderPreSplitRules, 'preSplit')}
@@ -949,7 +1000,7 @@ export function CommissionWaterfall({
                         <button
                           type="button"
                           onClick={() => onDeletePreSplitRule?.(rule.id)}
-                          className="text-rose-500 hover:text-rose-600 font-bold cursor-pointer transition p-0.5"
+                          className={`${REVEAL_DELETE_CLASS} text-rose-500 hover:text-rose-600 font-bold cursor-pointer transition p-0.5`}
                           title="Delete rule"
                         >
                           <TrashIcon />
@@ -1028,7 +1079,8 @@ export function CommissionWaterfall({
             onSwitchAgent={onSwitchAgent}
             onToggleAgentSplitType={onToggleAgentSplitType}
             onSplitValueChange={onSplitValueChange}
-            onDeleteAgentPostSplitRule={onDeleteAgentPostSplitRule}
+            onDeleteAgentPostSplitRule={deletePostSplitRule}
+            onWaivePlanLine={onWaivePlanLine}
             onToggleAgentPostSplitType={onToggleAgentPostSplitType}
             onUpdateAgentPostSplitValue={onUpdateAgentPostSplitValue}
             onUpdateAgentPostSplitEntity={onUpdateAgentPostSplitEntity}
@@ -1071,7 +1123,7 @@ export function CommissionWaterfall({
             {/* Its amount ends where the agent cards' amounts end (card border, padding, and the amount inset). */}
             <div className="ml-auto flex items-center gap-3">
               <span className={`text-xs text-slate-500 dark:text-slate-400 font-medium ${isEditing ? 'pr-[13px]' : 'pr-3 sm:pr-[25px]'}`}>
-                Remaining Balance <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
+                Net to Split <strong className="text-slate-900 dark:text-white">{formatCurrency(commissionAfterPreSplit)}</strong>
               </span>
             </div>
           </div>
@@ -1419,20 +1471,30 @@ export function CommissionWaterfall({
                           <div
                             key={rule.id}
                             {...getDragRowProps(ruleIdx, `postSplit1_${agentName}`, (fromI, toI) => onReorderAgentPostSplitRules?.(agentName, fromI, toI))}
-                            className="py-2 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
+                            className="group/cell py-2 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
                           >
                             <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                               {renderReorderControls(ruleIdx, agentRules1.length, (fromI, toI) => onReorderAgentPostSplitRules?.(agentName, fromI, toI), `postSplit1_${agentName}`)}
-                              {isEditing && (
+                              {isEditing && (rule.planWaived && rule.planLineKey && onWaivePlanLine ? (
                                 <button
                                   type="button"
-                                  onClick={() => onDeleteAgentPostSplitRule(agentName, rule.id)}
-                                  className="text-rose-500 hover:text-rose-600 cursor-pointer p-0.5"
-                                  title="Delete rule"
+                                  onClick={() => onWaivePlanLine(rule.planLineKey!, false)}
+                                  className="text-slate-400 hover:text-brand-600 dark:text-slate-500 dark:hover:text-brand-400 cursor-pointer p-0.5"
+                                  title="Charge this plan line again on this deal"
+                                  aria-label="Restore plan line"
+                                >
+                                  <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => deletePostSplitRule(agentName, rule.id)}
+                                  className={`${REVEAL_DELETE_CLASS} text-rose-500 hover:text-rose-600 cursor-pointer p-0.5`}
+                                  title={rule.planLineKey ? 'Waive this plan line on this deal, for every agent' : 'Delete rule'}
                                 >
                                   <TrashIcon />
                                 </button>
-                              )}
+                              ))}
 
                               {isEditing ? (
                                 knownEntities.length > 0 ? (
@@ -1460,6 +1522,7 @@ export function CommissionWaterfall({
                                   {rule.entity || '—'}
                                 </span>
                               )}
+                              {rule.planLineKey && <PlanChip kind={planStateKind(rule) ?? 'plan'} />}
 
                             </div>
                             <SplitPair
@@ -1626,7 +1689,7 @@ export function CommissionWaterfall({
                           <div
                             key={rule.id}
                             {...getDragRowProps(ruleIdx, `postSplit2_${agentName}`, (fromI, toI) => onReorderAgentPostSplit2Rules?.(agentName, fromI, toI))}
-                            className="py-2 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
+                            className="group/cell py-2 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300"
                           >
                             <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                               {renderReorderControls(ruleIdx, agentRules2.length, (fromI, toI) => onReorderAgentPostSplit2Rules?.(agentName, fromI, toI), `postSplit2_${agentName}`)}
@@ -1634,7 +1697,7 @@ export function CommissionWaterfall({
                                 <button
                                   type="button"
                                   onClick={() => onDeleteAgentPostSplit2Rule?.(agentName, rule.id)}
-                                  className="text-rose-500 hover:text-rose-600 cursor-pointer p-0.5"
+                                  className={`${REVEAL_DELETE_CLASS} text-rose-500 hover:text-rose-600 cursor-pointer p-0.5`}
                                   title="Delete rule"
                                 >
                                   <TrashIcon />
@@ -1716,12 +1779,13 @@ export function CommissionWaterfall({
                     </div>
 
                     {/* Level 2 Subtotal */}
-                    {/* The bottom line, as in the table view: a firmer rule above and the amount in green. */}
-                    <div className="flex justify-between items-center border-t border-slate-300 pt-2 text-xs text-slate-900 dark:border-slate-600 dark:text-white">
+                    {/* The bottom line, as in the table view: the loudest figure, larger and in green on a faint green band,
+                        with a firmer rule above. */}
+                    <div className="-mx-3 -mb-3 flex justify-between items-center gap-3 rounded-b-lg border-t border-slate-300 bg-emerald-500/6 px-3 py-3 text-sm text-slate-900 dark:border-slate-600 dark:bg-emerald-500/8 dark:text-white">
                       <span className="font-semibold">
                         Net Payout to {agentName}
                       </span>
-                      <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                      <span className="text-base font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
                         {formatCurrency(finalAgentPayout)}
                       </span>
                     </div>

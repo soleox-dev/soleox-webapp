@@ -251,6 +251,12 @@ export async function createTransaction(
     ...(input.gci_amount !== undefined ? { gci_amount: input.gci_amount !== null ? roundCurrency(Number(input.gci_amount)) : null } : {}),
     ...(input.total_commission !== undefined ? { total_commission: input.total_commission !== null ? roundCurrency(Number(input.total_commission)) : null } : {}),
     ...(input.transaction_fee !== undefined ? { transaction_fee: input.transaction_fee !== null ? roundCurrency(Number(input.transaction_fee)) : null } : {}),
+    ...(input.fee_share_percent !== undefined
+      ? { fee_share_percent: input.fee_share_percent === null ? null : Math.min(100, Math.max(0, Number(input.fee_share_percent))) }
+      : {}),
+    ...(input.waived_plan_lines !== undefined
+      ? { waived_plan_lines: input.waived_plan_lines?.length ? [...new Set(input.waived_plan_lines.map(String))].sort() : null }
+      : {}),
     ...(input.list_date !== undefined ? { list_date: input.list_date ? new Date(input.list_date).toISOString().substring(0, 10) : null } : {}),
     ...(input.acceptance_date !== undefined ? { acceptance_date: input.acceptance_date ? new Date(input.acceptance_date).toISOString().substring(0, 10) : null } : {}),
     ...(input.closing_date !== undefined ? { closing_date: input.closing_date ? new Date(input.closing_date).toISOString() : null } : {}),

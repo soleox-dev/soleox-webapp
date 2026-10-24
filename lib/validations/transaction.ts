@@ -59,6 +59,10 @@ export const CreateTransactionSchema = z
     lead_owner: nullableString,
     list_price: nullableNumber,
     transaction_fee: nullableNumber,
+    // Commission Plans' Fee Share for this deal, 0 to 100; null uses the default rule.
+    fee_share_percent: nullableNumber,
+    // Commission Plan lines this deal does not charge, by line key, for every agent; null or empty charges them all.
+    waived_plan_lines: z.array(z.string()).optional().nullable(),
     list_date: nullableString,
     acceptance_date: nullableString,
 

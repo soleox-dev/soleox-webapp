@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth';
 import { SearchHeightHold } from '@/components/SearchHeightHold';
 import { TableWheelAssist } from '@/components/TableWheelAssist';
+import { TableAxisLock } from '@/components/TableAxisLock';
 
 export default async function DashboardLayout({
   children,
@@ -22,6 +23,7 @@ export default async function DashboardLayout({
     <>
       <SearchHeightHold />
       <TableWheelAssist />
+      <TableAxisLock />
       {children}
     </>
   );
