@@ -26,9 +26,13 @@ import { SplitPair } from './SplitPair';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { SectionIcon } from './SectionIcon';
 import { SECTION_BAND_PHONE, SECTION_BODY_PHONE, SECTION_SHELL_PHONE } from './sectionChrome';
+import { useEditOnDoublePress } from './useEditOnDoublePress';
 import { CancelEditPrompt } from './CancelEditPrompt';
 import { REVEAL_DELETE_CLASS, useRevealDelete } from './useRevealDelete';
-import { useEditOnDoublePress } from './useEditOnDoublePress';
+import { agentNetAfterGroup, agentOnPlan, groupBaseNote, groupKey, groupNetLabel, groupTitle, lineBase, postSplitGroups, ruleGroup, type PostSplitGroup, type PostSplitMap } from './postSplitGroups';
+
+/** A calculated post-split line, as the waterfall result lists it. */
+type GroupItem = { id?: string; entity?: string; type?: string; value?: number; amount?: number; level?: number; planLineKey?: string; beforePlan?: boolean; stage?: AgentStage };
 import { useSectionEditKeys } from './useSectionEditKeys';
 import { CommissionTemplatePanel, type TemplateSubmissionDraft } from './CommissionTemplatePanel';
 import { CalculatingCommission } from './CalculatingCommission';
@@ -38,6 +42,7 @@ import { AgentAllocationNotes, AgentCapNote, TeamCapAmount, TeamCapReceived, adj
 import type { TeamCapRecipient } from '@/lib/agent-allocations';
 import { formatAgentCapLine, type AgentCapCell } from '@/lib/agent-cap-progress';
 import type { PlanCapCell } from '@/lib/commission-engine/plan-caps';
+import type { AgentStage } from '@/lib/commission-engine/stages';
 import type { DealPlanContext } from '@/lib/commission-engine/plan-waterfall';
 import { AgentSplitExcessNotice } from './AgentSplitExcessNotice';
 import { useAccess } from '@/components/access-provider';
@@ -341,9 +346,17 @@ export function CommissionWaterfall({
     if (rule?.planLineKey && onWaivePlanLine) onWaivePlanLine(rule.planLineKey, true);
     onDeleteAgentPostSplitRule(agentName, ruleId);
   };
+  // Level 2+ plan lines (eXp's stock) come from the plan in the second map, while editing too.
   const shownPostSplit2Rules = !isEditing && dealResult.displayPostSplit2RulesByAgent
     ? dealResult.displayPostSplit2RulesByAgent
-    : postSplit2RulesByAgent;
+    : withPlanLines(postSplit2RulesByAgent, dealResult.displayPostSplit2RulesByAgent);
+  const deletePostSplit2Rule = (agentName: string, ruleId: string) => {
+    const rule = (shownPostSplit2Rules[agentName] || []).find((item) => item.id === ruleId);
+    if (rule?.planLineKey && onWaivePlanLine) onWaivePlanLine(rule.planLineKey, true);
+    onDeleteAgentPostSplit2Rule?.(agentName, ruleId);
+  };
+  // Post-splits by stage and level, in engine order (postSplitGroups.ts), as the table shows them.
+  const groupList = postSplitGroups(agents.map((agent) => agent.name), shownPostSplitRules, shownPostSplit2Rules);
   const agentNames = agents.map((a) => a.name);
   const [chosenAgentLayout, setAgentLayout] = useState<'table' | 'cards'>('table');
   // A phone held upright only has room for the cards; the saved choice applies again on wider screens.
@@ -1085,7 +1098,7 @@ export function CommissionWaterfall({
             onUpdateAgentPostSplitValue={onUpdateAgentPostSplitValue}
             onUpdateAgentPostSplitEntity={onUpdateAgentPostSplitEntity}
             onReorderPostSplitEntities={onReorderPostSplitEntities}
-            onDeleteAgentPostSplit2Rule={onDeleteAgentPostSplit2Rule}
+            onDeleteAgentPostSplit2Rule={deletePostSplit2Rule}
             onToggleAgentPostSplit2Type={onToggleAgentPostSplit2Type}
             onUpdateAgentPostSplit2Value={onUpdateAgentPostSplit2Value}
             onUpdateAgentPostSplit2Entity={onUpdateAgentPostSplit2Entity}
@@ -1345,6 +1358,20 @@ export function CommissionWaterfall({
 
               // Final net payout
               const finalAgentPayout = dealResult.netPayouts?.[agentName] ?? netAfterL1;
+              // Which group a line shows in, as the engine runs it; and what its percent was taken from.
+              const onPlan = agentOnPlan(agentName, shownPostSplitRules, shownPostSplit2Rules);
+              const inGroup = (rule: DynamicRule, map: PostSplitMap, group: PostSplitGroup) => {
+                const where = ruleGroup(rule, map, onPlan);
+                return groupKey(where.stage, where.level) === group.key;
+              };
+              const itemInGroup = (item: GroupItem, map: PostSplitMap, group: PostSplitGroup) => inGroup({
+                id: item.id || '', entity: item.entity || '', type: item.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENT', value: Number(item.value) || 0,
+                planLineKey: item.planLineKey, beforePlan: item.beforePlan, stage: item.stage, level: item.level,
+              }, map, group);
+              const percentOfLine = (lineId: string | undefined, amount: number) => {
+                const base = (lineId ? lineBase(dealResult.agentStages, agentName, lineId) : null) ?? agentGrossSplit;
+                return base > 0 ? (amount / base) * 100 : 0;
+              };
 
               return (
                 <div
@@ -1370,20 +1397,30 @@ export function CommissionWaterfall({
                     </div>
                   </div>
 
-                  {/* LEVEL 1: Level 1 Post-splits */}
+                  {groupList.groups.map((group, groupIndex) => {
+                    const isLastGroup = groupIndex === groupList.groups.length - 1;
+                    const rules1 = agentRules1.filter((rule) => inGroup(rule, 'L1', group));
+                    const calc1 = items1ForAgent.filter((item: GroupItem) => itemInGroup(item, 'L1', group));
+                    const rules2 = agentRules2.filter((rule) => inGroup(rule, 'L2', group));
+                    const calc2 = items2ForAgent.filter((item: GroupItem) => itemInGroup(item, 'L2', group));
+                    const showL1 = rules1.length > 0 || calc1.length > 0 || group.draftMap === 'L1';
+                    const showL2 = rules2.length > 0 || calc2.length > 0 || group.draftMap === 'L2';
+                    return (
+                      <React.Fragment key={group.key}>
+                  {showL1 && (
                   <div className={`bg-white dark:bg-slate-900/90 rounded-lg p-3 border border-slate-200 dark:border-slate-700 space-y-2 ${LEVEL_ON_PHONE}`}>
                     <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2">
                       <div className="flex items-center gap-2">
                         <span className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
-                          <HoverNote label="Percent deductions are calculated from agent split">
+                          <HoverNote label={groupBaseNote(group, groupList.anyOnPlan)}>
                             <span className="-ml-[9px] inline-flex items-center whitespace-nowrap rounded-full border border-yellow-600/40 bg-yellow-400/25 px-2 py-0.5 tracking-normal text-yellow-900 dark:border-yellow-300/50 dark:bg-yellow-400/15 dark:text-yellow-200">
-                              Level 1
+                              Level {group.level}
                             </span>
                           </HoverNote>
-                          Post-Splits
+                          {groupTitle(group, groupList.anyOnPlan)}
                         </span>
                       </div>
-                      {isEditing && (
+                      {isEditing && group.draftMap === 'L1' && (
                         <button
                           type="button"
                           onClick={() => isAddingL1 ? setAddingPostSplitForAgent(null) : handleStartAddPostSplit1(agentName)}
@@ -1398,7 +1435,7 @@ export function CommissionWaterfall({
                       )}
                     </div>
 
-                    {isEditing && isAddingL1 && (
+                    {isEditing && group.draftMap === 'L1' && isAddingL1 && (
                       <div data-inline-save className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg border border-emerald-500/30 space-y-2 my-2">
                         <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
                           New Level 1 Post-Split for {agentName}
@@ -1458,14 +1495,15 @@ export function CommissionWaterfall({
                       </div>
                     )}
 
-                    {agentRules1.length === 0 && items1ForAgent.length === 0 && !isAddingL1 && (
+                    {group.draftMap === 'L1' && rules1.length === 0 && calc1.length === 0 && !isAddingL1 && (
                       <p className="text-xs text-slate-400 italic py-1">
-                        No Level 1 Post-splits applied to {agentName}.
+                        No {groupTitle(group, groupList.anyOnPlan)} Level {group.level} lines for {agentName}.
                       </p>
                     )}
 
                     <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {agentRules1.map((rule, ruleIdx) => {
+                      {rules1.map((rule) => {
+                        const ruleIdx = agentRules1.indexOf(rule);
                         const calculatedItem = items1ForAgent.find((i: any) => i.id === rule.id);
                         return (
                           <div
@@ -1529,7 +1567,7 @@ export function CommissionWaterfall({
                               isEditing={isEditing}
                               matchColumns
                               type={rule.type}
-                              percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (agentGrossSplit > 0 ? ((calculatedItem?.amount || 0) / agentGrossSplit) * 100 : 0)}
+                              percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : percentOfLine(rule.id, calculatedItem?.amount || 0)}
                               dollarAmount={calculatedItem?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
                               deduction
                               underAmount={agentRules1.findLastIndex((item) => (item.entity || '').trim() === (rule.entity || '').trim()) === ruleIdx ? agentCapNote(agentObj?.id || '', agentName, rule.entity) : null}
@@ -1546,14 +1584,14 @@ export function CommissionWaterfall({
                           </div>
                         );
                       })}
-                      {items1ForAgent.filter((item: { id?: string; entity?: string }) => !agentRules1.some((rule) => rule.id === item.id || (rule.entity || '').trim() === (item.entity || '').trim())).map((item: { id?: string; entity?: string; type?: 'PERCENT' | 'AMOUNT'; value?: number; amount?: number }) => (
+                      {calc1.filter((item: { id?: string; entity?: string }) => !agentRules1.some((rule) => rule.id === item.id || (rule.entity || '').trim() === (item.entity || '').trim())).map((item: { id?: string; entity?: string; type?: 'PERCENT' | 'AMOUNT'; value?: number; amount?: number }) => (
                         <div key={item.id || item.entity} className="py-2 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300">
                           <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[170px] truncate" title={item.entity}>{item.entity || '—'}</span>
                           <SplitPair
                             isEditing={isEditing}
                             matchColumns
                             type={item.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENT'}
-                            percentPoints={item.type === 'AMOUNT' ? (agentGrossSplit > 0 ? ((Number(item.amount) || 0) / agentGrossSplit) * 100 : 0) : toPercentPoints(Number(item.value) || 0)}
+                            percentPoints={item.type === 'AMOUNT' ? percentOfLine(item.id, Number(item.amount) || 0) : toPercentPoints(Number(item.value) || 0)}
                             dollarAmount={Number(item.amount) || 0}
                             deduction
                             underAmount={agentCapNote(agentObj?.id || '', agentName, item.entity || '')}
@@ -1571,32 +1609,34 @@ export function CommissionWaterfall({
                       ))}
                     </div>
 
-                    {/* Level 1 Subtotal */}
-                    {/* A plain bold line, as in the table view. */}
+                    {/* The group's subtotal, a plain bold line as in the table view; none under the last group. */}
+                    {!isLastGroup && !showL2 && (
                     <div className="flex justify-between items-center border-t border-slate-200 pt-2 text-xs text-slate-900 dark:border-slate-700 dark:text-white">
                       <span className="font-semibold">
-                        Net After Level 1 Post-Splits
+                        {groupNetLabel(group, groupList.anyOnPlan)}
                       </span>
                       <span className="font-bold">
-                        {formatCurrency(netAfterL1)}
+                        {formatCurrency(agentNetAfterGroup(dealResult.agentStages, agentName, group) ?? agentGrossSplit)}
                       </span>
                     </div>
+                    )}
                   </div>
 
-                  {/* LEVEL 2: Level 2 Post-splits */}
+                  )}
+                  {showL2 && (
                   <div className={`bg-white dark:bg-slate-900/90 rounded-lg p-3 border border-slate-200 dark:border-slate-700 space-y-2 ${LEVEL_ON_PHONE}`}>
                     <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2">
                       <div className="flex items-center gap-2">
                         <span className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
-                          <HoverNote label="Percent deductions are calculated from net after Level 1 post-splits.">
+                          <HoverNote label={groupBaseNote(group, groupList.anyOnPlan)}>
                             <span className="-ml-[9px] inline-flex items-center whitespace-nowrap rounded-full border border-slate-400/60 bg-slate-300/50 px-2 py-0.5 tracking-normal text-slate-600 dark:border-slate-300/45 dark:bg-slate-400/20 dark:text-slate-200">
-                              Level 2
+                              Level {group.level}
                             </span>
                           </HoverNote>
-                          Post-Splits
+                          {groupTitle(group, groupList.anyOnPlan)}
                         </span>
                       </div>
-                      {isEditing && (
+                      {isEditing && group.draftMap === 'L2' && (
                         <button
                           type="button"
                           onClick={() => isAddingL2 ? setAddingPostSplit2ForAgent(null) : handleStartAddPostSplit2(agentName)}
@@ -1611,7 +1651,7 @@ export function CommissionWaterfall({
                       )}
                     </div>
 
-                    {isEditing && isAddingL2 && (
+                    {isEditing && group.draftMap === 'L2' && isAddingL2 && (
                       <div data-inline-save className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg border border-emerald-500/30 space-y-2 my-2">
                         <div className="flex justify-between items-center">
                           <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
@@ -1676,14 +1716,15 @@ export function CommissionWaterfall({
                       </div>
                     )}
 
-                    {agentRules2.length === 0 && items2ForAgent.length === 0 && !isAddingL2 && (
+                    {group.draftMap === 'L2' && rules2.length === 0 && calc2.length === 0 && !isAddingL2 && (
                       <p className="text-xs text-slate-400 italic py-1">
-                        No Level 2 Post-splits applied to {agentName}.
+                        No {groupTitle(group, groupList.anyOnPlan)} Level {group.level} lines for {agentName}.
                       </p>
                     )}
 
                     <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {agentRules2.map((rule, ruleIdx) => {
+                      {rules2.map((rule) => {
+                        const ruleIdx = agentRules2.indexOf(rule);
                         const calculatedItem2 = items2ForAgent.find((i: any) => i.id === rule.id);
                         return (
                           <div
@@ -1696,7 +1737,7 @@ export function CommissionWaterfall({
                               {isEditing && (
                                 <button
                                   type="button"
-                                  onClick={() => onDeleteAgentPostSplit2Rule?.(agentName, rule.id)}
+                                  onClick={() => deletePostSplit2Rule(agentName, rule.id)}
                                   className={`${REVEAL_DELETE_CLASS} text-rose-500 hover:text-rose-600 cursor-pointer p-0.5`}
                                   title="Delete rule"
                                 >
@@ -1736,7 +1777,7 @@ export function CommissionWaterfall({
                               isEditing={isEditing}
                               matchColumns
                               type={rule.type}
-                              percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (netAfterL1 > 0 ? ((calculatedItem2?.amount || 0) / netAfterL1) * 100 : 0)}
+                              percentPoints={rule.type === 'PERCENT' ? toPercentPoints(rule.value) : percentOfLine(rule.id, calculatedItem2?.amount || 0)}
                               dollarAmount={calculatedItem2?.amount || (rule.type === 'AMOUNT' ? rule.value : 0)}
                               deduction
                               underAmount={agentRules2.findLastIndex((item) => (item.entity || '').trim() === (rule.entity || '').trim()) === ruleIdx ? agentCapNote(agentObj?.id || '', agentName, rule.entity) : null}
@@ -1753,14 +1794,14 @@ export function CommissionWaterfall({
                           </div>
                         );
                       })}
-                      {items2ForAgent.filter((item: { id?: string; entity?: string }) => !agentRules2.some((rule) => rule.id === item.id || (rule.entity || '').trim() === (item.entity || '').trim())).map((item: { id?: string; entity?: string; type?: 'PERCENT' | 'AMOUNT'; value?: number; amount?: number }) => (
+                      {calc2.filter((item: { id?: string; entity?: string }) => !agentRules2.some((rule) => rule.id === item.id || (rule.entity || '').trim() === (item.entity || '').trim())).map((item: { id?: string; entity?: string; type?: 'PERCENT' | 'AMOUNT'; value?: number; amount?: number }) => (
                         <div key={item.id || item.entity} className="py-2 flex justify-between items-center text-xs text-slate-700 dark:text-slate-300">
                           <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[170px] truncate" title={item.entity}>{item.entity || '—'}</span>
                           <SplitPair
                             isEditing={isEditing}
                             matchColumns
                             type={item.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENT'}
-                            percentPoints={item.type === 'AMOUNT' ? (netAfterL1 > 0 ? ((Number(item.amount) || 0) / netAfterL1) * 100 : 0) : toPercentPoints(Number(item.value) || 0)}
+                            percentPoints={item.type === 'AMOUNT' ? percentOfLine(item.id, Number(item.amount) || 0) : toPercentPoints(Number(item.value) || 0)}
                             dollarAmount={Number(item.amount) || 0}
                             deduction
                             underAmount={agentCapNote(agentObj?.id || '', agentName, item.entity || '')}
@@ -1778,10 +1819,26 @@ export function CommissionWaterfall({
                       ))}
                     </div>
 
-                    {/* Level 2 Subtotal */}
-                    {/* The bottom line, as in the table view: the loudest figure, larger and in green on a faint green band,
-                        with a firmer rule above. */}
-                    <div className="-mx-3 -mb-3 flex justify-between items-center gap-3 rounded-b-lg border-t border-slate-300 bg-emerald-500/6 px-3 py-3 text-sm text-slate-900 dark:border-slate-600 dark:bg-emerald-500/8 dark:text-white">
+                    {!isLastGroup && (
+                    <div className="flex justify-between items-center border-t border-slate-200 pt-2 text-xs text-slate-900 dark:border-slate-700 dark:text-white">
+                      <span className="font-semibold">
+                        {groupNetLabel(group, groupList.anyOnPlan)}
+                      </span>
+                      <span className="font-bold">
+                        {formatCurrency(agentNetAfterGroup(dealResult.agentStages, agentName, group) ?? agentGrossSplit)}
+                      </span>
+                    </div>
+                    )}
+                  </div>
+                  )}
+                      </React.Fragment>
+                    );
+                  })}
+
+                  {/* Net Payout: the bottom line, after every group. */}
+                  <div className={`bg-white dark:bg-slate-900/90 rounded-lg p-3 border border-slate-200 dark:border-slate-700 ${LEVEL_ON_PHONE}`}>
+                    {/* The bottom line, as in the table view: the loudest figure, larger and in green on a faint green band. */}
+                    <div className="-m-3 flex justify-between items-center gap-3 rounded-lg bg-emerald-500/6 px-3 py-3 text-sm text-slate-900 dark:border-slate-600 dark:bg-emerald-500/8 dark:text-white">
                       <span className="font-semibold">
                         Net Payout to {agentName}
                       </span>

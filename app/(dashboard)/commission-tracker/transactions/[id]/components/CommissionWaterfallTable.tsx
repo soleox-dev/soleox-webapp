@@ -7,6 +7,8 @@ import { ClearableSelect } from '@/components/ui/ClearableSelect';
 import { RotateCcw } from 'lucide-react';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { REVEAL_DELETE_CLASS } from './useRevealDelete';
+import { agentNetAfterGroup, agentOnPlan, groupBaseNote, groupKey, groupNetLabel, groupTitle, lineBase, postSplitGroups, ruleGroup, type PostSplitGroup, type PostSplitMap } from './postSplitGroups';
+import type { AgentStage } from '@/lib/commission-engine';
 import { toPercentPoints } from '@/lib/percent';
 import { orderPostSplitNames } from '@/lib/post-split-order';
 import { AgentAllocationNotes, TeamCapAmount, TeamCapReceived, adjustedSplitView, teamCapGroups, teamCapReceived, teamCapReceivedNote, type AgentAllocationLine } from './AgentAllocationNotes';
@@ -435,6 +437,65 @@ export function CommissionWaterfallTable({
     </div>
   );
 
+  // Post-splits by stage and level, in engine order (postSplitGroups.ts): a plan deal shows Before Plan, the plan's
+  // levels and After Plan; a deal without plans its Level 1 and Level 2 post-splits as before.
+  const groupList = postSplitGroups(names, postSplitRulesByAgent, postSplit2RulesByAgent);
+  const onPlanByAgent = new Map(names.map((name) => [name, agentOnPlan(name, postSplitRulesByAgent, postSplit2RulesByAgent)]));
+  const noop = () => undefined;
+  const handlersFor = (map: PostSplitMap) => (map === 'L1'
+    ? {
+      remove: onDeleteAgentPostSplitRule,
+      toggle: onToggleAgentPostSplitType,
+      value: onUpdateAgentPostSplitValue,
+      rename: onUpdateAgentPostSplitEntity,
+      addCell: onAddLevel1Cell,
+      reorder: onReorderPostSplitEntities,
+      order: level1Order,
+      dropDraft: (entity: string) => setDraftLevel1((prev) => prev.filter((item) => item !== entity)),
+    }
+    : {
+      remove: onDeleteAgentPostSplit2Rule ?? noop,
+      toggle: onToggleAgentPostSplit2Type ?? noop,
+      value: onUpdateAgentPostSplit2Value ?? noop,
+      rename: onUpdateAgentPostSplit2Entity,
+      addCell: onAddLevel2Cell,
+      reorder: onReorderPostSplit2Entities,
+      order: level2Order,
+      dropDraft: (entity: string) => setDraftLevel2((prev) => prev.filter((item) => item !== entity)),
+    });
+  /** One agent's rules for an entity that show in this group, with the map each lives in. */
+  const rulesInGroup = (agentName: string, entity: string, group: PostSplitGroup) => {
+    const onPlan = onPlanByAgent.get(agentName) ?? false;
+    return [
+      ...rulesForEntity(postSplitRulesByAgent[agentName], entity).map((rule) => ({ rule, map: 'L1' as const })),
+      ...rulesForEntity(postSplit2RulesByAgent[agentName], entity).map((rule) => ({ rule, map: 'L2' as const })),
+    ].filter(({ rule, map }) => {
+      const where = ruleGroup(rule, map, onPlan);
+      return groupKey(where.stage, where.level) === group.key;
+    });
+  };
+  type LineItem = { id?: string; entity?: string; type?: string; value?: number; amount?: number; level?: number; planLineKey?: string; beforePlan?: boolean; stage?: AgentStage; agentName?: string };
+  const allItems = (): LineItem[] => [...(dealResult.postSplitItems || []), ...(dealResult.postSplit2Items || [])];
+  const lineItem = (agentName: string, id: string) => allItems().find((item) => item.agentName === agentName && item.id === id);
+  /** Calculated lines with no rule on the deal (a replayed template line), in this group. */
+  const calculatedInGroup = (agentName: string, entity: string, group: PostSplitGroup) => {
+    const onPlan = onPlanByAgent.get(agentName) ?? false;
+    return allItems()
+      .filter((item) => item.agentName === agentName && (item.entity || '').trim() === entity)
+      .map((item) => ({ item, map: (item.level ?? 1) === 1 ? 'L1' as const : 'L2' as const }))
+      .filter(({ item, map }) => {
+        const where = ruleGroup({ id: item.id || '', entity: item.entity || '', type: item.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENT', value: Number(item.value) || 0, planLineKey: item.planLineKey, beforePlan: item.beforePlan, stage: item.stage, level: item.level }, map, onPlan);
+        return groupKey(where.stage, where.level) === group.key;
+      });
+  };
+  /** The entities with a row in this group: those with a line in it for any agent, and its new rows. */
+  const groupEntities = (group: PostSplitGroup) => {
+    const drafts = group.draftMap === 'L1' ? draftLevel1 : group.draftMap === 'L2' ? draftLevel2 : [];
+    const all = [...new Set([...level1Order, ...level2Order, ...allItems().map((item) => (item.entity || '').trim()).filter(Boolean)])];
+    return all.filter((entity) => drafts.includes(entity)
+      || names.some((name) => rulesInGroup(name, entity, group).length > 0 || calculatedInGroup(name, entity, group).length > 0));
+  };
+
   return (
     <div className="border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 p-4 shadow-sm">
       {/* One agent is the usual deal: one amount column. Its content stays 672px wide, so a line's name and amount
@@ -599,255 +660,183 @@ export function CommissionWaterfallTable({
                 })}
               </tr>
 
-              <tr>
-                <td className={`${sectionLabel} bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200`}>
-                  <div className="flex items-center gap-2 whitespace-nowrap">
-                    <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                      <HoverNote label="Percent deductions are calculated from agent split">
-                        <span className={level1Pill}>Level 1</span>
-                      </HoverNote>
-                      Post-Splits
-                    </span>
-                    {isEditing && plusButton('Add new Level 1 post-split', () => {
-                      setAddingLevel1Row((open) => !open);
-                      setNewLevel1Entity('');
-                    }, 'emerald')}
-                  </div>
-                </td>
-                {agents.map((agent) => (
-                  <td key={agent.id} className={`${agentCell} bg-slate-50 dark:bg-slate-800/80`} />
-                ))}
-              </tr>
-              {level1Order.map((entity) => (
-                <tr key={`l1-${entity}`}>
-                  <td className={`${labelCell} font-semibold text-slate-800 dark:text-slate-200`}>
-                    <div className="flex items-center gap-1">
-                      {isEditing && (
-                        <button type="button" onClick={() => { deleteEntityRow(entity, postSplitRulesByAgent, onDeleteAgentPostSplitRule); setDraftLevel1((prev) => prev.filter((item) => item !== entity)); }} className={trashButton} title={`Remove ${entity}`} aria-label={`Remove ${entity}`}><TrashIcon /></button>
-                      )}
-                      {entityField(entity, (next) => renameEntityRow(entity, next, postSplitRulesByAgent, onUpdateAgentPostSplitEntity))}
-                      {names.some((name) => rulesForEntity(postSplitRulesByAgent[name], entity).some((rule) => rule.planLineKey)) && <PlanChip kind="plan" />}
-                    </div>
-                  </td>
-                  {agents.map((agent) => {
-                    const rules = rulesForEntity(postSplitRulesByAgent[agent.name], entity);
-                    const items = (dealResult.postSplitItems || []).filter((item: { agentName?: string }) => item.agentName === agent.name);
-                    const calculated = rules.length === 0 ? calculatedLines(items, entity) : [];
-                    if (calculated.length > 0) {
-                      const gross = (dealResult.agentSplitItems || []).find((item: { agentName?: string; amount?: number }) => item.agentName === agent.name)?.amount || 0;
-                      return (
-                        <td key={agent.id} className={agentCell}>
-                          <div className="flex flex-col items-stretch gap-1">
-                            {calculated.map((item, index) => {
-                              const type: SplitType = item.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENT';
-                              const amount = Number(item.amount) || 0;
-                              return (
-                                <div key={item.id || entity}>
-                                  {splitPair(
-                                    type,
-                                    type === 'PERCENT' ? toPercentPoints(Number(item.value) || 0) : (gross > 0 ? (amount / gross) * 100 : 0),
-                                    amount,
-                                    () => { if (item.id) onToggleAgentPostSplitType(agent.name, item.id); },
-                                    (val) => { if (item.id) onUpdateAgentPostSplitValue(agent.name, item.id, val); },
-                                    { deduction: true, underAmount: index === calculated.length - 1 ? agentCapNote?.(agent.id, agent.name, entity) : null },
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </td>
-                      );
-                    }
-                    if (rules.length === 0) {
-                      return (
-                        <td key={agent.id} className={agentCell}>
-                          {emptyCell(agent.name, entity, (agentName, rowEntity) => {
-                            onAddLevel1Cell(agentName, rowEntity);
-                            onReorderPostSplitEntities?.(level1Order.includes(rowEntity) ? level1Order : [...level1Order, rowEntity]);
-                            setDraftLevel1((prev) => prev.filter((item) => item !== rowEntity));
+              {groupList.groups.map((group, groupIndex) => {
+                const isLast = groupIndex === groupList.groups.length - 1;
+                const draftMap = group.draftMap;
+                const adding = draftMap === 'L1' ? addingLevel1Row : draftMap === 'L2' ? addingLevel2Row : false;
+                const rows = groupEntities(group);
+                const pill = group.level === 1 ? level1Pill : level2Pill;
+                return (
+                  <React.Fragment key={group.key}>
+                    <tr>
+                      <td className={`${sectionLabel} bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200`}>
+                        <div className="flex items-center gap-2 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                            <HoverNote label={groupBaseNote(group, groupList.anyOnPlan)}>
+                              <span className={pill}>Level {group.level}</span>
+                            </HoverNote>
+                            {groupTitle(group, groupList.anyOnPlan)}
+                          </span>
+                          {isEditing && draftMap && plusButton(`Add new ${groupTitle(group, groupList.anyOnPlan)} Level ${group.level} line`, () => {
+                            if (draftMap === 'L1') {
+                              setAddingLevel1Row((open) => !open);
+                              setNewLevel1Entity('');
+                            } else {
+                              setAddingLevel2Row((open) => !open);
+                              setNewLevel2Entity('');
+                            }
                           }, 'emerald')}
-                        </td>
-                      );
-                    }
-                    return (
-                      <td key={agent.id} className={agentCell}>
-                        <div className="flex flex-col items-stretch gap-1">
-                          {rules.map((rule, index) => {
-                            const calculated = items.find((item: { id?: string; amount?: number }) => item.id === rule.id);
-                            const gross = (dealResult.agentSplitItems || []).find((item: { agentName?: string; amount?: number }) => item.agentName === agent.name)?.amount || 0;
-                            return (
-                              <div key={rule.id}>
-                                {splitPair(
-                                  rule.type,
-                                  rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (gross > 0 ? ((calculated?.amount || 0) / gross) * 100 : 0),
-                                  calculated?.amount || (rule.type === 'AMOUNT' ? rule.value : 0),
-                                  () => onToggleAgentPostSplitType(agent.name, rule.id),
-                                  (val) => onUpdateAgentPostSplitValue(agent.name, rule.id, val),
-                                  {
-                                    deduction: true,
-                                    underAmount: planStateKind(rule) || index === rules.length - 1 ? (
-                                      <>
-                                        {planStateKind(rule) && <PlanChip kind={planStateKind(rule)!} />}
-                                        {index === rules.length - 1 ? agentCapNote?.(agent.id, agent.name, entity) : null}
-                                      </>
-                                    ) : null,
-                                    beforePercent: !isEditing ? null : rule.planWaived && rule.planLineKey && onWaivePlanLine ? (
-                                      <button type="button" onClick={() => onWaivePlanLine(rule.planLineKey!, false)} className="shrink-0 text-slate-400 hover:text-brand-600 dark:text-slate-500 dark:hover:text-brand-400 p-0.5 rounded hover:bg-brand-500/10 cursor-pointer transition" title="Charge this plan line again on this deal" aria-label="Restore plan line"><RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden /></button>
-                                    ) : (
-                                      <button type="button" onClick={() => onDeleteAgentPostSplitRule(agent.name, rule.id)} className={`${trashButton} shrink-0`} title={rule.planLineKey ? 'Waive this plan line on this deal, for every agent' : 'Delete rule'} aria-label="Delete rule"><TrashIcon /></button>
-                                    ),
-                                  },
-                                )}
-                              </div>
-                            );
-                          })}
                         </div>
                       </td>
-                    );
-                  })}
-                </tr>
-              ))}
-              {isEditing && addingLevel1Row && (
-                <tr>
-                  <td className={labelCell}>
-                    {newRowForm(
-                      newLevel1Entity,
-                      setNewLevel1Entity,
-                      level1Order,
-                      () => confirmDraftRow(newLevel1Entity, level1Order, draftLevel1, setDraftLevel1, setLevel1Order, () => { setAddingLevel1Row(false); setNewLevel1Entity(''); }),
-                      () => { setAddingLevel1Row(false); setNewLevel1Entity(''); },
-                      'emerald',
-                    )}
-                  </td>
-                  {agents.map((agent) => <td key={agent.id} className={agentCell} />)}
-                </tr>
-              )}
-              <tr>
-                <td className={`${labelCell} font-bold text-slate-700 dark:text-slate-200`}>Net After Level 1 Post-Splits</td>
-                {agents.map((agent) => {
-                  const computed = (dealResult.agentSplitItems || []).find((item: { agentId?: string; agentName?: string; amount?: number }) => item.agentId === agent.id || item.agentName === agent.name);
-                  const net = dealResult.agentNetAfterLevel1?.[agent.name] ?? computed?.amount ?? 0;
-                  return <td key={agent.id} className={`${agentCell} font-bold text-slate-900 dark:text-white`}><span className="ml-auto block w-[6.5rem] pr-2 text-right">{formatCurrency(net)}</span></td>;
-                })}
-              </tr>
-
-              <tr>
-                <td className={`${sectionLabel} bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200`}>
-                  <div className="flex items-center gap-2 whitespace-nowrap">
-                    <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                      <HoverNote label="Percent deductions are calculated from net after Level 1 post-splits.">
-                        <span className={level2Pill}>Level 2</span>
-                      </HoverNote>
-                      Post-Splits
-                    </span>
-                    {isEditing && plusButton('Add new Level 2 post-split', () => {
-                      setAddingLevel2Row((open) => !open);
-                      setNewLevel2Entity('');
-                    }, 'emerald')}
-                  </div>
-                </td>
-                {agents.map((agent) => (
-                  <td key={agent.id} className={`${agentCell} bg-slate-50 dark:bg-slate-800/80`} />
-                ))}
-              </tr>
-              {level2Order.map((entity) => (
-                <tr key={`l2-${entity}`}>
-                  <td className={`${labelCell} font-semibold text-slate-800 dark:text-slate-200`}>
-                    <div className="flex items-center gap-1">
-                      {isEditing && (
-                        <button type="button" onClick={() => { if (onDeleteAgentPostSplit2Rule) deleteEntityRow(entity, postSplit2RulesByAgent, onDeleteAgentPostSplit2Rule); setDraftLevel2((prev) => prev.filter((item) => item !== entity)); }} className={trashButton} title={`Remove ${entity}`} aria-label={`Remove ${entity}`}><TrashIcon /></button>
-                      )}
-                      {entityField(entity, (next) => renameEntityRow(entity, next, postSplit2RulesByAgent, onUpdateAgentPostSplit2Entity))}
-                    </div>
-                  </td>
-                  {agents.map((agent) => {
-                    const rules = rulesForEntity(postSplit2RulesByAgent[agent.name], entity);
-                    const items = (dealResult.postSplit2Items || []).filter((item: { agentName?: string }) => item.agentName === agent.name);
-                    const calculated = rules.length === 0 ? calculatedLines(items, entity) : [];
-                    if (calculated.length > 0) {
-                      const gross = (dealResult.agentSplitItems || []).find((item: { agentName?: string; amount?: number }) => item.agentName === agent.name)?.amount || 0;
-                      const netAfterL1 = dealResult.agentNetAfterLevel1?.[agent.name] ?? gross;
-                      return (
-                        <td key={agent.id} className={agentCell}>
-                          <div className="flex flex-col items-stretch gap-1">
-                            {calculated.map((item, index) => {
-                              const type: SplitType = item.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENT';
-                              const amount = Number(item.amount) || 0;
-                              return (
-                                <div key={item.id || entity}>
-                                  {splitPair(
-                                    type,
-                                    type === 'PERCENT' ? toPercentPoints(Number(item.value) || 0) : (netAfterL1 > 0 ? (amount / netAfterL1) * 100 : 0),
-                                    amount,
-                                    () => { if (item.id) onToggleAgentPostSplit2Type?.(agent.name, item.id); },
-                                    (val) => { if (item.id) onUpdateAgentPostSplit2Value?.(agent.name, item.id, val); },
-                                    { deduction: true, underAmount: index === calculated.length - 1 ? agentCapNote?.(agent.id, agent.name, entity) : null },
-                                  )}
-                                </div>
-                              );
+                      {agents.map((agent) => (
+                        <td key={agent.id} className={`${agentCell} bg-slate-50 dark:bg-slate-800/80`} />
+                      ))}
+                    </tr>
+                    {rows.map((entity) => (
+                      <tr key={`${group.key}-${entity}`}>
+                        <td className={`${labelCell} font-semibold text-slate-800 dark:text-slate-200`}>
+                          <div className="flex items-center gap-1">
+                            {isEditing && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  for (const name of names) for (const { rule, map } of rulesInGroup(name, entity, group)) handlersFor(map).remove(name, rule.id);
+                                  if (draftMap === 'L1') setDraftLevel1((prev) => prev.filter((item) => item !== entity));
+                                  if (draftMap === 'L2') setDraftLevel2((prev) => prev.filter((item) => item !== entity));
+                                }}
+                                className={trashButton}
+                                title={`Remove ${entity}`}
+                                aria-label={`Remove ${entity}`}
+                              ><TrashIcon /></button>
+                            )}
+                            {entityField(entity, (next) => {
+                              if (!next || next === entity) return;
+                              for (const name of names) for (const { rule, map } of rulesInGroup(name, entity, group)) handlersFor(map).rename?.(name, rule.id, next);
                             })}
+                            {names.some((name) => rulesInGroup(name, entity, group).some(({ rule }) => rule.planLineKey)) && <PlanChip kind="plan" />}
                           </div>
                         </td>
-                      );
-                    }
-                    if (rules.length === 0) {
-                      return (
-                        <td key={agent.id} className={agentCell}>
-                          {emptyCell(agent.name, entity, (agentName, rowEntity) => {
-                            onAddLevel2Cell(agentName, rowEntity);
-                            onReorderPostSplit2Entities?.(level2Order.includes(rowEntity) ? level2Order : [...level2Order, rowEntity]);
-                            setDraftLevel2((prev) => prev.filter((item) => item !== rowEntity));
-                          }, 'emerald')}
-                        </td>
-                      );
-                    }
-                    return (
-                      <td key={agent.id} className={agentCell}>
-                        <div className="flex flex-col items-stretch gap-1">
-                          {rules.map((rule, index) => {
-                            const calculated = items.find((item: { id?: string; amount?: number }) => item.id === rule.id);
-                            const gross = (dealResult.agentSplitItems || []).find((item: { agentName?: string; amount?: number }) => item.agentName === agent.name)?.amount || 0;
-                            const netAfterL1 = dealResult.agentNetAfterLevel1?.[agent.name] ?? gross;
+                        {agents.map((agent) => {
+                          const rules = rulesInGroup(agent.name, entity, group);
+                          const split = (dealResult.agentSplitItems || []).find((item: { agentName?: string; amount?: number }) => item.agentName === agent.name)?.amount || 0;
+                          const percentOf = (lineId: string | undefined, amount: number) => {
+                            const base = (lineId ? lineBase(dealResult.agentStages, agent.name, lineId) : null) ?? split;
+                            return base > 0 ? (amount / base) * 100 : 0;
+                          };
+                          if (rules.length === 0) {
+                            const calculated = calculatedInGroup(agent.name, entity, group);
+                            if (calculated.length > 0) {
+                              return (
+                                <td key={agent.id} className={agentCell}>
+                                  <div className="flex flex-col items-stretch gap-1">
+                                    {calculated.map(({ item, map }, index) => {
+                                      const type: SplitType = item.type === 'AMOUNT' ? 'AMOUNT' : 'PERCENT';
+                                      const amount = Number(item.amount) || 0;
+                                      const handlers = handlersFor(map);
+                                      return (
+                                        <div key={item.id || entity}>
+                                          {splitPair(
+                                            type,
+                                            type === 'PERCENT' ? toPercentPoints(Number(item.value) || 0) : percentOf(item.id, amount),
+                                            amount,
+                                            () => { if (item.id) handlers.toggle(agent.name, item.id); },
+                                            (val) => { if (item.id) handlers.value(agent.name, item.id, val); },
+                                            { deduction: true, underAmount: index === calculated.length - 1 ? agentCapNote?.(agent.id, agent.name, entity) : null },
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </td>
+                              );
+                            }
                             return (
-                              <div key={rule.id}>
-                                {splitPair(
-                                  rule.type,
-                                  rule.type === 'PERCENT' ? toPercentPoints(rule.value) : (netAfterL1 > 0 ? ((calculated?.amount || 0) / netAfterL1) * 100 : 0),
-                                  calculated?.amount || (rule.type === 'AMOUNT' ? rule.value : 0),
-                                  () => onToggleAgentPostSplit2Type?.(agent.name, rule.id),
-                                  (val) => onUpdateAgentPostSplit2Value?.(agent.name, rule.id, val),
-                                  {
-                                    deduction: true,
-                                    underAmount: index === rules.length - 1 ? agentCapNote?.(agent.id, agent.name, entity) : null,
-                                    beforePercent: isEditing ? (
-                                      <button type="button" onClick={() => onDeleteAgentPostSplit2Rule?.(agent.name, rule.id)} className={`${trashButton} shrink-0`} title="Delete rule" aria-label="Delete rule"><TrashIcon /></button>
-                                    ) : null,
-                                  },
-                                )}
-                              </div>
+                              <td key={agent.id} className={agentCell}>
+                                {draftMap ? emptyCell(agent.name, entity, (agentName, rowEntity) => {
+                                  const handlers = handlersFor(draftMap);
+                                  handlers.addCell(agentName, rowEntity);
+                                  handlers.reorder?.(handlers.order.includes(rowEntity) ? handlers.order : [...handlers.order, rowEntity]);
+                                  handlers.dropDraft(rowEntity);
+                                }, 'emerald') : <span className="ml-auto block w-[6.5rem] pr-2 text-right text-slate-300">—</span>}
+                              </td>
                             );
-                          })}
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-              {isEditing && addingLevel2Row && (
-                <tr>
-                  <td className={labelCell}>
-                    {newRowForm(
-                      newLevel2Entity,
-                      setNewLevel2Entity,
-                      level2Order,
-                      () => confirmDraftRow(newLevel2Entity, level2Order, draftLevel2, setDraftLevel2, setLevel2Order, () => { setAddingLevel2Row(false); setNewLevel2Entity(''); }),
-                      () => { setAddingLevel2Row(false); setNewLevel2Entity(''); },
-                      'emerald',
+                          }
+                          return (
+                            <td key={agent.id} className={agentCell}>
+                              <div className="flex flex-col items-stretch gap-1">
+                                {rules.map(({ rule, map }, index) => {
+                                  const calculated = lineItem(agent.name, rule.id);
+                                  const amount = calculated?.amount ?? (rule.type === 'AMOUNT' ? rule.value : 0);
+                                  const handlers = handlersFor(map);
+                                  return (
+                                    <div key={rule.id}>
+                                      {splitPair(
+                                        rule.type,
+                                        rule.type === 'PERCENT' ? toPercentPoints(rule.value) : percentOf(rule.id, amount),
+                                        amount,
+                                        () => handlers.toggle(agent.name, rule.id),
+                                        (val) => handlers.value(agent.name, rule.id, val),
+                                        {
+                                          deduction: true,
+                                          underAmount: planStateKind(rule) || index === rules.length - 1 ? (
+                                            <>
+                                              {planStateKind(rule) && <PlanChip kind={planStateKind(rule)!} />}
+                                              {index === rules.length - 1 ? agentCapNote?.(agent.id, agent.name, entity) : null}
+                                            </>
+                                          ) : null,
+                                          beforePercent: !isEditing ? null : rule.planWaived && rule.planLineKey && onWaivePlanLine ? (
+                                            <button type="button" onClick={() => onWaivePlanLine(rule.planLineKey!, false)} className="shrink-0 text-slate-400 hover:text-brand-600 dark:text-slate-500 dark:hover:text-brand-400 p-0.5 rounded hover:bg-brand-500/10 cursor-pointer transition" title="Charge this plan line again on this deal" aria-label="Restore plan line"><RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden /></button>
+                                          ) : (
+                                            <button type="button" onClick={() => handlers.remove(agent.name, rule.id)} className={`${trashButton} shrink-0`} title={rule.planLineKey ? 'Waive this plan line on this deal, for every agent' : 'Delete rule'} aria-label="Delete rule"><TrashIcon /></button>
+                                          ),
+                                        },
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                    {isEditing && adding && draftMap && (
+                      <tr>
+                        <td className={labelCell}>
+                          {draftMap === 'L1'
+                            ? newRowForm(
+                              newLevel1Entity,
+                              setNewLevel1Entity,
+                              level1Order,
+                              () => confirmDraftRow(newLevel1Entity, level1Order, draftLevel1, setDraftLevel1, setLevel1Order, () => { setAddingLevel1Row(false); setNewLevel1Entity(''); }),
+                              () => { setAddingLevel1Row(false); setNewLevel1Entity(''); },
+                              'emerald',
+                            )
+                            : newRowForm(
+                              newLevel2Entity,
+                              setNewLevel2Entity,
+                              level2Order,
+                              () => confirmDraftRow(newLevel2Entity, level2Order, draftLevel2, setDraftLevel2, setLevel2Order, () => { setAddingLevel2Row(false); setNewLevel2Entity(''); }),
+                              () => { setAddingLevel2Row(false); setNewLevel2Entity(''); },
+                              'emerald',
+                            )}
+                        </td>
+                        {agents.map((agent) => <td key={agent.id} className={agentCell} />)}
+                      </tr>
                     )}
-                  </td>
-                  {agents.map((agent) => <td key={agent.id} className={agentCell} />)}
-                </tr>
-              )}
+                    {!isLast && (
+                      <tr>
+                        <td className={`${labelCell} font-bold text-slate-700 dark:text-slate-200`}>{groupNetLabel(group, groupList.anyOnPlan)}</td>
+                        {agents.map((agent) => {
+                          const split = (dealResult.agentSplitItems || []).find((item: { agentId?: string; agentName?: string; amount?: number }) => item.agentId === agent.id || item.agentName === agent.name)?.amount ?? 0;
+                          const net = agentNetAfterGroup(dealResult.agentStages, agent.name, group) ?? split;
+                          return <td key={agent.id} className={`${agentCell} font-bold text-slate-900 dark:text-white`}><span className="ml-auto block w-[6.5rem] pr-2 text-right">{formatCurrency(net)}</span></td>;
+                        })}
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
               <tr>
                 {/* The bottom line, the loudest figure in the waterfall: what each agent receives, larger and in green on
                     a faint green band, set off by a firmer rule above. */}
