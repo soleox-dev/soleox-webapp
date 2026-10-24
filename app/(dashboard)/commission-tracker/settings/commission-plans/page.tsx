@@ -40,7 +40,7 @@ const longDate = (day: string) => new Date(`${day}T00:00:00`).toLocaleDateString
 export default function CommissionPlansPage() {
   const { access } = useAccess();
   const isSuperAdmin = Boolean(access?.isSuperAdmin);
-  const { fields: transactionFields, agentFields } = useAllocationSchema();
+  const { fields: transactionFields, agentFields, formulaNames: dealFieldNames } = useAllocationSchema();
   const requestLeave = useRequestLeave();
   const { confirm: confirmAction, dialog: confirmDialog } = useConfirmDialog();
 
@@ -115,7 +115,7 @@ export default function CommissionPlansPage() {
   );
   // A client plan pays only the client's Commission Entities; presets name payees generically.
   const checkPayees = tab === 'plans' && entityNames.length > 0;
-  const problems = enginePlan ? [...validatePlan(enginePlan), ...(checkPayees ? unknownPayeeProblems(enginePlan, entityNames) : [])] : [];
+  const problems = enginePlan ? [...validatePlan(enginePlan, dealFieldNames.map((field) => field.name)), ...(checkPayees ? unknownPayeeProblems(enginePlan, entityNames) : [])] : [];
   const lockedKeys = useMemo(() => new Set((selected?.versions || []).flatMap((version) => version.lines.map((line) => line.key))), [selected]);
 
   const call = async (init: RequestInit & { url?: string }, done: string) => {
@@ -346,7 +346,7 @@ export default function CommissionPlansPage() {
                     <span>Saving with a new date adds a version from that date; deals before it keep the earlier lines.</span>
                   </div>
                 )}
-                <PlanEditor plan={enginePlan} lockedKeys={lockedKeys} entityNames={entityNames} checkPayees={checkPayees} onChange={(plan) => setDraft({ ...draft, name: plan.name, lines: plan.lines })} />
+                <PlanEditor plan={enginePlan} lockedKeys={lockedKeys} dealFieldNames={dealFieldNames} entityNames={entityNames} checkPayees={checkPayees} onChange={(plan) => setDraft({ ...draft, name: plan.name, lines: plan.lines })} />
                 {problems.length > 0 && (
                   <ul className="list-disc space-y-0.5 pl-5 text-xs text-amber-700 dark:text-amber-400">
                     {problems.map((problem) => <li key={problem}>{problem}</li>)}

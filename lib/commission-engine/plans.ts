@@ -180,7 +180,7 @@ export function unknownPayeeProblems(plan: CommissionPlan, entityNames: string[]
  * What is wrong with a plan before it is saved, one message per problem: line keys (unique, lower_snake_case),
  * references to earlier lines, rates, amounts, tiers and formulas. An empty list means the plan can be saved.
  */
-export function validatePlan(plan: CommissionPlan): string[] {
+export function validatePlan(plan: CommissionPlan, dealFieldNames?: string[]): string[] {
   const problems: string[] = [];
   if (!plan.name.trim()) problems.push('The plan needs a name.');
   const seen = new Set<string>();
@@ -233,6 +233,11 @@ export function validatePlan(plan: CommissionPlan): string[] {
       if (line.countsTowardCap && !plan.lines.some((other) => other.key === line.countsTowardCap && other.type === 'capped_percent')) {
         problems.push(`${label}: it can only count toward a capped percentage line.`);
       }
+    }
+    // Applies When reads the deal's fields; checked when the caller knows them (the plan editor).
+    if (line.appliesWhen?.trim() && dealFieldNames) {
+      const error = validateTemplateFormula(line.appliesWhen, dealFieldNames);
+      if (error) problems.push(`${label}, Applies When: ${error}`);
     }
   });
   return problems;

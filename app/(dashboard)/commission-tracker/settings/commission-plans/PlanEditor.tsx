@@ -6,7 +6,7 @@ import { TrashIcon } from '@/components/ui/trash-icon';
 import { OptionMenu } from '@/components/ui/option-menu';
 import { FieldChevron, UnderlineField, underlineControl } from '@/components/ui/underline-field';
 import { FormulaEditor, type FormulaName } from '../commission-templates/FormulaEditor';
-import { planFormulaNames, type CommissionPlan, type FeeTier, type PlanLine } from '@/lib/commission-engine';
+import { planFormulaNames, planLineLevel, type CommissionPlan, type FeeTier, type PlanLine } from '@/lib/commission-engine';
 import { HintedLabel, LINE_TYPES, MenuField, NumberField, TextField, fromPoints, lineTypeLabel, newLine, toPoints } from './plan-inputs';
 
 const FORMULA_LABELS: Record<string, string> = {
@@ -134,6 +134,7 @@ export function PlanEditor({
   entityNames,
   checkPayees = false,
   lockedKeys,
+  dealFieldNames = [],
 }: {
   plan: CommissionPlan;
   onChange: (plan: CommissionPlan) => void;
@@ -142,6 +143,8 @@ export function PlanEditor({
   checkPayees?: boolean;
   /** Keys of lines already saved: year-to-date totals and the plan settings refer to them, so they stay fixed. */
   lockedKeys: Set<string>;
+  /** The deal's fields, for each line's Applies When. */
+  dealFieldNames?: FormulaName[];
 }) {
   const setLine = (index: number, patch: Partial<PlanLine>) =>
     onChange({ ...plan, lines: plan.lines.map((line, i) => (i === index ? ({ ...line, ...patch } as PlanLine) : line)) });
@@ -153,6 +156,11 @@ export function PlanEditor({
   };
   const add = (type: PlanLine['type']) => onChange({ ...plan, lines: [...plan.lines, newLine(type, new Set(plan.lines.map((line) => line.key)))] });
   const payeeOptions = entityNames.map((name) => ({ value: name, label: name }));
+  // Applies When stays a button until the line has a condition or it is opened.
+  const [conditionsOpen, setConditionsOpen] = React.useState<Set<string>>(() => new Set());
+  // Levels on offer: every level in use, plus the next one.
+  const levelsInUse = plan.lines.map((line) => planLineLevel(line, plan.lines));
+  const levelOptions = Array.from({ length: Math.max(1, ...levelsInUse) + 1 }, (_, i) => ({ value: String(i + 1), label: `Level ${i + 1}` }));
 
   return (
     <div className="space-y-3">
@@ -188,6 +196,19 @@ export function PlanEditor({
                 <TextField label="Key" hint={"The line's permanent code, lowercase with underscores. Yearly totals, starting balances and Plan Settings refer to it; it cannot change once saved."} mono value={line.key} onChange={(key) => setLine(index, { key: key.trim() })} />
               )}
               <MenuField label="Payee" hint={"The entity this line pays: one of your Commission Entities."} value={line.payee} options={payeeOptions.some((option) => option.value === line.payee) || !line.payee ? payeeOptions : [{ value: line.payee, label: checkPayees ? `${line.payee} (Not an Entity)` : line.payee }, ...payeeOptions]} onChange={(payee) => setLine(index, { payee })} placeholder="Choose an Entity" />
+              <MenuField
+                label="Level"
+                hint={"Every percent in a level is taken from the same amount: Level 1 from the agent's side, Level 2 from what is left after every Level 1 line, and so on. Stock is usually Level 2."}
+                value={String(planLineLevel(line, plan.lines))}
+                options={levelOptions}
+                onChange={(value) => {
+                  const level = Number(value) || 1;
+                  // A percent of the net in Level 2 or later takes off every line in the levels above it, so its own
+                  // list goes; back in Level 1 it starts empty.
+                  if (line.type === 'percent_of_net') setLine(index, { level, after: [] });
+                  else setLine(index, { level });
+                }}
+              />
 
               {line.type === 'capped_percent' && (
                 <>
@@ -245,6 +266,9 @@ export function PlanEditor({
                     <input type="checkbox" className="h-4 w-4 cursor-pointer accent-brand-600" checked={Boolean(line.optIn)} onChange={(event) => setLine(index, { optIn: event.target.checked || undefined })} />
                     Only agents who opt in
                   </label>
+                  {line.level && line.level > 1 && line.after.length === 0 ? (
+                    <p className="text-xs text-slate-500 sm:col-span-3 dark:text-slate-400">Taken from what is left after every line in Level {line.level - 1} and above.</p>
+                  ) : (
                   <div className="sm:col-span-3">
                     <div className="mb-1 text-2xs font-bold text-slate-500 dark:text-slate-400">Taken Off the Side First</div>
                     <div className="flex flex-wrap gap-3">
@@ -262,6 +286,7 @@ export function PlanEditor({
                       ))}
                     </div>
                   </div>
+                  )}
                 </>
               )}
 
@@ -280,6 +305,29 @@ export function PlanEditor({
                   </div>
                 </>
               )}
+
+              <div className="sm:col-span-3">
+                {line.appliesWhen || conditionsOpen.has(line.key) ? (
+                  <FormulaEditor
+                    label="Applies When"
+                    value={line.appliesWhen || ''}
+                    onChange={(appliesWhen) => setLine(index, { appliesWhen: appliesWhen.trim() ? appliesWhen : undefined })}
+                    names={dealFieldNames}
+                    fitContent
+                    hint={'Leave blank to charge it on every deal. AND(transaction_side <> "Tenant", transaction_side <> "Landlord") skips leases.'}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    title="Charge this line only on deals that meet a condition, such as not on leases."
+                    onClick={() => setConditionsOpen((open) => new Set(open).add(line.key))}
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 transition hover:bg-brand-500/10 hover:text-brand-700 dark:text-slate-400 dark:hover:bg-brand-500/15 dark:hover:text-brand-400"
+                  >
+                    <Plus className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                    Add Condition
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         );
