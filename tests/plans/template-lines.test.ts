@@ -4,6 +4,7 @@ import {
   computePlanDeal,
   loadPlanPresets,
   planSidesFromTemplate,
+  runLevels,
   type NamedParty,
   type TemplateLogicStep,
 } from '@/lib/commission-engine';
@@ -216,5 +217,28 @@ describe('adjustment rules', () => {
     expect(typed.adjustments?.[0]).toMatchObject({ divide: 'typed', payers: ['Winston', 'Skylar'], shares: { Winston: 300, Skylar: 200 } });
     const percent = runWith([...splits, step({ rule_name: 'Marketing', section: 'Post-splits', stage: 'AFTER_PLAN', payee_entity_id: 'ENT_CREDIT', split_type: 'PERCENT', calculation_formula: '2%' })]);
     expect(percent.adjustments?.[0]).toMatchObject({ type: 'PERCENT', value: 0.02, payers: [] });
+  });
+});
+
+describe('levels beyond 2', () => {
+  const levelRun = (applied: ReturnType<typeof run>) => runLevels(30900, [
+    ...(applied.offTheTopRules || []).map((rule) => ({ ...rule, level: rule.level ?? 1 })),
+    ...(applied.preSplitRules || []).map((rule) => ({ ...rule, level: rule.level ?? 2 })),
+  ], 'end');
+
+  it('an Off the Top Level 3 percent takes what Levels 1 and 2 leave, in the template and the waterfall alike', () => {
+    const applied = run([
+      step({ rule_name: 'Referral', step_number: -3, section: 'Off-the-top', payee_entity_id: 'ENT_REF', split_type: 'PERCENT', calculation_formula: 'baseline * 25%' }),
+      step({ rule_name: 'Brokerage', step_number: -2, section: 'Off-the-top', level: 2, payee_entity_id: 'ENT_CREDIT', split_type: 'PERCENT', calculation_formula: 'baseline * 20%' }),
+      step({ rule_name: 'Franchise', step_number: -1, section: 'Off-the-top', level: 3, payee_entity_id: 'ENT_CREDIT', split_type: 'PERCENT', calculation_formula: 'baseline * 10%' }),
+      ...splits,
+    ]);
+    // 30,900 → 25% referral 7,725 → 20% of 23,175 = 4,635 → 10% of 18,540 = 1,854.
+    expect(levelRun(applied).items.map((item) => [item.name, item.level, item.amount])).toEqual([
+      ['Referral', 1, 7725],
+      ['Brokerage', 2, 4635],
+      ['Franchise', 3, 1854],
+    ]);
+    expect(applied.agentSplits?.reduce((sum, split) => sum + split.amount, 0)).toBe(16686);
   });
 });

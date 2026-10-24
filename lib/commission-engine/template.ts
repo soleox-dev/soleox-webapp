@@ -303,6 +303,13 @@ export function applyTemplateLogic({
   const agentSplits: AppliedAgentSplit[] = [];
   let offTopSum = 0;
   let preSplitSum = 0;
+  // Off the Top Level 3 and beyond, and each agent's post-splits Level 3 and beyond: what each level took, so a
+  // later level's percents take what is left (stages.ts). Levels 1 and 2 keep the sums above.
+  const dealLevelSums: Record<number, number> = {};
+  const postLevelSums: Record<string, Record<number, number>> = {};
+  const below = (sums: Record<number, number> | undefined, level: number) =>
+    Object.entries(sums || {}).reduce((sum, [key, amount]) => (Number(key) < level ? sum + amount : sum), 0);
+  const dealLevelsTotal = () => below(dealLevelSums, Number.MAX_SAFE_INTEGER);
   let agentSplitDollars = 0;
   const agentAmounts: Record<string, number> = {};
   const agentSplitNets = new Map<string, number>();
@@ -425,7 +432,7 @@ export function applyTemplateLogic({
   };
   const splitPool = () => (waterfallPool
     ? roundCurrency(waterfallPool.afterPreSplits)
-    : roundCurrency(totalCommission - offTopSum - preSplitSum));
+    : roundCurrency(totalCommission - offTopSum - preSplitSum - dealLevelsTotal()));
   const moveSplit = (agentName: string, delta: number, label: string) => {
     const entry = agentSplits.find((split) => split.name.trim().toLowerCase() === agentName.trim().toLowerCase());
     const pool = splitPool();
@@ -530,7 +537,17 @@ export function applyTemplateLogic({
 
   const runStep = (step: TemplateLogicStep) => {
     const ruleName = step.rule_name?.trim() || 'Rule';
-    const bucket = bucketFor(step.section);
+    // A rule's level picks its place: Off the Top Level 1 is Off-the-top and Level 2 Pre-splits; post-splits Level 1
+    // and Level 2 as before. Level 3 and beyond (extraLevel) take what the levels above leave.
+    const ruleLevelNumber = Number(step.level);
+    const sectionBucket = bucketFor(step.section);
+    const explicitLevel = Number.isInteger(ruleLevelNumber) && ruleLevelNumber >= 1 ? ruleLevelNumber : 0;
+    const bucket: Bucket | null = !explicitLevel || !sectionBucket || sectionBucket === 'agentSplit'
+      ? sectionBucket
+      : sectionBucket === 'offTheTop' || sectionBucket === 'preSplit'
+        ? (explicitLevel === 1 ? 'offTheTop' : 'preSplit')
+        : (explicitLevel === 1 ? 'postSplit' : 'postSplit2');
+    const extraLevel = explicitLevel >= 3 && bucket !== 'agentSplit' ? explicitLevel : 0;
     const agentKey = step.agent_key?.trim() || '';
     // Agent balances depend on the assigned agent. The agent key is a
     // parameter lookup, so it can be read before those balances are known.
@@ -549,7 +566,8 @@ export function applyTemplateLogic({
     // that section. Earlier rules in the same section do not reduce it.
     const agentSplitAmount = recorded(agentAmounts, agentName);
     context.afterOffTheTop = roundCurrency(totalCommission - offTopSum);
-    context.afterPreSplits = roundCurrency(context.afterOffTheTop - preSplitSum);
+    // What the agents split: after every Off the Top level.
+    context.afterPreSplits = roundCurrency(context.afterOffTheTop - preSplitSum - dealLevelsTotal());
     if (waterfallPool) {
       context.afterOffTheTop = roundCurrency(waterfallPool.afterOffTheTop);
       context.afterPreSplits = roundCurrency(waterfallPool.afterPreSplits);
@@ -557,7 +575,13 @@ export function applyTemplateLogic({
     context.afterAgentSplits = agentSplitAmount;
     context.afterL1PostSplits = roundCurrency(agentSplitAmount - recorded(postSums, agentName));
     context.prior = prior;
-    const defaultBaseline = bucket === 'offTheTop'
+    // Level 3+: what the deal, or this agent, has left after every level above.
+    const extraLevelBase = !extraLevel
+      ? 0
+      : bucket === 'preSplit'
+        ? roundCurrency(totalCommission - offTopSum - preSplitSum - below(dealLevelSums, extraLevel))
+        : roundCurrency(context.afterL1PostSplits - recorded(post2Sums, agentName) - below(postLevelSums[agentName], extraLevel));
+    const defaultBaseline = extraLevel ? extraLevelBase : bucket === 'offTheTop'
       ? totalCommission
       : bucket === 'preSplit'
         ? context.afterOffTheTop
@@ -765,8 +789,8 @@ export function applyTemplateLogic({
     const splitType = splitKind(step.split_type);
     const agentPool = waterfallPool
       ? roundCurrency(waterfallPool.afterPreSplits)
-      : roundCurrency(totalCommission - offTopSum - preSplitSum);
-    const pool = bucket === 'offTheTop'
+      : roundCurrency(totalCommission - offTopSum - preSplitSum - dealLevelsTotal());
+    const pool = extraLevel ? extraLevelBase : bucket === 'offTheTop'
       ? totalCommission
       : bucket === 'preSplit'
         ? roundCurrency(totalCommission - offTopSum)
@@ -794,7 +818,8 @@ export function applyTemplateLogic({
         offTopSum = roundCurrency(offTopSum + amount);
       } else {
         preSplitRules.push(rule);
-        preSplitSum = roundCurrency(preSplitSum + amount);
+        if (extraLevel) dealLevelSums[extraLevel] = roundCurrency((dealLevelSums[extraLevel] || 0) + amount);
+        else preSplitSum = roundCurrency(preSplitSum + amount);
       }
       return;
     }
@@ -818,6 +843,13 @@ export function applyTemplateLogic({
     if (!entityName) throw new Error(`"${ruleName}" needs an entity.`);
     const map = bucket === 'postSplit' ? postSplitRulesByAgent : postSplit2RulesByAgent;
     const sums = bucket === 'postSplit' ? postSums : post2Sums;
+    if (extraLevel) {
+      // Level 3+: kept apart from Level 2's sum, so Level 2's base stays the same for every Level 2 rule.
+      const fromTeamCapBaseline = TEAM_CAP_CREDIT_IN_FORMULA.test(`${custom}\n${formula}`);
+      postSplit2RulesByAgent[agentName] = [...(postSplit2RulesByAgent[agentName] || []), { ...rule, entity: entityName, fromTeamCapBaseline }];
+      postLevelSums[agentName] = { ...(postLevelSums[agentName] || {}), [extraLevel]: roundCurrency((postLevelSums[agentName]?.[extraLevel] || 0) + amount) };
+      return;
+    }
     const fromTeamCapBaseline = TEAM_CAP_CREDIT_IN_FORMULA.test(`${custom}\n${formula}`);
     map[agentName] = [...(map[agentName] || []), { ...rule, entity: entityName, fromTeamCapBaseline }];
     sums[agentName] = roundCurrency((sums[agentName] || 0) + amount);

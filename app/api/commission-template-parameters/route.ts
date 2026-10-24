@@ -290,7 +290,7 @@ export async function DELETE(request: Request) {
       const [rulesResult, parametersResult] = await Promise.all([
         supabase
           .from('commission_template_rules')
-          .select('rule_name, agent_key, from_agent_key, paid_by_agent_keys, payee_formula, apply_condition, custom_baseline, calculation_formula, show_when_formula')
+          .select('*')
           .eq('template_id', parameter.template_id)
           .eq('client_id', clientId)
           .or('archived.is.null,archived.eq.false'),
@@ -349,7 +349,7 @@ async function deleteParameters(request: Request, actorEmail: string) {
   const [rulesResult, parametersResult] = await Promise.all([
     supabase
       .from('commission_template_rules')
-      .select('rule_name, agent_key, from_agent_key, paid_by_agent_keys, payee_formula, apply_condition, custom_baseline, calculation_formula, show_when_formula')
+      .select('*')
       .eq('template_id', templateId)
       .eq('client_id', clientId)
       .or('archived.is.null,archived.eq.false'),

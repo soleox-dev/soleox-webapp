@@ -94,7 +94,12 @@ export async function POST(request: Request) {
           : [];
         return keys.length ? keys : null;
       })(),
-      paid_share_by: logic.paid_share_by === 'equal' ? 'equal' : logic.paid_share_by === 'split' ? 'split' : null,
+      paid_share_by: ['split', 'equal', 'custom', 'typed'].includes(logic.paid_share_by) ? logic.paid_share_by : null,
+      // Adjustments and levels (migration 081).
+      stage: logic.stage === 'BEFORE_PLAN' || logic.stage === 'AFTER_PLAN' ? logic.stage : null,
+      level: Number.isInteger(Number(logic.level)) && Number(logic.level) >= 1 ? Number(logic.level) : null,
+      share_basis: ['split', 'after_before_plan', 'after_plan', 'at_level'].includes(logic.share_basis) ? logic.share_basis : null,
+      paid_shares: Array.isArray(logic.paid_shares) ? logic.paid_shares.map((share: unknown) => String(share ?? '').trim()) : null,
       archived: Boolean(logic.archived),
       created_by: logic.created_by || user,
       updated_at: new Date().toISOString(),
@@ -122,8 +127,13 @@ export async function POST(request: Request) {
     }
 
     let { data, error } = await query;
-    for (const column of ['result_type', 'popup_section', 'show_in_popup', 'show_when_formula', 'divider_below']) {
+    const adjustmentColumns = ['stage', 'level', 'share_basis', 'paid_shares'];
+    for (const column of ['result_type', 'popup_section', 'show_in_popup', 'show_when_formula', 'divider_below', ...adjustmentColumns]) {
       if (!error || !String(error.message || '').includes(column)) continue;
+      // A database without migration 081 still saves every other rule; one that needs these settings says why.
+      if (adjustmentColumns.includes(column) && rowPayload[column] !== null && rowPayload[column] !== undefined) {
+        throw new Error('This rule uses levels or adjustments, which need database migration 081 (081_template_rule_adjustments.sql) applied first.');
+      }
       delete rowPayload[column];
       const retry = isUpdate
         ? supabase.from('commission_template_rules').upsert(rowPayload, { onConflict: 'id' }).select()

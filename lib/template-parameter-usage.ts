@@ -13,6 +13,8 @@ export interface UsageRule {
   custom_baseline?: string | null;
   calculation_formula?: string | null;
   show_when_formula?: string | null;
+  /** An adjustment's per-payer share formulas (migration 081). */
+  paid_shares?: string[] | null;
 }
 
 export interface UsageParameter {
@@ -40,7 +42,7 @@ export function parameterUsedBy(key: string, rules: UsageRule[], parameters: Usa
       same(rule.agent_key)
       || same(rule.from_agent_key)
       || (rule.paid_by_agent_keys || []).some(same)
-      || [rule.payee_formula, rule.apply_condition, rule.custom_baseline, rule.calculation_formula, rule.show_when_formula].some((formula) => formulaUsesKey(formula, key)))
+      || [rule.payee_formula, rule.apply_condition, rule.custom_baseline, rule.calculation_formula, rule.show_when_formula, ...(rule.paid_shares || [])].some((formula) => formulaUsesKey(formula, key)))
     .map((rule) => rule.rule_name);
   const parameterNames = parameters
     .filter((parameter) => !same(parameter.parameter_key))

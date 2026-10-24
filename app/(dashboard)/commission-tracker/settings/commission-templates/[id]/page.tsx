@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { FormulaEditor, FormulaExplain, FormulaHint, FormulaPreview, type FormulaName } from '../FormulaEditor';
 import { BulkRuleRename } from './BulkRuleRename';
-import { LogicStepForm, LOGIC_SECTIONS, canonicalLogicSection, canonicalResultType, logicSectionShowsAgent, logicSectionShowsEntity, logicContextNames, ledgerFormulaNames, resultTypeLabel, ruleKeyFromName, describeKeyConflict, type LogicStepDraft } from './LogicStepForm';
+import { LogicStepForm, LOGIC_SECTIONS, canonicalLogicSection, canonicalResultType, sectionLevel, logicSectionShowsAgent, logicSectionShowsEntity, logicContextNames, ledgerFormulaNames, resultTypeLabel, ruleKeyFromName, describeKeyConflict, type LogicStepDraft } from './LogicStepForm';
 import { EditPencil } from '@/components/ui/edit-pencil';
 import { TrashIcon } from '@/components/ui/trash-icon';
 import { DragHandle, moveItem, useDragReorder } from '@/components/ui/reorder-controls';
@@ -78,6 +78,10 @@ interface LogicStep {
   from_agent_key?: string | null;
   paid_by_agent_keys?: string[] | null;
   paid_share_by?: string | null;
+  stage?: string | null;
+  level?: number | null;
+  share_basis?: string | null;
+  paid_shares?: string[] | null;
 }
 
 interface CommissionEntity {
@@ -271,6 +275,10 @@ const emptyLogic: LogicStepDraft = {
   from_agent_key: '',
   paid_by_agent_keys: [],
   paid_share_by: 'split',
+  stage: '',
+  level: '',
+  share_basis: '',
+  paid_shares: [],
 };
 
 /** The Commission Template form section a calculation rule shows in, or "" when it is not shown there. */
@@ -777,6 +785,10 @@ export default function CommissionTemplateDetailPage() {
           from_agent_key: step.from_agent_key || null,
           paid_by_agent_keys: step.paid_by_agent_keys || null,
           paid_share_by: step.paid_share_by || null,
+          stage: step.stage || null,
+          level: step.level ?? null,
+          share_basis: step.share_basis || null,
+          paid_shares: step.paid_shares || null,
         },
       }),
     });
@@ -1157,7 +1169,7 @@ export default function CommissionTemplateDetailPage() {
       setFormError('That key is already used by a field, parameter, or another rule.');
       return;
     }
-    if (section && logicSectionShowsAgent(section) && !logicForm.agent_key.trim()) {
+    if (section && logicSectionShowsAgent(section) && !logicForm.stage && !logicForm.agent_key.trim()) {
       setFormError('Choose the agent for this rule.');
       return;
     }
@@ -1223,6 +1235,7 @@ export default function CommissionTemplateDetailPage() {
           agent_key: form.agent_key.trim().toLowerCase() === previousKey ? ruleKey : form.agent_key,
           from_agent_key: form.from_agent_key.trim().toLowerCase() === previousKey ? ruleKey : form.from_agent_key,
           paid_by_agent_keys: form.paid_by_agent_keys.map((key) => (key.trim().toLowerCase() === previousKey ? ruleKey : key)),
+          paid_shares: form.paid_shares.map(renameKey),
           payee_formula: renameKey(form.payee_formula),
           custom_baseline: renameKey(form.custom_baseline),
           calculation_formula: renameKey(form.calculation_formula),
@@ -1242,7 +1255,7 @@ export default function CommissionTemplateDetailPage() {
             rule_key: ruleKey,
             section: section || null,
             apply_condition: postsSplit ? normalizeFormula(form.apply_condition).text.trim() || null : null,
-            agent_key: postsSplit && logicSectionShowsAgent(section) ? form.agent_key.trim() || null : null,
+            agent_key: postsSplit && logicSectionShowsAgent(section) && !form.stage ? form.agent_key.trim() || null : null,
             payee_entity_id: postsSplit && logicSectionShowsEntity(section) && form.entity_mode === 'fixed' ? form.payee_entity_id || null : null,
             payee_formula: postsSplit && logicSectionShowsEntity(section) && form.entity_mode === 'formula'
               ? normalizeFormula(form.payee_formula).text.trim() || null
@@ -1259,8 +1272,25 @@ export default function CommissionTemplateDetailPage() {
             divider_below: !postsSplit && form.show_in_popup && form.divider_below,
             rule_kind: section === 'Agent Splits' && form.rule_kind === 'BONUS' ? 'BONUS' : null,
             from_agent_key: section === 'Agent Splits' && form.rule_kind === 'BONUS' ? form.from_agent_key.trim() || null : null,
-            paid_by_agent_keys: (section === 'Off-the-top' || section === 'Pre-splits') && form.paid_by_agent_keys.length ? form.paid_by_agent_keys : null,
-            paid_share_by: (section === 'Off-the-top' || section === 'Pre-splits') && form.paid_by_agent_keys.length > 1 ? form.paid_share_by : null,
+            ...(() => {
+              const credit = section === 'Off-the-top' || section === 'Pre-splits';
+              // An adjustment: a post-split with a stage, paid by its Paid By agents (none: every agent).
+              const adjustment = (section === 'Level 1 Post-splits' || section === 'Level 2 Post-splits') && Boolean(form.stage);
+              const keys = form.paid_by_agent_keys;
+              const divides = adjustment && form.split_type === 'AMOUNT' && keys.length !== 1;
+              const shareBy = credit ? (keys.length > 1 ? (form.paid_share_by === 'equal' ? 'equal' : 'split') : null) : divides ? form.paid_share_by : null;
+              const level = Number(form.level);
+              return {
+                paid_by_agent_keys: (credit || adjustment) && keys.length ? keys : null,
+                paid_share_by: shareBy,
+                stage: adjustment ? form.stage : null,
+                level: postsSplit && Number.isInteger(level) && level >= 1 ? level : null,
+                share_basis: shareBy === 'split' && adjustment && form.share_basis && form.share_basis !== 'split' ? form.share_basis : null,
+                paid_shares: shareBy === 'custom' || shareBy === 'typed'
+                  ? keys.map((_, index) => normalizeFormula(form.paid_shares[index] || '').text.trim())
+                  : null,
+              };
+            })(),
           },
         }),
       });
@@ -1384,7 +1414,11 @@ export default function CommissionTemplateDetailPage() {
       rule_kind: String(step.rule_kind || '').toUpperCase() === 'BONUS' ? 'BONUS' : '',
       from_agent_key: step.from_agent_key?.trim() || '',
       paid_by_agent_keys: (step.paid_by_agent_keys || []).filter(Boolean),
-      paid_share_by: step.paid_share_by === 'equal' ? 'equal' : 'split',
+      paid_share_by: step.paid_share_by === 'equal' || step.paid_share_by === 'custom' || step.paid_share_by === 'typed' ? step.paid_share_by : 'split',
+      stage: step.stage === 'BEFORE_PLAN' || step.stage === 'AFTER_PLAN' ? step.stage : '',
+      level: step.level && Number(step.level) !== sectionLevel(canonicalLogicSection(step.section || '')) ? String(step.level) : '',
+      share_basis: step.share_basis === 'after_before_plan' || step.share_basis === 'after_plan' || step.share_basis === 'at_level' ? step.share_basis : '',
+      paid_shares: step.paid_shares || [],
     });
   };
 

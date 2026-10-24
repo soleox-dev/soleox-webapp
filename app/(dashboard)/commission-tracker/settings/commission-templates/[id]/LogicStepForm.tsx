@@ -28,10 +28,33 @@ export interface LogicStepDraft {
   /** 'BONUS' on an Agent Splits rule: moves the amount from from_agent_key's agent to this rule's agent. */
   rule_kind: '' | 'BONUS';
   from_agent_key: string;
-  /** Off-the-top or Pre-splits: the agents who pay this credit from their own splits. Empty: off the top. */
+  /**
+   * Off-the-top or Pre-splits: the agents who pay this credit from their own splits (empty: off the top).
+   * An adjustment: the agents who pay it (empty: every agent).
+   */
   paid_by_agent_keys: string[];
-  paid_share_by: 'split' | 'equal';
+  paid_share_by: 'split' | 'equal' | 'custom' | 'typed';
+  /** Post-splits: '' is a post-split for the rule's agent; a stage makes it an adjustment (stages.ts). */
+  stage: '' | 'BEFORE_PLAN' | 'AFTER_PLAN';
+  /** '' is the section's own level; otherwise "3", "4", … */
+  level: string;
+  /** For an adjustment divided by split share: whose amounts divide it. '' is the agents' splits. */
+  share_basis: '' | 'split' | 'after_before_plan' | 'after_plan' | 'at_level';
+  /** For custom percents or typed amounts: one formula per Paid By agent, in the same order. */
+  paid_shares: string[];
 }
+
+/** The level a section stands for: Off-the-top 1, Pre-splits 2, Level 1 and Level 2 post-splits. */
+export function sectionLevel(section: string): number {
+  return section === 'Pre-splits' || section === 'Level 2 Post-splits' ? 2 : 1;
+}
+
+const SHARE_BASIS_LABELS: Record<string, string> = {
+  split: "the Agents' Splits",
+  after_before_plan: 'What They Have After Before Plan',
+  after_plan: 'What They Have After the Plan',
+  at_level: 'What They Have at This Level',
+};
 
 export type CalculationResultType = 'CURRENCY' | 'NUMBER' | 'PERCENT';
 
@@ -262,7 +285,8 @@ export function LogicStepForm({
   const [showCondition, setShowCondition] = useState(Boolean(draft.apply_condition.trim()));
   const section = canonicalLogicSection(draft.section);
   const postsSplit = logicSectionPostsSplit(section);
-  const showAgent = logicSectionShowsAgent(section);
+  // An adjustment names its payers under Paid By instead of one agent.
+  const showAgent = logicSectionShowsAgent(section) && !draft.stage;
   const showEntity = logicSectionShowsEntity(section);
   const sharedGroups = [
     ...fieldGroups,
@@ -465,6 +489,137 @@ export function LogicStepForm({
                 )}
               </div>
             </div>
+          )}
+
+          {(section === 'Off-the-top' || section === 'Pre-splits' || section === 'Level 1 Post-splits' || section === 'Level 2 Post-splits') && (
+            <LabeledRow
+              label="Level"
+              htmlFor="rule-level"
+              note={<p className="text-2xs text-slate-500 dark:text-slate-400">Every percent in a level is taken from the same amount; each level starts from what the levels above leave.</p>}
+            >
+              <div className={underlineShell}>
+                <ClearableSelect
+                  id="rule-level"
+                  aria-label="Level"
+                  value={draft.level || String(sectionLevel(section))}
+                  onChange={(event) => onChange({ ...draft, level: Number(event.target.value) === sectionLevel(section) ? '' : event.target.value })}
+                  className={`${underlineControl} overview-field-select cursor-pointer`}
+                >
+                  {[1, 2, 3, 4, 5].map((level) => <option key={level} value={String(level)}>Level {level}</option>)}
+                </ClearableSelect>
+                <FieldChevron />
+              </div>
+            </LabeledRow>
+          )}
+
+          {(section === 'Level 1 Post-splits' || section === 'Level 2 Post-splits') && (
+            <LabeledRow
+              label="Applies To"
+              htmlFor="rule-stage"
+              note={<p className="text-2xs text-slate-500 dark:text-slate-400">{draft.stage === 'BEFORE_PLAN'
+                ? 'An adjustment: comes off the paying agents\' splits before their Commission Plan, so the plan charges on less.'
+                : draft.stage === 'AFTER_PLAN'
+                  ? 'An adjustment: comes off the paying agents\' net after their Commission Plan, such as a TC fee.'
+                  : 'A post-split for one agent, chosen below.'}</p>}
+            >
+              <div className={underlineShell}>
+                <ClearableSelect
+                  id="rule-stage"
+                  aria-label="Applies To"
+                  value={draft.stage}
+                  onChange={(event) => {
+                    const stage = event.target.value === 'BEFORE_PLAN' || event.target.value === 'AFTER_PLAN' ? event.target.value : '';
+                    onChange({ ...draft, stage, ...(stage ? { agent_key: '' } : { paid_by_agent_keys: [], paid_shares: [], share_basis: '' }) });
+                  }}
+                  className={`${underlineControl} overview-field-select cursor-pointer`}
+                >
+                  <option value="">One Agent&apos;s Post-Split</option>
+                  <option value="BEFORE_PLAN">Adjustment Before the Plan</option>
+                  <option value="AFTER_PLAN">Adjustment After the Plan</option>
+                </ClearableSelect>
+                <FieldChevron />
+              </div>
+            </LabeledRow>
+          )}
+
+          {(section === 'Level 1 Post-splits' || section === 'Level 2 Post-splits') && draft.stage && (
+            <LabeledRow
+              label="Paid By"
+              note={<p className="text-2xs text-slate-500 dark:text-slate-400">{draft.paid_by_agent_keys.length ? 'Only these agents pay it.' : 'Every agent on the deal pays it.'}</p>}
+            >
+              <div className="space-y-2">
+                {draft.paid_by_agent_keys.length > 0 && (
+                  <div className="space-y-1.5">
+                    {draft.paid_by_agent_keys.map((key, index) => (
+                      <div key={key} className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 font-mono text-2xs text-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                          {key}
+                          <button type="button" onClick={() => onChange({ ...draft, paid_by_agent_keys: draft.paid_by_agent_keys.filter((item) => item !== key), paid_shares: draft.paid_shares.filter((_, i) => i !== index) })} className="cursor-pointer text-slate-400 hover:text-rose-500" aria-label={`Remove ${key}`} title={`Remove ${key}`}>×</button>
+                        </span>
+                        {(draft.paid_share_by === 'custom' || draft.paid_share_by === 'typed') && (
+                          <input
+                            aria-label={`${key} ${draft.paid_share_by === 'typed' ? 'Amount' : 'Share'}`}
+                            value={draft.paid_shares[index] || ''}
+                            onChange={(event) => {
+                              const paid_shares = draft.paid_by_agent_keys.map((_, i) => (i === index ? event.target.value : draft.paid_shares[i] || ''));
+                              onChange({ ...draft, paid_shares });
+                            }}
+                            placeholder={draft.paid_share_by === 'typed' ? 'Dollars, e.g. 300 or a1_credit' : 'Percent, e.g. 60'}
+                            className={`${underlineControl} max-w-56 border-b border-slate-300 font-mono text-xs dark:border-slate-600`}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <AgentKeySelect
+                  id="rule-adjustment-paid-by"
+                  label={draft.paid_by_agent_keys.length ? 'Add Another Agent' : 'Every Agent'}
+                  value=""
+                  groups={agentChoices}
+                  known={knownAgentKeys}
+                  onChange={(key) => key && !draft.paid_by_agent_keys.includes(key) && onChange({ ...draft, paid_by_agent_keys: [...draft.paid_by_agent_keys, key] })}
+                />
+                {draft.split_type === 'AMOUNT' && draft.paid_by_agent_keys.length !== 1 && (
+                  <div className={underlineShell}>
+                    <ClearableSelect
+                      aria-label="Divided"
+                      value={draft.paid_share_by}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        const paid_share_by = value === 'equal' || value === 'custom' || value === 'typed' ? value : 'split';
+                        onChange({ ...draft, paid_share_by, ...(paid_share_by === 'split' ? {} : { share_basis: '' }) });
+                      }}
+                      className={`${underlineControl} overview-field-select cursor-pointer`}
+                    >
+                      <option value="split">Divided by Split Share</option>
+                      <option value="equal">Divided Equally</option>
+                      <option value="custom" disabled={!draft.paid_by_agent_keys.length}>Divided by Custom Percents</option>
+                      <option value="typed" disabled={!draft.paid_by_agent_keys.length}>Typed Amount per Agent</option>
+                    </ClearableSelect>
+                    <FieldChevron />
+                  </div>
+                )}
+                {draft.split_type === 'AMOUNT' && draft.paid_share_by === 'split' && draft.paid_by_agent_keys.length !== 1 && (
+                  <div className={underlineShell}>
+                    <ClearableSelect
+                      aria-label="Share Basis"
+                      value={draft.share_basis || 'split'}
+                      onChange={(event) => onChange({ ...draft, share_basis: event.target.value === 'split' ? '' : event.target.value as LogicStepDraft['share_basis'] })}
+                      className={`${underlineControl} overview-field-select cursor-pointer`}
+                    >
+                      {(draft.stage === 'BEFORE_PLAN' ? ['split', 'at_level'] : ['split', 'after_before_plan', 'after_plan', 'at_level']).map((basis) => (
+                        <option key={basis} value={basis}>By {SHARE_BASIS_LABELS[basis]}</option>
+                      ))}
+                    </ClearableSelect>
+                    <FieldChevron />
+                  </div>
+                )}
+                {draft.split_type === 'PERCENT' && (
+                  <p className="text-2xs text-slate-500 dark:text-slate-400">A percent adjustment: each paying agent pays this percent of their own amount at this point. The formula must give a percent.</p>
+                )}
+              </div>
+            </LabeledRow>
           )}
 
           {(section === 'Off-the-top' || section === 'Pre-splits') && (
