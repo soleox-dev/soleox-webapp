@@ -71,4 +71,11 @@ Status values: Proposed, Planned, In progress, Done.
 
 ## Done
 
-Nothing yet.
+### FR-007: Team lead reports and a regrouped reports menu
+- **Status:** Done
+- **Source:** Owner Reports review, October 23, 2026
+- **Requirement:** Add Pipeline Forecast, Agent Scorecard, Commission Payouts, Fall-Through Report and Inactive Agents to Owner Reports, and regroup the menu into Your Business, Your Agents, Transactions, Listings and Coming Soon, with reports that are not ready last.
+- **Why:** Team leads asked what is closing soon, how one agent is doing, what the team pays out, where deals fall apart, and who has gone quiet; no report answered those directly.
+- **Notes:**
+  - Payments carry no paid status or date yet (all TATH payments are blank), so Commission Payouts shows Unpaid as Not Tracked until payments are marked paid (`payment_status` COMPLETED).
+  - Fall-Through has no cancellation date, so it cannot show how long a deal was pending before it fell through.

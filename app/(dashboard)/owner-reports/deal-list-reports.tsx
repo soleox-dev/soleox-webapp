@@ -21,7 +21,7 @@ import {
 
 type Align = 'left' | 'right';
 
-type Column = {
+export type Column = {
   key: string;
   label: string;
   align?: Align;
@@ -38,23 +38,23 @@ type Column = {
 
 type Sort = { key: string; direction: 'asc' | 'desc' };
 
-const tableWrap = 'report-table rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900';
+export const tableWrap = 'report-table rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900';
 /**
  * Transaction List and Listings fill the rest of the screen on wide, tall screens: the page stops scrolling and the
  * table scrolls on its own, header pinned on top and Grand Total at the bottom (screenFitReport in reports-client).
  */
 const fitTableWrap = 'report-table report-table-fit min-h-0 rounded-xl border border-slate-200 bg-white screenfit:flex-1 dark:border-slate-800 dark:bg-slate-900';
-const fitReport = 'flex flex-col gap-4 screenfit:min-h-0 screenfit:flex-1';
+export const fitReport = 'flex flex-col gap-4 screenfit:min-h-0 screenfit:flex-1';
 
-function dayLabel(date: Date | null): string {
+export function dayLabel(date: Date | null): string {
   return date ? date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 }
 
-function cents(value: number): string {
+export function cents(value: number): string {
   return value.toLocaleString(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function rate(value: number | null, digits = 2): string {
+export function rate(value: number | null, digits = 2): string {
   if (value == null || !Number.isFinite(value)) return '—';
   return `${(value * 100).toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits })}%`;
 }
@@ -94,7 +94,7 @@ function average(values: number[]): number | null {
   return values.length ? values.reduce((total, value) => total + value, 0) / values.length : null;
 }
 
-function StatusChip({ status }: { status: string }) {
+export function StatusChip({ status }: { status: string }) {
   const key = status.trim().toLowerCase();
   const tone = key === 'closed'
     ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-900'
@@ -106,7 +106,7 @@ function StatusChip({ status }: { status: string }) {
   return <span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-2xs font-semibold ring-1 ring-inset ${tone}`}>{status || 'No Status'}</span>;
 }
 
-function AddressLink({ deal }: { deal: ReportDeal }) {
+export function AddressLink({ deal }: { deal: ReportDeal }) {
   if (!deal.address) return <span className="text-slate-400">—</span>;
   return (
     <a href={`/commission-tracker/transactions/${encodeURIComponent(deal.id)}`} className="font-medium hover:text-brand-700 hover:underline dark:hover:text-brand-400">
@@ -116,7 +116,7 @@ function AddressLink({ deal }: { deal: ReportDeal }) {
 }
 
 /** Sortable deal table with row numbers and a Grand Total row. */
-function DealListTable({ deals, columns, initialSort, totalLabelColumn, empty, fit = false, fitClass = '', stateKey = '' }: {
+export function DealListTable({ deals, columns, initialSort, totalLabelColumn, empty, fit = false, fitClass = '', stateKey = '' }: {
   deals: ReportDeal[];
   columns: Column[];
   initialSort: Sort;
@@ -241,7 +241,7 @@ function statusKeyOf(deal: ReportDeal): (typeof STATUS_ORDER)[number]['key'] {
 }
 
 /** A labeled figure under a tile's main number. */
-function TileFact({ label, value, tone = '' }: { label: string; value: string; tone?: string }) {
+export function TileFact({ label, value, tone = '' }: { label: string; value: string; tone?: string }) {
   return (
     <span>
       {label} <span className={`font-semibold tabular-nums ${tone || 'text-slate-800 dark:text-slate-100'}`}>{value}</span>
@@ -318,7 +318,7 @@ function StatusTile({ label, value, valueClass = '', deals, read, format, footer
   );
 }
 
-function compactDollars(value: number): string {
+export function compactDollars(value: number): string {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 2 }).format(Math.round(value));
 }
 

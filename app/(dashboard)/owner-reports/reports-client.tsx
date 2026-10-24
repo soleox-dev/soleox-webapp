@@ -70,6 +70,7 @@ import { TeamCapsReport } from '@/app/(dashboard)/owner-reports/team-caps-report
 import { planCapSections, type PlanCapData } from '@/lib/plan-cap-report';
 import { TransactionMapReport } from '@/app/(dashboard)/owner-reports/transaction-map-report';
 import { ListingsReport, PriceChangeReport, TransactionListReport, priceChangeDeals } from '@/app/(dashboard)/owner-reports/deal-list-reports';
+import { AgentScorecardReport, CommissionPayoutsReport, FallThroughReport, InactiveAgentsReport, PipelineForecastReport, scorecardAgents } from '@/app/(dashboard)/owner-reports/team-lead-reports';
 import {
   formatLong,
   formatUs,
@@ -117,6 +118,11 @@ type ReportBundle = {
   agentSchema: any;
   planCaps: any;
 };
+
+/** The team lead reports (team-lead-reports.tsx): no metric dropdown. */
+const TEAM_LEAD_REPORTS = new Set(['pipeline-forecast', 'agent-scorecard', 'commission-payables', 'fall-through', 'inactive-agents']);
+/** Reports that count from today, so the date range does not apply and its control is hidden. */
+const FROM_TODAY_REPORTS = new Set(['pipeline-forecast', 'inactive-agents']);
 
 /** Reports whose table fills the rest of the screen and scrolls on its own (on screens tall and wide enough). */
 function screenFitReport(reportId: string | null): boolean {
@@ -582,6 +588,8 @@ export default function OwnerReportsPage() {
       entityId: String(payment.payee_entity_id || ''),
       payeeType: String(payment.payee_type || ''),
       amount: Number(payment.amount_paid) || 0,
+      status: String(payment.payment_status || ''),
+      paymentDate: payment.payment_date ? new Date(`${String(payment.payment_date).slice(0, 10)}T00:00:00`) : null,
     })));
     const entityList = Array.isArray(snapshot.entities) ? snapshot.entities : [];
     const nextEntities = new Map<string, string>();
@@ -1983,6 +1991,13 @@ function ReportView(props: {
   // A callback ref: the slot first appears once the report has loaded, after this view mounted.
   const [titleSlot, setTitleSlot] = useState<HTMLDivElement | null>(null);
   const titleTight = useTitleTight(titleSlot);
+  // Agent Scorecard's agent, picked under the title: top producer in the range until one is chosen.
+  const scorecardChoices = useMemo(
+    () => (props.reportId === 'agent-scorecard' ? scorecardAgents(props.deals, range, props.names) : []),
+    [props.reportId, props.deals, range, props.names],
+  );
+  const [scorecardPick, setScorecardPick] = useRestorableState('agent-scorecard:agent', '');
+  const scorecardAgent = scorecardChoices.some((choice) => choice.id === scorecardPick) ? scorecardPick : scorecardChoices[0]?.id ?? '';
   const reportIndex = OWNER_REPORTS.findIndex((item) => item.id === props.reportId);
   const previousReport = reportIndex > 0 ? OWNER_REPORTS[reportIndex - 1] : null;
   const nextReport = reportIndex >= 0 ? OWNER_REPORTS[reportIndex + 1] ?? null : null;
@@ -2147,6 +2162,8 @@ function ReportView(props: {
                 </>
               ) : props.reportId === 'team-caps' ? (
                 <TitleCaps options={props.capChoices} picked={props.capPicked} onChange={props.onCaps} />
+              ) : props.reportId === 'agent-scorecard' && scorecardChoices.length ? (
+                <TitleMetric value={scorecardAgent} options={scorecardChoices} onChange={setScorecardPick} label="Agent" />
               ) : null}
             </div>
             {/* Date line slot: always one line; "compared with" becomes "vs." before the line truncates. */}
@@ -2154,7 +2171,11 @@ function ReportView(props: {
               className="mt-1.5 h-5 text-sm text-slate-500 max-md:mt-1 max-md:h-4 max-md:text-xs"
               options={props.reportId === 'team-caps'
                 ? ['Each agent’s cap year comes from that cap’s reset date.']
-                : [
+                : props.reportId === 'pipeline-forecast'
+                  ? ['Every pending transaction, by its scheduled closing date.', 'Every pending transaction, by closing date.']
+                  : props.reportId === 'inactive-agents'
+                    ? ['Counted from today, whatever the date range.', 'Counted from today.']
+                    : [
                   `${formatRange(range)} compared with ${formatRange(priorRange)}`,
                   `${formatRange(range)} vs. ${formatRange(priorRange)}`,
                 ]}
@@ -2171,10 +2192,11 @@ function ReportView(props: {
           {...props}
           headerSlot={filterSlot}
           dateOnly={props.reportId === 'owner-summary'}
-          hideMetric={props.reportId === 'lead-source-leaderboard' || props.reportId === 'team-performance' || props.reportId === 'net-commission-income' || props.reportId === 'team-caps' || props.reportId === 'transaction-map' || props.reportId === 'transaction-list' || props.reportId === 'listings-by-list-date' || props.reportId === 'price-change'}
-          hideDate={props.reportId === 'team-caps'}
+          hideMetric={props.reportId === 'lead-source-leaderboard' || props.reportId === 'team-performance' || props.reportId === 'net-commission-income' || props.reportId === 'team-caps' || props.reportId === 'transaction-map' || props.reportId === 'transaction-list' || props.reportId === 'listings-by-list-date' || props.reportId === 'price-change' || TEAM_LEAD_REPORTS.has(props.reportId)}
+          hideDate={props.reportId === 'team-caps' || FROM_TODAY_REPORTS.has(props.reportId)}
+          fixedSpan={props.reportId === 'pipeline-forecast' ? 'All Pending Deals' : props.reportId === 'inactive-agents' ? 'Counted from Today' : undefined}
           capYearOffset={props.capYearOffset}
-          onCapYearOffset={props.onCapYearOffset}
+          onCapYearOffset={props.reportId === 'team-caps' ? props.onCapYearOffset : undefined}
           capShowPaid={props.reportId === 'team-caps' ? props.capShowPaid : undefined}
           boardMetrics={undefined}
           payeeChoices={(props.reportId === 'net-commission-income' || (props.reportId === 'lead-source-leaderboard' && (props.boardMetric === 'payment:agent' || props.boardMetric === 'payment:entity'))) ? props.payeeChoices : undefined}
@@ -2193,9 +2215,11 @@ function ReportView(props: {
               ? `${props.dateBases.find((field) => field.id === 'closing')?.label || 'Closing Date'} Range`
               : props.reportId === 'listings-by-list-date'
                 ? 'List Date Range'
-                : props.reportId === 'transaction-list' || props.reportId === 'transaction-map' || props.reportId === 'price-change'
+                : props.reportId === 'transaction-list' || props.reportId === 'transaction-map' || props.reportId === 'price-change' || props.reportId === 'agent-scorecard' || props.reportId === 'commission-payables'
                   ? 'Closing Date Range'
-                  : undefined}
+                  : props.reportId === 'fall-through'
+                    ? 'Pending Date Range'
+                    : undefined}
         />
         </div>
         {capSection ? (
@@ -2250,6 +2274,7 @@ function ReportView(props: {
             capShowPaid={props.capShowPaid}
             onCapShowPaid={props.onCapShowPaid}
             capEmpty={props.capEmpty}
+            scorecardAgent={scorecardAgent}
           />
         ) : null}
       </div>
@@ -2338,6 +2363,8 @@ function FilterBar(props: {
   dateOnly?: boolean;
   hideMetric?: boolean;
   hideDate?: boolean;
+  /** With hideDate and no cap year: what the phone Filters bar says instead of the dates. */
+  fixedSpan?: string;
   capYearOffset?: number;
   onCapYearOffset?: (value: number) => void;
   capShowPaid?: boolean;
@@ -2475,7 +2502,7 @@ function FilterBar(props: {
   const countBadge = chips.length > 0 ? (
     <span className="inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-brand-600 px-1 text-2xs font-semibold tabular-nums text-white">{chips.length}</span>
   ) : null;
-  const span = props.hideDate ? (props.capYearOffset ? 'Previous Cap Year' : 'Current Cap Year') : formatFilterSpan(props.range);
+  const span = props.hideDate ? (props.fixedSpan ?? (props.capYearOffset ? 'Previous Cap Year' : 'Current Cap Year')) : formatFilterSpan(props.range);
   const resultLabel = props.resultCount == null
     ? 'Show Results'
     : `Show ${props.resultCount.toLocaleString()} ${props.resultCount === 1 ? 'Transaction' : 'Transactions'}`;
@@ -2763,6 +2790,16 @@ function dealInReport(deal: ReportDeal, range: DateRange, reportId: string | nul
       return inRange(deal.closingDate, range) || pending;
     case 'daily-management':
       return closed || pending || listed;
+    case 'pipeline-forecast':
+      return status === 'pending';
+    case 'agent-scorecard':
+      return closed || status === 'pending';
+    case 'commission-payables':
+      return closed || (status === 'pending' && inRange(deal.closingDate, range));
+    case 'fall-through':
+      return (status === 'closed' || status === 'pending' || status === 'cancelled') && inRange(deal.acceptanceDate, range);
+    case 'inactive-agents':
+      return status === 'closed' || status === 'pending';
     case 'owner-summary':
       return activity;
     default: {
@@ -3607,6 +3644,7 @@ function ReportBody(props: {
   capShowPaid: boolean;
   onCapShowPaid: (value: boolean) => void;
   capEmpty: string;
+  scorecardAgent: string;
 }) {
   const { id, closed, pending, taken, closedPrior, pendingPrior, names, range, priorRange, metric, netCommission, priorNetCommission, allDeals, deals, payments, entityNames, teamLeadIds, boardField, payeePicked, excludeTeamLeads, dateBasis, sidePicked, cumulative, preset } = props;
   const closing = seriesBuckets(closed, (deal) => deal.closingDate, range);
@@ -3664,6 +3702,11 @@ function ReportBody(props: {
     );
   }
   if (id === 'daily-management') return <DailyManagement range={range} closed={closed} pending={pending} taken={taken} />;
+  if (id === 'pipeline-forecast') return <PipelineForecastReport deals={deals} names={names} />;
+  if (id === 'agent-scorecard') return <AgentScorecardReport agentId={props.scorecardAgent} deals={deals} payments={payments} names={names} range={range} priorRange={priorRange} />;
+  if (id === 'commission-payables') return <CommissionPayoutsReport deals={deals} payments={payments} names={names} entityNames={entityNames} range={range} />;
+  if (id === 'fall-through') return <FallThroughReport deals={deals} names={names} range={range} priorRange={priorRange} />;
+  if (id === 'inactive-agents') return <InactiveAgentsReport deals={deals} names={names} />;
   return null;
 }
 
@@ -5064,6 +5107,9 @@ function earningPayments(payments: ReportPayment[], credits: PostSplitCredit[], 
       entityId: credit.entityId,
       payeeType: 'AGENT',
       amount: credit.amount,
+      // A post-split credit, not a payment record: it has no status or date of its own.
+      status: '',
+      paymentDate: null,
     });
   });
   if (active.includes(NET_EARNING) && extra.length === 0) return payments;

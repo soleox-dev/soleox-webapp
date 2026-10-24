@@ -55,7 +55,7 @@ export async function GET() {
       fetchAllByIdBands<Row>((after, before, limit) => {
         let query = supabase
           .from('payments')
-          .select('id, transaction_id, agent_id, payee_entity_id, payee_type, amount_paid')
+          .select('id, transaction_id, agent_id, payee_entity_id, payee_type, amount_paid, payment_status, payment_date')
           .eq('client_id', clientId)
           .or('archived.is.null,archived.eq.false')
           .gt('id', after)
