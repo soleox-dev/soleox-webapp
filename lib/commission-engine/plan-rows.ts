@@ -267,6 +267,8 @@ export interface DealPlanIngredients {
   doubleEnd: boolean;
   /** Entities marked as brokerage agents; a share paid to them reduces the default Fee Share. */
   brokerageAgentEntities: string[];
+  /** The deal fields' types (DATE, NUMBER, …), for plan lines' Applies When. */
+  fieldTypes?: Record<string, string>;
 }
 
 /** What a FINISHED deal's cap bars read: the deal's place in the cap year, each agent's plan, and saved history. */
@@ -328,6 +330,8 @@ export function buildDealPlanContext(deal: Record<string, unknown>, ingredients:
       feeSharePercent: typedFeeShare,
       feeShareDefault: { doubleEnd: ingredients.doubleEnd, brokerageAgentEntities: ingredients.brokerageAgentEntities },
       waivedLines: Array.isArray(waived) ? waived.map(String) : [],
+      fields: deal,
+      fieldTypes: ingredients.fieldTypes ?? {},
       agents,
       history: ingredients.history,
     },

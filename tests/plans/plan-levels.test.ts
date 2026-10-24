@@ -62,3 +62,37 @@ describe('agent stages', () => {
     expect(agentLineStage(rule({ stage: 'AFTER_PLAN' }), false)).toBe('AFTER_PLAN');
   });
 });
+
+describe('Applies When', () => {
+  const lease = (side: string): PlanDealInput => ({
+    ...deal(withLeaseRule(exp16000)),
+    fields: { transaction_side: side },
+  });
+  function withLeaseRule(plan: CommissionPlan): CommissionPlan {
+    return {
+      ...plan,
+      lines: plan.lines.map((line) => (line.key === 'broker_review' ? { ...line, appliesWhen: 'AND(transaction_side <> "Tenant", transaction_side <> "Landlord")' } : line)),
+    };
+  }
+  const brokerReview = (input: PlanDealInput) => computePlanDeal(input, []).agents[0].lines.find((line) => line.key === 'broker_review')!;
+
+  it('charges the line when the condition is true', () => {
+    const line = brokerReview(lease('Buyer'));
+    expect(line.amount).toBe(25);
+    expect(line.notApplied).toBeUndefined();
+  });
+
+  it('makes the line $0 when the condition is false, keeping the calculated amount and saying why', () => {
+    const line = brokerReview(lease('Tenant'));
+    expect(line.amount).toBe(0);
+    expect(line.calculated).toBe(25);
+    expect(line.notApplied).toBe(true);
+    expect(line.explanation).toContain('does not apply to this deal');
+  });
+
+  it('a typed amount still wins over Applies When', () => {
+    const input = lease('Tenant');
+    input.agents[0] = { ...input.agents[0], overrides: { broker_review: 10 } };
+    expect(brokerReview(input).amount).toBe(10);
+  });
+});

@@ -1419,7 +1419,7 @@ export default function TransactionsListPage() {
         const side = String(deal.transaction_side || '').trim().toLowerCase();
         const doubleEnd = Boolean(deal.property_address && deal.closing_date)
           && [...(sidesByPlace.get(sideKey(deal)) || [])].some((other) => other !== side);
-        const decision = buildDealPlanContext(deal, { ...planData, finished, doubleEnd });
+        const decision = buildDealPlanContext(deal, { ...planData, finished, doubleEnd, fieldTypes });
         const mode = dealPlanMode({
           decision,
           settings: { calculate_since: planData.settings.calculate_since },

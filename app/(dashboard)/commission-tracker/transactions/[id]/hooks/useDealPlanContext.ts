@@ -102,7 +102,7 @@ export function useDealPlanContext(
     }
     // A FINISHED deal keeps its saved lines; a formula that cannot be read counts as finished, to stay safe.
     const finished = Boolean(loaded.finishedFormula) && dealMatchesDefaultView(deal, loaded.finishedFormula, fieldTypes);
-    const decision = buildDealPlanContext(deal, { ...loaded, finished });
+    const decision = buildDealPlanContext(deal, { ...loaded, finished, fieldTypes });
     return {
       context: decision.context,
       decision,

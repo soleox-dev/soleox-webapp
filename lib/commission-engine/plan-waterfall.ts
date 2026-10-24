@@ -25,6 +25,9 @@ export interface DealPlanContext {
    */
   feeShareDefault?: { doubleEnd: boolean; brokerageAgentEntities: string[] };
   waivedLines?: string[];
+  /** The deal as currently edited, and its fields' types: plan lines' Applies When reads them. */
+  fields?: Record<string, unknown>;
+  fieldTypes?: Record<string, string>;
   /** Each agent's plan and plan fields, by agent id; an agent with a split and no entry has no plan. */
   agents: Record<string, Omit<PlanAgentInput, 'id' | 'name' | 'splitPercent' | 'overrides' | 'afterPlan'>>;
   /** Plan lines saved on other deals. */
@@ -131,6 +134,8 @@ export function applyPlansToWaterfall(state: WaterfallState, first: WaterfallRes
         savedAt: context.savedAt ?? null,
         feeSharePercent: feeShareFor(context, first),
         waivedLines: context.waivedLines ?? [],
+        fields: context.fields ?? {},
+        fieldTypes: context.fieldTypes ?? {},
         agents,
         sides,
       },

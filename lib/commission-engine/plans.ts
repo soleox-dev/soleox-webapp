@@ -10,6 +10,7 @@
  */
 import { z } from 'zod';
 import { readTransactionField } from './model';
+import { dealMatchesDefaultView } from '@/lib/transaction-default-view';
 import {
   evaluateFormula as evaluateTemplateFormula,
   type FormulaValue,
@@ -32,6 +33,12 @@ interface PlanLineBase {
    * planLineLevel works it out (a percent-of-net line that takes off every earlier line is Level 2).
    */
   level?: number;
+  /**
+   * Applies When: a condition on the deal's fields, in the formula language ("transaction_side <> \"Tenant\"").
+   * When it is false the line is $0 on that deal and adds nothing to year-to-date totals, as a waiver does; a typed
+   * amount still wins. Blank: the line always applies.
+   */
+  appliesWhen?: string;
 }
 
 /** A rate of the agent's side after bonuses, up to what is left of a yearly cap. Yields the post-cap fraction. */
@@ -109,7 +116,13 @@ export interface CommissionPlan {
   lines: PlanLine[];
 }
 
-const lineBase = { key: z.string().min(1), name: z.string().min(1), payee: z.string().min(1), level: z.number().int().min(1).optional() };
+const lineBase = {
+  key: z.string().min(1),
+  name: z.string().min(1),
+  payee: z.string().min(1),
+  level: z.number().int().min(1).optional(),
+  appliesWhen: z.string().optional(),
+};
 
 /** Checks a plan read from data (a preset file now, a database row later). */
 export const commissionPlanSchema: z.ZodType<CommissionPlan> = z.object({
@@ -295,6 +308,9 @@ export interface PlanDealInput {
    * amount still wins.
    */
   waivedLines?: string[];
+  /** The deal's fields, for each line's Applies When, with their types (DATE, NUMBER, …). */
+  fields?: Record<string, unknown>;
+  fieldTypes?: Record<string, string>;
   offTheTop?: OffTheTopItem[];
   bonuses?: PlanBonus[];
   agents: PlanAgentInput[];
@@ -339,6 +355,8 @@ export interface PlanLineResult {
   edited: boolean;
   /** The deal waives this line: $0, with the plan's amount kept in calculated. */
   waived?: boolean;
+  /** The line's Applies When is false on this deal: $0, with the plan's amount kept in calculated. */
+  notApplied?: boolean;
   /** For a capped_percent line: the part of the side the cap no longer covers, unrounded. */
   postCapFraction?: number;
   /** Paid on this line in the cap year before this deal, starting balance included. */
@@ -624,6 +642,13 @@ interface LineContext {
 
 type Calculated = { amount: number; postCapFraction?: number; explanation: string };
 
+/** A line applies when it has no Applies When, or its condition is true on the deal's fields. */
+function lineApplies(line: PlanLine, deal: PlanDealInput): boolean {
+  const condition = line.appliesWhen?.trim();
+  if (!condition) return true;
+  return dealMatchesDefaultView(deal.fields ?? {}, condition, deal.fieldTypes ?? {}, { strict: true });
+}
+
 function earlierLine(ctx: LineContext, key: string, forLine: string): PlanLineResult {
   const found = ctx.earlier.find((line) => line.key === key);
   if (!found) throw new Error(`${forLine} reads "${key}", which is not an earlier line of plan ${ctx.agent.plan.name}.`);
@@ -837,10 +862,13 @@ export function computePlanDeal(deal: PlanDealInput, history: PlanHistoryLine[] 
       const typed = agent.overrides?.[line.key];
       const edited = typed !== undefined && typed !== null && Number.isFinite(typed);
       const waived = !edited && Boolean(deal.waivedLines?.includes(line.key));
-      const amount = edited ? roundHalfUpCents(typed) : waived ? 0 : calculated.amount;
+      const notApplied = !edited && !waived && !lineApplies(line, deal);
+      const amount = edited ? roundHalfUpCents(typed) : waived || notApplied ? 0 : calculated.amount;
       let { postCapFraction, explanation } = calculated;
-      if (waived) {
-        explanation = `${line.name}: waived on this deal, so $0.00 (the plan calculates ${money(calculated.amount)}).`;
+      if (waived || notApplied) {
+        explanation = waived
+          ? `${line.name}: waived on this deal, so $0.00 (the plan calculates ${money(calculated.amount)}).`
+          : `${line.name}: does not apply to this deal (Applies When: ${line.appliesWhen?.trim()}), so $0.00 (the plan calculates ${money(calculated.amount)}).`;
         // A waived company dollar leaves the whole side past the cap, as a typed $0 would.
         if (line.type === 'capped_percent' && line.rate * Math.max(0, sideAfterBonuses) > 0) postCapFraction = 1;
       }
@@ -862,6 +890,7 @@ export function computePlanDeal(deal: PlanDealInput, history: PlanHistoryLine[] 
         calculated: calculated.amount,
         edited,
         ...(waived ? { waived } : {}),
+        ...(notApplied ? { notApplied } : {}),
         ...(postCapFraction !== undefined ? { postCapFraction } : {}),
         ytdBefore: ytd.total,
         ...(line.type === 'formula' && line.countsTowardCap ? { countsTowardCap: line.countsTowardCap } : {}),
