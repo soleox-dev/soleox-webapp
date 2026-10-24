@@ -4,7 +4,6 @@ import { getAuthenticatedSupabase } from '@/lib/supabase';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Transaction } from '@/types/schema';
 import { CreateTransactionInput } from '@/lib/validations/transaction';
-import { processTransactionWaterfall } from '@/lib/services/waterfall-service';
 import { generatePrefixedId } from '@/lib/id';
 import { recordUserFieldProtections } from '@/lib/transaction-field-protections';
 import { recordAudit, recordAudits } from '@/lib/audit';
@@ -173,7 +172,6 @@ async function storeTemplateSubmission(
 /** Create or update a transaction, then store a pending template submission if the save succeeded. */
 export async function createTransaction(
   input: CreateTransactionInput & { id?: string; [key: string]: any },
-  templateId?: string,
   userId: string = 'SYSTEM',
   client?: SupabaseClient,
   templateSubmission?: PendingTemplateSubmission | null,
@@ -354,9 +352,6 @@ export async function createTransaction(
       }
       savedCommissionItems = [];
     }
-  } else if (templateId) {
-    const submissionId = `SUB_${finalTransactionId}`;
-    await processTransactionWaterfall(input.client_id, finalTransactionId, templateId, submissionId, sb);
   }
 
   // Payments follow the same rule as commission lines: an explicit list replaces

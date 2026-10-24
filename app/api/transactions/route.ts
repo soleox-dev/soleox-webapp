@@ -49,7 +49,6 @@ export async function POST(request: Request) {
     const userEmail = session.user.email;
     const result = await createTransaction(
       validatedData,
-      body.template_id,
       userEmail,
       supabase,
       body.template_submission,
