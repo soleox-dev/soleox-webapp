@@ -7,6 +7,7 @@ commission lines, team cap and sales volume allocations, payments, and an explan
 | File | What it does |
 | --- | --- |
 | `deal.ts` | `computeDealCommission`: the one entry point. Every screen calls it. |
+| `stages.ts` | The model's stages and levels (`docs/commission-model-redesign.md`): `runLevels` (any number of levels, each percent from its level's base), `runDealStages` (every agent through Before Plan, Commission Plan, After Plan, stage by stage), and adjustments (`Adjustment`, `adjustmentShares`, `shareBasisOptions`). |
 | `waterfall.ts` | `computeTransactionWaterfall`: Total Commission, deductions, splits, caps, template replay, post-splits, payouts, `explanation`. |
 | `template.ts` | `applyTemplateLogic`: runs a template's rules in step order. Also ledger labelling and lookup rows. |
 | `stored-lines.ts` | Reads the waterfall back from saved `transaction_commission_items`; works out the primary agent. |
@@ -27,6 +28,17 @@ Callers: Transaction Detail (`page.tsx`), the Commission Template popup (`Commis
 with `applyTemplateLogic`, the page applies the result with `waterfallAfterTemplate`, and its template button runs
 `templatePaymentsChanged`), and the Transactions list's out-of-date payments check (`templatePaymentsChanged`). The
 hourly sync (`lib/transaction-sync.ts`) imports deals and computes no splits.
+
+## Stages and levels
+
+Off the Top runs in levels from Total Commission (`offTheTopRules` are Level 1, `preSplitRules` Level 2, a rule's
+own `level` wins); only the pool the agents split stops at $0. Each agent's lines then run Before Plan, Commission
+Plan, After Plan (`agentLineStage`): on a plan, paid-by credits are Before Plan, plan lines the plan, other lines
+After Plan; without plan lines every line is Before Plan (shown as Post-Splits). Within a stage, Level 1 takes the
+stage's starting amount and Level N the net after Level N−1. Adjustments (`WaterfallState.adjustments`, from a
+template's staged Post-splits rules or typed on the deal) are divided among their payers at the share basis.
+`postSplitItems` and `postSplit2Items` keep their shape for today's screens (Level 1, and Level 2+); the full
+picture is `agentStages` and `dealDeductionLevels`.
 
 ## Which value wins
 
