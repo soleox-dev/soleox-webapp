@@ -1,5 +1,8 @@
 /** Reads the waterfall back from saved commission lines (transaction_commission_items). */
 import type { AgentConfig, CommissionEntityOption, DynamicRule, KnownAgentInfo, StoredCommissionItem, WaterfallState } from './model';
+import { AGENT_STAGES, type AgentStage } from './stages';
+
+const isAgentStage = (value: unknown): value is AgentStage => (AGENT_STAGES as readonly unknown[]).includes(value);
 
 export type { StoredCommissionItem, WaterfallState } from './model';
 
@@ -82,6 +85,8 @@ function toRule(item: StoredCommissionItem, entities: CommissionEntityOption[]):
     ...(attributes.plan_typed === true ? { planTyped: true } : {}),
     ...(attributes.plan_waived === true ? { planWaived: true } : {}),
     ...(attributes.before_plan === true ? { beforePlan: true } : {}),
+    ...(isAgentStage(attributes.stage) ? { stage: attributes.stage } : {}),
+    ...(Number.isInteger(attributes.level) && Number(attributes.level) > 2 ? { level: Number(attributes.level) } : {}),
   };
 }
 

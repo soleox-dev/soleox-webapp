@@ -235,14 +235,14 @@ export function computeTransactionWaterfall({
     // Every agent's lines by stage and level, stage by stage across the deal (stages.ts), so an adjustment can divide
     // by its payers' amounts at any earlier point. A rule's own level wins; otherwise the first map is Level 1 and the
     // second Level 2 (e.g. the stock program, from the net after Level 1).
-    const stagedRules: Record<string, (DynamicRule & { level: number; stage: AgentStage })[]> = {};
+    const stagedRules: Record<string, (DynamicRule & { level: number; stage: AgentStage; statedStage?: boolean })[]> = {};
     agents.forEach((ag) => {
       const agentRules = [
         ...rulesForAgent(level1Rules, ag.name).map((rule) => ({ ...rule, level: rule.level ?? 1 })),
         ...rulesForAgent(level2Rules, ag.name).map((rule) => ({ ...rule, level: rule.level ?? 2 })),
       ];
       const onPlan = agentRules.some((rule) => rule.planLineKey);
-      stagedRules[ag.name] = agentRules.map((rule) => ({ ...rule, stage: agentLineStage(rule, onPlan) }));
+      stagedRules[ag.name] = agentRules.map((rule) => ({ ...rule, stage: agentLineStage(rule, onPlan), ...(rule.stage ? { statedStage: true } : {}) }));
     });
     const dealStages = runDealStages(
       agents.map((ag) => ({ name: ag.name, amount: splitCalculated.find((s) => s.agentId === ag.id)?.amount ?? 0 })),
@@ -265,7 +265,12 @@ export function computeTransactionWaterfall({
           value: item.value,
           amount: item.amount,
           level: item.level,
-          ...('adjustmentId' in item ? { adjustmentId: item.adjustmentId, stage: item.stage } : planFields(item as DynamicRule)),
+          // The stage travels with a line that states one (an adjustment, or a line saved with its stage); an
+          // inferred stage is worked out again each time.
+          ...('adjustmentId' in item ? { adjustmentId: item.adjustmentId, stage: item.stage } : {
+            ...planFields(item as DynamicRule),
+            ...((item as { statedStage?: boolean }).statedStage ? { stage: item.stage } : {}),
+          }),
         });
       });
 

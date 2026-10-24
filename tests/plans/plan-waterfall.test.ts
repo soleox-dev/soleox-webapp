@@ -237,6 +237,15 @@ describe('adjustments on a plan deal', () => {
     expect(credited.netPayouts.Client).toBe(500);
   });
 
+  it('saved and reloaded, a Before Plan credit stays before the plan', () => {
+    const first = run({ ...templateWaterfall(), adjustments: [adjustment({})] }, context());
+    const rows = first.save.commissionItems.map((item: Record<string, unknown>, index: number) => ({ id: `TCI_${index}`, ...item })) as StoredCommissionItem[];
+    expect(rows.find((row) => row.rule_name === 'Client')?.custom_attributes).toMatchObject({ stage: 'BEFORE_PLAN' });
+    const again = run(waterfallFromCommissionItems(rows, knownAgents, knownEntities, 'AGT_W'), context());
+    expect(company(again, 'Patrick')).toBe('Company dollar 670.7');
+    expect(again.netPayouts).toEqual(first.netPayouts);
+  });
+
   it('an After Plan adjustment leaves every plan line as it was', () => {
     const base = run(templateWaterfall(), context());
     const after = run({ ...templateWaterfall(), adjustments: [adjustment({ stage: 'AFTER_PLAN' })] }, context());

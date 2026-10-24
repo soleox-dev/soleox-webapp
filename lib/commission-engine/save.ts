@@ -18,11 +18,16 @@ function cleanRuleValue(item: { type?: string; value?: number | null }): { split
 }
 
 /** A Commission Plan line's key and version, and its markers, on a saved post-split. Nothing for other lines. */
-function planColumns(item: { planLineKey?: string; planVersionId?: string; planTyped?: boolean; planWaived?: boolean; beforePlan?: boolean }) {
+function planColumns(item: { planLineKey?: string; planVersionId?: string; planTyped?: boolean; planWaived?: boolean; beforePlan?: boolean; stage?: string; level?: number; adjustmentId?: string }) {
   const attributes = {
     ...(item.planTyped ? { plan_typed: true } : {}),
     ...(item.planWaived ? { plan_waived: true } : {}),
     ...(item.beforePlan ? { before_plan: true } : {}),
+    // An adjustment's stage, and a level the section cannot hold (POST_SPLIT is 1, POST_SPLIT_L2 is 2), so the line
+    // comes back where it was (stages.ts).
+    ...(item.stage ? { stage: item.stage } : {}),
+    ...(item.level && item.level > 2 ? { level: item.level } : {}),
+    ...(item.adjustmentId ? { adjustment_id: item.adjustmentId } : {}),
   };
   return {
     ...(item.planLineKey && item.planVersionId ? { plan_line_key: item.planLineKey, commission_plan_version_id: item.planVersionId } : {}),
