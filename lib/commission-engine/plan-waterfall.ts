@@ -109,8 +109,9 @@ export function applyPlansToWaterfall(state: WaterfallState, first: WaterfallRes
       continue;
     }
     const bonusNet = agent.bonusNet || 0;
-    const credits = first.postSplitItems
-      .filter((item: { agentId: string; beforePlan?: boolean }) => item.agentId === agent.id && item.beforePlan)
+    // What comes off before the plan: paid-by credits and Before Plan adjustments, at any level.
+    const credits = [...first.postSplitItems, ...(first.postSplit2Items || [])]
+      .filter((item: { agentId: string; beforePlan?: boolean; stage?: string }) => item.agentId === agent.id && (item.beforePlan || item.stage === 'BEFORE_PLAN'))
       .reduce((sum: number, item: { amount: number }) => sum + (Number(item.amount) || 0), 0);
     const beforeBonuses = amount - bonusNet;
     const notes = [`Split from the waterfall: ${money(amount)} of ${money(pool)}.`];

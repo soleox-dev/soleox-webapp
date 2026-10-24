@@ -115,6 +115,7 @@ function computeWaterfall(input: DealCommissionInput, waterfall: WaterfallState)
     allocation: input.allocation ?? null,
     templateReplay: input.template ?? null,
     storedAgentSplits: input.storedAgentSplits ?? null,
+    adjustments: waterfall.adjustments ?? [],
   });
 }
 

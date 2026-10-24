@@ -1,6 +1,6 @@
 /** The shapes the commission engine works on. Plain data, no React, safe on the server. */
 
-import type { AgentStage } from './stages';
+import type { Adjustment, AgentStage } from './stages';
 
 export { roundPercentRate } from '@/lib/percent';
 
@@ -107,6 +107,8 @@ export interface WaterfallState {
   preSplitRules: DynamicRule[];
   postSplitRulesByAgent: Record<string, DynamicRule[]>;
   postSplit2RulesByAgent: Record<string, DynamicRule[]>;
+  /** Adjustments paid by all or chosen agents at Before Plan or After Plan (stages.ts). */
+  adjustments?: Adjustment[];
 }
 
 /** A commission line as stored in transaction_commission_items. */

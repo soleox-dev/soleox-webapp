@@ -15,7 +15,7 @@ import {
 import { normalizeAgentName } from '@/lib/id';
 import { dealTeamCaps, planDealAllocations, splitCapTotal, type DealAllocationContext, type DealAllocationLine } from '@/lib/agent-allocations';
 import { applyTemplateLogic, type AppliedAgentSplit, type NamedParty, type TeamCapCreditMap, type TemplateLogicStep } from './template';
-import { runAgentStages, runLevels, type AgentStage } from './stages';
+import { runDealStages, runLevels, type Adjustment, type AgentStage } from './stages';
 import type { FormulaLedgerRow, FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 
 export interface WaterfallInput {
@@ -47,6 +47,11 @@ export interface WaterfallInput {
    * saved, unedited waterfall.
    */
   storedAgentSplits?: { agentId: string; amount: number }[] | null;
+  /**
+   * Adjustments paid by all or chosen agents at Before Plan or After Plan (stages.ts), from the template or typed on
+   * the deal. Today's paid-by credits still arrive as Before Plan lines in postSplitRulesByAgent.
+   */
+  adjustments?: Adjustment[];
 }
 
 export function computeTransactionWaterfall({
@@ -65,6 +70,7 @@ export function computeTransactionWaterfall({
   allocation = null,
   templateReplay = null,
   storedAgentSplits = null,
+  adjustments = [],
 }: WaterfallInput) {
     // GCI % is stored to four decimals (0.91%), so price × rate can miss the deal's own GCI amount by a few dollars
     // ($220,000 × 0.91% = $2,002 against a $2,000 GCI). While the price and rate are the deal's own, its stored GCI
@@ -226,21 +232,28 @@ export function computeTransactionWaterfall({
     const agentNetAfterLevel1: Record<string, number> = {};
     const netPayouts: Record<string, number> = {};
 
-    const agentStageRuns: Record<string, ReturnType<typeof runAgentStages<DynamicRule>>> = {};
+    // Every agent's lines by stage and level, stage by stage across the deal (stages.ts), so an adjustment can divide
+    // by its payers' amounts at any earlier point. A rule's own level wins; otherwise the first map is Level 1 and the
+    // second Level 2 (e.g. the stock program, from the net after Level 1).
+    const stagedRules: Record<string, (DynamicRule & { level: number; stage: AgentStage })[]> = {};
     agents.forEach((ag) => {
-      const agSplitItem = splitCalculated.find((s) => s.agentId === ag.id);
-      const agSplitAmt = agSplitItem ? agSplitItem.amount : 0;
-
-      // The agent's lines by stage and level, from the agent's split (stages.ts). A rule's own level wins; otherwise
-      // the first map is Level 1 and the second Level 2 (e.g. the stock program, from the net after Level 1).
       const agentRules = [
         ...rulesForAgent(level1Rules, ag.name).map((rule) => ({ ...rule, level: rule.level ?? 1 })),
         ...rulesForAgent(level2Rules, ag.name).map((rule) => ({ ...rule, level: rule.level ?? 2 })),
       ];
       const onPlan = agentRules.some((rule) => rule.planLineKey);
-      const run = runAgentStages(agSplitAmt, agentRules.map((rule) => ({ ...rule, stage: agentLineStage(rule, onPlan) })));
-      agentStageRuns[ag.name] = run;
-      run.stages.flatMap((stage) => stage.run.items).forEach((item) => {
+      stagedRules[ag.name] = agentRules.map((rule) => ({ ...rule, stage: agentLineStage(rule, onPlan) }));
+    });
+    const dealStages = runDealStages(
+      agents.map((ag) => ({ name: ag.name, amount: splitCalculated.find((s) => s.agentId === ag.id)?.amount ?? 0 })),
+      stagedRules,
+      adjustments,
+    );
+    const agentStageRuns = dealStages.agents;
+    agents.forEach((ag) => {
+      const run = agentStageRuns[ag.name];
+      const items = run.stages.flatMap((stage) => stage.run.items);
+      items.forEach((item) => {
         (item.level === 1 ? postSplitCalculated : postSplit2Calculated).push({
           id: item.id,
           agentId: ag.id,
@@ -252,13 +265,13 @@ export function computeTransactionWaterfall({
           value: item.value,
           amount: item.amount,
           level: item.level,
-          ...planFields(item),
+          ...('adjustmentId' in item ? { adjustmentId: item.adjustmentId, stage: item.stage } : planFields(item as DynamicRule)),
         });
       });
 
       // Today's "Net After Level 1 Post-Splits": the split less every Level 1 line, whatever its stage.
-      const level1Total = run.stages.flatMap((stage) => stage.run.items).filter((item) => item.level === 1).reduce((sum, item) => sum + item.amount, 0);
-      agentNetAfterLevel1[ag.name] = roundCurrency(Math.max(0, agSplitAmt - level1Total));
+      const level1Total = items.filter((item) => item.level === 1).reduce((sum, item) => sum + item.amount, 0);
+      agentNetAfterLevel1[ag.name] = roundCurrency(Math.max(0, run.split - level1Total));
       netPayouts[ag.name] = run.net;
     });
 

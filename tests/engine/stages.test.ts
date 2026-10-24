@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runAgentStages, runLevels } from '@/lib/commission-engine/stages';
+import { runAgentStages, runDealStages, runLevels, shareBasisOptions } from '@/lib/commission-engine/stages';
 
 const pct = (id: string, value: number, level?: number, stage?: 'BEFORE_PLAN' | 'PLAN' | 'AFTER_PLAN') => ({ id, type: 'PERCENT' as const, value, level, stage });
 const amt = (id: string, value: number, level?: number, stage?: 'BEFORE_PLAN' | 'PLAN' | 'AFTER_PLAN') => ({ id, type: 'AMOUNT' as const, value, level, stage });
@@ -64,5 +64,69 @@ describe('runAgentStages', () => {
     const result = runAgentStages(1000, [pct('fee', 0.1)]);
     expect(result.stages.map((stage) => stage.stage)).toEqual(['BEFORE_PLAN']);
     expect(result.net).toBe(900);
+  });
+});
+
+describe('adjustments (runDealStages)', () => {
+  const splits = [{ name: 'Ann', amount: 6000 }, { name: 'Ben', amount: 4000 }];
+  const plan = { Ann: [pct('company', 0.2, 1, 'PLAN')], Ben: [pct('company', 0.1, 1, 'PLAN')] };
+  const credit = (extra: object) => ({ id: 'credit', name: 'Client Credit', entity: 'Client', type: 'AMOUNT' as const, value: 1000, payers: [], divide: 'split' as const, stage: 'BEFORE_PLAN' as const, ...extra });
+  const lines = (run: ReturnType<typeof runDealStages>, agent: string) => run.agents[agent].stages.flatMap((stage) => stage.run.items).map((item) => [item.stage, 'name' in item ? item.name : item.id, item.amount]);
+
+  it('Before Plan, all agents by split: comes off each split and shrinks what the plan takes', () => {
+    const run = runDealStages(splits, plan, [credit({})]);
+    expect(lines(run, 'Ann')).toEqual([['BEFORE_PLAN', 'Client Credit', 600], ['PLAN', 'company', 1080]]);
+    expect(lines(run, 'Ben')).toEqual([['BEFORE_PLAN', 'Client Credit', 400], ['PLAN', 'company', 360]]);
+    expect([run.agents.Ann.net, run.agents.Ben.net]).toEqual([4320, 3240]);
+  });
+
+  it('Before Plan, one chosen agent: only that agent pays', () => {
+    const run = runDealStages(splits, plan, [credit({ payers: ['Ben'] })]);
+    expect(lines(run, 'Ann')).toEqual([['PLAN', 'company', 1200]]);
+    expect(lines(run, 'Ben')[0]).toEqual(['BEFORE_PLAN', 'Client Credit', 1000]);
+  });
+
+  it('After Plan, all agents, by what each has after the plan', () => {
+    const run = runDealStages(splits, plan, [credit({ stage: 'AFTER_PLAN', basis: 'after_plan' })]);
+    // After the plan: Ann 4800, Ben 3600 → shares 1000 × 4800/8400 and 1000 × 3600/8400.
+    expect(lines(run, 'Ann')[1]).toEqual(['AFTER_PLAN', 'Client Credit', 571.43]);
+    expect(lines(run, 'Ben')[1]).toEqual(['AFTER_PLAN', 'Client Credit', 428.57]);
+  });
+
+  it('After Plan, chosen agents: equal, custom percents, or typed dollars', () => {
+    const equal = runDealStages(splits, plan, [credit({ stage: 'AFTER_PLAN', value: 100, divide: 'equal', payers: ['Ann', 'Ben'] })]);
+    expect([lines(equal, 'Ann')[1][2], lines(equal, 'Ben')[1][2]]).toEqual([50, 50]);
+    const thirds = runDealStages(splits, plan, [credit({ stage: 'AFTER_PLAN', value: 100, divide: 'custom', shares: { Ann: 1, Ben: 2 } })]);
+    expect([lines(thirds, 'Ann')[1][2], lines(thirds, 'Ben')[1][2]]).toEqual([33.33, 66.67]);
+    const typed = runDealStages(splits, plan, [credit({ stage: 'AFTER_PLAN', divide: 'typed', shares: { Ann: 300, Ben: 200 } })]);
+    expect([lines(typed, 'Ann')[1][2], lines(typed, 'Ben')[1][2]]).toEqual([300, 200]);
+  });
+
+  it('a TC fee: After Plan, paid by the agent the template names, from the agent\'s cash', () => {
+    const run = runDealStages(splits, plan, [credit({ id: 'tc', name: 'TC Fee', entity: 'TC', stage: 'AFTER_PLAN', value: 300, payers: ['Ann'] })]);
+    expect(lines(run, 'Ann')).toEqual([['PLAN', 'company', 1200], ['AFTER_PLAN', 'TC Fee', 300]]);
+    expect(run.agents.Ann.net).toBe(4500);
+  });
+
+  it('a percent adjustment is each payer\'s own percent of their base at that stage', () => {
+    const run = runDealStages(splits, plan, [credit({ type: 'PERCENT', value: 0.1, stage: 'AFTER_PLAN' })]);
+    expect([lines(run, 'Ann')[1][2], lines(run, 'Ben')[1][2]]).toEqual([480, 360]);
+  });
+
+  it('offers only share bases worked out before the adjustment', () => {
+    expect(shareBasisOptions('BEFORE_PLAN')).toEqual(['split', 'at_level']);
+    expect(shareBasisOptions('AFTER_PLAN')).toEqual(['split', 'after_before_plan', 'after_plan', 'at_level']);
+  });
+});
+
+describe('adjustment shares', () => {
+  it('gives the rounding cent to the first payer, so the adjustment is paid in full', () => {
+    const shares = runDealStages(
+      [{ name: 'A', amount: 100 }, { name: 'B', amount: 100 }, { name: 'C', amount: 100 }],
+      {},
+      [{ id: 'x', name: 'Credit', entity: 'Client', stage: 'BEFORE_PLAN', type: 'AMOUNT', value: 100, payers: [], divide: 'equal' }],
+    );
+    const paid = ['A', 'B', 'C'].map((name) => shares.agents[name].stages[0].run.items[0].amount);
+    expect(paid).toEqual([33.34, 33.33, 33.33]);
   });
 });

@@ -224,3 +224,23 @@ describe('The payments check (purple) on a deal saved with Commission Plans', ()
     expect(check(savedRows(), raised)).toBe(true);
   });
 });
+
+describe('adjustments on a plan deal', () => {
+  const adjustment = (extra: object) => ({ id: 'adj', name: 'Client Credit', entity: 'Client', type: 'AMOUNT' as const, value: 500, payers: ['Patrick'], divide: 'split' as const, stage: 'BEFORE_PLAN' as const, ...extra });
+  const company = (result: ReturnType<typeof run>, agent: string) => lines(result, agent).find((line) => line.startsWith('Company dollar'));
+
+  it('a Before Plan credit comes off the side first, so the plan charges 20% of less', () => {
+    const base = run(templateWaterfall(), context());
+    const credited = run({ ...templateWaterfall(), adjustments: [adjustment({})] }, context());
+    expect(company(base, 'Patrick')).toBe('Company dollar 770.7');
+    expect(company(credited, 'Patrick')).toBe('Company dollar 670.7');
+    expect(credited.netPayouts.Client).toBe(500);
+  });
+
+  it('an After Plan adjustment leaves every plan line as it was', () => {
+    const base = run(templateWaterfall(), context());
+    const after = run({ ...templateWaterfall(), adjustments: [adjustment({ stage: 'AFTER_PLAN' })] }, context());
+    expect(lines(after, 'Patrick')).toEqual(lines(base, 'Patrick'));
+    expect(after.netPayouts.Patrick).toBe(Math.round((base.netPayouts.Patrick - 500) * 100) / 100);
+  });
+});
