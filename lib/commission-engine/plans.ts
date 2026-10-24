@@ -26,6 +26,12 @@ interface PlanLineBase {
   name: string;
   /** Who receives the line's dollars (an entity name). */
   payee: string;
+  /**
+   * The plan's level for this line (docs/commission-model-redesign.md): every percent in a level takes the same base,
+   * and a percent-of-net line in Level 2 or later takes the side less every line in the levels before it. Absent:
+   * planLineLevel works it out (a percent-of-net line that takes off every earlier line is Level 2).
+   */
+  level?: number;
 }
 
 /** A rate of the agent's side after bonuses, up to what is left of a yearly cap. Yields the post-cap fraction. */
@@ -103,7 +109,7 @@ export interface CommissionPlan {
   lines: PlanLine[];
 }
 
-const lineBase = { key: z.string().min(1), name: z.string().min(1), payee: z.string().min(1) };
+const lineBase = { key: z.string().min(1), name: z.string().min(1), payee: z.string().min(1), level: z.number().int().min(1).optional() };
 
 /** Checks a plan read from data (a preset file now, a database row later). */
 export const commissionPlanSchema: z.ZodType<CommissionPlan> = z.object({
@@ -338,7 +344,21 @@ export interface PlanLineResult {
   /** Paid on this line in the cap year before this deal, starting balance included. */
   ytdBefore: number;
   countsTowardCap?: string;
+  /** The line's level in the plan (planLineLevel). */
+  level: number;
   explanation: string;
+}
+
+/**
+ * A plan line's level: its own, or 2 for a percent-of-net line that takes off every line before it (eXp's stock:
+ * 5% of the net after company dollar and the per-deal fees), or 1.
+ */
+export function planLineLevel(line: PlanLine, lines: PlanLine[]): number {
+  if (line.level && Number.isInteger(line.level) && line.level >= 1) return line.level;
+  if (line.type !== 'percent_of_net') return 1;
+  const index = lines.findIndex((item) => item.key === line.key);
+  const earlier = lines.slice(0, Math.max(0, index)).map((item) => item.key);
+  return earlier.length > 0 && earlier.every((key) => line.after.includes(key)) ? 2 : 1;
 }
 
 export interface PlanAgentResult {
@@ -708,7 +728,11 @@ function percentOfNet(line: PercentOfNetLine, ctx: LineContext): Calculated {
   if (line.optIn && !(ctx.agent.optedIn || []).includes(line.key)) {
     return { amount: 0, explanation: `${line.name}: the agent has not opted in, so $0.00.` };
   }
-  const taken = line.after.map((key) => earlierLine(ctx, key, line.name));
+  // A Level 2+ line with no list of its own takes off every line in the levels before it.
+  const level = planLineLevel(line, ctx.agent.plan.lines);
+  const taken = line.after.length === 0 && level > 1
+    ? ctx.earlier.filter((item) => item.level < level)
+    : line.after.map((key) => earlierLine(ctx, key, line.name));
   const base = addCents(ctx.sideAfterBonuses, ...taken.map((item) => -item.amount));
   const amount = roundHalfUpCents(line.rate * base);
   const less = taken.map((item) => `${item.name} ${money(item.amount)}`).join(', ');
@@ -841,6 +865,7 @@ export function computePlanDeal(deal: PlanDealInput, history: PlanHistoryLine[] 
         ...(postCapFraction !== undefined ? { postCapFraction } : {}),
         ytdBefore: ytd.total,
         ...(line.type === 'formula' && line.countsTowardCap ? { countsTowardCap: line.countsTowardCap } : {}),
+        level: planLineLevel(line, agent.plan.lines),
         explanation,
       });
       addPayee(line.payee, amount);

@@ -1,5 +1,7 @@
 /** The shapes the commission engine works on. Plain data, no React, safe on the server. */
 
+import type { AgentStage } from './stages';
+
 export { roundPercentRate } from '@/lib/percent';
 
 export const roundCurrency = (num: number): number => {
@@ -82,6 +84,13 @@ export interface DynamicRule {
   planWaived?: boolean;
   /** A credit paid by this agent: it comes off the side before the plan's lines. */
   beforePlan?: boolean;
+  /**
+   * The level within its stage (stages.ts): every percent in a level takes the same base. Absent: the map it sits in
+   * decides (postSplitRulesByAgent is Level 1, postSplit2RulesByAgent Level 2; Off the Top 1, pre-splits 2).
+   */
+  level?: number;
+  /** The agent stage it runs in. Absent: worked out by agentLineStage in waterfall.ts. */
+  stage?: AgentStage;
 }
 
 /** A transaction field as the engine reads it: Total Commission may have a formula. */

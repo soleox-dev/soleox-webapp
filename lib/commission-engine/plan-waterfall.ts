@@ -138,8 +138,10 @@ export function applyPlansToWaterfall(state: WaterfallState, first: WaterfallRes
     );
   problems.push(...plans.warnings.map((warning) => warning.message));
 
-  // Plan lines go first among the agent's Level 1 post-splits, after the credits that come off before the plan.
+  // Plan lines go first among the agent's post-splits at their level, after the credits that come off before the plan.
+  // Level 1 lines join the first map, Level 2+ lines (eXp's stock) the second, as the screens show the two levels.
   const level1 = { ...base.postSplitRulesByAgent };
+  const level2 = { ...base.postSplit2RulesByAgent };
   for (const agent of plans.agents) {
     const lines: DynamicRule[] = agent.lines.map((line) => ({
       id: `plan_${agent.agentId}_${line.key}`,
@@ -149,13 +151,18 @@ export function applyPlansToWaterfall(state: WaterfallState, first: WaterfallRes
       type: 'AMOUNT',
       value: line.amount,
       planLineKey: line.key,
+      // The plan stage (stages.ts), at the line's level in the plan: eXp's stock is Level 2, from the net after Level 1.
+      stage: 'PLAN',
+      level: line.level,
       ...(agent.planVersionId ? { planVersionId: agent.planVersionId } : {}),
       ...(line.edited ? { planTyped: true } : {}),
       ...(line.waived ? { planWaived: true } : {}),
     }));
     const existing = level1[agent.name] || [];
     const credits = existing.filter((rule) => rule.beforePlan);
-    level1[agent.name] = [...credits, ...lines, ...existing.filter((rule) => !rule.beforePlan)];
+    level1[agent.name] = [...credits, ...lines.filter((line) => (line.level ?? 1) === 1), ...existing.filter((rule) => !rule.beforePlan)];
+    const later = lines.filter((line) => (line.level ?? 1) > 1);
+    if (later.length) level2[agent.name] = [...later, ...(level2[agent.name] || [])];
   }
 
   // A plan line and another post-split paying the same entity would charge the agent twice: the template still has
@@ -171,7 +178,7 @@ export function applyPlansToWaterfall(state: WaterfallState, first: WaterfallRes
     }
   }
 
-  return { waterfall: { ...base, postSplitRulesByAgent: level1 }, plans, problems };
+  return { waterfall: { ...base, postSplitRulesByAgent: level1, postSplit2RulesByAgent: level2 }, plans, problems };
 }
 
 /** "A", "A and B", "A, B and C". */
@@ -194,8 +201,11 @@ export interface PlanLineChange {
 export function planLineChanges(saved: WaterfallState, recalculated: DealPlanStep): PlanLineChange[] {
   const changes: PlanLineChange[] = [];
   const savedLines = new Map<string, { agent: string; line: string; amount: number }>();
-  for (const [agent, rules] of Object.entries(saved.postSplitRulesByAgent)) {
-    for (const rule of rules) if (rule.planLineKey && rule.type === 'AMOUNT') savedLines.set(`${agent}|${rule.planLineKey}`, { agent, line: rule.name, amount: rule.value });
+  // Plan lines at any level: eXp's stock is saved as a Level 2 line.
+  for (const map of [saved.postSplitRulesByAgent, saved.postSplit2RulesByAgent]) {
+    for (const [agent, rules] of Object.entries(map)) {
+      for (const rule of rules) if (rule.planLineKey && rule.type === 'AMOUNT') savedLines.set(`${agent}|${rule.planLineKey}`, { agent, line: rule.name || '', amount: rule.value });
+    }
   }
   const seen = new Set<string>();
   for (const agent of recalculated.plans.agents) {

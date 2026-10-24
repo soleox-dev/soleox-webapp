@@ -15,7 +15,7 @@ import {
 import { normalizeAgentName } from '@/lib/id';
 import { dealTeamCaps, planDealAllocations, splitCapTotal, type DealAllocationContext, type DealAllocationLine } from '@/lib/agent-allocations';
 import { applyTemplateLogic, type AppliedAgentSplit, type NamedParty, type TeamCapCreditMap, type TemplateLogicStep } from './template';
-import { runAgentStages, runLevels } from './stages';
+import { runAgentStages, runLevels, type AgentStage } from './stages';
 import type { FormulaLedgerRow, FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 
 export interface WaterfallInput {
@@ -231,12 +231,14 @@ export function computeTransactionWaterfall({
       const agSplitItem = splitCalculated.find((s) => s.agentId === ag.id);
       const agSplitAmt = agSplitItem ? agSplitItem.amount : 0;
 
-      // Post-splits, in levels from the agent's split (stages.ts). Today every post-split runs in one stage; the
-      // second map is its Level 2 (e.g. the stock program, from the net after Level 1).
-      const run = runAgentStages(agSplitAmt, [
-        ...rulesForAgent(level1Rules, ag.name).map((rule) => ({ ...rule, level: 1 })),
-        ...rulesForAgent(level2Rules, ag.name).map((rule) => ({ ...rule, level: 2 })),
-      ]);
+      // The agent's lines by stage and level, from the agent's split (stages.ts). A rule's own level wins; otherwise
+      // the first map is Level 1 and the second Level 2 (e.g. the stock program, from the net after Level 1).
+      const agentRules = [
+        ...rulesForAgent(level1Rules, ag.name).map((rule) => ({ ...rule, level: rule.level ?? 1 })),
+        ...rulesForAgent(level2Rules, ag.name).map((rule) => ({ ...rule, level: rule.level ?? 2 })),
+      ];
+      const onPlan = agentRules.some((rule) => rule.planLineKey);
+      const run = runAgentStages(agSplitAmt, agentRules.map((rule) => ({ ...rule, stage: agentLineStage(rule, onPlan) })));
       agentStageRuns[ag.name] = run;
       run.stages.flatMap((stage) => stage.run.items).forEach((item) => {
         (item.level === 1 ? postSplitCalculated : postSplit2Calculated).push({
@@ -254,8 +256,9 @@ export function computeTransactionWaterfall({
         });
       });
 
-      const levels = run.stages.flatMap((stage) => stage.run.levels);
-      agentNetAfterLevel1[ag.name] = levels.find((level) => level.level === 1)?.net ?? roundCurrency(Math.max(0, agSplitAmt));
+      // Today's "Net After Level 1 Post-Splits": the split less every Level 1 line, whatever its stage.
+      const level1Total = run.stages.flatMap((stage) => stage.run.items).filter((item) => item.level === 1).reduce((sum, item) => sum + item.amount, 0);
+      agentNetAfterLevel1[ag.name] = roundCurrency(Math.max(0, agSplitAmt - level1Total));
       netPayouts[ag.name] = run.net;
     });
 
@@ -346,6 +349,18 @@ function planFields(rule: DynamicRule): Partial<Pick<DynamicRule, 'planLineKey' 
     ...(rule.planWaived ? { planWaived: true } : {}),
     ...(rule.beforePlan ? { beforePlan: true } : {}),
   };
+}
+
+/**
+ * The stage an agent line runs in when the rule does not say (docs/commission-model-redesign.md, section 3). For an
+ * agent on a Commission Plan: a credit paid before the plan (beforePlan) is Before Plan, a plan line is the plan, and
+ * any other line (a TC fee, a template post-split) is After Plan, from the net after the plan. Without plan lines,
+ * every line is Before Plan, shown as Post-Splits.
+ */
+export function agentLineStage(rule: DynamicRule, onPlan: boolean): AgentStage {
+  if (rule.stage) return rule.stage;
+  if (!onPlan || rule.beforePlan) return 'BEFORE_PLAN';
+  return rule.planLineKey ? 'PLAN' : 'AFTER_PLAN';
 }
 
 function rulesForAgent(rules: Record<string, DynamicRule[]>, agentName: string): DynamicRule[] {

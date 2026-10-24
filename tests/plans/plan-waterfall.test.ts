@@ -87,8 +87,11 @@ const run = (waterfall: WaterfallState, plans: DealPlanContext | null) =>
     { knownAgents, knownEntities, primaryAgentFallback: '', paymentDate: '2026-06-20', templateQualifies: true },
   );
 
+// An agent's plan lines at every level (stock is Level 2), in plan order.
+const planItems = (result: ReturnType<typeof run>) =>
+  [...result.postSplitItems, ...result.postSplit2Items].filter((item: { planLineKey?: string }) => item.planLineKey);
 const lines = (result: ReturnType<typeof run>, agent: string) =>
-  result.postSplitItems.filter((item: { agentName: string }) => item.agentName === agent).map((item: { ruleName: string; amount: number }) => `${item.ruleName} ${item.amount}`);
+  planItems(result).filter((item: { agentName: string }) => item.agentName === agent).map((item: { ruleName: string; amount: number }) => `${item.ruleName} ${item.amount}`);
 
 describe('Commission Plans in the deal waterfall', () => {
   it('a slim template plus the plans reproduces the verified statement on the deal', () => {
@@ -111,7 +114,8 @@ describe('Commission Plans in the deal waterfall', () => {
     expect(reloaded.agents.find((agent) => agent.id === 'AGT_W')?.bonusNet).toBe(86.25);
     const again = run(reloaded, context());
     expect(again.netPayouts).toEqual(first.netPayouts);
-    expect(again.postSplitItems.filter((item: { planLineKey?: string }) => item.planLineKey)).toHaveLength(20);
+    expect(planItems(again)).toHaveLength(20);
+    expect(again.postSplit2Items.filter((item: { planLineKey?: string }) => item.planLineKey).map((item: { ruleName: string }) => item.ruleName)).toEqual(['Stock', 'Stock', 'Stock', 'Stock']);
   });
 
   it('a FINISHED deal (plans inactive) keeps its saved lines exactly', () => {
