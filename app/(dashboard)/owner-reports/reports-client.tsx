@@ -3970,70 +3970,40 @@ function OwnerSummary({ closed, closedPrior, net, priorNet, deals, payments, tea
       {scoresOpen ? (
       <>
       <div className="flex flex-wrap items-stretch gap-6">
-        <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading>Closed Net Commission Income to Owner(s)</SectionHeading>
-          <div className="grid w-full items-stretch gap-x-2 [&>span]:row-span-3 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
-            <Score pulse={pulse} label="Total Commission" amount={totalCommission} changeAmount={totalCommission - priorCommission} />
-            <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">−</span>
-            <Score pulse={pulse} label="Cost of Sales" amount={costOfSales} changeAmount={costOfSales - priorCost} />
-            <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">=</span>
-            <Score pulse={pulse} label="Net Commission Income" amount={shownNet} changeAmount={shownNet - shownPriorNet} tone="result" />
-          </div>
-        </div>
-        <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading>Closed Net Income to Owner(s)</SectionHeading>
-          <div className="grid w-full items-stretch gap-x-2 [&>span]:row-span-3 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
-            <Score pulse={pulse} label="Net Commission Income" amount={shownNet} changeAmount={shownNet - shownPriorNet} />
-            <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">−</span>
-            <Score pulse={pulse} label="Operating Expenses" amount={operatingExpenses} change="—" />
-            <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">=</span>
-            <Score pulse={pulse} label="Net Income" amount={netIncome} changeAmount={netIncome - priorIncome} tone="result" />
-          </div>
-        </div>
+        <ScoreSection pulse={pulse} heading="Closed Net Commission Income to Owner(s)" terms={[
+          { label: 'Total Commission', amount: totalCommission, changeAmount: totalCommission - priorCommission },
+          { op: '−', label: 'Cost of Sales', amount: costOfSales, changeAmount: costOfSales - priorCost },
+          { op: '=', label: 'Net Commission Income', amount: shownNet, changeAmount: shownNet - shownPriorNet, tone: 'result' },
+        ]} />
+        <ScoreSection pulse={pulse} heading="Closed Net Income to Owner(s)" terms={[
+          { label: 'Net Commission Income', amount: shownNet, changeAmount: shownNet - shownPriorNet },
+          { op: '−', label: 'Operating Expenses', amount: operatingExpenses, change: '—' },
+          { op: '=', label: 'Net Income', amount: netIncome, changeAmount: netIncome - priorIncome, tone: 'result' },
+        ]} />
       </div>
       <div className="flex flex-wrap items-stretch gap-6">
-        <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading tone="slate">Return on Investment (ROI)</SectionHeading>
-          <div className="grid w-full items-stretch gap-x-2 [&>span]:row-span-3 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
-            <Score pulse={pulse} label="Net Income" amount={netIncome} changeAmount={netIncome - priorIncome} />
-            <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">/</span>
-            <Score pulse={pulse} label="Operating Expenses" amount={operatingExpenses} change="—" />
-            <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">=</span>
-            <Score pulse={pulse} label="ROI" value={percent(netIncome, operatingExpenses)} change="—" tone="result" />
-          </div>
-        </div>
-        <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading tone="slate">Net Income to Total Commission Ratio (NI/TC)</SectionHeading>
-          <div className="grid w-full items-stretch gap-x-2 [&>span]:row-span-3 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
-            <Score pulse={pulse} label="Net Income" amount={netIncome} changeAmount={netIncome - priorIncome} />
-            <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">/</span>
-            <Score pulse={pulse} label="Total Commission" amount={totalCommission} changeAmount={totalCommission - priorCommission} />
-            <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">=</span>
-            <Score pulse={pulse} label="NI/TC" value={percent(netIncome, totalCommission)} change={signedRatioChange(netIncome, priorIncome, totalCommission, priorCommission)} tone="result" />
-          </div>
-        </div>
+        <ScoreSection pulse={pulse} heading="Return on Investment (ROI)" terms={[
+          { label: 'Net Income', amount: netIncome, changeAmount: netIncome - priorIncome },
+          { op: '/', label: 'Operating Expenses', amount: operatingExpenses, change: '—' },
+          { op: '=', label: 'ROI', value: percent(netIncome, operatingExpenses), change: '—', tone: 'result' },
+        ]} />
+        <ScoreSection pulse={pulse} heading="Net Income to Total Commission Ratio (NI/TC)" terms={[
+          { label: 'Net Income', amount: netIncome, changeAmount: netIncome - priorIncome },
+          { op: '/', label: 'Total Commission', amount: totalCommission, changeAmount: totalCommission - priorCommission },
+          { op: '=', label: 'NI/TC', value: percent(netIncome, totalCommission), change: signedRatioChange(netIncome, priorIncome, totalCommission, priorCommission), tone: 'result' },
+        ]} />
       </div>
       <div className="flex flex-wrap items-stretch gap-6">
-        <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading tone="listing">Average Listing Metrics</SectionHeading>
-          <div className="grid w-full items-stretch gap-x-2 [&>span]:row-span-3 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
-            <Score pulse={pulse} label="Avg. Sales Price" tone="listing" {...averageFigures(sellerTotals.volume, sellerTotals.units, priorSellerTotals.volume, priorSellerTotals.units)} />
-            <span className="invisible text-lg font-semibold" aria-hidden="true">−</span>
-            <Score pulse={pulse} label="Avg. GCI" tone="listing" {...averageFigures(sellerTotals.gci, sellerTotals.units, priorSellerTotals.gci, priorSellerTotals.units)} />
-            <span className="invisible text-lg font-semibold" aria-hidden="true">=</span>
-            <Score pulse={pulse} label="Avg. GCI %" tone="listing" value={percent(sellerTotals.gci, sellerTotals.volume)} change={signedRatioChange(sellerTotals.gci, priorSellerTotals.gci, sellerTotals.volume, priorSellerTotals.volume)} />
-          </div>
-        </div>
-        <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
-          <SectionHeading tone="buyer">Average Buyer Metrics</SectionHeading>
-          <div className="grid w-full items-stretch gap-x-2 [&>span]:row-span-3 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
-            <Score pulse={pulse} label="Avg. Sales Price" tone="buyer" {...averageFigures(buyerTotals.volume, buyerTotals.units, priorBuyerTotals.volume, priorBuyerTotals.units)} />
-            <span className="invisible text-lg font-semibold" aria-hidden="true">−</span>
-            <Score pulse={pulse} label="Avg. GCI" tone="buyer" {...averageFigures(buyerTotals.gci, buyerTotals.units, priorBuyerTotals.gci, priorBuyerTotals.units)} />
-            <span className="invisible text-lg font-semibold" aria-hidden="true">=</span>
-            <Score pulse={pulse} label="Avg. GCI %" tone="buyer" value={percent(buyerTotals.gci, buyerTotals.volume)} change={signedRatioChange(buyerTotals.gci, priorBuyerTotals.gci, buyerTotals.volume, priorBuyerTotals.volume)} />
-          </div>
-        </div>
+        <ScoreSection pulse={pulse} heading="Average Listing Metrics" terms={[
+          { label: 'Avg. Sales Price', tone: 'listing', ...averageFigures(sellerTotals.volume, sellerTotals.units, priorSellerTotals.volume, priorSellerTotals.units) },
+          { label: 'Avg. GCI', tone: 'listing', ...averageFigures(sellerTotals.gci, sellerTotals.units, priorSellerTotals.gci, priorSellerTotals.units) },
+          { label: 'Avg. GCI %', tone: 'listing', value: percent(sellerTotals.gci, sellerTotals.volume), change: signedRatioChange(sellerTotals.gci, priorSellerTotals.gci, sellerTotals.volume, priorSellerTotals.volume) },
+        ]} />
+        <ScoreSection pulse={pulse} heading="Average Buyer Metrics" terms={[
+          { label: 'Avg. Sales Price', tone: 'buyer', ...averageFigures(buyerTotals.volume, buyerTotals.units, priorBuyerTotals.volume, priorBuyerTotals.units) },
+          { label: 'Avg. GCI', tone: 'buyer', ...averageFigures(buyerTotals.gci, buyerTotals.units, priorBuyerTotals.gci, priorBuyerTotals.units) },
+          { label: 'Avg. GCI %', tone: 'buyer', value: percent(buyerTotals.gci, buyerTotals.volume), change: signedRatioChange(buyerTotals.gci, priorBuyerTotals.gci, buyerTotals.volume, priorBuyerTotals.volume) },
+        ]} />
       </div>
       </>
       ) : null}
@@ -6417,6 +6387,78 @@ function SectionHeading({ children, note, action, end }: { children: React.React
   );
 }
 
+type ScoreFigures = {
+  label: string;
+  amount?: number;
+  changeAmount?: number;
+  value?: string;
+  change?: string;
+  tone?: 'plain' | 'result' | 'listing' | 'buyer';
+};
+
+/** Emerald up, rose down, grey for no change or no comparison. */
+function scoreChangeTone(changeAmount: number | undefined, change: string | undefined): string {
+  const down = changeAmount !== undefined ? changeAmount < 0 : Boolean(change?.startsWith('−') || change?.startsWith('-'));
+  const flat = changeAmount !== undefined ? changeAmount === 0 : !change || change === '—' || change === formattedZero(change);
+  return flat ? 'text-slate-400' : down ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400';
+}
+
+/**
+ * One Owner Summary scorecard section. From md, three cards in a row joined by the section's operators (− / =), or
+ * side by side without them for the averages. On phones, where three cards leave too little room, one card that
+ * reads like a statement: a line per figure with its sign in front, label left, amount and change right, and the
+ * result under a rule in emerald.
+ */
+function ScoreSection({ heading, terms, pulse }: { heading: string; terms: Array<ScoreFigures & { op?: '−' | '/' | '=' }>; pulse: number }) {
+  const isDesktop = useIsDesktop();
+  const equation = terms.some((term) => term.op);
+  return (
+    <div className="min-w-[min(100%,18rem)] flex-1 basis-[24rem] space-y-3">
+      <SectionHeading>{heading}</SectionHeading>
+      {isDesktop ? (
+        <div className="grid w-full items-stretch gap-x-2 [&>span]:row-span-3 [&>span]:self-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
+          {terms.map(({ op, ...figures }, index) => (
+            <React.Fragment key={figures.label}>
+              {index > 0 ? (
+                equation
+                  ? <span className="text-lg font-semibold text-emerald-600/70 dark:text-emerald-400/80">{op}</span>
+                  : <span className="invisible text-lg font-semibold" aria-hidden="true">=</span>
+              ) : null}
+              <Score pulse={pulse} {...figures} />
+            </React.Fragment>
+          ))}
+        </div>
+      ) : (
+        <div key={pulse} className={`rounded-xl border border-slate-200 bg-white px-3 dark:border-slate-800 dark:bg-slate-900 ${pulse > 0 ? 'scorecard-pulse' : ''}`}>
+          {terms.map(({ op, ...figures }) => {
+            const result = figures.tone === 'result';
+            const note = SCORE_NOTES[figures.tone === 'listing' || figures.tone === 'buyer' ? `${figures.tone}:${figures.label}` : figures.label];
+            // Full figures: each line has the card's whole right side for them.
+            const amount = figures.amount === undefined ? figures.value ?? '' : fullMoney(figures.amount);
+            const change = figures.changeAmount === undefined ? figures.change : signedFull(figures.changeAmount);
+            return (
+              <div
+                key={figures.label}
+                className={`grid items-center gap-x-2 py-2.5 ${equation ? 'grid-cols-[1rem_minmax(0,1fr)_auto]' : 'grid-cols-[minmax(0,1fr)_auto]'} ${result ? 'border-t border-slate-200 dark:border-slate-700' : ''}`}
+              >
+                {equation ? <span className="text-base font-semibold text-emerald-600/70 dark:text-emerald-400/80" aria-hidden={!op}>{op}</span> : null}
+                <span className={`flex min-w-0 items-center gap-1 text-sm ${result ? 'font-semibold text-emerald-800 dark:text-emerald-200' : 'text-slate-600 dark:text-slate-300'}`}>
+                  <span className="min-w-0">{figures.label}</span>
+                  {note ? <ScoreNote label={figures.label} text={note} className="relative inline-flex shrink-0" align="left" /> : null}
+                </span>
+                <span className="text-right">
+                  <span className={`block text-base font-bold tabular-nums whitespace-nowrap ${result ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-900 dark:text-slate-50'}`}>{amount}</span>
+                  {change ? <span className={`block text-2xs font-semibold tabular-nums whitespace-nowrap ${scoreChangeTone(figures.changeAmount, figures.change)}`}>{change}</span> : null}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Score({ label, amount, changeAmount, value, change, tone = 'plain', pulse = 0 }: {
   label: string;
   amount?: number;
@@ -6432,9 +6474,7 @@ function Score({ label, amount, changeAmount, value, change, tone = 'plain', pul
   const compact = amount === undefined ? undefined : compactMoney(amount);
   const changeFull = changeAmount === undefined ? change : signedFull(changeAmount);
   const changeCompact = changeAmount === undefined ? undefined : signedCompact(changeAmount);
-  const down = changeAmount !== undefined ? changeAmount < 0 : Boolean(change?.startsWith('−') || change?.startsWith('-'));
-  const flat = changeAmount !== undefined ? changeAmount === 0 : !change || change === '—' || change === formattedZero(change);
-  const changeClass = `mt-0.5 text-xs font-semibold tabular-nums whitespace-nowrap ${flat ? 'text-slate-400' : down ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`;
+  const changeClass = `mt-0.5 text-xs font-semibold tabular-nums whitespace-nowrap ${scoreChangeTone(changeAmount, change)}`;
   const shell = tone === 'result'
     ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/50'
     : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900';
@@ -6713,15 +6753,17 @@ function MonthTable({
             const isTotal = row.key === 'total';
             const isSelected = row.key === selectedMonth;
             const striped = !isTotal && index % 2 === 1;
+            // The selected period (the one the scorecards show) in the brand sky, clearly apart from the stripes in both
+            // themes, with a bar on its left edge.
             const rowClass = isSelected
-              ? 'bg-emerald-100 dark:bg-emerald-950'
+              ? 'bg-brand-100 font-semibold dark:bg-brand-900'
               : isTotal
                 ? 'bg-slate-200 font-bold hover:bg-emerald-100 dark:bg-slate-700 dark:hover:bg-emerald-950'
                 : striped
                   ? 'bg-slate-100 hover:bg-emerald-50 dark:bg-slate-800 dark:hover:bg-emerald-950/60'
                   : 'bg-white hover:bg-emerald-50 dark:bg-slate-900 dark:hover:bg-emerald-950/60';
             const stickyClass = isSelected
-              ? 'bg-emerald-100 dark:bg-emerald-950'
+              ? 'bg-brand-100 text-brand-800 shadow-[inset_3px_0_0_var(--color-brand-500)] dark:bg-brand-900 dark:text-brand-100'
               : isTotal
                 ? 'bg-slate-200 group-hover/month:bg-emerald-100 dark:bg-slate-700 dark:group-hover/month:bg-emerald-950'
                 : striped
