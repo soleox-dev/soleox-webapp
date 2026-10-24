@@ -15,6 +15,7 @@ import {
 import { normalizeAgentName } from '@/lib/id';
 import { dealTeamCaps, planDealAllocations, splitCapTotal, type DealAllocationContext, type DealAllocationLine } from '@/lib/agent-allocations';
 import { applyTemplateLogic, type AppliedAgentSplit, type NamedParty, type TeamCapCreditMap, type TemplateLogicStep } from './template';
+import { runAgentStages, runLevels } from './stages';
 import type { FormulaLedgerRow, FormulaLookups } from '@/app/(dashboard)/commission-tracker/settings/commission-templates/formula-evaluator';
 
 export interface WaterfallInput {
@@ -110,23 +111,18 @@ export function computeTransactionWaterfall({
     }
     baselineTotalComm = roundCurrency(baselineTotalComm);
 
-    // 1. Off-The-Top Deductions calculated against Total Commission baseline
-    const offTopCalculated = offTheTopRules.map((r) => {
-      const amt = r.type === 'PERCENT' ? roundCurrency(baselineTotalComm * r.value) : roundCurrency(r.value);
-      return { ...r, amount: amt };
-    });
-
-    const totalOffTop = offTopCalculated.reduce((sum, r) => sum + r.amount, 0);
-    const netOffTopComm = roundCurrency(baselineTotalComm - totalOffTop);
-
-    // 2. Pre-Split Deductions (after Off-The-Top, before Agent Splits)
-    const preSplitCalculated = preSplitRules.map((r) => {
-      const amt = r.type === 'PERCENT' ? roundCurrency(netOffTopComm * r.value) : roundCurrency(r.value);
-      return { ...r, amount: amt };
-    });
-
-    const totalPreSplit = preSplitCalculated.reduce((sum, r) => sum + r.amount, 0);
-    const netToSplit = roundCurrency(Math.max(0, netOffTopComm - totalPreSplit));
+    // 1. Off the Top, in levels from Total Commission (stages.ts). Pre-splits are its Level 2: their percents take
+    // what is left after Level 1. Only the pool the agents split stops at $0.
+    const dealDeductions = runLevels(baselineTotalComm, [
+      ...offTheTopRules.map((rule) => ({ ...rule, level: 1 })),
+      ...preSplitRules.map((rule) => ({ ...rule, level: 2 })),
+    ], 'end');
+    // Today's shapes: Off-the-top and pre-split items as the rule plus its amount.
+    const withoutLevel = <R extends DynamicRule>({ level: _level, base: _base, ...rule }: R & { level: number; base: number; amount: number }) => rule;
+    const offTopCalculated = dealDeductions.items.filter((item) => item.level === 1).map(withoutLevel);
+    const preSplitCalculated = dealDeductions.items.filter((item) => item.level === 2).map(withoutLevel);
+    const netOffTopComm = dealDeductions.levels.find((level) => level.level === 1)?.net ?? baselineTotalComm;
+    const netToSplit = dealDeductions.net;
 
     // 3. Agent splits stay in list order. The primary agent — the transaction's
     // agent, or the step 1 agent split when the deal has no agent — receives
@@ -230,60 +226,37 @@ export function computeTransactionWaterfall({
     const agentNetAfterLevel1: Record<string, number> = {};
     const netPayouts: Record<string, number> = {};
 
+    const agentStageRuns: Record<string, ReturnType<typeof runAgentStages<DynamicRule>>> = {};
     agents.forEach((ag) => {
       const agSplitItem = splitCalculated.find((s) => s.agentId === ag.id);
       const agSplitAmt = agSplitItem ? agSplitItem.amount : 0;
-      let agDeductions = 0;
 
-      // 1. Level 1 Post-Split Deductions (from Agent Gross Split)
-      const agentRules = rulesForAgent(level1Rules, ag.name);
-      agentRules.forEach((r) => {
-        const amt = r.type === 'PERCENT' ? roundCurrency(agSplitAmt * r.value) : roundCurrency(r.value);
-        agDeductions += amt;
-
-        postSplitCalculated.push({
-          id: r.id,
+      // Post-splits, in levels from the agent's split (stages.ts). Today every post-split runs in one stage; the
+      // second map is its Level 2 (e.g. the stock program, from the net after Level 1).
+      const run = runAgentStages(agSplitAmt, [
+        ...rulesForAgent(level1Rules, ag.name).map((rule) => ({ ...rule, level: 1 })),
+        ...rulesForAgent(level2Rules, ag.name).map((rule) => ({ ...rule, level: 2 })),
+      ]);
+      agentStageRuns[ag.name] = run;
+      run.stages.flatMap((stage) => stage.run.items).forEach((item) => {
+        (item.level === 1 ? postSplitCalculated : postSplit2Calculated).push({
+          id: item.id,
           agentId: ag.id,
           agentName: ag.name,
-          entity: r.entity,
-          ruleName: r.name,
-          note: r.note || '',
-          type: r.type,
-          value: r.value,
-          amount: amt,
-          level: 1,
-          ...planFields(r),
+          entity: item.entity,
+          ruleName: item.name,
+          note: item.note || '',
+          type: item.type,
+          value: item.value,
+          amount: item.amount,
+          level: item.level,
+          ...planFields(item),
         });
       });
 
-      const netAfterLevel1 = roundCurrency(Math.max(0, agSplitAmt - agDeductions));
-      agentNetAfterLevel1[ag.name] = netAfterLevel1;
-
-      // 2. Level 2 Post-Split Deductions (e.g. Stock Program, from Net after Level 1)
-      let agLevel2Deductions = 0;
-      const agentLevel2Rules = rulesForAgent(level2Rules, ag.name);
-
-      agentLevel2Rules.forEach((r2) => {
-        const amt2 = r2.type === 'PERCENT' ? roundCurrency(netAfterLevel1 * r2.value) : roundCurrency(r2.value);
-        agLevel2Deductions += amt2;
-
-        postSplit2Calculated.push({
-          id: r2.id,
-          agentId: ag.id,
-          agentName: ag.name,
-          entity: r2.entity,
-          ruleName: r2.name,
-          note: r2.note || '',
-          type: r2.type,
-          value: r2.value,
-          amount: amt2,
-          level: 2,
-          ...planFields(r2),
-        });
-      });
-
-      const finalNetPayout = roundCurrency(Math.max(0, netAfterLevel1 - agLevel2Deductions));
-      netPayouts[ag.name] = finalNetPayout;
+      const levels = run.stages.flatMap((stage) => stage.run.levels);
+      agentNetAfterLevel1[ag.name] = levels.find((level) => level.level === 1)?.net ?? roundCurrency(Math.max(0, agSplitAmt));
+      netPayouts[ag.name] = run.net;
     });
 
     offTopCalculated.forEach((r) => {
@@ -352,6 +325,10 @@ export function computeTransactionWaterfall({
       idleAgentIds,
       displayPostSplitRulesByAgent: level1Rules,
       displayPostSplit2RulesByAgent: level2Rules,
+      /** Off the Top by level: each level's base, deductions and net (the last net is the pool the agents split). */
+      dealDeductionLevels: dealDeductions.levels,
+      /** Each agent's lines by stage and level, by agent name, with what each stage started from and left. */
+      agentStages: agentStageRuns,
       capMovedMoney,
       /** Where each number comes from, for the waterfall's hover notes and for debugging a payout. */
       explanation,

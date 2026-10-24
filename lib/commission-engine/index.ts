@@ -5,6 +5,7 @@
  * lib/commission-engine/README.md.
  */
 export * from './model';
+export * from './stages';
 export * from './template';
 export * from './stored-lines';
 export * from './waterfall';
