@@ -120,13 +120,16 @@ export function computeTransactionWaterfall({
     // 1. Off the Top, in levels from Total Commission (stages.ts). Pre-splits are its Level 2: their percents take
     // what is left after Level 1. Only the pool the agents split stops at $0.
     const dealDeductions = runLevels(baselineTotalComm, [
-      ...offTheTopRules.map((rule) => ({ ...rule, level: 1 })),
-      ...preSplitRules.map((rule) => ({ ...rule, level: 2 })),
+      ...offTheTopRules.map((rule) => ({ ...rule, level: rule.level ?? 1 })),
+      ...preSplitRules.map((rule) => ({ ...rule, level: rule.level ?? 2 })),
     ], 'end');
     // Today's shapes: Off-the-top and pre-split items as the rule plus its amount.
-    const withoutLevel = <R extends DynamicRule>({ level: _level, base: _base, ...rule }: R & { level: number; base: number; amount: number }) => rule;
+    // Level 3 and beyond list with the pre-splits and keep their level, so saving writes it.
+    const withoutLevel = <R extends DynamicRule>({ level, base: _base, ...rule }: R & { level: number; base: number; amount: number }) => (
+      level > 2 ? { ...rule, level } : rule
+    );
     const offTopCalculated = dealDeductions.items.filter((item) => item.level === 1).map(withoutLevel);
-    const preSplitCalculated = dealDeductions.items.filter((item) => item.level === 2).map(withoutLevel);
+    const preSplitCalculated = dealDeductions.items.filter((item) => item.level >= 2).map(withoutLevel);
     const netOffTopComm = dealDeductions.levels.find((level) => level.level === 1)?.net ?? baselineTotalComm;
     const netToSplit = dealDeductions.net;
 
@@ -323,6 +326,7 @@ export function computeTransactionWaterfall({
       level1Rules,
       level2Rules,
       netPayouts,
+      agentStages: agentStageRuns,
     });
 
     const agentSplitTotal = roundCurrency(splitCalculated.reduce((sum, item) => sum + (Number(item?.amount) || 0), 0));
@@ -723,6 +727,7 @@ function explainWaterfall({
   level1Rules,
   level2Rules,
   netPayouts,
+  agentStages,
 }: {
   totalCommission: number;
   totalSource: TotalCommissionSource;
@@ -738,6 +743,7 @@ function explainWaterfall({
   level1Rules: Record<string, DynamicRule[]>;
   level2Rules: Record<string, DynamicRule[]>;
   netPayouts: Record<string, number>;
+  agentStages: ReturnType<typeof runDealStages>['agents'];
 }): ExplainedNumber[] {
   const out: ExplainedNumber[] = [];
   const totalDetail: Record<TotalCommissionSource, string> = {
@@ -785,13 +791,29 @@ function explainWaterfall({
     }
     return 'rule';
   };
+  // What a line's percent was taken from: the stage and level it ran in, and that base in dollars.
+  const baseOf = (item: { agentName: string; id: string }) => {
+    const run = agentStages[item.agentName];
+    for (const stage of run?.stages ?? []) {
+      const found = stage.run.items.find((line) => line.id === item.id);
+      if (!found) continue;
+      const where = found.level > 1
+        ? `net after Level ${found.level - 1}${stage.stage === 'PLAN' ? ' of the plan' : stage.stage === 'AFTER_PLAN' ? ' after the plan' : ''}`
+        : stage.stage === 'AFTER_PLAN' ? 'net after the plan'
+          : stage.stage === 'PLAN' && stage.start !== run.split ? 'split after Before Plan lines' : 'split';
+      return `${item.agentName}'s ${where} (${dollars(found.base)})`;
+    }
+    return `${item.agentName}'s split`;
+  };
   postSplits.forEach((item) => {
     const source = ruleSource(level1Rules, item.id);
-    out.push({ key: `post_split:${item.agentId}:${item.id}`, label: item.entity, amount: item.amount, source, detail: `${source === 'template-replay' ? 'Template replay after team caps: ' : ''}${ruleDetail(item, `${item.agentName}'s split`)}` });
+    const adjustment = item.adjustmentId ? 'Adjustment: ' : '';
+    out.push({ key: `post_split:${item.agentId}:${item.id}`, label: item.entity, amount: item.amount, source, detail: `${source === 'template-replay' ? 'Template replay after team caps: ' : ''}${adjustment}${ruleDetail(item, baseOf(item))}` });
   });
   postSplits2.forEach((item) => {
     const source = ruleSource(level2Rules, item.id);
-    out.push({ key: `post_split_l2:${item.agentId}:${item.id}`, label: item.entity, amount: item.amount, source, detail: `${source === 'template-replay' ? 'Template replay after team caps: ' : ''}${ruleDetail(item, `${item.agentName}'s net after level 1`)}` });
+    const adjustment = item.adjustmentId ? 'Adjustment: ' : '';
+    out.push({ key: `post_split_l2:${item.agentId}:${item.id}`, label: item.entity, amount: item.amount, source, detail: `${source === 'template-replay' ? 'Template replay after team caps: ' : ''}${adjustment}${ruleDetail(item, baseOf(item))}` });
   });
   Object.entries(netPayouts).forEach(([payee, amount]) => {
     out.push({ key: `payout:${payee}`, label: payee, amount, source: 'payout', detail: 'Net after post-splits for an agent; the sum of its lines for an entity.' });

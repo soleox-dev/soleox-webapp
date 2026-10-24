@@ -775,12 +775,15 @@ export function applyTemplateLogic({
           : bucket === 'postSplit'
             ? recorded(agentAmounts, agentName)
             : roundCurrency(recorded(agentAmounts, agentName) - recorded(postSums, agentName));
+    const stepLevel = Number(step.level);
     const rule: DynamicRule = {
       id: `tpl_${step.id}`,
       name: ruleName,
       entity: entityName || ruleName,
       type: splitType,
       value: appliedSplitValue(splitType, amount, pool),
+      // A level beyond the section's own (Off the Top or post-splits Level 3, …); the waterfall runs it in order.
+      ...(Number.isInteger(stepLevel) && stepLevel >= 1 ? { level: stepLevel } : {}),
     };
 
     if (bucket === 'offTheTop' || bucket === 'preSplit') {

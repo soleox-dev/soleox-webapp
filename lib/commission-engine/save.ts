@@ -74,6 +74,8 @@ export function commissionLinesForSave(
         payee_entity_id: entityFor(item)?.id || null,
         agent_id: null,
         final_amount: item.amount,
+        // Off the Top Level 3 and beyond: the section holds Level 2.
+        ...(item.level > 2 ? { custom_attributes: { level: item.level } } : {}),
       };
     }),
     ...result.agentSplitItems.filter((item: any) => !isIdle(item)).map((item: any, idx: number) => {
