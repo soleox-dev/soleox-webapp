@@ -44,15 +44,31 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* A scorecard whose figure just changed washes in the brand blue (the brighter dark-mode blue there). */
+/* A wash in the brand blue, fading in and out (an Overview field opened from Key Terms, below). */
 @keyframes scorecard-pulse {
   0% { box-shadow: inset 0 0 0 100px color-mix(in srgb, var(--color-brand-500) 0%, transparent); }
   50% { box-shadow: inset 0 0 0 100px color-mix(in srgb, var(--color-brand-500) 38%, transparent); }
   100% { box-shadow: inset 0 0 0 100px color-mix(in srgb, var(--color-brand-500) 0%, transparent); }
 }
 
+/* A scorecard whose figure just changed: only its outline glows in the brand sky and fades, the fill stays. */
+@keyframes scorecard-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-brand-500) 0%, transparent); }
+  35% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-brand-500) 75%, transparent); }
+  100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-brand-500) 0%, transparent); }
+}
+
 .scorecard-pulse {
-  animation: scorecard-pulse 0.85s ease-in-out;
+  animation: scorecard-ring 0.8s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scorecard-pulse { animation: none; }
+}
+
+/* An Overview field opened from the pinned Key Terms washes in the brand sky twice, so the eye finds it. */
+.field-flash {
+  animation: scorecard-pulse 0.7s ease-in-out 2;
 }
 
 /* A tapped report arrow on phones lights up in the brand sky and fades, so the tap reads as received. */
